@@ -14,6 +14,7 @@ London, 1997.
 #define MZ 0
 #define FAC (1.0 / MBIG)
 
+
 double ran3(int *idum) {
   static int inext, inextp;
   static int ma[56];
@@ -45,6 +46,7 @@ double ran3(int *idum) {
     inextp = 31;
     *idum = 1;
   }
+
   if (++inext == 56)
     inext = 1;
   if (++inextp == 56)
@@ -53,6 +55,7 @@ double ran3(int *idum) {
   if (mj < MZ)
     mj += MBIG;
   ma[inext] = mj;
+
   return mj * FAC;
   //        return 873519108*FAC;
 }

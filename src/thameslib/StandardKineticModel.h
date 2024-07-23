@@ -41,7 +41,7 @@ using namespace std;
 
 class StandardKineticModel : public KineticModel {
 
-protected:
+  protected:
   double dissolutionRateConst_; /**< Rate constand for dissolution
                                    (mol/m2/s) */
   /**
@@ -56,7 +56,7 @@ protected:
   double T_;
   double arrhenius_;
 
-public:
+  public:
   /**
   @brief Default constructor.
 

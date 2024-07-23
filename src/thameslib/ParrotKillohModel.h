@@ -108,7 +108,7 @@ Parrot and Killoh model, such as the growth of portlandite or C--S--H.
 
 class ParrotKillohModel : public KineticModel {
 
-protected:
+  protected:
   double wsRatio_; /**< water-solid mass ratio */
   double wcRatio_; /**< water-cement mass ratio */
 
@@ -127,7 +127,7 @@ protected:
   double T_;
   double arrhenius_;
 
-public:
+  public:
   /**
   @brief Default constructor.
 
@@ -277,13 +277,6 @@ public:
   @param cyc is the cycle number (iteration of main loop)
   @param totalDOR is the total degree of reaction [dimensionless]
   */
-  // virtual void calculateKineticStep (const double timestep,
-  //                                   const double temperature, bool isFirst,
-  //                                   double rh, vector<double> &dICMoles,
-  //                                   vector<double> &dsolutICMoles,
-  //                                   vector<double> &DCMoles,
-  //                                   vector<double> &GEMPhaseMoles, int cyc);
-
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
                                     double &massDissolved, int cyc,
                                     double totalDOR);
