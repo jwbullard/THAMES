@@ -108,7 +108,7 @@ Parrot and Killoh model, such as the growth of portlandite or C--S--H.
 
 class ParrotKillohModel : public KineticModel {
 
-  protected:
+protected:
   double wsRatio_; /**< water-solid mass ratio */
   double wcRatio_; /**< water-cement mass ratio */
 
@@ -127,7 +127,7 @@ class ParrotKillohModel : public KineticModel {
   double T_;
   double arrhenius_;
 
-  public:
+public:
   /**
   @brief Default constructor.
 

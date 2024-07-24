@@ -18,11 +18,11 @@
 */
 class RanGen {
 
-  private:
+private:
 
   static int *seed_; /**< The random number seed, a negative integer */
 
-  public:
+public:
 
   /**
   @brief Set the random number seed.
@@ -60,7 +60,7 @@ class RanGen {
   */
   template <class X> static void shuffle(vector<X> &v, int ntimes = 1) {
     X tmp;
-   int j;
+    int j;
     int ii;
     unsigned int i;
 

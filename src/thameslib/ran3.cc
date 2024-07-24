@@ -14,7 +14,6 @@ London, 1997.
 #define MZ 0
 #define FAC (1.0 / MBIG)
 
-
 double ran3(int *idum) {
   static int inext, inextp;
   static int ma[56];

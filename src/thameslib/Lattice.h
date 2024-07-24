@@ -57,7 +57,7 @@ sites.
 */
 class Lattice {
 
-  private:
+private:
   string version_;             /**< THAMES version for header information */
   string jobroot_;             /**< The root name for output files */
 
@@ -141,7 +141,7 @@ pores in GEM units */
 
   int numMicroPhases_;   /**< Number of microphases */
 
-  public:
+public:
   /**
   @brief Constructor without input microstructure file name.
 
@@ -1626,10 +1626,6 @@ pores in GEM units */
   }
   long int getNumRNGcall_0(void) { return numRNGcall_0_; }
   long int getNumRNGcallLONGMAX(void) { return numRNGcallLONGMAX_; }
-  //void setNumRNGcall_0(long int val) { numRNGcall_0_ = val; }
-  //void setNumRNGcallLONGMAX(long int val) { numRNGcallLONGMAX_ = val; }
-  //int getRNGseed(void) { return latticeRNGseed_; }
-  //void setRNGseed(int val) { latticeRNGseed_ = val; }
   double getLastRNG(void) { return lastRNG_; }
   void setRNGseed(int seed) { rg_->setSeed(seed); }
 

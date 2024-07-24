@@ -236,19 +236,19 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
       double ca = chemSys_->getDCConcentration("Ca+2");
       double kca = 4.0e-7; // mol m-2 s-1 ads.
-          // rate const for Ca (guess)
+                           // rate const for Ca (guess)
       double Kca = 10.0;   // adsorption equilibrium
-          // constant is a guess
+                           // constant is a guess
       double na = chemSys_->getDCConcentration("Na+");
       double kna = 6.35e-7; // mol m-2 s-1 ads. rate
-          // const from Dove and Crerar
+                            // const from Dove and Crerar
       double Kna = 58.3;    // adsorption equilibrium
-          // constant from Dove and Crerar
+                            // constant from Dove and Crerar
       double k = chemSys_->getDCConcentration("K+");
       double kk = 5.6e-7; // mol m-2 s-1 ads. rate
-          // const from Dove and Crerar
+                          // const from Dove and Crerar
       double Kk = 46.6;   // adsorption equilibrium constant
-          // from Dove and Crerar
+                          // from Dove and Crerar
 
       // Langmuir adsorption isotherms assumed to be additive
 

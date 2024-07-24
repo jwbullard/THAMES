@@ -9,7 +9,6 @@
 
 int *RanGen::seed_;
 
-
 /**
 @brief The main block for running THAMES.
 

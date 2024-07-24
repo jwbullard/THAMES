@@ -23,7 +23,7 @@ Interface::Interface(const bool verbose) {
   microPhaseId_ = 0;
   growthSites_.clear();
   dissolutionSites_.clear();
-  //rg_ = rg;
+
 
 #ifdef DEBUG
   verbose_ = true;
@@ -47,7 +47,7 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
   verbose_ = verbose;
 #endif
 
-  //rg_ = rg;
+
   microPhaseId_ = pid;
   chemSys_ = csys;
 

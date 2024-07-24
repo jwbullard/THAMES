@@ -31,7 +31,7 @@ number.
 */
 class Site {
 
-  protected:
+protected:
   unsigned int x_;            /**< x-coordinate in mesh coordinate frame */
   unsigned int y_;            /**< y-coordinate in mesh coordinate frame */
   unsigned int z_;            /**< y-coordinate in mesh coordinate frame */
@@ -86,7 +86,7 @@ class Site {
 
   int visit_;
 
-  public:
+public:
   /**
   @brief Default constructor.
 

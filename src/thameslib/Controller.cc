@@ -10,7 +10,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        const string &parfilename, const string &jobname,
                        const bool verbose, const bool warning)
     : lattice_(msh), kineticController_(kc), chemSys_(cs),
-    sim_type_(simtype), thermalstr_(thmstr), jobroot_(jobname) {
+      sim_type_(simtype), thermalstr_(thmstr), jobroot_(jobname) {
   unsigned int i;
   double tvalue, pvalue;
   string buff;
@@ -382,7 +382,6 @@ void Controller::doCycle(const string &statfilename, int choice) {
         interface_l.dissolutionSites = lattice_->getInterface(i).getDissolutionSites();
         iniLattice.interface.push_back(interface_l);
       }
-      //iniLattice.latticeRNGseed = lattice_->getRNGseed();
       iniLattice.numRNGcall_0 = lattice_->getNumRNGcall_0();
       iniLattice.numRNGcallLONGMAX = lattice_->getNumRNGcallLONGMAX();
       iniLattice.lastRNG = lattice_->getLastRNG();

@@ -41,7 +41,7 @@ using namespace std;
 
 class PozzolanicModel : public KineticModel {
 
-  protected:
+protected:
   double dissolutionRateConst_;    /**< Rate constand for dissolution
                                       (mol/m2/s) */
   double diffusionRateConstEarly_; /**< Rate constant for early-age diffusion
@@ -65,7 +65,7 @@ class PozzolanicModel : public KineticModel {
   double T_;
   double arrhenius_;
 
-  public:
+public:
   /**
   @brief Default constructor.
 

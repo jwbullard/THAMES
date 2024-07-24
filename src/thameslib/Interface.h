@@ -49,7 +49,7 @@ potential for dissolution.
 */
 class Interface {
 
-  private:
+private:
   unsigned int
       microPhaseId_; /**< The phase id of the voxels at this interface */
   ChemicalSystem
@@ -58,10 +58,10 @@ class Interface {
                                        adjacent growth */
   vector<Isite>
       dissolutionSites_; /**< The list of sites eligible for self-dissolution */
-  //RanGen *rg_;           /**< The random number generator object */
+
   bool verbose_;         /**< Flag for verbose output */
 
-  public:
+public:
   /**
   @brief The default constructor, initializing members to empty or zero values.
 
