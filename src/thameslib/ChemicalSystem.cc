@@ -2151,7 +2151,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
   // Check and set chemical conditions on electrolyte
   setElectrolyteComposition(isFirst);
-  //setDCMoles(getDCId("O2"),1.0e-3);
+  // setDCMoles(getDCId("O2"),1.0e-3);
 
   // TEST Some testing code here.  REMOVE as soon as testing is over
   /* TEST */ setDCMoles(getDCId("O2"), 1.0e-3); /* highest value */
