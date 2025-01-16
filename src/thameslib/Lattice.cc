@@ -3873,6 +3873,7 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // but we now know their total volume so we can do that later
 
   vector<vector<struct PoreSizeVolume>> porevolume;
+
   porevolume = chemSys_->getPoreSizeDistribution();
 
   // subpore_volume[i] is the non-normalized pore volume fraction
@@ -4186,11 +4187,6 @@ void Lattice::writePoreSizeDistribution(double curtime, const int simtype,
   // pores, subvoxel pores, or squeezed outside the
   // system due to lack of porosity to contain it.
 
-  if (verbose_) {
-    cout << "In Lattice::writePoreSizeDistribution" << endl;
-    cout.flush();
-  }
-
   // double water_volume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
 
   // This is the volume fraction of liquid water whether
@@ -4244,6 +4240,7 @@ void Lattice::writePoreSizeDistribution(double curtime, const int simtype,
       ofileName + "_PoreSizeDistribution." + timestr + "." + tempstr + ".csv";
 
   ofstream out(ofileName.c_str());
+
   try {
     if (!out.is_open()) {
       throw FileException("Lattice", "writePoreSizeDistribution", ofileName,
@@ -4286,6 +4283,7 @@ void Lattice::writePoreSizeDistribution(double curtime, const int simtype,
   out << "Total void volume fraction = " << volumefraction_[VOIDID] << endl;
   out << "Pore size saturation data:" << endl;
   out << "Diameter (nm),Volume Fraction,Fraction Saturated" << endl;
+
   for (int i = 0; i < masterporevolume_.size(); i++) {
     if (masterporevolume_[i].volume > 0.0) {
       out << masterporevolume_[i].diam << "," << masterporevolume_[i].volume
@@ -4826,7 +4824,8 @@ void Lattice::writeLatticePNG(double curtime, const int simtype,
   /// @warning This relies on installation of ImageMagick
   ///
 
-  buff = "convert " + ofileName + " " + ofpngname;
+  // buff = "convert " + ofileName + " " + ofpngname;
+  buff = "magick " + ofileName + " " + ofpngname;
   system(buff.c_str());
   return;
 }
@@ -4938,7 +4937,8 @@ void Lattice::writeDamageLatticePNG(double curtime, const string &root) {
   /// @warning This relies on installation of ImageMagick
   ///
 
-  buff = "convert " + ofileName + " " + ofpngname;
+  // buff = "convert " + ofileName + " " + ofpngname;
+  buff = "magick " + ofileName + " " + ofpngname;
   system(buff.c_str());
   return;
 }
@@ -5049,7 +5049,8 @@ void Lattice::makeMovie(const string &root) {
     /// @warning This relies on installation of ImageMagick
     ///
 
-    buff = "convert " + ofileName + " " + ofgifileName;
+    // buff = "convert " + ofileName + " " + ofgifileName;
+    buff = "magick " + ofileName + " " + ofgifileName;
     system(buff.c_str());
   }
 
