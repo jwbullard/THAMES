@@ -29,20 +29,17 @@ its applications can also be found in the following references:
 
 ## PREREQUISITES
 
-* GNU Compiler Collection (gcc/g++ >= 11, REQUIRED)
- * Mac OS no longer uses true gcc/g++, despite the fact that
- Apple provides shortcuts called gcc and g++ to its own Apple Clang
- compiler.  So on a Mac you _must_ install the actual gcc/g++ and
- make it the default compiler, at least long enough to build THAMES.
- Instructions are provided in the section below for building on Mac OS.
+* One of the following compiler collections:
+    * Clang 17.0 or newer
+    * GNU Compiler Collection (gcc/g++ 14.0 or newer)
 
-* CMake (>= 3.5), the build system used by THAMES
+* CMake (>= 3.30), the build system used by THAMES
  * Required for building THAMES
 
 * Doxygen (>= 1.8.13), the API documentation software
  * Required for creating the API documentation
 
-* LaTeX 2e, the document preparation system
+* (Optional) LaTeX 2e, the document preparation system
  * Required only for creating the PDF version of the API documentation
 
 * GEM-Selektor (optional)
@@ -52,32 +49,27 @@ its applications can also be found in the following references:
 
 ## Building on Mac OS
 
-As already stated, modern Mac OS uses the Apple Clang compiler by default,
-but THAMES requires the GNU Compiler Collection (gcc).
-Therefore you must install the Gnu compiler suite and then
-make it the default C/C++ compiler on your computer. Assuming you
-use Homebrew for package management:
-
-* `brew install gcc`
-* `cd /opt/homebrew/bin`
-* `ln -s gcc-14 gcc`
-* `ln -s g++-14 g++`
-* Edit your path to ensure that `/opt/homebrew/bin` comes before `/usr/bin`
-
-**Note**: You may have a different version of gcc than that shown above. THAMES seems to compile just as well with gcc-13.
-
-**Note for Mac OS**: Pre-built binaries of **gcc-15**, say those provided by Homebrew or MacPorts, seem to be incompatible with the most recent version of Apple's Software Development Kit (SDK), which at the time of this writing is 14.5.  Therefore, either do not use gcc-15 for THAMES, or build gcc-15 from source code rather than installing pre-built binaries. 
+Modern Mac OS uses the Apple Clang compiler by default, and it seems to work for THAMES without further modifications.
 
 ### Build GEMS3K library
 
 * cd /PathToTHAMES/THAMES/src/GEMS3K-standalone
 * Open the file `install.sh` with your favorite text editor.
+
+
+#### Clang Compiler from Apple
+No changes are needed to `install.sh` so you can
+close it.
+
+#### GNU Compiler via Homebrew
+
 * Comment out the line that begins with `cmake ..` by placing a `#` in the first column.
-* Add a line directly below it that reads
+* Uncomment the line directly below that one; it should look something like this:
 
 ```
 cmake .. -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++ -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_BUILD_TYPE=$BuildType -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk -DCMAKE_INSTALL_PREFIX=$InstallPrefix 
 ```
+
 * Save the `install.sh` file and close it
 * Run the command `./install.sh`
 
@@ -88,11 +80,20 @@ Doing this makes the re-compiling and cleaning of the installation files
 much simpler.
 
 * cd /PathToTHAMES/THAMES/build
-* Run the command
+* Run one of the following commands, depending on your C++ compiler
+
+#### Apple's Clang Compiler
+
+```
+cmake ..
+```
+
+#### GNU Compiler via Homebrew
 
 ```
 cmake -DCMAKE_C_COMPILER=/opt/homebrew/bin/gcc -DCMAKE_CXX_COMPILER=/opt/homebrew/bin/g++ -DCMAKE_OSX_SYSROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX14.5.sdk ..
 ```
+
 * `make`
 * `make install`
 

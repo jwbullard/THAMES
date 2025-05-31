@@ -4,6 +4,7 @@
 
 | Date                     | Description                         |
 |:-------------------------|:-------------------------------------|
+| May 31 14:57 2025 | Updated cmake directives to allow for Apple Clang |
 | May 30 09:48 2025 | Made all global variables inline |
 | May 29 16:32 2025 | Removed namespace directives |
 | May 28 16:16 2025 | Using recommended header guards |

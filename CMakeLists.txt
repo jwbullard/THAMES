@@ -95,7 +95,12 @@ endif ()
 
 set (THAMES_INCLUDE_PATH "-I${CMAKE_SOURCE_DIR}/src -I/usr/local/include")
 
-set (CMAKE_CXX_FLAGS "-O2 -std=c++17 -DIPMGEMPLUGIN ${THAMES_INCLUDE_PATH}")
+#set (CMAKE_CXX_FLAGS "-O2 -std=c++17 -DIPMGEMPLUGIN ${THAMES_INCLUDE_PATH}")
+
+# Set the list of compiler flags for Clang compiler
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
+  add_compile_options(-O2 -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH})
+endif()
 
 message ("Top level CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
 message ("Linked libraries are: " ${EXTRA_LIBS})
