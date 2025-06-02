@@ -39,8 +39,8 @@ KineticModel::KineticModel() {
 void KineticModel::setKineticDCMoles() {
 
 #ifdef DEBUG
-  cout << "KineticModel::setKineMicDCmoles" << endl;
-  cout.flush();
+  std::cout << "KineticModel::setKineMicDCmoles" << std::endl;
+  std::cout.flush();
 #endif
 
   try {

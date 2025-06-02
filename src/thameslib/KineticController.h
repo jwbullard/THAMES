@@ -94,6 +94,8 @@ private:
   int waterDCId_; /**< coresp to DCName = "H2O@" */
   double beginAttackTime_;
 
+  std::vector<double> surfaceAreaIni_;
+
 public:
   /**
   @brief Default constructor.

@@ -1522,6 +1522,10 @@ public:
     // return 0.0;
   }
 
+  std::vector<double> getSurfaceArea(void) { return surfaceArea_; }
+
+  void resetSurfaceArea(std::vector<double> vect) { surfaceArea_ = vect; }
+
   /**
   @brief Return the current specific surface area of a phase with the aqueous
   solution.
