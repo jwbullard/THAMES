@@ -770,9 +770,8 @@ void KineticController::setPozzEffectOnPK(void) {
   double maxloi = refloi;
   double sio2val = 0.94;
   double refsio2val = 0.94;
-  double betval = 29.0;
-  double refbetval = 29.0;
-  // double minpozzeffect = 1000.0;
+  double phaseSA = 29.0;
+  double refPhaseSA = 29.0;
   double minpozzeffect = 1.0;
   double pozzeffect = 1.0;
 
@@ -784,11 +783,11 @@ void KineticController::setPozzEffectOnPK(void) {
       maxloi = loi;
     if (phaseKineticModel_[midx]->getType() == PozzolanicType) {
       sio2val = phaseKineticModel_[midx]->getSio2();
-      betval = phaseKineticModel_[midx]->getSpecificSurfaceArea();
-      refbetval = phaseKineticModel_[midx]->getRefSpecificSurfaceArea();
-      pozzeffect = pow((sio2val / refsio2val), 2.0) * (betval / refbetval);
+      phaseSA =
+          lattice_->getSurfaceArea(phaseKineticModel_[midx]->getMicroPhaseId());
+      pozzeffect = pow((sio2val / refsio2val), 2.0) * (phaseSA / refPhaseSA);
       if (pozzeffect < minpozzeffect)
-        minpozzeffect = pozzeffect;
+        minpozzeffect = pozzeffect > 0.8 ? pozzeffect : 0.8;
       std::cout << std::endl
                 << "KineticController::setPozzEffectOnPK for midx = " << midx
                 << " (microPhaseId =  "
@@ -801,8 +800,8 @@ void KineticController::setPozzEffectOnPK(void) {
       std::cout << "  Max LOI = " << maxloi << std::endl;
       std::cout << "  SiO2     = " << sio2val << std::endl;
       std::cout << "  Ref SiO2 = " << refsio2val << std::endl;
-      std::cout << "  BET      = " << betval << std::endl;
-      std::cout << "  Ref BET  = " << refbetval << std::endl;
+      std::cout << "  BET      = " << phaseSA << std::endl;
+      std::cout << "  Ref BET  = " << refPhaseSA << std::endl;
       std::cout << "  Pozz Effect     = " << pozzeffect << std::endl;
       std::cout << "  Min Pozz Effect = " << minpozzeffect << std::endl;
       std::cout.flush();

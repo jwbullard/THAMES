@@ -6015,7 +6015,7 @@ std::vector<int> Lattice::transformPhase(
   coordin.resize(3, 0);
 
   double alreadygrown = 0.0;
-  int numtransform = 0;
+  // int numtransform = 0;
   int max;
 
   std::vector<Site *> porousneighbor, waterneighbor;
@@ -6332,7 +6332,7 @@ std::vector<int> Lattice::transformPhase(
       numLeft[posVect]--;
       numChange[posVect]++;
 
-      numtransform++;
+      // numtransform++;
       alreadygrown++;
 
     } catch (out_of_range &oor) {

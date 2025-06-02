@@ -90,7 +90,7 @@ private:
 
   double initScaledCementMass_;
   double hydTimeIni_;
-  double hyd_time_;
+  // double hyd_time_;
   int waterDCId_; /**< coresp to DCName = "H2O@" */
   double beginAttackTime_;
 

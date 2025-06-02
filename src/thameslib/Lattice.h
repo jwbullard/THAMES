@@ -1548,14 +1548,14 @@ public:
   */
   double getCementSpecificSurfaceArea(void) {
     double cemmass = 0.0;
-    double allsurf = 0.0;
+    // double allsurf = 0.0;
     double cemsurf = 0.0;
-    double allsolidmass = 0.0;
+    // double allsolidmass = 0.0;
     double thismass, thisssa;
     for (int i = 0; i < numMicroPhases_; ++i) {
       if (i != VOIDID && i != ELECTROLYTEID) {
-        allsolidmass += chemSys_->getMicroPhaseMass(i);
-        allsurf += getSurfaceArea(i);
+        // allsolidmass += chemSys_->getMicroPhaseMass(i);
+        // allsurf += getSurfaceArea(i);
         if (chemSys_->isCementComponent(i)) {
           thisssa = getSurfaceArea(i); // m2 component /(100g solid)
           thismass =
