@@ -252,9 +252,9 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                "microstructure files (writeLattice(0.0), etc)"
             << std::endl;
 
-  TimeStruct resolvedTime = getResolvedTime(0.0);
-  lattice_->writeLattice(0.0, resolvedTime);
-  lattice_->writeLatticePNG(0.0, resolvedTime);
+  TimeStruct formattedTime = getFormattedTime(0.0);
+  lattice_->writeLattice(0.0, formattedTime);
+  lattice_->writeLatticePNG(0.0, formattedTime);
   if (xyz_)
     lattice_->appendXYZ(0.0);
 
@@ -516,7 +516,7 @@ void Controller::doCycle(double elemTimeInterval) {
   // Main computation cycle
   for (i = 0; (i < timeSize) && (capwater); ++i) {
 
-    TimeStruct resolvedTime = getResolvedTime(time_[i]);
+    TimeStruct formattedTime = getFormattedTime(time_[i]);
     ///
     /// Do not advance the time step if GEM_run failed the last time
     ///
@@ -609,8 +609,8 @@ void Controller::doCycle(double elemTimeInterval) {
       timesGEMFailed_loc = calculateState(time_[i], timestep, isFirst, cyc);
 
     } catch (GEMException gex) {
-      lattice_->writeLattice(time_[i], resolvedTime);
-      lattice_->writeLatticePNG(time_[i], resolvedTime);
+      lattice_->writeLattice(time_[i], formattedTime);
+      lattice_->writeLatticePNG(time_[i], formattedTime);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw gex;
@@ -1029,15 +1029,15 @@ void Controller::doCycle(double elemTimeInterval) {
 
     } catch (DataException dex) {
       dex.printException();
-      lattice_->writeLattice(time_[i], resolvedTime);
-      lattice_->writeLatticePNG(time_[i], resolvedTime);
+      lattice_->writeLattice(time_[i], formattedTime);
+      lattice_->writeLatticePNG(time_[i], formattedTime);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw dex;
     } catch (EOBException ex) {
       ex.printException();
-      lattice_->writeLattice(time_[i], resolvedTime);
-      lattice_->writeLatticePNG(time_[i], resolvedTime);
+      lattice_->writeLattice(time_[i], formattedTime);
+      lattice_->writeLatticePNG(time_[i], formattedTime);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw ex;
@@ -1048,8 +1048,8 @@ void Controller::doCycle(double elemTimeInterval) {
              "- cyc = "
           << cyc << std::endl;
       mex.printException();
-      lattice_->writeLattice(time_[i], resolvedTime);
-      lattice_->writeLatticePNG(time_[i], resolvedTime);
+      lattice_->writeLattice(time_[i], formattedTime);
+      lattice_->writeLatticePNG(time_[i], formattedTime);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
 
@@ -1103,13 +1103,13 @@ void Controller::doCycle(double elemTimeInterval) {
                 << ", writeTime = " << writeTime << std::endl;
       //
 
-      lattice_->writeLattice(time_[i], resolvedTime);
-      lattice_->writeLatticePNG(time_[i], resolvedTime);
+      lattice_->writeLattice(time_[i], formattedTime);
+      lattice_->writeLatticePNG(time_[i], formattedTime);
 
       if (xyz_)
         lattice_->appendXYZ(writeTime);
 
-      lattice_->writePoreSizeDistribution(time_[i], resolvedTime);
+      lattice_->writePoreSizeDistribution(time_[i], formattedTime);
 
       time_index++;
     }
@@ -1468,8 +1468,8 @@ void Controller::doCycle(double elemTimeInterval) {
         // ofstream outdamage("damage.dat");
         // outdamage.close();
 
-        lattice_->writeDamageLattice(time_[i], resolvedTime);
-        lattice_->writeDamageLatticePNG(time_[i], resolvedTime);
+        lattice_->writeDamageLattice(time_[i], formattedTime);
+        lattice_->writeDamageLatticePNG(time_[i], formattedTime);
         // to see whether new damage is generated
       }
 
@@ -1486,7 +1486,7 @@ void Controller::doCycle(double elemTimeInterval) {
   /// visualization
   ///
 
-  TimeStruct timebefore = getResolvedTime(time_[i - 1]);
+  TimeStruct timebefore = getFormattedTime(time_[i - 1]);
   lattice_->writeLattice(time_[i - 1], timebefore);
   lattice_->writeLatticePNG(time_[i - 1], timebefore);
 

@@ -369,7 +369,7 @@ public:
   @param time is the simulation time in h
   @return TimeStruct data structure
   */
-  TimeStruct getResolvedTime(const double curtime) {
+  TimeStruct getFormattedTime(const double curtime) {
 
     int s_per_h = static_cast<int>(S_PER_H);
     int s_per_year = static_cast<int>(S_PER_YEAR);

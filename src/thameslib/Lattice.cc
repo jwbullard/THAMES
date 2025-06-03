@@ -44,8 +44,8 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
 
   numMicroPhases_ = chemSys_->getNumMicroPhases();
   waterDCId_ = chemSys_->getDCId("H2O@");
-  waterMollarMass_ = chemSys_->getDCMolarMass(waterDCId_);
-  waterMollarVol_ = chemSys_->getDCMolarVolume(waterDCId_);
+  waterMolarMass_ = chemSys_->getDCMolarMass(waterDCId_);
+  waterMolarVol_ = chemSys_->getDCMolarVolume(waterDCId_);
 
   ///
   /// Gather data from the periodic table for writing a .cfg file (alternative
@@ -736,7 +736,7 @@ void Lattice::normalizePhaseMasses(std::vector<double> microPhaseMass) {
       // molarMass = chemSys_->getDCMolarMass(waterId);
       pscaledMass = wsRatio_ * 100.0; // Mass of solids scaled to 100 g now
 
-      chemSys_->setDCMoles(waterDCId_, (pscaledMass / waterMollarMass_));
+      chemSys_->setDCMoles(waterDCId_, (pscaledMass / waterMolarMass_));
       if (verbose_) {
         std::cout
             << "Lattice::normalizePhaseMasses Setting initial micphase mass "
@@ -845,11 +845,12 @@ void Lattice::normalizePhaseMasses(std::vector<double> microPhaseMass) {
 void Lattice::findInterfaces(void) {
   int i, kk;
   int k;
-  std::vector<Site *> gsite, dsite;
+  std::vector<Site *> gsite, dsite, vsite;
   std::vector<Site *>::iterator beginLocation, endLocation;
   int stId;
   int gvsize = gsite.size();
   int dvsize = dsite.size();
+  int vvsize = vsite.size();
 
   ///
   /// An interface must have at least one adjacent site that is water or void
@@ -862,6 +863,7 @@ void Lattice::findInterfaces(void) {
     if (i != ELECTROLYTEID && i != VOIDID) { // Solid phase of some kind
       gsite.clear();
       dsite.clear();
+      vsite.clear();
       for (k = 0; k < numSites_; k++) {
         if (site_[k].getWmc() > 0) { // Is there some water nearby?
           if ((site_[k].getMicroPhaseId() == i)) {
@@ -870,6 +872,12 @@ void Lattice::findInterfaces(void) {
               if ((site_[k].nb(kk))->getMicroPhaseId() == ELECTROLYTEID) {
                 gsite.push_back(site_[k].nb(kk));
                 site_[k].nb(kk)->setGrowthSite(i);
+              } else if ((site_[k].nb(kk))->getMicroPhaseId() == VOIDID) {
+                /// GODZILLA
+                /// if site_[k] has subvoxel porosity {
+                ///   vsite.push_back(site_[k].nb(kk))
+                ///   site_[k].nb(kk)->setGrowthSite(i);
+                /// }
               }
             }
             //}
@@ -919,11 +927,17 @@ void Lattice::findInterfaces(void) {
         stId = dsite[j]->getId();
         site_[stId].setInDissInterfacePos(j);
       }
+      for (int j = 0; j < vvsize; j++) {
+        stId = vsite[j]->getId();
+        site_[stId].setInDissInterfacePos(j);
+      }
 
       growthInterfaceSize_[i] = gvsize;
       dissolutionInterfaceSize_[i] = dvsize;
+      voidInterfaceSize_[i] = vvsize;
 
-      interface_.push_back(Interface(chemSys_, gsite, dsite, i, verbose_));
+      interface_.push_back(
+          Interface(chemSys_, gsite, dsite, vsite, i, verbose_));
 
     } else { // Not a solid phase (either electrolyte or void)
 
@@ -3383,12 +3397,12 @@ int Lattice::changeMicrostructure(double time, const int simtype,
                                cyc);
 
   /*
-  double waterDensity = waterMollarMass_ / waterMollarVol_ / 1.0e6; // g/cm3
+  double waterDensity = waterMolarMass_ / waterMolarVol_ / 1.0e6; // g/cm3
   double waterTotMass_0 = (waterVol_0/initialMicrostructureVolume_) *
   waterDensity * 100 / initSolidMass_; double waterTotMass = vfrac_next[1] *
   waterDensity * 100 / initSolidMass_; double waterTotMoles = waterTotMass /
-  waterMollarMass_; // mol double waterTotMoles_0 = waterTotMass_0 /
-  waterMollarMass_; // mol double waterDCMolesChemSys =
+  waterMolarMass_; // mol double waterTotMoles_0 = waterTotMass_0 /
+  waterMolarMass_; // mol double waterDCMolesChemSys =
   chemSys_->getDCMoles(waterDCId_);
   // if (abs(waterDCMolesChemSys - waterTotMoles) >= 1.e-6) {
     std::cout << std::endl << "T1 waterDCMolesChemSys - waterTotMoles = "
@@ -4057,7 +4071,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
     bool is_Error = false;
     throw MicrostructureException("Lattice", "changeMicrostructure",
-                                  "no capilary water in the system", is_Error);
+                                  "no capillary water in the system", is_Error);
     // exit(0);
   }
 
@@ -4070,7 +4084,6 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 void Lattice::adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
                                           int cyc) {
   int i = 0;
-  // int volSize = vol.size();
 
 #ifdef DEBUG
   std::cout << "Lattice::adjustMicrostructureVolumes" << std::endl;
@@ -4079,7 +4092,7 @@ void Lattice::adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
   subvoxelWaterVolume_ = 0;
   capillaryWaterVolume_ = 0;
   waterVolume_ = vol[1];
-  // try {
+
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
   // have already been adjusted for subvoxel porosity in the
@@ -4091,7 +4104,6 @@ void Lattice::adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
   // The capillary water volume is now calculated, during
   // which the subvoxel pore volume is calculated as well
 
-  // calcSolidVolumeWithPores;
   solidVolumeWithPores_ = 0.0;
   for (i = 0; i < volSize; ++i) {
     if (i != ELECTROLYTEID && i != VOIDID)
@@ -4108,7 +4120,7 @@ void Lattice::adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
   // the microstructure volume deviates from the system volume,
   // we add or subtract capillary porosity to keep them equal
 
-  // calcSubvoxelPoreVolume;
+  // Calculate the subvoxel pore volume
   subvoxelPoreVolume_ = 0.0;
   for (i = 0; i < volSize; ++i) {
     if (i != ELECTROLYTEID && i != VOIDID) {
@@ -4202,15 +4214,7 @@ void Lattice::adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
   /// End of manual adjustment
   ///
 
-  // }
-  // catch (DataException dex) {
-  //   throw dex;
-  // }
-  // catch (out_of_range &oor) {
-  //   throw EOBException("Lattice", "adjustMicrostructureVolumes", "volSize",
-  //                      volSize, i);
-  // }
-  // return;
+  return;
 }
 
 void Lattice::adjustMicrostructureVolFracs(std::vector<std::string> &names,
@@ -4251,28 +4255,8 @@ void Lattice::adjustMicrostructureVolFracs(std::vector<std::string> &names,
   // volumes* of all the solid phases (solid plus subvoxel pores)
   // and (2) the capillary pore volume
 
-  // Find total adjusted microstructure volume, including possibly voids
-
-  // double totmicvolume = 0;
-  // for (i = 0; i < vol.size(); ++i) {
-  //      totmicvolume += vol[i];
-  //      #ifdef DEBUG
-  //          std::cout << "Lattice::adjustMicrostructureVolFracs Volume("
-  //               << names[i] << ") = " << vol[i]
-  //               << ", volfrac = " << vfrac[i] << std::endl;
-  //          std::cout.flush();
-  //      #endif
-  //  }
-
-  /// Above block is to get the current total volume
-  /// Replacement below assumes RVE retains constant volume and makes
-  /// adjustments based on capillary porosity
-
-  // totmicvolume = chemSys_->getInitMicroVolume();
-  // //initialMicrostructureVolume_
-
-#ifdef DEBUvoid
-  std::cout << "Lattice::adjustMicrostructureVolFracsCalculated "
+#ifdef DEBUG
+  std::cout << "Lattice::adjustMicrostructureVolFracs Calculated "
             << "total microstructure volume is "
             << chemSys_->getInitMicroVolume() << std::endl;
   std::cout.flush();
@@ -4285,9 +4269,9 @@ void Lattice::adjustMicrostructureVolFracs(std::vector<std::string> &names,
 
   if (verbose_) {
     for (i = 0; i < volSize; ++i) {
-      std::cout << "Lattice::adjustMicrostructureVolFracsVolume "
-                << "fraction[" << names[i] << "] should be " << vfrac[i]
-                << ", (" << vol[i] << "/"
+      std::cout << "Lattice::adjustMicrostructureVolFracs "
+                << "volume fraction of " << names[i] << " should be "
+                << vfrac[i] << ", (" << vol[i] << "/"
                 << initialMicrostructureVolume_ // totmicvolume
                 << ") and volume fraction NOW is "
                 << static_cast<double>(count_[i]) /
@@ -4303,6 +4287,8 @@ void Lattice::adjustMicrostructureVolFracs(std::vector<std::string> &names,
       capillaryPoreVolume_ / initialMicrostructureVolume_; // totmicvolume;
   subvoxelPoreVolumeFraction_ =
       subvoxelPoreVolume_ / initialMicrostructureVolume_; // totmicvolume;
+
+  return;
 }
 
 void Lattice::calcSubvoxelPoreVolume(std::vector<double> &vol) {
@@ -4606,11 +4592,6 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // saturated system and it is easy to write out
   // the water partitioning among pore sizes
 
-  // bool isfullysaturated = false;
-  // if (excesswater > 0.0)
-  //   isfullysaturated = true;
-
-  // double water_volfrac = water_volume / microstructureVolume_;
   double water_volfrac = water_volume / initialMicrostructureVolume_;
 
   // This is the total porosity including capillary
@@ -4664,7 +4645,7 @@ void Lattice::calculatePoreSizeDistribution(void) {
 }
 
 void Lattice::writePoreSizeDistribution(const double curtime,
-                                        const TimeStruct resolvedtime) {
+                                        const TimeStruct formattedtime) {
 
   // At this point we have a complete pore volume distribution
   // for the microstructure.  We next need to determine
@@ -4689,37 +4670,6 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   // We do NOT yet know the fraction of subvoxel pores
   // that are saturated
 
-  // water_volume is the absolute volume (m3) of aqueous
-  // solution according to GEMS, whether in capillary
-  // pores, subvoxel pores, or squeezed outside the
-  // system due to lack of porosity to contain it.
-
-  // double water_volume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
-
-  // This is the volume fraction of liquid water whether
-  // in capillary or subvoxel porosity, on a total
-  // microstructure volume basis
-
-  // We may have had to push some of the system's
-  // capillary water outside the boundary of the
-  // microstructure due to lack of space, so maybe
-  // waterVolume_ is larger than the actual volume
-  // fraction of water available within the microstructure
-  // We can check for that now, though.
-
-  // double excesswater =
-  //     waterVolume_ - capillaryPoreVolume_ - subvoxelPoreVolume_;
-
-  // If excess water > 0 then we have a completely
-  // saturated system and it is easy to write out
-  // the water partitioning among pore sizes
-
-  // bool isfullysaturated = false;
-  // if (excesswater > 0.0)
-  //   isfullysaturated = true;
-
-  // microstructureVolume_ = chemSys_->getMicroVolume();
-  // double water_volfrac = waterVolume_ / microstructureVolume_;
   double water_volfrac = waterVolume_ / initialMicrostructureVolume_;
 
   // std::cout << std::endl << "--> waterVolume_         : " << waterVolume_ <<
@@ -4744,13 +4694,13 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileName = ofileName + "_PoreSizeDistribution." + timestrY + "y" + timestrD +
@@ -4879,7 +4829,7 @@ void Lattice::writeMicroColors() {
 }
 
 void Lattice::writeLattice(const double curtime,
-                           const TimeStruct resolvedtime) {
+                           const TimeStruct formattedtime) {
   std::string ofileName(jobRoot_);
 
   ostringstream ostrT;
@@ -4887,13 +4837,13 @@ void Lattice::writeLattice(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
@@ -4987,7 +4937,7 @@ void Lattice::writeLattice(const double curtime,
 }
 
 void Lattice::writeLatticeH(const double curtime,
-                            const TimeStruct resolvedtime) {
+                            const TimeStruct formattedtime) {
   std::string ofileName(jobRoot_);
 
   ostringstream ostrT;
@@ -4995,13 +4945,13 @@ void Lattice::writeLatticeH(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
@@ -5120,7 +5070,7 @@ void Lattice::writeNewLattice(int newZdim) {
 }
 
 void Lattice::writeLatticeXYZ(const double curtime,
-                              const TimeStruct resolvedtime) {
+                              const TimeStruct formattedtime) {
   std::string ofileName(jobRoot_);
 
   ostringstream ostr1;
@@ -5133,13 +5083,13 @@ void Lattice::writeLatticeXYZ(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileName = ofileName + "allSites." + timestrY + "y" + timestrD + "d" +
@@ -5234,7 +5184,7 @@ void Lattice::appendXYZ(double curtime) {
 }
 
 void Lattice::writeLatticeCFG(const double curtime,
-                              const TimeStruct resolvedtime) {
+                              const TimeStruct formattedtime) {
 
   std::string ofileNameCFG(jobRoot_);
   std::string ofileNameUSR(jobRoot_);
@@ -5244,13 +5194,13 @@ void Lattice::writeLatticeCFG(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileNameCFG = ofileNameCFG + "." + timestrY + "y" + timestrD + "d" +
@@ -5336,20 +5286,20 @@ void Lattice::writeLatticeCFG(const double curtime,
 }
 
 void Lattice::writeDamageLattice(const double curtime,
-                                 const TimeStruct resolvedtime) {
+                                 const TimeStruct formattedtime) {
   std::string ofileName(jobRoot_);
   ostringstream ostrT;
   ostrT << setprecision(3) << temperature_;
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
@@ -5390,7 +5340,7 @@ void Lattice::writeDamageLattice(const double curtime,
 }
 
 void Lattice::writeLatticePNG(const double curtime,
-                              const TimeStruct resolvedtime) {
+                              const TimeStruct formattedtime) {
   int i, j;
   std::string oppmName(jobRoot_);
   std::string opngName(jobRoot_);
@@ -5415,13 +5365,13 @@ void Lattice::writeLatticePNG(const double curtime,
   std::string tempstr(ostrT.str());
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   oppmName = oppmName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
@@ -5522,7 +5472,7 @@ void Lattice::writeLatticePNG(const double curtime,
 }
 
 void Lattice::writeDamageLatticePNG(const double curtime,
-                                    const TimeStruct resolvedtime) {
+                                    const TimeStruct formattedtime) {
   int i, j;
   std::string oppmName(jobRoot_);
   std::string opngName(jobRoot_);
@@ -5548,13 +5498,13 @@ void Lattice::writeDamageLatticePNG(const double curtime,
   std::string buff;
 
   ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
+  ostrY << setfill('0') << setw(3) << formattedtime.years;
   std::string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
+  ostrD << setfill('0') << setw(3) << formattedtime.days;
   std::string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
+  ostrH << setfill('0') << setw(2) << formattedtime.hours;
   std::string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
+  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
   std::string timestrM(ostrM.str());
 
   oppmName = oppmName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
@@ -5805,7 +5755,7 @@ double Lattice::fillAllPorosity(int cyc) {
   double waterVoidMolesV = 0;
   double waterVoidMass = 0;
 
-  double waterDensity = waterMollarMass_ / waterMollarVol_ / 1.0e6; // g/cm3
+  double waterDensity = waterMolarMass_ / waterMolarVol_ / 1.0e6; // g/cm3
 
   std::cout << "       Lattice::fillAllPorosity ini - cyc = " << cyc
             << "  :  count_[VOIDID] = " << count_[VOIDID]
@@ -5894,9 +5844,9 @@ double Lattice::fillAllPorosity(int cyc) {
 
     waterVoidMass = volFracVoid * waterDensity * 100 / initSolidMass_;
 
-    waterVoidMolesM = waterVoidMass / waterMollarMass_; // mol
+    waterVoidMolesM = waterVoidMass / waterMolarMass_; // mol
     waterVoidMolesV =
-        volFracVoid * initialMicrostructureVolume_ / waterMollarVol_; // mol
+        volFracVoid * initialMicrostructureVolume_ / waterMolarVol_; // mol
   }
 
   std::cout << std::endl
@@ -6416,7 +6366,7 @@ std::vector<int> Lattice::transformPhase(
 void Lattice::transformChangePhase(Site *ste, int oldPhId, int newPhId,
                                    int totalTRC) {
 
-  //*** for controll
+  //*** for control
   int static trc_cT;
   trc_cT++;
 

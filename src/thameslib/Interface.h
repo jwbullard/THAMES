@@ -59,6 +59,14 @@ private:
   std::vector<Isite>
       dissolutionSites_; /**< The list of sites eligible for self-dissolution */
 
+  /// The next vector provides a list of empty pore voxels next to
+  /// a given phase. It becomes important for situations involving
+  /// sealed conditions where all the capillary porosity becomes
+  /// empty and we need to withdraw water from neighboring subvoxel
+  /// pores to keep hydrating.
+  std::vector<Isite> voidSites_; /**< The list of all sites eligible for
+                                       adjacent growth */
+
   bool verbose_; /**< Flag for verbose output */
 
 public:
@@ -86,11 +94,14 @@ public:
   @param gv is the list of pointers to growth sites adjacent to the interface
   for this phase
   @param dv is the list of pointers to dissolution sites of this interface
+  @param vgv is the list of pointers to void sites adjacent to the
+  phase
   @param pid is the integer id of the phase associated with this interface
   @param verbose is true if verbose output should be produced
   */
   Interface(ChemicalSystem *csys, std::vector<Site *> gv,
-            std::vector<Site *> dv, unsigned int pid, const bool verbose);
+            std::vector<Site *> dv, std::vector<Site *> vgv, unsigned int pid,
+            const bool verbose);
 
   /**
   @brief Destructor for the Interface class.
@@ -117,13 +128,70 @@ public:
   */
   std::vector<Isite> getGrowthSites(void) { return growthSites_; }
 
+  /**
+  @brief Gets the list of void sites next to this phase
+
+  @return the vector of Isite objects where growth can occur
+  */
+  std::vector<Isite> getVoidSites(void) { return voidSites_; }
+
+  /**
+  @brief Gets the size of the voidSites_ vector
+
+  @return the size of voidSites_
+  */
+  int getVoidSize(void) { return voidSites_.size(); }
+
+  /**
+  @brief Gets the size of the growthSites_ vector
+
+  @return the size of growthSites_
+  */
   int getGrowthSize(void) { return growthSites_.size(); }
+
+  /**
+  @brief Gets the size of the dissolutionSites_ vector
+
+  @return the size of dissolutionSites_
+  */
   int getDissolutionSize(void) { return dissolutionSites_.size(); }
 
+  /**
+  @brief Sets the growthSites_ vector
+
+  @param vect is the populated vector to set as growthSites_
+  */
   void setGrowthSites(std::vector<Isite> vect) { growthSites_ = vect; }
 
+  /**
+  @brief Gets the Isite id number of a position along a growth interface
+
+  @param pos is the index of the growthSites_ element to check
+  @return the Isite id of the element
+  */
   int getGrowthSitesId(int pos) { return growthSites_[pos].getId(); }
 
+  /**
+  @brief Sets the voidSites_ vector
+
+  @param vect is the populated vector to set as voidSites_
+  */
+  void setVoidSites(std::vector<Isite> vect) { voidSites_ = vect; }
+
+  /**
+  @brief Gets the Isite id number of a position along a void interface
+
+  @param pos is the index of the voidSites_ element to check
+  @return the Isite id of the element
+  */
+  int getVoidSitesId(int pos) { return voidSites_[pos].getId(); }
+
+  /**
+  @brief Gets the Isite id number of a position along a dissolution interface
+
+  @param pos is the index of the dissolutionSites_ element to check
+  @return the Isite id of the element
+  */
   int getDissolutionSitesId(int pos) { return dissolutionSites_[pos].getId(); }
 
   /**
@@ -134,6 +202,11 @@ public:
   */
   std::vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
+  /**
+  @brief Sets the dissolutionSites_ vector
+
+  @param vect is the populated vector to set as dissolutionSites_
+  */
   void setDissolutionSites(std::vector<Isite> vect) {
     dissolutionSites_ = vect;
   }
@@ -146,6 +219,14 @@ public:
   @return true if the site was added successfully, false otherwise
   */
   void addGrowthSite(Site *loc);
+
+  /**
+  @brief Add a site to the list of void voxels next to the phase
+
+  @param loc is a pointer to the site to add to the list of growth sites
+  @return true if the site was added successfully, false otherwise
+  */
+  void addVoidSite(Site *loc);
 
   /**
   @brief Add a site to the list of sites where dissolution can occur at the
@@ -180,13 +261,27 @@ public:
   @brief Remove a site from the list of sites where growth can occur adjacent to
   the interface.
 
-  @todo Add possibility of verbose output.
-
-  @param loc is a pointer to the site to remove from the list of growth sites
-  @return true if the site was removed successfully, false otherwise
+  @param pos0 is site to remove from the list of growth sites
+  @param pos1 is site to replace it with
   */
-  // bool removeGrowthSite(Site *loc);
   void removeGrowthSite(int pos0, int pos1);
+
+  /**
+  @brief Remove a site from the list of voids next to the phase because it
+  has now either gained water or been filled with another phase
+
+  @param pos0 is site to remove from the list of void_ sites
+  @param pos1 is site to replace it with
+  */
+  void removeVoidSite(int pos0, int pos1);
+
+  /**
+  @brief Remove a site from the list of sites where growth can occur due
+  to it becoming empty of water (self-desiccation)
+
+  @param pos0 is site to remove from the list of growth sites
+  @param pos1 is site to replace it with
+  */
   void removeEmptiedSite(int pos0, int pos1);
 
   /**

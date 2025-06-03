@@ -32,8 +32,8 @@ Interface::Interface(const bool verbose) {
 }
 
 Interface::Interface(ChemicalSystem *csys, std::vector<Site *> gv,
-                     std::vector<Site *> dv, unsigned int pid,
-                     const bool verbose) {
+                     std::vector<Site *> dv, std::vector<Site *> vgv,
+                     unsigned int pid, const bool verbose) {
   int j;
   int i;
   double afty;
@@ -49,6 +49,7 @@ Interface::Interface(ChemicalSystem *csys, std::vector<Site *> gv,
 
   dissolutionSites_.clear();
   growthSites_.clear();
+  voidSites_.clear();
 
   ///
   /// create growth interface for microPhaseId_
@@ -82,11 +83,26 @@ Interface::Interface(ChemicalSystem *csys, std::vector<Site *> gv,
     dissolutionSites_.push_back(Isite(dv[j]->getId(), afty));
   }
 
+  ///
+  /// create voidGrowth interface for microPhaseId_
+  ///
+
+  int vgvsize = vgv.size();
+  for (j = 0; j < vgvsize; j++) {
+
+    ///
+    /// Add to the list of Isites.  An Isite is an object consisting
+    /// of a pointer to a site and an affinity value
+    ///
+
+    voidSites_.push_back(Isite(vgv[j]->getId(), 0.0));
+  }
 } // End of constructors
 
 Interface::~Interface() {
   growthSites_.clear();
   dissolutionSites_.clear();
+  voidSites_.clear();
 }
 
 void Interface::addGrowthSite(Site *loc) {
@@ -105,6 +121,18 @@ void Interface::addGrowthSite(Site *loc) {
   growthSites_.push_back(tisite);
 }
 
+void Interface::addVoidSite(Site *loc) {
+  // std::vector<Isite>::iterator p, q, start, end;
+  // start = voidSites_.begin();
+  // end = voidSites_.end();
+
+  // loc->setInGrowInterfacePos(microPhaseId_, voidSitesSize_);
+  Isite tisite(loc->getId(), 0.0);
+  // q = lower_bound(start, end, tisite, affinitySort);
+  // voidSites_.insert(q, tisite);
+  voidSites_.push_back(tisite);
+}
+
 void Interface::addDissolutionSite(Site *loc) {
   Isite tisite(loc->getId(), 0);
   dissolutionSites_.push_back(tisite);
@@ -116,8 +144,13 @@ void Interface::removeGrowthSite(int pos0, int pos1) {
   growthSites_.pop_back();
 }
 
-void Interface::removeEmptiedSite(
-    int pos0, int pos1) { // kept even same as removeGrowthSite
+void Interface::removeVoidSite(int pos0, int pos1) {
+  // if (pos0 != pos1)
+  voidSites_[pos0] = voidSites_[pos1];
+  voidSites_.pop_back();
+}
+
+void Interface::removeEmptiedSite(int pos0, int pos1) {
   // if (pos0 != pos1)
   // try {
   growthSites_[pos0] = growthSites_[pos1];

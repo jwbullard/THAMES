@@ -168,6 +168,8 @@ pores in GEM units */
 
   std::vector<int>
       growthInterfaceSize_; /**< growth interface size of each microphase */
+  std::vector<int>
+      voidInterfaceSize_; /**< void interface size of each microphase */
   std::vector<int> dissolutionInterfaceSize_; /**< dissolution interface size of
                                             each microphase */
 
@@ -177,8 +179,8 @@ pores in GEM units */
   std::vector<std::vector<double>> volratios_;
 
   int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMollarMass_;
-  double waterMollarVol_;
+  double waterMolarMass_;
+  double waterMolarVol_;
 
   int DAMAGEID_;
 
@@ -898,7 +900,10 @@ public:
   @todo Generalize to allow water in nanopores to be chemically reactive
 
   @param phasenames is a vector of the microstructure phase names
-  @param vol is a vector of the pre-adjusted microstructure volumes
+  @param vol is a vector of the pre-adjusted microstructure volumes that come
+  from GEMS (not based on voxels)
+  @param volSize is the number of elements in the vol vector
+  @param cyc is the current THAMES iteration
   */
   void adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
                                    int cyc);
@@ -907,8 +912,11 @@ public:
   @brief Calculate microstructure volume fractions
 
   @param names is a vector of the adjusted microstructure volumes
-  @param vol is a vector of the adjusted microstructure volumes
+  @param vol is a vector of the pre-adjusted microstructure volumes that come
+  from GEMS (not based on voxels)
   @param vfrac will hold the microstructure volume fractions
+  @param volSize is the number of elements in the vol vector
+  @param cyc is the current THAMES iteration
   */
   void adjustMicrostructureVolFracs(std::vector<std::string> &names,
                                     const std::vector<double> vol,
@@ -925,12 +933,12 @@ public:
   @brief Write the pore size distribution data to a file
 
   @param curtime is the current time in hours
-  @param resolvedtime is the current time resolved into y,d,h,m
+  @param formattedtime is the current time resolved into y,d,h,m
   @param simtype is the sumulation tyupe
   @param root is the root name of the output file to create
   */
   void writePoreSizeDistribution(const double curtime,
-                                 const TimeStruct resolvedTime);
+                                 const TimeStruct formattedtime);
 
   /**
   @brief Write the microstructure colors to a file
@@ -948,18 +956,18 @@ public:
   The microstructure output file will indicate the phase id at each site.
 
   @param curtime is the current time in hours
-  @param resolvedtime is the current time resolved into y,d,h,m
+  @param formattedtime is the current time resolved into y,d,h,m
   @param root is the root name of the output file to create
   */
-  void writeLattice(const double curtime, const TimeStruct resolvedtime);
+  void writeLattice(const double curtime, const TimeStruct formattedtime);
 
-  void writeLatticeH(const double curtime, const TimeStruct resolvedtime);
+  void writeLatticeH(const double curtime, const TimeStruct formattedtime);
 
-  void writeLatticeXYZ(const double curtime, const TimeStruct resolvedtime);
+  void writeLatticeXYZ(const double curtime, const TimeStruct formattedtime);
 
   void appendXYZ(double curtime);
 
-  void writeLatticeCFG(const double curtime, const TimeStruct resolvedtime);
+  void writeLatticeCFG(const double curtime, const TimeStruct formattedtime);
 
   void writeNewLattice(int newZdim);
 
@@ -969,20 +977,20 @@ public:
   The damage output file is binary, each site either being damaged or not.
 
   @param curtime is the current time in hours
-  @param resolvedtime is the current time resolved into y,d,h,m
+  @param formattedtime is the current time resolved into y,d,h,m
   @param root is the root name of the output file to create
   */
-  void writeDamageLattice(const double curtime, const TimeStruct resolvedtime);
+  void writeDamageLattice(const double curtime, const TimeStruct formattedtime);
 
   /**
   @brief Write the 3D microstructure to a png file that can be immediately
   rendered.
 
   @param curtime is the current time in hours
-  @param resolvedtime is the current time resolved into y,d,h,m
+  @param formattedtime is the current time resolved into y,d,h,m
   @param root is the root name of the png output file to create
   */
-  void writeLatticePNG(const double curtime, const TimeStruct resolvedtime);
+  void writeLatticePNG(const double curtime, const TimeStruct formattedtime);
 
   /**
   @brief Write the 3D microstructure to a png file that can be immediately
@@ -991,11 +999,11 @@ public:
   The damage output file is binary, each site either being damaged or not.
 
   @param curtime is the current time in hours
-  @param resolvedtime is the current time resolved into y,d,h,m
+  @param formattedtime is the current time resolved into y,d,h,m
   @param root is the root name of the png output file to create
   */
   void writeDamageLatticePNG(const double curtime,
-                             const TimeStruct resolvedtime);
+                             const TimeStruct formattedtime);
 
   /**
   @brief Create files of sequential slices of the microstructure in the x
@@ -1366,7 +1374,6 @@ public:
   @return the volume fraction saturated of that element in the pore size
   distribution
   */
-  /*
   double getMasterPoreVolumeVolfrac(const int idx) {
     try {
       if (idx >= masterPoreVolume_.size()) {
@@ -1380,7 +1387,6 @@ public:
     }
     return (masterPoreVolume_[idx].volfrac);
   }
-  */
 
   /**
   @brief Get the largest diameter of pores containing electrolyte
@@ -1659,6 +1665,10 @@ public:
     interface_[i].setGrowthSites(vect);
   }
 
+  void setVoidSites(int i, std::vector<Isite> vect) {
+    interface_[i].setVoidSites(vect);
+  }
+
   void setDissolutionSites(int i, std::vector<Isite> vect) {
     interface_[i].setDissolutionSites(vect);
   }
@@ -1781,8 +1791,20 @@ public:
 
   std::vector<int> getGrowthInterfaceSize(void) { return growthInterfaceSize_; }
 
+  int getGrowthInterfaceSize(const int phId) {
+    return growthInterfaceSize_[phId];
+  }
+
   void setGrowthInterfaceSize(std::vector<int> vect) {
     growthInterfaceSize_ = vect;
+  }
+
+  std::vector<int> getVoidInterfaceSize(void) { return voidInterfaceSize_; }
+
+  int getVoidInterfaceSize(const int phId) { return voidInterfaceSize_[phId]; }
+
+  void setVoidInterfaceSize(std::vector<int> vect) {
+    voidInterfaceSize_ = vect;
   }
 
   std::vector<int> getDissolutionInterfaceSize(void) {
@@ -1823,12 +1845,42 @@ public:
                                   std::vector<double> volumeRatio,
                                   int &numadded_D, int totalTRC);
 
+  /**
+  @brief Creates a vector for "attack-like" growth sites
+  */
   void createGrowingVectSA(void);
 
-  void transformGrowPhase(Site *ste, int growPhID, int totalTRC);
+  /**
+  @brief I cannot tell what this function does.
 
+  Maybe it grows a phase in a spot that previously had electrolyte.
+
+  @todo Document this function and what it does in plain English
+
+  @param ste is a pointer to the site to change
+  @param growPhId is the id of the phase that will grow
+  @param totalTRC is undetermined
+  */
+  void transformGrowPhase(Site *ste, int growPhId, int totalTRC);
+
+  /**
+  @brief I cannot tell what this function does.
+
+  Maybe it grows a phase in a spot that currently had a different solid phase.
+
+  @todo Document this function and what it does in plain English
+
+  @param ste is a pointer to the site to change
+  @param oldPhId is the id of the phase that is currently there
+  @param totalTRC is undetermined
+  */
   void transformChangePhase(Site *ste, int oldPhId, int newPhId, int totalTRC);
 
+  /**
+  @brief Construct a vector of all the site phase ids
+
+  @return a vector of all the phase ids
+  */
   std::vector<int> getAllSitesPhId(void) {
     std::vector<int> allPhId(numSites_, 0);
     for (int i = 0; i < numSites_; i++) {
