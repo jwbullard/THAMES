@@ -269,7 +269,6 @@ int getCorrespondences(vector<int> vcctlid, map<int, int> &corr) {
 }
 
 bool isNaturalNumber(string &str) {
-  bool isnat = true;
 
   for (int i = 0; i < str.length(); ++i) {
     if (isdigit(str[i]) == false) {

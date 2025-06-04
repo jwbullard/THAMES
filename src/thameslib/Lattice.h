@@ -169,7 +169,6 @@ pores in GEM units */
 
   vector<int>
       growthInterfaceSize_; /**< growth interface size of each microphase */
-  vector<int> voidInterfaceSize_; /**< void interface size of each microphase */
   vector<int> dissolutionInterfaceSize_; /**< dissolution interface size of
                                             each microphase */
 
@@ -644,6 +643,15 @@ public:
 
   */
   void findInterfaces(void);
+
+  /**
+  @brief Determine how many neighboring voxels have some internal porosity
+
+  @param siteId is the id of the site to check
+  @param neighborRange is the number of neighbors to check
+  @return total saturated pore volume fraction of all nearest neighbors
+  */
+  double neighborSaturatedPorosity(const int siteID, const int neighborRange);
 
   /**
   @brief Add (grow i.e. switch from electrolyte) the prescribed number of
@@ -1662,10 +1670,6 @@ public:
     interface_[i].setGrowthSites(vect);
   }
 
-  void setVoidSites(int i, vector<Isite> vect) {
-    interface_[i].setVoidSites(vect);
-  }
-
   void setDissolutionSites(int i, vector<Isite> vect) {
     interface_[i].setDissolutionSites(vect);
   }
@@ -1788,12 +1792,6 @@ public:
   }
 
   void setGrowthInterfaceSize(vector<int> vect) { growthInterfaceSize_ = vect; }
-
-  vector<int> getVoidInterfaceSize(void) { return voidInterfaceSize_; }
-
-  int getVoidInterfaceSize(const int phId) { return voidInterfaceSize_[phId]; }
-
-  void setVoidInterfaceSize(vector<int> vect) { voidInterfaceSize_ = vect; }
 
   vector<int> getDissolutionInterfaceSize(void) {
     return dissolutionInterfaceSize_;

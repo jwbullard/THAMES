@@ -1825,7 +1825,6 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
   /// First we will list details for the ICs
   ///
 
-  using endl;
   out << "Report on the Material Database" << endl;
   out << "-------------- ChemicalSystem -----------------" << endl << endl;
   out << endl << "List of Independent Components :" << endl;
@@ -2080,7 +2079,6 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   string msg;
 
   vector<double> microPhaseVolumes = getMicroPhaseVolume();
-  using cout, endl;
 
   nodeStatus_ = NEED_GEM_AIA;
 
@@ -3399,7 +3397,6 @@ void ChemicalSystem::initColorMap(void) {
 
 void ChemicalSystem::checkChemSys(void) {
   int i, j, size, size_sec;
-  using cout, endl;
 
   cout << "" << endl;
   cout << "numMicroPhases_ " << numMicroPhases_ << endl;
@@ -3552,7 +3549,6 @@ void ChemicalSystem::checkChemSys(void) {
 }
 
 void ChemicalSystem::writeSatElectrolyteGasConditions(void) {
-  using cout, endl;
   int DCId;
   double DCconc;  // mol/kgw units
   double DCmoles; // mol units
@@ -3693,7 +3689,6 @@ void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
   double DCconc = 0.0; // mol/kgw units
   double waterMoles = DCMoles_[waterDCId_];
   double waterMass = 0.001 * waterMoles * waterMolarMass_; // in kg
-  using map;
 
   if (doAttack) {
     cout << endl
@@ -3746,7 +3741,6 @@ void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
 void ChemicalSystem::setGasComposition(const bool isFirst, bool doAttack) {
   int DCId;
   double DCmoles; // mole units
-  using map;
 
   if (doAttack) {
     if (attackGasComposition_.size() > 0) {
