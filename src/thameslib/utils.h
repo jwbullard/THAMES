@@ -4,9 +4,9 @@
 */
 #ifndef SRC_THAMESLIB_UTILS_H_
 #define SRC_THAMESLIB_UTILS_H_
+
 #include "global.h"
-#include <sstream>
-#include <string>
+#include "Exceptions.h"
 
 /**
 @brief Convert an STL string into a given data type.
@@ -15,8 +15,8 @@
 @param s is the string to convert
 @return true if the conversion was successful, false otherwise
 */
-template <class T> bool from_string(T &t, const std::string &s) {
-  std::istringstream iss(s, std::istringstream::in);
+template <class T> bool from_string(T &t, const string &s) {
+  istringstream iss(s, istringstream::in);
   return !(iss >> t).fail();
 }
 
@@ -26,8 +26,8 @@ template <class T> bool from_string(T &t, const std::string &s) {
 @param t is the input data
 @return the string that was created to hold the data
 */
-template <class T> std::string to_string(const T &t) {
-  std::ostringstream oss;
+template <class T> string to_string(const T &t) {
+  ostringstream oss;
   oss << t;
   return oss.str();
 }
@@ -38,11 +38,11 @@ template <class T> std::string to_string(const T &t) {
 
 namespace utils {
 
-void replace(std::string &where, const std::string &what,
-             const std::string &by);
+void replace(string &where, const string &what,
+             const string &by);
 
-bool start_with(const std::string &str, const std::string &what);
-bool end_with(const std::string &str, const std::string &what);
+bool start_with(const string &str, const string &what);
+bool end_with(const string &str, const string &what);
 
 } // namespace utils
 

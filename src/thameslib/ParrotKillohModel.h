@@ -80,17 +80,13 @@ of portland cement, Cement and Concrete Research 36 (2006) 209--226.
 #ifndef SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 #define SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "ChemicalSystem.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 // Ref specific surface area adjusted downward from
 // 385.0 m2/kg (the published value) to 372.0 m2/kg to
@@ -161,7 +157,7 @@ public:
 
   @return a string indicating the model type
   */
-  std::string getType() const { return (ParrotKillohType); }
+  string getType() const { return (ParrotKillohType); }
 
   /**
   @brief Set the w/s mass ratio of the system for the kinetic model equations.

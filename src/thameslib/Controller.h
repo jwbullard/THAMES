@@ -6,25 +6,19 @@
 #ifndef SRC_THAMESLIB_CONTROLLER_H_
 #define SRC_THAMESLIB_CONTROLLER_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "KineticController.h"
 #include "Lattice.h"
 #include "Site.h"
 #include "ThermalStrain.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
 
 struct RestoreSite {
   // for each site in site_:
-  int microPhaseId;        // The microstructure phase assignment
-  std::vector<int> growth; // vector of phases that can grow at this site
-  std::vector<int> inGrowInterfacePos; // vector of the site position in each
-                                       // growth interface
+  int microPhaseId;               // The microstructure phase assignment
+  vector<int> growth;             // vector of phases that can grow at this site
+  vector<int> inGrowInterfacePos; // vector of the site position in each growth
+                                  //   interface
   int inDissInterfacePos; // site position in the corresponding dissolution
                           // interface
   double wmc;             // total porosity ("surface curvature") at this site
@@ -37,9 +31,9 @@ struct RestoreInterface {
   //  from Interface
   unsigned int
       microPhaseId; /**< The phase id of the voxels at this interface */
-  std::vector<Isite>
+  vector<Isite>
       growthSites; /**< The list of all sites eligible foradjacent growth */
-  std::vector<Isite>
+  vector<Isite>
       dissolutionSites; /**< The list of sites eligible for self-dissolution */
   //    for each Isite:
   //      unsigned int id_; /**< The id of the corresponding Site */
@@ -51,15 +45,15 @@ struct RestoreInterface {
 
 struct RestoreSystem {
   // from ChemicalSystem (in fact from KineticController):
-  // std::vector<double> ICMoles;
-  std::vector<double> DCMoles;
+  // vector<double> ICMoles;
+  vector<double> DCMoles;
   // from Lattice:
-  std::vector<int> count;
-  std::vector<int> growthInterfaceSize;
-  std::vector<int> dissolutionInterfaceSize;
-  std::vector<RestoreSite> site; /**< 1D list of Site objects (site = voxel) */
+  vector<int> count;
+  vector<int> growthInterfaceSize;
+  vector<int> dissolutionInterfaceSize;
+  vector<RestoreSite> site; /**< 1D list of Site objects (site = voxel) */
   // from Interface
-  std::vector<RestoreInterface> interface;
+  vector<RestoreInterface> interface;
 
   long int numRNGcall_0;
   long int numRNGcallLONGMAX;
@@ -76,28 +70,28 @@ struct RestoreSystem {
 //  of each phase in the system in the previous time step */
 //
 // from Lattice:
-//   std::vector<Site> site_;     /**< 1D list of Site objects (site = voxel) */
+//   vector<Site> site_;     /**< 1D list of Site objects (site = voxel) */
 //   for each site in site_:
 //     unsigned int microPhaseId_;   // The microstructure phase assignment
-//     std::vector<unsigned int> growth_; // Vector of phases that can grow at
-//     this site
+//     vector<unsigned int> growth_; // Vector of phases that can grow at this
+//     site
 //    double wmc_;                  // total porosity ("surface curvature") at
 //    this site double wmc0_;                 // this site internal porosity
 //    (its own contribution at wmc_ value)
 //    >>int visit_;<<               // reset to 0
-// std::vector<Interface> interface_;     //
+// vector<Interface> interface_;     //
 //   from Interface
 //     microPhaseId_; /**< The phase id of the voxels at this interface */
-//     std::vector<Isite> growthSites_; /**< The list of all sites eligible
-//     foradjacent growth */ std::vector<Isite> dissolutionSites_; /**< The list
-//     of sites eligible for self-dissolution */ for each Isite:
+//     vector<Isite> growthSites_; /**< The list of all sites eligible
+//     foradjacent growth */ vector<Isite> dissolutionSites_; /**< The list of
+//     sites eligible for self-dissolution */ for each Isite:
 //       unsigned int id_; /**< The id of the corresponding Site */
 //       int affinity_;    /**< The affinity for growth of a phase at the site
 //       */
 //       */ bool verbose_;    /**< Flag for whether to produce verbose output */
 //       double prob_;     /**< The growth probability of a phase at this site
 //       (computed according the affinity) */ double probIni_;
-// std::vector<int> count_;               // recreate or restored
+// vector<int> count_;               // recreate or restored
 
 /**
 @class Controller
@@ -134,18 +128,17 @@ time step.
 class Controller {
 
 protected:
-  std::string jobRoot_; /**< Root name for all output files */
-  Lattice *lattice_;    /**< Pointer to microstructure lattice object */
+  string jobRoot_;   /**< Root name for all output files */
+  Lattice *lattice_; /**< Pointer to microstructure lattice object */
   KineticController
       *kineticController_;    /**< Pointer to kinetic controller object */
   ThermalStrain *thermalstr_; /**< Pointer to the finite element model object */
 
-  double imgFreq_; /**< Frequency to output microstructure image (hours) */
-  ChemicalSystem *chemSys_;  /**< Pointer to `ChemicalSystem` object */
-  std::vector<double> time_; /**< List of simulation times for each iteration */
-  std::vector<double>
+  ChemicalSystem *chemSys_; /**< Pointer to `ChemicalSystem` object */
+  vector<double> time_;     /**< List of simulation times for each iteration */
+  vector<double>
       timeInitial_; /**< List of simulation times for each iteration */
-  std::vector<double> outputTime_; /**< List of times to output image */
+  vector<double> outputTime_; /**< List of times to output image */
   // double statfreq_;            /**< Frequency to output statistics */
 
   int simType_; /**< Hydration, leaching, or sulfate attack for now */
@@ -154,7 +147,7 @@ protected:
   double beginAttackTime_;
   double endAttackTime_;
   double attackTimeInterval_;
-  std::vector<int> isParrotKilloh_;
+  vector<int> isParrotKilloh_;
   int sizePK_;
   bool notPKPhase = true;
 
@@ -206,7 +199,7 @@ public:
   */
   Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
              ThermalStrain *thmstr, const int simtype,
-             const std::string &jsonFileName, const std::string &jobname,
+             const string &jsonFileName, const string &jobname,
              const bool verbose, const bool warning, const bool xyz);
 
   /**
@@ -225,7 +218,7 @@ public:
   @param choice is an int flag to specify whether simulating hydration,
   leaching, or sulfate attack
   */
-  // void doCycle(const std::string &statfilename, int choice, double
+  // void doCycle(const string &statfilename, int choice, double
   // elemTimeInterval);
   void doCycle(double elemTimeInterval);
 
@@ -266,7 +259,7 @@ public:
   @param docname is the name of the JSON input file containing the Controller
   parameters
   */
-  void parseDoc(const std::string &docname);
+  void parseDoc(const string &docname);
 
   /**
   @brief Set the simulation time at which to begin sulfate attack simulation.

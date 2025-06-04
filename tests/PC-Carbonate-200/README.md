@@ -8,5 +8,5 @@ NaHCO3 concentration of 100 mmol/L.
 The system is 200 x 200 x 200 voxels, with each voxel being 1 micrometer in
 dimension.
 
-The user may edit the chemistry.json file to change the moisture conditions from saturated
+The user may edit the simparams.json file to change the moisture conditions from saturated
 to sealed.

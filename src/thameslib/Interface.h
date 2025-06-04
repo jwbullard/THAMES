@@ -23,20 +23,18 @@ especially for sorting operations and removing or adding elements to vectors.
 #ifndef SRC_THAMESLIB_INTERFACE_H_
 #define SRC_THAMESLIB_INTERFACE_H_
 
-#include <algorithm>
-#include <typeinfo>
-#include <vector>
-
+#include "global.h"
+#include "Exceptions.h"
+#include "ChemicalSystem.h" //not necessary
 #include "Isite.h"
 #include "Site.h"
-#include "global.h"
 
 ///
 /// The ChemicalSystem class needs to be declared explicitly because
 /// it is used as a member in the Interface class.
 ///
 
-class ChemicalSystem;
+// class ChemicalSystem;
 
 /**
 @class Declare the Interface class for handling and sorting interface voxels.
@@ -53,13 +51,13 @@ private:
   ChemicalSystem
       *chemSys_; /**< The `ChemicalSystem` object for the simulation */
 
-  std::vector<Isite> growthSites_; /**< The list of all sites eligible for
+  vector<Isite> growthSites_; /**< The list of all sites eligible for
                                        adjacent growth */
 
-  std::vector<Isite>
+  vector<Isite>
       dissolutionSites_; /**< The list of sites eligible for self-dissolution */
 
-  bool verbose_; /**< Flag for verbose output */
+  bool verbose_;         /**< Flag for verbose output */
 
 public:
   /**
@@ -89,8 +87,8 @@ public:
   @param pid is the integer id of the phase associated with this interface
   @param verbose is true if verbose output should be produced
   */
-  Interface(ChemicalSystem *csys, std::vector<Site *> gv,
-            std::vector<Site *> dv, unsigned int pid, const bool verbose);
+  Interface(ChemicalSystem *csys, vector<Site *> gv,
+            vector<Site *> dv, unsigned int pid, const bool verbose);
 
   /**
   @brief Destructor for the Interface class.
@@ -115,12 +113,12 @@ public:
 
   @return the vector of Isite objects where growth can occur
   */
-  std::vector<Isite> getGrowthSites(void) { return growthSites_; }
+  vector<Isite> getGrowthSites(void) { return growthSites_; }
 
   int getGrowthSize(void) { return growthSites_.size(); }
   int getDissolutionSize(void) { return dissolutionSites_.size(); }
 
-  void setGrowthSites(std::vector<Isite> vect) { growthSites_ = vect; }
+  void setGrowthSites(vector<Isite> vect) { growthSites_ = vect; }
 
   int getGrowthSitesId(int pos) { return growthSites_[pos].getId(); }
 
@@ -132,11 +130,9 @@ public:
 
   @return the vector of Isite objects where dissolution can occur
   */
-  std::vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
+  vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
-  void setDissolutionSites(std::vector<Isite> vect) {
-    dissolutionSites_ = vect;
-  }
+  void setDissolutionSites(vector<Isite> vect) { dissolutionSites_ = vect; }
 
   /**
   @brief Add a site to the list of sites where growth can occur adjacent to the
@@ -164,7 +160,7 @@ public:
   @param pid is the phase that could grow at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortGrowthSites(std::vector<Site> &ste, unsigned int pid);
+  bool sortGrowthSites(vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Sort the list of dissolution sites in descending order of potential for
@@ -174,7 +170,7 @@ public:
   @param pid is the phase that could dissolve at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortDissolutionSites(std::vector<Site> &ste, unsigned int pid);
+  bool sortDissolutionSites(vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Remove a site from the list of sites where growth can occur adjacent to

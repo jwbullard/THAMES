@@ -17,17 +17,13 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #ifndef SRC_THAMESLIB_POZZOLANICMODEL_H_
 #define SRC_THAMESLIB_POZZOLANICMODEL_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "ChemicalSystem.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 /**
 @class PozzolanicModel
@@ -96,7 +92,7 @@ public:
 
   @return a string indicating the model type
   */
-  std::string getType() const { return (PozzolanicType); }
+  string getType() const { return (PozzolanicType); }
 
   /**
   @brief Set the surface area multiplier

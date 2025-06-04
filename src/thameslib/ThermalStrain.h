@@ -11,13 +11,8 @@ implemented in the AppliedStrain class.
 #ifndef SRC_THAMESLIB_THERMALSTRAIN_H_
 #define SRC_THAMESLIB_THERMALSTRAIN_H_
 
+#include "global.h"
 #include "ElasticModel.h"
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <sstream>
-#include <string>
-#include <vector>
 
 /**
 @class ThermalStrain
@@ -140,46 +135,45 @@ protected:
   @f$\sqrt{abc}@f$.
   */
   double localgtest_;
-  double localgg_;                         /**< The square of the gradient
-                                               `gb_`<sup>2</sup> */
-  std::vector<double> tstrength_;          /**< Assumed tensile strength of
-                                        various phases [MPa] */
-  std::vector<std::vector<double>> b0_;    /**< xx component of linear b vector
+  double localgg_;               /**< The square of the gradient
+                                     `gb_`<sup>2</sup> */
+  vector<double> tstrength_;     /**< Assumed tensile strength of
+                                   various phases [MPa] */
+  vector<vector<double>> b0_;    /**< xx component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::vector<std::vector<double>> b1_;    /**< yy component of linear b vector
+  vector<vector<double>> b1_;    /**< yy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::vector<std::vector<double>> b2_;    /**< zz component of linear b vector
+  vector<vector<double>> b2_;    /**< zz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::vector<std::vector<double>> b3_;    /**< xz component of linear b vector
+  vector<vector<double>> b3_;    /**< xz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::vector<std::vector<double>> b4_;    /**< yz component of linear b vector
+  vector<vector<double>> b4_;    /**< yz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::vector<std::vector<double>> b5_;    /**< xy component of linear b vector
+  vector<vector<double>> b5_;    /**< xy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  std::map<int, std::vector<int>> exp_;    /**< @todo Find out what this is :
+  map<int, vector<int>> exp_;    /**< @todo Find out what this is :
                                       list of sites ids and their
                                      coordinates where local expansion
                                      occurs */
-  std::vector<std::vector<double>> eigen_; /**< Six components of the
-                                   eigenstrain tensor for each mesh element, so
+  vector<vector<double>> eigen_; /**< Six components of the eigenstrain
+                                   tensor for each mesh element, so
                                    eigen_[ns][6] */
-  std::vector<std::vector<double>> T_;     /**< Linear (in displacement) thermal
+  vector<vector<double>> T_;     /**< Linear (in displacement) thermal
                                  energy term, one for each phase,
                                  so T_[nphase][3] */
-  std::vector<std::vector<std::vector<std::vector<double>>>>
-      zcon_; /**< Stores thermal energy associated
-                with macrostrains */
-  std::vector<std::vector<std::vector<double>>> ss_; /**< Shear stress tensor
-                                         components, one at every element, so
-                                         the dimensions are ss_[ns][3][3] */
-  int kmax_; /**< the number of relaxation steps for a given elastic computation
-              */
+  vector<vector<vector<vector<double>>>>
+      zcon_;                          /**< Stores thermal energy associated
+                                         with macrostrains */
+  vector<vector<vector<double>>> ss_; /**< Shear stress tensor components,
+                                         one at every element, so the
+                                         dimensions are ss_[ns][3][3] */
+  int kmax_; /**< the number of relaxation steps for a given elastic computation */
 public:
   /**
   @brief Constructor.
@@ -198,8 +192,8 @@ public:
   */
   // ThermalStrain(int nx, int ny, int nz, int dim, int nphase, int npoints,
   //               const bool verbose, const bool warning);
-  ThermalStrain(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
-                int npoints, const bool verbose, const bool warning);
+  ThermalStrain(int nx, int ny, int nz, int dim, ChemicalSystem *cs, int npoints,
+                const bool verbose, const bool warning);
 
   /**
   @brief Destructor.
@@ -357,8 +351,8 @@ public:
   */
   void localRelax(int boxsize, int x, int y, int z, int index);
 
-  void localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi, int x,
-                  int y, int z, int index);
+  void localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
+                  int x, int y, int z, int index);
 
   /**
   @brief Master function for executing the finite element calculation.
@@ -385,8 +379,8 @@ public:
   @param eyz is the yz component of the macrostrain
   @param exy is the xy component of the macrostrain
   */
-  void Calc(double time, std::string fileName, double exx, double eyy,
-            double ezz, double exz, double eyz, double exy);
+  void Calc(double time, string fileName, double exx, double eyy, double ezz,
+            double exz, double eyz, double exy);
 
   /**
   @brief Set the six eigenstrain components of a phase.
@@ -459,8 +453,8 @@ public:
   @param index is the id of the element in the 1D ordering of elements
   @param cor is the (x,y,z) coordinates of that site
   */
-  void setExpansionCoord(int index, std::vector<int> cor) {
-    std::map<int, std::vector<int>>::iterator p = exp_.find(index);
+  void setExpansionCoord(int index, vector<int> cor) {
+    map<int, vector<int>>::iterator p = exp_.find(index);
     if (p != exp_.end()) {
       p->second = cor;
     } else {
@@ -490,17 +484,17 @@ public:
   */
   double getEleStress(int i, int j) {
     if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
-      std::cout << "i should be between 0 and ns_, "
-                << "and j should be between 0 and 6." << std::endl;
-      std::cerr << "i should be between 0 and ns_, "
-                << "and j should be between 0 and 6." << std::endl;
+      cout << "i should be between 0 and ns_, "
+           << "and j should be between 0 and 6." << endl;
+      cerr << "i should be between 0 and ns_, "
+           << "and j should be between 0 and 6." << endl;
       exit(1);
     } else {
       return elestress_[i][j];
     }
   }
 
-  std::vector<double> getEleStressMod(int i) { return elestress_[i]; }
+  vector<double> getEleStressMod(int i) { return elestress_[i]; }
 
   /**
   @brief Get a component of the the elastic strain at an element.
@@ -515,10 +509,10 @@ public:
   */
   double getEleStrain(int i, int j) {
     if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
-      std::cout << "i should be between 0 and ns_, "
-                << "and j should be between 0 and 6." << std::endl;
-      std::cerr << "i should be between 0 and ns_, "
-                << "and j should be between 0 and 6." << std::endl;
+      cout << "i should be between 0 and ns_, "
+           << "and j should be between 0 and 6." << endl;
+      cerr << "i should be between 0 and ns_, "
+           << "and j should be between 0 and 6." << endl;
       exit(1);
     } else {
       return elestrain_[i][j];

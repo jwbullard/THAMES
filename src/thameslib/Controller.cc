@@ -7,9 +7,8 @@
 
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,
-                       const std::string &jsonFileName,
-                       const std::string &jobname, const bool verbose,
-                       const bool warning, const bool xyz) {
+                       const string &jsonFileName, const string &jobname,
+                       const bool verbose, const bool warning, const bool xyz) {
 
   xyz_ = xyz;
   simType_ = simtype;
@@ -38,9 +37,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// All times are given in hours, and the leaching and sulfate attack times
   /// are set to very high values so that they usually won't happen
   ///
-
-  // imgFreq_ = 168.0; // hours = 7 days
-  imgFreq_ = -1;
 
   leachTime_ = 1.0e10;
   sulfateAttackTime_ = 1.0e10;
@@ -76,7 +72,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   ///
 
   ofstream outfs;
-  std::string outfilename;
+  string outfilename;
 
   try {
     outfilename = jobRoot_ + "_Solution.csv";
@@ -93,7 +89,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << "," << chemSys_->getDCName(i);
       }
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_DCVolumes.csv";
@@ -110,7 +106,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << "," << chemSys_->getDCName(i) << "(m3/100g)";
       }
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_SurfaceAreas.csv";
@@ -129,7 +125,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << ",A_" << chemSys_->getMicroPhaseName(i) << "(m2/100g)";
       }
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_SI.csv";
@@ -148,7 +144,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << ",SI_" << chemSys_->getMicroPhaseName(i);
       }
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_CSH.csv";
@@ -161,7 +157,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     for (int i = 0; i < chemSys_->getNumICs(); i++) {
       outfs << "," << chemSys_->getICName(i);
     }
-    outfs << ",Ca/Si" << std::endl;
+    outfs << ",Ca/Si" << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_CSratio_solid.csv";
@@ -170,9 +166,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       throw FileException("Controller", "calculateState", outfilename,
                           "Could not append");
     }
-
-    outfs << "Time(h),Ca/Si Ratio" << std::endl;
-
+    outfs << "Time(h),Ca/Si Ratio" << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_Microstructure.csv";
@@ -187,7 +181,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       outfs << "," << chemSys_->getMicroPhaseName(i);
     }
     outfs << ",Total Volume (m3/100g),Chemical Shrinkage (m3/100g)";
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_pH.csv";
@@ -196,7 +190,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       throw FileException("Controller", "Controller", outfilename,
                           "Could not append");
     }
-    outfs << "Time(h),pH" << std::endl;
+    outfs << "Time(h),pH" << endl;
     outfs.close();
 
     outfilename = jobRoot_ + "_Enthalpy.csv";
@@ -205,7 +199,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       throw FileException("Controller", "Controller", outfilename,
                           "Could not append");
     }
-    outfs << "Time(h),Enthalpy(J/100g)" << std::endl;
+    outfs << "Time(h),Enthalpy(J/100g)" << endl;
     outfs.close();
 
   } catch (FileException fex) {
@@ -220,20 +214,17 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   numSites_ = lattice_->getNumSites();
   initMicroVolume_ = chemSys_->getInitMicroVolume();
 
-  std::cout << std::endl << "Controller::Controller(...) :" << std::endl;
+  cout << endl << "Controller::Controller(...) :" << endl;
 
-  std::cout << std::endl
-            << "   numGEMPhases_   = " << setw(3) << right << numGEMPhases_
-            << std::endl;
-  std::cout << "   numMicroPhases_ = " << setw(3) << right << numMicroPhases_
-            << std::endl;
-  std::cout << "   numDCs_         = " << setw(3) << right << numDCs_
-            << std::endl;
-  std::cout << "   numICs_         = " << setw(3) << right << numICs_
-            << std::endl;
-  std::cout << "   waterDCId_      = " << setw(3) << right << waterDCId_
-            << " (waterDCName = \"" << chemSys_->getDCName(waterDCId_) << "\")"
-            << std::endl;
+  cout << endl
+       << "   numGEMPhases_   = " << setw(3) << right << numGEMPhases_ << endl;
+  cout << "   numMicroPhases_ = " << setw(3) << right << numMicroPhases_
+       << endl;
+  cout << "   numDCs_         = " << setw(3) << right << numDCs_ << endl;
+  cout << "   numICs_         = " << setw(3) << right << numICs_ << endl;
+  cout << "   waterDCId_      = " << setw(3) << right << waterDCId_
+       << " (waterDCName = \"" << chemSys_->getDCName(waterDCId_) << "\")"
+       << endl;
 
   ///
   /// Output a file that directly links the microstructure ids to their
@@ -247,10 +238,10 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// Write the initial microstructure image and its png image
   ///
 
-  std::cout << std::endl
-            << "Controller::Controller(...) - write initial "
-               "microstructure files (writeLattice(0.0), etc)"
-            << std::endl;
+  cout << endl
+       << "Controller::Controller(...) - write initial "
+          "microstructure files (writeLattice(0.0), etc)"
+       << endl;
 
   TimeStruct resolvedTime = getResolvedTime(0.0);
   lattice_->writeLattice(0.0, resolvedTime);
@@ -262,16 +253,16 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// Open and read the Controller parameter file
   ///
 
-  std::string jsonext = ".json";
+  string jsonext = ".json";
   size_t foundjson;
 
   try {
     foundjson = jsonFileName.find(jsonext);
 
-    if (foundjson != std::string::npos) {
+    if (foundjson != string::npos) {
       parseDoc(jsonFileName);
     } else {
-      std::cout << "Parameter file must be JSON" << std::endl;
+      cout << "Parameter file must be JSON" << endl;
       throw FileException("Controller", "Controller", jsonFileName,
                           "NOT JSON FORMAT");
     }
@@ -279,27 +270,20 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     throw fex;
   }
 
-  for (int i = 0; i < static_cast<int>(time_.size() - 1); i++) {
-    if (abs(time_[i] - time_[i + 1]) <= 1.0e-6) {
-      time_.erase(time_.begin() + i);
-    }
-  }
-
   int time_Size = time_.size();
   int outputTime_Size = outputTime_.size();
 
   if (time_Size == 0) {
-    std::cout << std::endl
-              << std::endl
-              << "Controller::Controller error : a final time and "
-              << "at least one output time value must be present in "
-              << "the simulation parameters file!" << std::endl;
-    std::cout
-        << std::endl
-        << "check and modify the simulation parameters file and run thames "
-           "again"
-        << std::endl;
-    std::cout << std::endl << "end program" << std::endl;
+    cout << endl
+         << endl
+         << "Controller::Controller error : a final time and "
+         << "at least one output time value must be present in "
+         << "the simulation parameters file!" << endl;
+    cout << endl
+         << "check and modify the simulation parameters file and run thames "
+            "again"
+         << endl;
+    cout << endl << "end program" << endl;
     // exit(0);
     throw FileException(
         "Controller", "Controller", "simparams.json",
@@ -314,9 +298,9 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                         "Could not append");
   }
 
-  outfs << "{" << std::endl;
-  outfs << "  \"time_parameters\": {" << std::endl;
-  outfs << "    \"calctimes\": [" << std::endl;
+  outfs << "{" << endl;
+  outfs << "  \"time_parameters\": {" << endl;
+  outfs << "    \"calctimes\": [" << endl;
 
   int j = 0;
   for (int i = 0; i < time_Size; i++) {
@@ -328,18 +312,18 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << time_[i] << ", ";
       } else {
         j = 0;
-        outfs << time_[i] << "," << std::endl;
+        outfs << time_[i] << "," << endl;
       }
     } else {
       if (j == 1) {
-        outfs << "        " << time_[i] << std::endl;
+        outfs << "        " << time_[i] << endl;
       } else {
-        outfs << time_[i] << std::endl;
+        outfs << time_[i] << endl;
       }
     }
   }
-  outfs << "    ]," << std::endl;
-  outfs << "    \"outtimes\": [" << std::endl;
+  outfs << "    ]," << endl;
+  outfs << "    \"outtimes\": [" << endl;
 
   j = 0;
   for (int i = 0; i < outputTime_Size; i++) {
@@ -351,39 +335,39 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << outputTime_[i] << ", ";
       } else {
         j = 0;
-        outfs << outputTime_[i] << "," << std::endl;
+        outfs << outputTime_[i] << "," << endl;
       }
     } else {
-      outfs << outputTime_[i] << std::endl;
+      if (j == 1) {
+        outfs << "        " << outputTime_[i] << endl;
+      } else {
+        outfs << outputTime_[i] << endl;
+      }
     }
   }
 
   if (attack_) {
-    outfs << "    ]," << std::endl;
-    outfs << "    \"beginattacktime\": " << beginAttackTime_ << ","
-          << std::endl;
-    outfs << "    \"endattacktime\": " << endAttackTime_ << "," << std::endl;
-    outfs << "    \"attacktimeinterval\": " << attackTimeInterval_ << std::endl;
-    outfs << "  }" << std::endl;
-    outfs << "}" << std::endl;
+    outfs << "    ]," << endl;
+    outfs << "    \"beginattacktime\": " << beginAttackTime_ << "," << endl;
+    outfs << "    \"endattacktime\": " << endAttackTime_ << "," << endl;
+    outfs << "    \"attacktimeinterval\": " << attackTimeInterval_ << endl;
+    outfs << "  }" << endl;
+    outfs << "}" << endl;
   } else {
-    outfs << "    ]," << std::endl;
-    outfs << "    \"beginattacktime\": -1," << std::endl;
-    outfs << "    \"endattacktime\": -1," << std::endl;
-    outfs << "    \"attacktimeinterval\": -1" << std::endl;
-    outfs << "  }" << std::endl;
-    outfs << "}" << std::endl;
+    outfs << "    ]," << endl;
+    outfs << "    \"beginattacktime\": -1," << endl;
+    outfs << "    \"endattacktime\": -1," << endl;
+    outfs << "    \"attacktimeinterval\": -1" << endl;
+    outfs << "  }" << endl;
+    outfs << "}" << endl;
   }
-
   outfs.close();
 
-  imgFreq_ *= 24.0; // !!!!!
-
-  std::cout << std::endl
-            << "   => new time values (calctime & outtime) have been used and "
-               "writen as :"
-            << std::endl;
-  std::cout << "         " << outfilename << std::endl;
+  cout << endl
+       << "   => time values (calctime & outtime in hours) have been used and "
+          "writen as :"
+       << endl;
+  cout << "         " << outfilename << endl;
 
   leachTime_ = beginAttackTime_; // not default leachTime_ = 1.0e10
   sulfateAttackTime_ =
@@ -396,16 +380,16 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   kineticController_->setIniAttackTime(sulfateAttackTime_);
 
   if (simType_ == SULFATE_ATTACK) {
-    std::cout << std::endl << "   => attack = " << attack_ << std::endl;
-    std::cout << "   parameters in hours:" << std::endl;
-    std::cout << "     -> beginattacktime = " << setw(7) << right
-              << (int)beginAttackTime_ << std::endl;
-    std::cout << "     -> endattacktime = " << setw(7) << right
-              << (int)endAttackTime_ << std::endl;
-    std::cout << "     -> attacktimeinterval = " << setw(7) << right
-              << (int)attackTimeInterval_ << std::endl;
-
-    // if (simType_ == SULFATE_ATTACK)
+    /*
+    cout << endl << "   => attack = " << attack_ << endl;
+    cout << "   parameters in hours:" << endl;
+    cout << "     -> beginattacktime = " << setw(7) << right
+         << static_cast<int>(beginAttackTime_) << endl;
+    cout << "     -> endattacktime = " << setw(7) << right
+         << static_cast<int>(endAttackTime_) << endl;
+    cout << "     -> attacktimeinterval = " << setw(7) << right
+         << static_cast<int>(attackTimeInterval_) << endl;
+    */
     lattice_->createGrowingVectSA();
   }
 }
@@ -426,17 +410,15 @@ void Controller::doCycle(double elemTimeInterval) {
 
   // Initialize the list of all interfaces in the lattice
 
-  std::cout << std::endl
-            << "Controller::doCycle(...) Entering Lattice::findInterfaces()"
-            << std::endl;
+  cout << endl
+       << "Controller::doCycle(...) Entering Lattice::findInterfaces()" << endl;
 
   lattice_->findInterfaces();
 
   // lattice_->checkSite(8);
-  // std::cout <<std::endl << " exit controller" <<std::endl;// exit(0);
+  // cout << endl << " exit controller" << endl;// exit(0);
 
-  std::cout << std::endl
-            << "Controller::doCycle(...) Entering Main time loop" << std::endl;
+  cout << endl << "Controller::doCycle(...) Entering Main time loop" << endl;
 
   static double timestep = 0.0;
   bool capwater = true; // True if some capillary water is available
@@ -449,7 +431,7 @@ void Controller::doCycle(double elemTimeInterval) {
   //      KineticController::calculateKineticStep and passedd to GEM together
   //      the other DC moles in the stystem (ChemicalSystem::calculateState)
   // int numMicPh = chemSys_->getNumMicroPhases();
-  // std::cout << "numMicPh : " << numMicPh <<std::endl;
+  // cout << "numMicPh : " << numMicPh << endl;
 
   int DCId;
   for (int i = FIRST_SOLID; i < numMicroPhases_; i++) {
@@ -460,17 +442,17 @@ void Controller::doCycle(double elemTimeInterval) {
       chemSys_->setIsDCKinetic(DCId, true);
     }
   }
-  std::cout << std::endl
-            << "   numGEMPhases_  = " << setw(3) << right
-            << chemSys_->getNumGEMPhases() << std::endl;
-  std::cout << "   numDCs_        = " << setw(3) << right
-            << chemSys_->getNumDCs() << std::endl;
-  std::cout << "   numICs_        = " << setw(3) << right
-            << chemSys_->getNumICs() << std::endl;
+  cout << endl
+       << "   numGEMPhases_  = " << setw(3) << right
+       << chemSys_->getNumGEMPhases() << endl;
+  cout << "   numDCs_        = " << setw(3) << right << chemSys_->getNumDCs()
+       << endl;
+  cout << "   numICs_        = " << setw(3) << right << chemSys_->getNumICs()
+       << endl;
 
-  // std::cout << "Starting with a pore solution without dissolved DCs  => all
-  //  microPhaseSI_ = 0" <<std::endl; init to 0 all microPhaseSI_
-  //  chemSys_->setZeroMicroPhaseSI();
+  // cout << "Starting with a pore solution without dissolved DCs  => all
+  // microPhaseSI_ = 0" << endl; init to 0 all microPhaseSI_
+  // chemSys_->setZeroMicroPhaseSI();
 
   bool writeICsDCs = true;
   if (writeICsDCs)
@@ -482,9 +464,7 @@ void Controller::doCycle(double elemTimeInterval) {
   // int numDCs = chemSys_->getNumDCs();
   int timesGEMFailed_recall;
 
-  std::cout << std::endl
-            << std::endl
-            << "     ===== START SIMULATION =====" << std::endl;
+  cout << endl << endl << "     ===== START SIMULATION =====" << endl;
 
   int cyc = 0;
   int timeSize = time_.size();
@@ -533,16 +513,14 @@ void Controller::doCycle(double elemTimeInterval) {
         time_[i] += (0.1 * (time_[i + 1] - time_[i]));
         timestep = time_[i] - lastGoodTime;
 
-        std::cout
-            << std::endl
-            << std::endl
-            << std::endl
-            << "##### Controller::doCycle  GEMFailed => add next timestep "
-               "before to START NEW CYCLE   "
-               "i/cyc/time_[i]/lastGoodI/lastGoodTime/timestep: "
-            << i << " / " << cyc << " / " << time_[i] << " / " << lastGoodI
-            << " / " << lastGoodTime << " / " << timestep << " #####"
-            << std::endl;
+        cout << endl
+             << endl
+             << endl
+             << "##### Controller::doCycle  GEMFailed => add next timestep "
+                "before to START NEW CYCLE   "
+                "i/cyc/time_[i]/lastGoodI/lastGoodTime/timestep: "
+             << i << " / " << cyc << " / " << time_[i] << " / " << lastGoodI
+             << " / " << lastGoodTime << " / " << timestep << " #####" << endl;
 
       } else {
 
@@ -550,45 +528,44 @@ void Controller::doCycle(double elemTimeInterval) {
         if (i == 0) {
           lastGoodTime = 0;
           lastGoodI = 0;
-          std::cout << std::endl
-                    << std::endl
-                    << std::endl
-                    << "##### Controller::doCycle  START NEW CYCLE   "
-                       "i/cyc/time_[i]/timestep: "
-                    << i << " / " << cyc << " / " << time_[i] << " / "
-                    << timestep << " (time in hours) #####" << std::endl;
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle  START NEW CYCLE   "
+                  "i/cyc/time_[i]/timestep: "
+               << i << " / " << cyc << " / " << time_[i] << " / " << timestep
+               << " (time in hours) #####" << endl;
         } else {
           lastGoodTime = time_[i - 1];
           lastGoodI = i - 1;
-          std::cout << std::endl
-                    << std::endl
-                    << std::endl
-                    << "##### Controller::doCycle  START NEW CYCLE   "
-                       "i/cyc/time_[i]/time_[i-1]/timestep: "
-                    << i << " / " << cyc << " / " << time_[i] << " / "
-                    << time_[i - 1] << " / " << timestep
-                    << " (time in hours) #####" << std::endl;
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle  START NEW CYCLE   "
+                  "i/cyc/time_[i]/time_[i-1]/timestep: "
+               << i << " / " << cyc << " / " << time_[i] << " / "
+               << time_[i - 1] << " / " << timestep << " (time in hours) #####"
+               << endl;
         }
       }
     } else {
       timestep = time_[i] - time_[i - 1];
-      std::cout << std::endl
-                << std::endl
-                << std::endl
-                << "##### Controller::doCycle  START NEW CYCLE - SA   "
-                   "i/cyc/time_[i]/time_[i-1]/timestep: "
-                << i << " / " << cyc << " / " << time_[i] << " / "
-                << time_[i - 1] << " / " << timestep << " (time in hours) #####"
-                << std::endl;
+      cout << endl
+           << endl
+           << endl
+           << "##### Controller::doCycle  START NEW CYCLE - SA   "
+              "i/cyc/time_[i]/time_[i-1]/timestep: "
+           << i << " / " << cyc << " / " << time_[i] << " / " << time_[i - 1]
+           << " / " << timestep << " (time in hours) #####" << endl;
 
       if (timesGEMFailed_loc > 0) {
-        std::cout << std::endl
-                  << ">>>>> Controller::doCycle - SA - i/cyc/time_[i] : " << i
-                  << " / " << cyc << " / " << time_[i] << std::endl;
-        std::cout << std::endl
-                  << ">>>>> \"normal exit\" (for now!) under sulfate attack "
-                     "conditions"
-                  << std::endl;
+        cout << endl
+             << ">>>>> Controller::doCycle - SA - i/cyc/time_[i] : " << i
+             << " / " << cyc << " / " << time_[i] << endl;
+        cout << endl
+             << ">>>>> \"normal exit\" (for now!) under sulfate attack "
+                "conditions"
+             << endl;
         // exit(0);
         bool is_Error = false;
         throw MicrostructureException(
@@ -624,30 +601,28 @@ void Controller::doCycle(double elemTimeInterval) {
 
     if (time_[i] < beginAttackTime_) {
       if (timesGEMFailed_loc > 0) {
-        std::cout << std::endl
-                  << "  Controller::doCycle first GEM_run failed "
-                     "i/cyc/time[i]/getTimesGEMFailed_loc : "
-                  << i << " / " << cyc << " / " << time_[i] << " / "
-                  << timesGEMFailed_loc << std::endl;
+        cout << endl
+             << "  Controller::doCycle first GEM_run failed "
+                "i/cyc/time[i]/getTimesGEMFailed_loc : "
+             << i << " / " << cyc << " / " << time_[i] << " / "
+             << timesGEMFailed_loc << endl;
 
         //**********************
 
-        std::cout
-            << std::endl
-            << "  Controller::doCycle - PRBL_0      i/cyc/time_[i]/timestep   "
-               "  "
-               "   : "
-            << i << " / " << cyc << " / " << time_[i] << " / " << timestep
-            << "   =>   searching for a new dissolution time : WAIT..."
-            << std::endl;
-        std::cout.flush();
+        cout << endl
+             << "  Controller::doCycle - PRBL_0      i/cyc/time_[i]/timestep   "
+                "  "
+                "   : "
+             << i << " / " << cyc << " / " << time_[i] << " / " << timestep
+             << "   =>   searching for a new dissolution time : WAIT..." << endl;
+        cout.flush();
 
         numTotGen = 0;
         nextTimeStep = time_[i + 1] - time_[i];
         fracNextTimeStep = nextTimeStep / fracNum;
 
         for (int indFracNum = 0; indFracNum < fracNum; indFracNum++) {
-          timeZero = time_[i] + (((double)indFracNum) * fracNextTimeStep);
+          timeZero = time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
           minTime = timeZero - deltaTime;
           numGen = 0;
           numIntervals = 0;
@@ -660,16 +635,16 @@ void Controller::doCycle(double elemTimeInterval) {
                 minTime = timeZero - (0.5 * delta2Time);
               }
               if (numIntervals == numMaxIntervals) {
-                // std::cout << "      for
-                //  cyc/indFracNum/delta2Time/numGen/timeZero/minTime : " << cyc
-                //       << " / " << indFracNum << " / " << delta2Time << " / "
-                //       << numGen << " / "
-                //       << timeZero << " / " << minTime <<std::endl;
-                // std::cout << "         =>   numIncreaseInterval = " <<
-                //  numMaxIntervals
-                //       << " (max val) => change indFracNum (next timeZero)!!!"
-                //       <<std::endl;
-                // std::cout.flush();
+                // cout << "      for
+                // cyc/indFracNum/delta2Time/numGen/timeZero/minTime : " << cyc
+                //      << " / " << indFracNum << " / " << delta2Time << " / "
+                //      << numGen << " / "
+                //      << timeZero << " / " << minTime << endl;
+                // cout << "         =>   numIncreaseInterval = " <<
+                // numMaxIntervals
+                //      << " (max val) => change indFracNum (next timeZero)!!!"
+                //      << endl;
+                // cout.flush();
                 break;
               }
             }
@@ -684,11 +659,11 @@ void Controller::doCycle(double elemTimeInterval) {
                 calculateState(timeTemp, timestep, isFirst, cyc);
             if (timesGEMFailed_loc == 0) {
               time_[i] = timeTemp;
-              std::cout << "  Controller::doCycle - PRBL_0 solved for "
-                           "i/cyc/time_[i]/timestep/numTotGen : "
-                        << i << " / " << cyc << " / " << time_[i] << " / "
-                        << timestep << " / " << numTotGen << std::endl;
-              std::cout.flush();
+              cout << "  Controller::doCycle - PRBL_0 solved for "
+                      "i/cyc/time_[i]/timestep/numTotGen : "
+                   << i << " / " << cyc << " / " << time_[i] << " / "
+                   << timestep << " / " << numTotGen << endl;
+              cout.flush();
               break;
             }
           }
@@ -700,35 +675,34 @@ void Controller::doCycle(double elemTimeInterval) {
         }
 
         if (timesGEMFailed_loc > 0) {
-          std::cout << "  Controller::doCycle - PRBL_0 not solved for "
-                       "i/cyc/time_[i]/lastGoodI/lastGoodTime/timestep: "
-                    << i << " / " << cyc << " / " << time_[i] << " / "
-                    << lastGoodI << " / " << lastGoodTime << " / " << timestep
-                    << std::endl;
+          cout << "  Controller::doCycle - PRBL_0 not solved for "
+                  "i/cyc/time_[i]/lastGoodI/lastGoodTime/timestep: "
+               << i << " / " << cyc << " / " << time_[i] << " / " << lastGoodI
+               << " / " << lastGoodTime << " / " << timestep << endl;
           continue;
         }
         //**********************
 
       } else {
 
-        std::cout << std::endl
-                  << "  Controller::doCycle first GEM_run OK "
-                     "i/cyc/time[i]/getTimesGEMFailed_loc: "
-                  << i << " / " << cyc << " / " << time_[i] << " / "
-                  << timesGEMFailed_loc << std::endl;
+        cout << endl
+             << "  Controller::doCycle first GEM_run OK "
+                "i/cyc/time[i]/getTimesGEMFailed_loc: "
+             << i << " / " << cyc << " / " << time_[i] << " / "
+             << timesGEMFailed_loc << endl;
       }
     } else {
       if (timesGEMFailed_loc > 0) {
-        std::cout << std::endl
-                  << "  Controller::doCycle => SA - first GEM_run failed "
-                     "i/cyc/time[i]/getTimesGEMFailed_loc : "
-                  << i << " / " << cyc << " / " << time_[i] << " / "
-                  << timesGEMFailed_loc << std::endl;
+        cout << endl
+             << "  Controller::doCycle => SA - first GEM_run failed "
+                "i/cyc/time[i]/getTimesGEMFailed_loc : "
+             << i << " / " << cyc << " / " << time_[i] << " / "
+             << timesGEMFailed_loc << endl;
 
-        std::cout << std::endl
-                  << ">>>>> \"normal exit\" (for now!) under sulfate attack "
-                     "conditions"
-                  << std::endl;
+        cout << endl
+             << ">>>>> \"normal exit\" (for now!) under sulfate attack "
+                "conditions"
+             << endl;
         // exit(0);
         bool is_Error = false;
         throw MicrostructureException(
@@ -737,9 +711,9 @@ void Controller::doCycle(double elemTimeInterval) {
     }
 
     if (verbose_) {
-      std::cout << "Controller::doCycle Entering Lattice::changeMicrostructure"
-                << std::endl;
-      std::cout.flush();
+      cout << "Controller::doCycle Entering Lattice::changeMicrostructure"
+           << endl;
+      cout.flush();
     }
 
     ///
@@ -792,11 +766,11 @@ void Controller::doCycle(double elemTimeInterval) {
       int changeLattice = -100;
       int whileCount = 0;
 
-      std::vector<int> numSitesNotAvailable;
+      vector<int> numSitesNotAvailable;
       numSitesNotAvailable.clear();
-      std::vector<int> vectPhIdDiff;
+      vector<int> vectPhIdDiff;
       vectPhIdDiff.clear();
-      std::vector<std::string> vectPhNameDiff;
+      vector<string> vectPhNameDiff;
       vectPhNameDiff.clear();
 
       changeLattice = lattice_->changeMicrostructure(
@@ -821,10 +795,10 @@ void Controller::doCycle(double elemTimeInterval) {
         while (changeLattice == 0) { // - for many phases!
           whileCount++;
           numSitesNotAvailableSize = numSitesNotAvailable.size();
-          std::cout << std::endl
-                    << "  Controller::doCycle - cyc = " << cyc
-                    << " :  changeLattice = " << changeLattice
-                    << "  =>  whileCount = " << whileCount << std::endl;
+          cout << endl
+               << "  Controller::doCycle - cyc = " << cyc
+               << " :  changeLattice = " << changeLattice
+               << "  =>  whileCount = " << whileCount << endl;
 
           while (timesGEMFailed_recall != 0) {
 
@@ -866,13 +840,13 @@ void Controller::doCycle(double elemTimeInterval) {
                                iniLattice.numRNGcallLONGMAX,
                                iniLattice.lastRNG);
 
-            std::cout << "  Controller::doCycle - cyc = " << cyc
-                      << " :  reset system OK & GEM_run recall for "
-                         "i/whileCount/numSitesNotAvailable.size() = "
-                      << i << " / " << whileCount << " / "
-                      << numSitesNotAvailableSize << std::endl;
-            std::cout << "  Controller::doCycle - cyc = " << cyc
-                      << " :  reset DCLowerLimits :" << std::endl;
+            cout << "  Controller::doCycle - cyc = " << cyc
+                 << " :  reset system OK & GEM_run recall for "
+                    "i/whileCount/numSitesNotAvailable.size() = "
+                 << i << " / " << whileCount << " / "
+                 << numSitesNotAvailableSize << endl;
+            cout << "  Controller::doCycle - cyc = " << cyc
+                 << " :  reset DCLowerLimits :" << endl;
 
             for (int ij = 0; ij < numSitesNotAvailableSize; ij++) {
 
@@ -884,7 +858,8 @@ void Controller::doCycle(double elemTimeInterval) {
               molarMassDiff = chemSys_->getDCMolarMass(DCId); // g/mol
 
               vfracDiff =
-                  ((double)numSitesNotAvailable[ij]) / ((double)numSites_);
+                  (static_cast<double>(numSitesNotAvailable[ij])) /
+                   (static_cast<double>(numSites_));
 
               microPhaseMassDiff =
                   vfracDiff * molarMassDiff / volMolDiff / 1.0e6; // g/cm3
@@ -897,87 +872,81 @@ void Controller::doCycle(double elemTimeInterval) {
                                                       timestep);
               } else {
 
-                std::cout
-                    << "    Controller::doCycle - not a KM phase - for cyc = "
-                    << cyc << " & phaseId = " << phId << " ["
-                    << chemSys_->getMicroPhaseName(phId) << " / DCId:" << DCId
-                    << "]" << std::endl;
+                cout << "    Controller::doCycle - not a KM phase - for cyc = "
+                     << cyc << " & phaseId = " << phId << " ["
+                     << chemSys_->getMicroPhaseName(phId) << " / DCId:" << DCId
+                     << "]" << endl;
 
                 numMolesDiff = scaledMassDiff / molarMassDiff;
 
-                std::cout << "      DCMoles_/keepNumDCMoles : "
-                          << chemSys_->getDCMoles(DCId) << " / " << numMolesDiff
-                          << std::endl;
+                cout << "      DCMoles_/keepNumDCMoles : "
+                     << chemSys_->getDCMoles(DCId) << " / " << numMolesDiff
+                     << endl;
 
                 chemSys_->setDCLowerLimit(DCId, numMolesDiff);
               }
             }
 
-            std::cout
-                << std::endl
-                << "  Controller::doCycle - cyc = " << cyc
-                << " :  #  i#/ "
-                   "phName/phId/count/dissInterfaceSize/numSitesNotAvailable"
-                   "/DCId/DCMoles/DCLowerLimit :"
-                << std::endl;
+            cout << endl
+                 << "  Controller::doCycle - cyc = " << cyc
+                 << " :  #  i#/ "
+                    "phName/phId/count/dissInterfaceSize/numSitesNotAvailable"
+                    "/DCId/DCMoles/DCLowerLimit :"
+                 << endl;
             for (int ij = 0; ij < numSitesNotAvailableSize; ij++) {
               phId = vectPhIdDiff[ij];
               DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
-              std::cout << "                        cyc = " << cyc << " :  #"
-                        << setw(3) << right << ij << "#/ " << setw(15) << left
-                        << vectPhNameDiff[ij] << "   " << setw(5) << right
-                        << phId << "   " << setw(9) << right
-                        << lattice_->getCount(phId) << "   " << setw(9) << right
-                        << lattice_->getDissolutionInterfaceSize(phId) << "   "
-                        << setw(9) << right << numSitesNotAvailable[ij] << "   "
-                        << setw(5) << right << DCId << "   "
-                        << chemSys_->getDCMoles(DCId) << "   "
-                        << chemSys_->getDCLowerLimit(DCId) << std::endl;
+              cout << "                        cyc = " << cyc << " :  #"
+                   << setw(3) << right << ij << "#/ " << setw(15) << left
+                   << vectPhNameDiff[ij] << "   " << setw(5) << right << phId
+                   << "   " << setw(9) << right << lattice_->getCount(phId)
+                   << "   " << setw(9) << right
+                   << lattice_->getDissolutionInterfaceSize(phId) << "   "
+                   << setw(9) << right << numSitesNotAvailable[ij] << "   "
+                   << setw(5) << right << DCId << "   "
+                   << chemSys_->getDCMoles(DCId) << "   "
+                   << chemSys_->getDCLowerLimit(DCId) << endl;
             }
-            std::cout << std::endl;
+            cout << endl;
 
             timesGEMFailed_recall =
                 chemSys_->calculateState(time_[i], isFirst, cyc);
 
-            std::cout << std::endl
-                      << "  Controller::doCycle - cyc = " << cyc
-                      << " :  i/time[i]/getTimesGEMFailed_recall = " << i
-                      << " / " << time_[i] << " / " << timesGEMFailed_recall
-                      << std::endl;
+            cout << endl
+                 << "  Controller::doCycle - cyc = " << cyc
+                 << " :  i/time[i]/getTimesGEMFailed_recall = " << i << " / "
+                 << time_[i] << " / " << timesGEMFailed_recall << endl;
 
             if (timesGEMFailed_recall > 0) {
-              std::cout
-                  << "  Controller::doCycle - GEM_run failed for whileCount = "
-                  << whileCount << std::endl;
-              std::cout.flush();
+              cout << "  Controller::doCycle - GEM_run failed for whileCount = "
+                   << whileCount << endl;
+              cout.flush();
               timesGEMFailed_loc = timesGEMFailed_recall;
               testDiff = false;
               for (int iii = 0; iii < numSitesNotAvailableSize; iii++) {
                 phId = vectPhIdDiff[iii];
                 if (lattice_->getCount(phId) > numSitesNotAvailable[iii]) {
                   numSitesNotAvailable[iii]++;
-                  std::cout
-                      << "  Controller::doCycle - for i/cyc/phId/iii = " << i
-                      << " / " << cyc << " / " << phId << " / " << iii
-                      << "   =>   numSitesNotAvailable[iii] = "
-                      << numSitesNotAvailable[iii] << std::endl;
-                  std::cout.flush();
+                  cout << "  Controller::doCycle - for i/cyc/phId/iii = " << i
+                       << " / " << cyc << " / " << phId << " / " << iii
+                       << "   =>   numSitesNotAvailable[iii] = "
+                       << numSitesNotAvailable[iii] << endl;
+                  cout.flush();
                   testDiff = true;
                   break;
                 }
               }
               if (!testDiff) {
-                std::cout
+                cout
                     << "Controller::doCycle - do not update the microstructure "
-                    << std::endl;
-                std::cout.flush();
+                    << endl;
+                cout.flush();
                 break;
               }
 
             } else {
-              std::cout << "  Controller::doCycle - cyc = " << cyc
-                        << " :  GEM_run OK for whileCount = " << whileCount
-                        << std::endl;
+              cout << "  Controller::doCycle - cyc = " << cyc
+                   << " :  GEM_run OK for whileCount = " << whileCount << endl;
               testDiff = true;
             }
           }
@@ -990,15 +959,14 @@ void Controller::doCycle(double elemTimeInterval) {
             changeLattice = lattice_->changeMicrostructure(
                 time_[i], simType_, capwater, numSitesNotAvailable,
                 vectPhIdDiff, vectPhNameDiff, whileCount, cyc);
-            std::cout << std::endl
-                      << "  Controller::doCycle - cyc = " << cyc
-                      << "  &  whileCount = " << whileCount
-                      << "  :  timesGEMFailed_recall = "
-                      << timesGEMFailed_recall
-                      << "  &  changeLattice = " << changeLattice << std::endl;
+            cout << endl
+                 << "  Controller::doCycle - cyc = " << cyc
+                 << "  &  whileCount = " << whileCount
+                 << "  :  timesGEMFailed_recall = " << timesGEMFailed_recall
+                 << "  &  changeLattice = " << changeLattice << endl;
             if (timesGEMFailed_recall == 0 && changeLattice == 0) {
-              std::cout << "     => redo adjustment for cyc/whileCount = "
-                        << cyc << " / " << whileCount << std::endl;
+              cout << "     => redo adjustment for cyc/whileCount = " << cyc
+                   << " / " << whileCount << endl;
               timesGEMFailed_recall = -1;
               testDiff = true;
             }
@@ -1011,20 +979,18 @@ void Controller::doCycle(double elemTimeInterval) {
           continue;
         } else {
           kineticController_->setHydTimeIni(time_[i]);
-          std::cout
-              << std::endl
-              << "Controller::doCycle => normal end after reset system for "
-                 "cyc = "
-              << cyc << " (i = " << i << ")" << std::endl;
+          cout << endl
+               << "Controller::doCycle => normal end after reset system for "
+                  "cyc = "
+               << cyc << " (i = " << i << ")" << endl;
         }
       } else {
         kineticController_->setHydTimeIni(time_[i]);
 
-        std::cout
-            << std::endl
-            << "Controller::doCycle - hydration & lattice update => normal "
-               "end - cyc = "
-            << cyc << " (i = " << i << ")" << std::endl;
+        cout << endl
+             << "Controller::doCycle - hydration & lattice update => normal "
+                "end - cyc = "
+             << cyc << " (i = " << i << ")" << endl;
       }
 
     } catch (DataException dex) {
@@ -1042,11 +1008,10 @@ void Controller::doCycle(double elemTimeInterval) {
         lattice_->appendXYZ(time_[i]);
       throw ex;
     } catch (MicrostructureException mex) {
-      std::cout
-          << std::endl
-          << "Controller::doCycle MicroEx from Lattice::changeMicrostructure "
-             "- cyc = "
-          << cyc << std::endl;
+      cout << endl
+           << "Controller::doCycle MicroEx from Lattice::changeMicrostructure "
+              "- cyc = "
+           << cyc << endl;
       mex.printException();
       lattice_->writeLattice(time_[i], resolvedTime);
       lattice_->writeLatticePNG(time_[i], resolvedTime);
@@ -1080,14 +1045,13 @@ void Controller::doCycle(double elemTimeInterval) {
     /// into account its lower chemical potential.
 
     if (verbose_) {
-      std::cout
-          << "Controller::doCycle Returned from Lattice::changeMicrostructure"
-          << std::endl;
-      std::cout.flush();
+      cout << "Controller::doCycle Returned from Lattice::changeMicrostructure"
+           << endl;
+      cout.flush();
     }
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
-    if ((time_index < (int)(outputTime_.size())) &&
+    if ((time_index < static_cast<int>(outputTime_.size())) &&
         ((time_[i] >= outputTime_[time_index]) ||
          (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice))) {
 
@@ -1096,11 +1060,11 @@ void Controller::doCycle(double elemTimeInterval) {
         writeTime = outputTime_[time_index];
 
       // if (verbose_)
-      std::cout << std::endl
-                << "Controller::doCycle - write microstructure files at time_["
-                << i << "] = " << time_[i] << ", outputTime_[" << time_index
-                << "] = " << outputTime_[time_index]
-                << ", writeTime = " << writeTime << std::endl;
+      cout << endl
+           << "Controller::doCycle - write microstructure files at time_[" << i
+           << "] = " << time_[i] << ", outputTime_[" << time_index
+           << "] = " << outputTime_[time_index] << ", writeTime = " << writeTime
+           << endl;
       //
 
       lattice_->writeLattice(time_[i], resolvedTime);
@@ -1119,23 +1083,19 @@ void Controller::doCycle(double elemTimeInterval) {
     if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
       // we will stop hydration
       if (warning_) {
-        std::cout
-            << "Controller::doCycle WARNING: System is out of capillary pore "
-               "water."
-            << std::endl;
-        std::cout
-            << "Controller::doCycle          This version of code assumes "
-               "that only capillary"
-            << std::endl;
-        std::cout
-            << "Controller::doCycle          water is chemically reactive, so "
-               "the system is"
-            << std::endl;
-        std::cout
-            << "Controller::doCycle          is assumed to be incapable of "
-               "further hydration."
-            << std::endl;
-        std::cout.flush();
+        cout << "Controller::doCycle WARNING: System is out of capillary pore "
+                "water."
+             << endl;
+        cout << "Controller::doCycle          This version of code assumes "
+                "that only capillary"
+             << endl;
+        cout << "Controller::doCycle          water is chemically reactive, so "
+                "the system is"
+             << endl;
+        cout << "Controller::doCycle          is assumed to be incapable of "
+                "further hydration."
+             << endl;
+        cout.flush();
       }
     }
 
@@ -1145,36 +1105,34 @@ void Controller::doCycle(double elemTimeInterval) {
 
     if (time_[i] >= sulfateAttackTime_) {
 
-      // std::cout <<std::endl
-      //       << " Controller::doCycle - for sulfate attack, check conditions
-      //       for "
-      //          "addDissolutionSites & coordination sphere "
-      //       <<std::endl;
+      // cout << endl
+      //      << " Controller::doCycle - for sulfate attack, check conditions
+      //      for "
+      //         "addDissolutionSites & coordination sphere "
+      //      << endl;
 
       if (verbose_) {
-        std::cout << "Controller::doCycle Sulfate attack module" << std::endl;
-        std::cout.flush();
+        cout << "Controller::doCycle Sulfate attack module" << endl;
+        cout.flush();
       }
-      std::map<int, std::vector<double>> expansion;
+      map<int, vector<double>> expansion;
       expansion = lattice_->getExpansion();
 
       ifstream instopexp("stopexp.dat"); // check!
       if (!instopexp) {
         // if (verbose_)
-        std::cout << std::endl
-                  << "Controller::doCycle - sulfate attack module : cyc = "
-                  << cyc << "   =>   expansion.size() = " << expansion.size()
-                  << std::endl;
+        cout << endl
+             << "Controller::doCycle - sulfate attack module : cyc = " << cyc
+             << "   =>   expansion.size() = " << expansion.size() << endl;
       } else {
         expansion.clear();
-        std::cout << std::endl
-                  << "Controller::doCycle - sulfate attack module : cyc = "
-                  << cyc
-                  << "   =>   expansion has been stopped due to the "
-                     "percolation of damage"
-                  << std::endl;
+        cout << endl
+             << "Controller::doCycle - sulfate attack module : cyc = " << cyc
+             << "   =>   expansion has been stopped due to the "
+                "percolation of damage"
+             << endl;
       }
-      std::cout.flush();
+      cout.flush();
 
       ///
       /// Stop FM temporarily
@@ -1187,7 +1145,7 @@ void Controller::doCycle(double elemTimeInterval) {
       if (expansion.size() > 0) { // check! : expansion.size() > 0 !!!
 
         // double strxx, stryy, strzz;
-        std::vector<double> locEleStress;
+        vector<double> locEleStress;
         double locTstrength;
 
         // aliId => aliId_ etc
@@ -1195,7 +1153,7 @@ void Controller::doCycle(double elemTimeInterval) {
         // int belId = chemSys_->getMicroPhaseId_SA("Belite");
         // int aluId = chemSys_->getMicroPhaseId_SA("Aluminate");
         // int ferId = chemSys_->getMicroPhaseId_SA("Ferrite");
-        // std::vector<int> isParrotKilloh_ = chemSys_->getIsParrotKilloh();
+        // vector<int> isParrotKilloh_ = chemSys_->getIsParrotKilloh();
         // int sizePK_ = isParrotKilloh_.size();
         bool notPKPhase = true;
 
@@ -1204,20 +1162,19 @@ void Controller::doCycle(double elemTimeInterval) {
         // double poreintroduce = 0.5;
 
         if (verbose_) {
-          std::cout << "Controller::doCycle Sulfate attack module writing "
-                    << std::endl;
-          std::cout << "Controller::doCycle lattice at time_[" << i
-                    << "] = " << time_[i] << ", " << std::endl;
-          std::cout << "controller::doCycle outputTime_[" << time_index
-                    << "] = " << outputTime_[time_index] << std::endl;
-          std::cout.flush();
+          cout << "Controller::doCycle Sulfate attack module writing " << endl;
+          cout << "Controller::doCycle lattice at time_[" << i
+               << "] = " << time_[i] << ", " << endl;
+          cout << "controller::doCycle outputTime_[" << time_index
+               << "] = " << outputTime_[time_index] << endl;
+          cout.flush();
         }
 
-        std::string ofileName(jobRoot_);
+        string ofileName(jobRoot_);
 
         ostringstream ostrT;
         ostrT << setprecision(3) << temperature_;
-        std::string tempstr(ostrT.str());
+        string tempstr(ostrT.str());
 
         int days, hours, mins;
         double hours_dbl;
@@ -1228,14 +1185,13 @@ void Controller::doCycle(double elemTimeInterval) {
 
         ostringstream ostrD, ostrH, ostrM;
         ostrD << setfill('0') << setw(4) << days;
-        std::string timestrD(ostrD.str());
+        string timestrD(ostrD.str());
         ostrH << setfill('0') << setw(2) << hours;
-        std::string timestrH(ostrH.str());
+        string timestrH(ostrH.str());
         ostrM << setfill('0') << setw(2) << mins;
-        std::string timestrM(ostrM.str());
+        string timestrM(ostrM.str());
 
-        std::string timeString =
-            timestrD + "d" + timestrH + "h" + timestrM + "m";
+        string timeString = timestrD + "d" + timestrH + "h" + timestrM + "m";
 
         ofileName = ofileName + "." + timeString + "." + tempstr + "_SA.img";
 
@@ -1247,16 +1203,14 @@ void Controller::doCycle(double elemTimeInterval) {
         thermalstr_->setEigen();
 
         int expindex;
-        std::vector<double> expanval;
-        std::vector<int> expcoordin;
-        for (std::map<int, std::vector<double>>::iterator it =
-                 expansion.begin();
+        vector<double> expanval;
+        vector<int> expcoordin;
+        for (map<int, vector<double>>::iterator it = expansion.begin();
              it != expansion.end(); it++) {
 
           expindex = it->first;
           expanval = it->second;
-          // std::vector<int> expcoordin =
-          // lattice_->getExpansionCoordin(expindex);
+          // vector<int> expcoordin = lattice_->getExpansionCoordin(expindex);
           expcoordin = lattice_->getSite(expindex)->getXYZ();
           thermalstr_->setEigen(expindex, expanval[0], expanval[1], expanval[2],
                                 0.0, 0.0, 0.0);
@@ -1297,8 +1251,8 @@ void Controller::doCycle(double elemTimeInterval) {
         // double dwmcval = poreintroduce;
         double poreincrease = 0.2;
         double damageexp_0 = 1.0 / 3.0 * poreincrease;
-        std::vector<double> damageexp(3, damageexp_0);
-        std::vector<double> damageexpo;
+        vector<double> damageexp(3, damageexp_0);
+        vector<double> damageexpo;
         Site *ste; // , *stenb;
         int pid;
 
@@ -1310,9 +1264,8 @@ void Controller::doCycle(double elemTimeInterval) {
           if ((ste->IsDamage())) {
 
             oldDamageCount++;
-            // std::cout <<std::endl << "SA-test: oldDamageCount_ = " <<
-            // oldDamageCount_
-            //       << "  index = " << index << "  pid = " << pid <<std::endl;
+            // cout << endl << "SA-test: oldDamageCount_ = " << oldDamageCount_
+            //      << "  index = " << index << "  pid = " << pid << endl;
 
             // double strxx, stryy, strzz;
             // strxx = stryy = strzz = 0.0;
@@ -1420,12 +1373,12 @@ void Controller::doCycle(double elemTimeInterval) {
                 //   }
                 // }
 
-                // std::vector<double> damageexp;
+                // vector<double> damageexp;
                 // damageexp.clear();
                 // double poreindamage = 0.6;
                 // damageexp.resize(3,(1.0 / 3.0 * poreindamage));
                 // lattice_->setExpansion(index,damageexp);
-                // std::vector<int> coordin;
+                // vector<int> coordin;
                 // coordin.clear();
                 // coordin.resize(3,0);
                 // coordin[0] = ste->getX();
@@ -1440,29 +1393,28 @@ void Controller::doCycle(double elemTimeInterval) {
           }
         } // End of loop over all voxels
         if (oldDamageCount_ != oldDamageCount) {
-          std::cout << std::endl
-                    << "Controller::doCycle SA -  error : oldDamageCount_ != "
-                       "oldDamageCount"
-                       " <-> cyc/oldDamageCount_/oldDamageCount = "
-                    << cyc << " / " << oldDamageCount_ << " / "
-                    << oldDamageCount << std::endl;
-          std::cout << std::endl
-                    << "         newDamageCount/allDamageCount_ = "
-                    << newDamageCount << " / " << allDamageCount_ << std::endl;
-          std::cout << std::endl << "exit" << std::endl;
+          cout << endl
+               << "Controller::doCycle SA -  error : oldDamageCount_ != "
+                  "oldDamageCount"
+                  " <-> cyc/oldDamageCount_/oldDamageCount = "
+               << cyc << " / " << oldDamageCount_ << " / " << oldDamageCount
+               << endl;
+          cout << endl
+               << "         newDamageCount/allDamageCount_ = " << newDamageCount
+               << " / " << allDamageCount_ << endl;
+          cout << endl << "exit" << endl;
           exit(0);
         } else {
-          std::cout << std::endl
-                    << "Controller::doCycle SA - "
-                       "cyc/newDamageCount_/oldDamageCount_/allDamageCount_ = "
-                    << cyc << " / " << newDamageCount << " / "
-                    << oldDamageCount_;
+          cout << endl
+               << "Controller::doCycle SA - "
+                  "cyc/newDamageCount_/oldDamageCount_/allDamageCount_ = "
+               << cyc << " / " << newDamageCount << " / " << oldDamageCount_;
 
           allDamageCount_ = newDamageCount + oldDamageCount_;
           oldDamageCount_ = allDamageCount_;
 
-          std::cout << " / " << allDamageCount_ << std::endl;
-          std::cout.flush();
+          cout << " / " << allDamageCount_ << endl;
+          cout.flush();
         }
 
         // ofstream outdamage("damage.dat");
@@ -1473,11 +1425,10 @@ void Controller::doCycle(double elemTimeInterval) {
         // to see whether new damage is generated
       }
 
-      std::cout
-          << std::endl
-          << "Controller::doCycle - sulfate attack module => normal end - cyc "
-             "= "
-          << cyc << " (i = " << i << ")" << std::endl;
+      cout << endl
+           << "Controller::doCycle - sulfate attack module => normal end - cyc "
+              "= "
+           << cyc << " (i = " << i << ")" << endl;
     }
   }
 
@@ -1510,7 +1461,7 @@ int Controller::calculateState(double time, double dt, bool isFirst, int cyc) {
     /// still need to be processed afterward.
     ///
 
-    // std::vector<double> impurityrelease;
+    // vector<double> impurityrelease;
     // impurityrelease.clear();
     // impurityrelease.resize(chemSys_->getNumMicroImpurities(), 0.0);
 
@@ -1547,12 +1498,10 @@ int Controller::calculateState(double time, double dt, bool isFirst, int cyc) {
     try {
       timesGEMFailed = chemSys_->calculateState(time, isFirst, cyc);
       if (verbose_) {
-        std::cout << "*Returned from ChemicalSystem::calculateState"
-                  << std::endl;
-        std::cout << "*called by function Controller::calculateState"
-                  << std::endl;
-        std::cout << "*timesGEMFailed = " << timesGEMFailed << std::endl;
-        std::cout.flush();
+        cout << "*Returned from ChemicalSystem::calculateState" << endl;
+        cout << "*called by function Controller::calculateState" << endl;
+        cout << "*timesGEMFailed = " << timesGEMFailed << endl;
+        cout.flush();
       }
     } catch (GEMException gex) {
       gex.printException();
@@ -1594,7 +1543,7 @@ void Controller::writeTxtOutputFiles(double time) {
   // Output to files the solution composition data, phase data, DC data,
   // microstructure data, pH, and C-S-H composition and Ca/Si ratio
 
-  std::string outfilename = jobRoot_ + "_Solution.csv";
+  string outfilename = jobRoot_ + "_Solution.csv";
   ofstream outfs(outfilename.c_str(), ios::app);
   if (!outfs) {
     throw FileException("Controller", "calculateState", outfilename,
@@ -1609,7 +1558,7 @@ void Controller::writeTxtOutputFiles(double time) {
       outfs << "," << (chemSys_->getNode())->Get_cDC((long int)i); // molality
     }
   }
-  outfs << std::endl;
+  outfs << endl;
   outfs.close();
 
   outfilename = jobRoot_ + "_DCVolumes.csv";
@@ -1624,18 +1573,18 @@ void Controller::writeTxtOutputFiles(double time) {
     if (chemSys_->getDCMolarMass(i) > 0.0) {
       cc = chemSys_->getDCClassCode(i);
       if (cc == 'O' || cc == 'I' || cc == 'J' || cc == 'M' || cc == 'W') {
-        std::string dcname = chemSys_->getDCName(i);
+        string dcname = chemSys_->getDCName(i);
         double V0 =
             chemSys_->getDCMoles(dcname) * chemSys_->getDCMolarVolume(dcname);
         outfs << "," << V0;
       }
     } else {
-      std::string msg = "Divide by zero error for DC " + chemSys_->getDCName(i);
+      string msg = "Divide by zero error for DC " + chemSys_->getDCName(i);
       outfs.close();
       throw FloatException("Controller", "calculateState", msg);
     }
   }
-  outfs << std::endl;
+  outfs << endl;
   outfs.close();
 
   outfilename = jobRoot_ + "_SurfaceAreas.csv";
@@ -1664,8 +1613,8 @@ void Controller::writeTxtOutputFiles(double time) {
       outfs01 << "," << chemSys_->getMicroPhaseSI(i);
     }
   }
-  outfs << std::endl;
-  outfs01 << std::endl;
+  outfs << endl;
+  outfs01 << endl;
   outfs.close();
   outfs01.close();
 
@@ -1683,7 +1632,7 @@ void Controller::writeTxtOutputFiles(double time) {
   double micvol = lattice_->getMicrostructureVolume();
   double initmicvol = lattice_->getInitialMicrostructureVolume();
   outfs << "," << micvol << "," << (initmicvol - micvol);
-  outfs << std::endl;
+  outfs << endl;
   outfs.close();
 
   outfilename = jobRoot_ + "_pH.csv";
@@ -1693,7 +1642,7 @@ void Controller::writeTxtOutputFiles(double time) {
                         "Could not append");
   }
   outfs << setprecision(5) << time;
-  outfs << "," << (chemSys_->getPH()) << std::endl;
+  outfs << "," << (chemSys_->getPH()) << endl;
   outfs.close();
 
   chemSys_->setGEMPhaseStoich();
@@ -1706,8 +1655,8 @@ void Controller::writeTxtOutputFiles(double time) {
     exit(1);
   }
   if (verbose_) {
-    std::cout << "Done!" << std::endl;
-    std::cout.flush();
+    cout << "Done!" << endl;
+    cout.flush();
   }
 
   outfilename = jobRoot_ + "_CSH.csv";
@@ -1729,7 +1678,7 @@ void Controller::writeTxtOutputFiles(double time) {
   if (SiMoles < 1.0e-16)
     SiMoles = 1.0e-16;
   double CaSiRatio = CaMoles / SiMoles;
-  outfs << "," << CaSiRatio << std::endl;
+  outfs << "," << CaSiRatio << endl;
   outfs.close();
 
   double *phaseRecord;
@@ -1755,9 +1704,9 @@ void Controller::writeTxtOutputFiles(double time) {
   }
   if (SiMoles != 0) {
     CaSiRatio = CaMoles / SiMoles;
-    outfs << "," << CaSiRatio << std::endl;
+    outfs << "," << CaSiRatio << endl;
   } else {
-    outfs << ",Si_moles is ZERO" << std::endl;
+    outfs << ",Si_moles is ZERO" << endl;
   }
   outfs.close();
 
@@ -1774,23 +1723,23 @@ void Controller::writeTxtOutputFiles(double time) {
   }
 
   outfs << setprecision(5) << time;
-  outfs << "," << enth << std::endl;
+  outfs << "," << enth << endl;
   outfs.close();
 }
 
 void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
 
   int i, j;
-  std::vector<double> ICMoles;
+  vector<double> ICMoles;
   ICMoles.resize(numICs_, 0.0);
-  std::vector<double> DCMoles;
+  vector<double> DCMoles;
   DCMoles.resize(numDCs_, 0.0);
   for (i = 0; i < numDCs_; i++) {
     DCMoles[i] = chemSys_->getDCMoles(i);
   }
 
-  std::string outfilenameIC = jobRoot_ + "_icmoles.csv";
-  std::string outfilenameDC = jobRoot_ + "_dcmoles.csv";
+  string outfilenameIC = jobRoot_ + "_icmoles.csv";
+  string outfilenameDC = jobRoot_ + "_dcmoles.csv";
   ofstream outfs;
   if (time < 1.e-10) {
     outfs.open(outfilenameIC.c_str());
@@ -1802,7 +1751,7 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
     for (i = 0; i < numICs_; i++) {
       outfs << "," << chemSys_->getICName(i);
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
 
     outfs.open(outfilenameDC.c_str());
@@ -1814,11 +1763,11 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
     for (i = 0; i < numDCs_; i++) {
       outfs << "," << chemSys_->getDCName(i);
     }
-    outfs << std::endl;
+    outfs << endl;
     outfs.close();
   }
 
-  std::vector<int> impurityDCID;
+  vector<int> impurityDCID;
   impurityDCID.clear();
   impurityDCID.push_back(chemSys_->getDCId("K2O"));
   impurityDCID.push_back(chemSys_->getDCId("Na2O"));
@@ -1829,7 +1778,7 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
   int mPhId;
   double massImpurity, totMassImpurity;
 
-  // std::cout <<std::endl << "getIsDCKinetic: " <<std::endl;
+  // cout << endl << "getIsDCKinetic: " << endl;
   for (j = 0; j < numDCs_; j++) {
     if (chemSys_->getIsDCKinetic(j)) {
       // molMass = chemSys_->getDCMolarMass(j);
@@ -1878,7 +1827,7 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
   for (i = 0; i < numICs_; i++) {
     outfs << "," << ICMoles[i];
   }
-  outfs << std::endl;
+  outfs << endl;
   outfs.close();
 
   outfs.open(outfilenameDC.c_str(), ios::app);
@@ -1891,18 +1840,20 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
   for (i = 0; i < numDCs_; i++) {
     outfs << "," << DCMoles[i];
   }
-  outfs << std::endl;
+  outfs << endl;
   outfs.close();
 }
 
-void Controller::parseDoc(const std::string &docName) {
+void Controller::parseDoc(const string &docName) {
 
   /// check if the JSON file exists
 
   ifstream f(docName.c_str());
   if (!f.is_open()) {
-    std::cout << "JSON output times file not found" << std::endl;
+    cout << endl << "JSON " << docName << " file not found" << endl;
     throw FileException("Controller", "parseDoc", docName, "File not found");
+  } else{
+    cout << endl << "JSON " << docName << " file found => start reading" << endl;
   }
 
   /// Parse the JSON file all at once
@@ -1938,160 +1889,6 @@ void Controller::parseDoc(const std::string &docName) {
       outputTime_.push_back(testTime);
     }
 
-    // There may be times associated with chemical attack
-    // Next three blocks search for this
-    cdi = it.value().find("beginttacktime");
-    if (cdi != it.value().end()) {
-      beginAttackTime_ = cdi.value();
-      beginAttackTime_ *= (H_PER_DAY);
-    }
-
-    // Input times are conventionally in days
-    // Immediately convert to hours within model
-    cdi = it.value().find("endattacktime");
-    if (cdi != it.value().end()) {
-      endAttackTime_ = cdi.value();
-      endAttackTime_ *= (H_PER_DAY);
-    }
-
-    // Input times are conventionally in days
-    // Immediately convert to hours within model
-    cdi = it.value().find("attacktimeinterval");
-    if (cdi != it.value().end()) {
-      attackTimeInterval_ = cdi.value();
-      attackTimeInterval_ *= (H_PER_DAY);
-    }
-
-    // Done searching for chemical attack times
-    attack_ = false;
-    bool errorAttack = false;
-    if (simType_ == SULFATE_ATTACK || simType_ == LEACHING) {
-      if (beginAttackTime_ >= 0) {
-        if (endAttackTime_ > beginAttackTime_) {
-          if (attackTimeInterval_ > 0) {
-            attack_ = true;
-          } else {
-            errorAttack = true;
-          }
-        } else {
-          errorAttack = true;
-        }
-      } else {
-        errorAttack = true;
-      }
-    }
-
-    if (attack_ && errorAttack) {
-      std::cout << std::endl << std::endl << "************" << std::endl;
-      std::cout << std::endl
-                << "=> you decided to simulate a leaching or a sulfate attack "
-                   "but your time parameters are not set accordingly!"
-                << std::endl;
-      std::cout << std::endl
-                << "=> to do it, the specific controll parameters "
-                   "must fulfill some additional conditions:"
-                << std::endl;
-      std::cout << "  -> beginattacktime >= 0" << std::endl;
-      std::cout << "  -> endattacktime > beginattacktime" << std::endl;
-      std::cout << "  -> attacktimeinterval > 0" << std::endl;
-
-      std::cout << std::endl
-                << "=> by default all these variables are set to -1.0"
-                << std::endl;
-      std::cout << std::endl
-                << "=> for the current simulation their values are:"
-                << std::endl;
-      std::cout << "  -> beginattacktime = " << beginAttackTime_ << std::endl;
-      std::cout << "  -> endattacktime = " << endAttackTime_ << std::endl;
-      std::cout << "  -> attacktimeinterval = " << attackTimeInterval_
-                << std::endl;
-
-      std::cout
-          << std::endl
-          << "=> before to restart the program, please modify their values "
-             "into parameters.json file)"
-          << std::endl;
-
-      std::cout << std::endl << std::endl << "STOP" << std::endl;
-      std::cout << std::endl << std::endl << "************" << std::endl;
-      throw DataException("Controller", "Controller",
-                          "leaching or sulfate attack time parameters setting");
-
-    } else if (attack_) {
-
-      std::cout << std::endl << "   => you decided to simulate a ";
-      if (simType_ == LEACHING) {
-        leachTime_ = beginAttackTime_; // not default leachTime_ = 1.0e10
-        std::cout << "leaching ";
-      } else if (simType_ == SULFATE_ATTACK) {
-        sulfateAttackTime_ =
-            beginAttackTime_; // not default sulfateAttackTime_ = 1.0e10
-        std::cout << "sulfate attack ";
-      }
-
-      std::cout << "using these time parameters (in days):" << std::endl;
-      std::cout << "     -> beginattacktime = " << setw(5) << right
-                << (int)beginAttackTime_ << std::endl;
-      std::cout << "     -> endattacktime = " << setw(5) << right
-                << (int)endAttackTime_ << std::endl;
-      std::cout << "     -> attacktimeinterval = " << setw(5) << right
-                << (int)attackTimeInterval_ << std::endl;
-
-      double tp = beginAttackTime_;
-      int tempSize;
-      int i, j;
-
-      tempSize = outputTime_.size() - 1;
-      for (i = 0; i < tempSize; i++) {
-        if (outputTime_[i] > tp) {
-          int last = tempSize;
-          outputTime_.erase(outputTime_.begin() + i,
-                            outputTime_.begin() + last);
-          break;
-        }
-      }
-
-      tempSize = time_.size() - 1;
-      for (i = 0; i < tempSize; i++) {
-        if (time_[i] > tp) {
-          int last = tempSize;
-          time_.erase(time_.begin() + i, time_.begin() + last);
-          break;
-        }
-      }
-
-      while (tp <= endAttackTime_) {
-        // time_.push_back(tp);
-        outputTime_.push_back(tp);
-        tp += attackTimeInterval_;
-      }
-
-      int time_Size = outputTime_.size();
-      for (i = 0; i < time_Size - 1; i++) {
-        for (j = i + 1; j < time_Size; j++) {
-          if (outputTime_[i] > outputTime_[j]) {
-            tp = outputTime_[i];
-            outputTime_[i] = outputTime_[j];
-            outputTime_[j] = tp;
-          }
-        }
-      }
-
-      time_Size = outputTime_.size() - 1;
-      for (i = 0; i < time_Size; i++) {
-        if (abs(outputTime_[i] - outputTime_[i + 1]) <= 1.0e-9) {
-          outputTime_.erase(outputTime_.begin() + i);
-        }
-      }
-
-    } else if (simType_ == HYDRATION) {
-      std::cout << std::endl
-                << "   => you decided to simulate a hydration" << std::endl;
-      beginAttackTime_ = 1.e10;
-      endAttackTime_ = 1.e10;
-      attackTimeInterval_ = 1.e10;
-    }
-
     //
     // Now populate the calculation times on a natural log scale
     // and fold in the output times in order
@@ -2120,6 +1917,149 @@ void Controller::parseDoc(const std::string &docName) {
       }
     }
 
+    // There may be times associated with chemical attack
+    // Next three blocks search for this
+    cdi = it.value().find("beginattacktime");
+    if (cdi != it.value().end()) {
+      beginAttackTime_ = cdi.value();
+      // beginAttackTime_ *= (H_PER_DAY);
+    }
+
+    // Input times are conventionally in days
+    // Immediately convert to hours within model
+    cdi = it.value().find("endattacktime");
+    if (cdi != it.value().end()) {
+      endAttackTime_ = cdi.value();
+      // endAttackTime_ *= (H_PER_DAY);
+    }
+
+    // Input times are conventionally in days
+    // Immediately convert to hours within model
+    cdi = it.value().find("attacktimeinterval");
+    if (cdi != it.value().end()) {
+      attackTimeInterval_ = cdi.value();
+      // attackTimeInterval_ *= (H_PER_DAY);
+    }
+
+    // Done searching for chemical attack times
+    attack_ = false;
+    bool errorAttack = false;
+    if (simType_ == SULFATE_ATTACK || simType_ == LEACHING) {
+      if (beginAttackTime_ >= 0) {
+        if (endAttackTime_ > beginAttackTime_) {
+          if (attackTimeInterval_ > 0) {
+            attack_ = true;
+          } else {
+            errorAttack = true;
+          }
+        } else {
+          errorAttack = true;
+        }
+      } else {
+        errorAttack = true;
+      }
+    }
+
+    if (attack_ && errorAttack) {
+      cout << endl << endl << "************" << endl;
+      cout << endl
+           << "=> you decided to simulate a leaching or a sulfate attack "
+              "but your time parameters are not set accordingly!"
+           << endl;
+      cout << endl
+           << "=> to do it, the specific controll parameters "
+              "must fulfill some additional conditions:"
+           << endl;
+      cout << "  -> beginattacktime >= 0" << endl;
+      cout << "  -> endattacktime > beginattacktime" << endl;
+      cout << "  -> attacktimeinterval > 0" << endl;
+
+      cout << endl
+           << "=> by default all these variables are set to -1.0" << endl;
+      cout << endl << "=> for the current simulation their values are:" << endl;
+      cout << "  -> beginattacktime = " << beginAttackTime_ << endl;
+      cout << "  -> endattacktime = " << endAttackTime_ << endl;
+      cout << "  -> attacktimeinterval = " << attackTimeInterval_ << endl;
+
+      cout << endl
+           << "=> before to restart the program, please modify their values "
+              "into parameters.json file)"
+           << endl;
+
+      cout << endl << endl << "STOP" << endl;
+      cout << endl << endl << "************" << endl;
+      throw DataException("Controller", "Controller",
+                          "leaching or sulfate attack time parameters setting");
+
+    } else if (attack_) {
+
+      cout << endl << "   => you decided to simulate a ";
+      if (simType_ == LEACHING) {
+        leachTime_ = beginAttackTime_; // not default leachTime_ = 1.0e10
+        cout << "leaching ";
+      } else if (simType_ == SULFATE_ATTACK) {
+        sulfateAttackTime_ =
+            beginAttackTime_; // not default sulfateAttackTime_ = 1.0e10
+        cout << "sulfate attack ";
+      }
+
+      cout << "using these time parameters (in days/hours):" << endl;
+      cout << "     -> beginattacktime    = " << setw(5) << right
+           << static_cast<int>(beginAttackTime_) << " / "
+           << static_cast<int>(beginAttackTime_ * H_PER_DAY) << endl;
+      cout << "     -> endattacktime      = " << setw(5) << right
+           << static_cast<int>(endAttackTime_) << " / "
+           << static_cast<int>(endAttackTime_ * H_PER_DAY) << endl;
+      cout << "     -> attacktimeinterval = " << setw(5) << right
+           << static_cast<int>(attackTimeInterval_) << " / "
+           << static_cast<int>(attackTimeInterval_ * H_PER_DAY) << endl;
+
+      // Input times for beginAttackTime_/endAttackTime_/attackTimeInterval_
+      // are conventionally in days => convert to hours within model
+      beginAttackTime_ *= (H_PER_DAY);
+      endAttackTime_ *= (H_PER_DAY);
+      attackTimeInterval_ *= (H_PER_DAY);
+
+      double tp = beginAttackTime_;
+      int tempSize;
+
+      tempSize = outputTime_.size();
+      for (int i = 0; i < tempSize; i++) {
+        if (outputTime_[i] > beginAttackTime_) {
+          outputTime_.erase(outputTime_.begin() + i,
+                            outputTime_.begin() + tempSize);
+          break;
+        }
+      }
+
+      tempSize = time_.size();
+      for (int i = 0; i < tempSize; i++) {
+        if (time_[i] > beginAttackTime_) {
+          time_.erase(time_.begin() + i, time_.begin() + tempSize);
+          break;
+        }
+      }
+
+      // tp = beginAttackTime_
+      while (tp < endAttackTime_) {
+        tp += attackTimeInterval_;
+        if (tp > endAttackTime_)
+          tp = endAttackTime_;
+        outputTime_.push_back(tp);
+        time_.push_back(tp);
+      }
+
+    } else if (simType_ == HYDRATION) {
+      cout << endl << "   => you decided to simulate a hydration" << endl;
+      beginAttackTime_ = 1.e10;
+      endAttackTime_ = 1.e10;
+      attackTimeInterval_ = 1.e10;
+
+      // cout << "        using these time parameters (in days):" << endl;
+      // cout << "             -> beginattacktime    = 1.e10" << endl;
+      // cout << "             -> endattacktime      = 1.e10" << endl;
+      // cout << "             -> attacktimeinterval = 1.e10" << endl;
+    }
   } catch (FileException fex) {
     fex.printException();
     exit(1);

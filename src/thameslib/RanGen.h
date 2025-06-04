@@ -6,10 +6,9 @@
 #ifndef SRC_THAMESLIB_RANGEN_H_
 #define SRC_THAMESLIB_RANGEN_H_
 
+#include "global.h"
 #include "Exceptions.h"
-#include "ran2.h"
 #include "ran3.h"
-#include <stdexcept>
 
 /**
 @class RanGen
@@ -18,9 +17,11 @@
 class RanGen {
 
 private:
+
   int *seed_; /**< The random number seed, a negative integer */
 
 public:
+
   /**
   @brief Set the random number seed.
 
@@ -43,13 +44,6 @@ public:
   double Ran3() { return ran3(seed_); }
 
   /**
-  @brief Interface to the ran2 portable random number generator (see ran2.h)
-
-  @return A uniform random number on [0,1]
-  */
-  double Ran2() { return ran2(seed_); }
-
-  /**
   @brief Randomize the elements of a vector.
 
   @param v is a reference ot the vector
@@ -63,7 +57,7 @@ public:
   //
   //    for (ii = 0; ii < ntimes; ii++) {
   //      for (i = 0; i < v.size(); i++) {
-  //        j = (int)(Ran3() * v.size());
+  //        j = static_cast<int>(Ran3() * v.size());
   //        tmp = v[i];
   //        v[i] = v[j];
   //        v[j] = tmp;

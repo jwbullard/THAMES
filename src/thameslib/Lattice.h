@@ -11,28 +11,19 @@ exists, hydrates, and possibly deteriorates.
 #ifndef SRC_THAMESLIB_LATTICE_H_
 #define SRC_THAMESLIB_LATTICE_H_
 
-#include <algorithm>
-#include <climits>
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <list>
-#include <map>
-#include <sstream>
-#include <string>
-#include <typeinfo>
-#include <vector>
-
-#include "../version.h"
+#include "global.h"
+#include "Exceptions.h"
 #include "AppliedStrain.h"
 #include "ChemicalSystem.h"
 #include "Interface.h"
 #include "Isite.h"
 #include "RanGen.h"
 #include "Site.h"
-#include "global.h"
 #include "utils.h"
+// #include "../version.h"
+
+#include <climits>
+
 
 /**
 @struct Sitesize
@@ -45,7 +36,7 @@ struct Sitesize {
 
 struct chemElem {
   int z;
-  std::string symb;
+  string symb;
   double mass;
 };
 
@@ -70,49 +61,48 @@ sites.
 class Lattice {
 
 private:
-  std::string version_; /**< THAMES version for header information */
-  std::string thamesVersion_;
-  std::string jobRoot_; /**< The root name for output files */
-  std::string damageJobRoot_;
+  string version_; /**< THAMES version for header information */
+  string thamesVersion_;
+  string jobRoot_; /**< The root name for output files */
+  string damageJobRoot_;
 
   RanGen *rg_; /**< Pointer to random number generator object */
   int latticeRNGseed_;
   long int numRNGcall_0_, numRNGcallLONGMAX_;
   double lastRNG_;
 
-  int xdim_;               /**< Number of sites in the x dimension */
-  int ydim_;               /**< Number of sites in the y dimension */
-  int zdim_;               /**< Number of sites in the z dimension */
-  double resolution_;      /**< Voxel edge length [micrometers] */
-  std::vector<Site> site_; /**< 1D list of Site objects (site = voxel) */
-  int numSites_;           /**< Total number of sites */
+  int xdim_;          /**< Number of sites in the x dimension */
+  int ydim_;          /**< Number of sites in the y dimension */
+  int zdim_;          /**< Number of sites in the z dimension */
+  double resolution_; /**< Voxel edge length [micrometers] */
+  vector<Site> site_; /**< 1D list of Site objects (site = voxel) */
+  int numSites_;      /**< Total number of sites */
   // unsigned int siteNeighbors_; /**< Number of neighbor sites to a given site
   // */
   ChemicalSystem *chemSys_; /**< Pointer to simulation's ChemicalSystem */
   AppliedStrain *FEsolver_; /**< Pointer to simulation's FE elastic solver */
-  std::vector<Interface> interface_; /**< List of the different interface
-                                        objects in the microstructure */
+  vector<Interface> interface_; /**< List of the different interface objects
+                                        in the microstructure */
 
-  double areaPerFace_;                 /**< Converts a voxel face to m2 units */
-  double volumePerVoxel_;              /**< Converts a voxel to its volume in m3
-                                        units */
-  double wsRatio_;                     /**< Water-to-solids mass ratio */
-  std::vector<double> volumeFraction_; /**< Array of volume fractions of each
+  double areaPerFace_;            /**< Converts a voxel face to m2 units */
+  double volumePerVoxel_;         /**< Converts a voxel to its volume in m3
+                                   units */
+  double wsRatio_;                /**< Water-to-solids mass ratio */
+  vector<double> volumeFraction_; /**< Array of volume fractions of each
                                           microstructure phase */
-  std::vector<double> surfaceArea_;    /**< Array of surface areas of each
+  vector<double> surfaceArea_;    /**< Array of surface areas of each
                                              microstructure phase
                                              (m2 per 100 g of all solid) */
-  std::vector<double>
+  vector<double>
       specificSurfaceArea_; /**< Array of specific surface areas of each
                                microstructure phase
                                (m2 per kg of that phase) */
-  std::vector<int> count_;  /**< Number of sites of each different type */
+  vector<int> count_;       /**< Number of sites of each different type */
 
-  std::map<int, std::vector<double>>
+  map<int, vector<double>>
       expansion_; /**< Map of expansion strain of each voxel */
-  std::map<int, std::vector<int>>
-      expansion_coordin_;       /**< Map of coordinates of sites
-                         with local expansion strain */
+  map<int, vector<int>> expansion_coordin_; /**< Map of coordinates of sites
+                                               with local expansion strain */
   double waterChange_;          /**< How much water must be added or subtracted
                                         due to hydration or deterioration */
   double microstructureVolume_; /**< Microstructure volume in GEM
@@ -138,7 +128,7 @@ pores in GEM units */
   double subvoxelPoreVolumeFraction_;  /**< Total volume fraction of subvoxel
                                           pores */
 
-  std::vector<struct PoreSizeVolume>
+  vector<struct PoreSizeVolume>
       masterPoreVolume_; /**< Pore size distribution and saturation */
 
   double time_;              /**< The current simulation time [h] */
@@ -155,30 +145,32 @@ pores in GEM units */
   bool verbose_;     /**< Flag to determine verbose output */
   bool warning_;     /**< Flag to determine warning message output */
 
-  std::vector<chemElem> cfgElem_; /**< Holds periodic table information to
-                                output files in cfg format */
+  vector<chemElem> cfgElem_; /**< Holds periodic table information to output
+                                files in cfg format */
 
-  double initSolidMass_;
+  double initSolidMass_; /**<  */
 
-  double wcRatio_; /**< Water-to-cement mass ratio */
+  double wcRatio_;       /**< Water-to-cement mass ratio */
 
-  int numMicroPhases_; /**< Number of microphases */
+  int numMicroPhases_;   /**< Number of microphases */
 
-  double particRadius_; /**< used for graphical representation */
+  double particRadius_;  /**< used for graphical representation */
 
-  std::vector<int>
+  vector<int>
       growthInterfaceSize_; /**< growth interface size of each microphase */
-  std::vector<int> dissolutionInterfaceSize_; /**< dissolution interface size of
-                                            each microphase */
+  vector<int> dissolutionInterfaceSize_; /**< dissolution interface size of each
+                                            microphase */
 
-  std::vector<int> growingVectSA_; /**for SULFATE ATTACK */
-  int sizeGrowingVectSA_;
-  std::vector<std::vector<int>> shrinking_;
-  std::vector<std::vector<double>> volratios_;
+  vector<int> growingVectSA_; /**< for SULFATE ATTACK: contains all microPhaseIds growing
+                                   due to SA attack */
+  int sizeGrowingVectSA_;     /**< size of growingVectSA_ */
 
-  int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMollarMass_;
-  double waterMollarVol_;
+  vector<vector<int>> shrinking_;    /**<  */
+  vector<vector<double>> volratios_; /**<  */
+
+  int waterDCId_;           /**< coresp to DCName = "H2O@" */
+  double waterMollarMass_;  /**< mollar mass of water ("H2O@") */
+  double waterMollarVol_;   /**< mollar volume of water ("H2O@") */
 
   int DAMAGEID_;
 
@@ -212,8 +204,8 @@ public:
   @param verbose is true if extra messages are to be printed
   @param warning is true if warning messages are to be printed
   */
-  Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
-          const std::string &fileName, const bool verbose, const bool warning);
+  Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG, const string &fileName,
+          const bool verbose, const bool warning);
 
   /**
  @brief Destructor.
@@ -224,8 +216,8 @@ public:
  */
   ~Lattice();
 
-  void setChemElem(std::string);
-  chemElem getChemElem(int);
+  void setChemElem(string sval);
+  chemElem getChemElem(int ival);
 
   /**
   @brief Set the number of sites in the x dimension.
@@ -340,6 +332,12 @@ public:
   @return the water-solids mass ratio
   */
   double getWsRatio(void) const { return wsRatio_; }
+
+  /**
+  @brief Get the water-cement mass ratio
+
+  @return the water-cement mass ratio
+  */
   double getWcRatio(void) const { return wcRatio_; }
 
   /**
@@ -358,7 +356,7 @@ public:
 
   @param vol is the array of all microstructure phase volumes
   */
-  void calcSubvoxelPoreVolume(std::vector<double> &vol);
+  void calcSubvoxelPoreVolume(vector<double> &vol);
 
   /**
   @brief Calculate the total volume of solids including
@@ -367,7 +365,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcSolidVolumeWithPores(std::vector<double> &vol);
+  void calcSolidVolumeWithPores(vector<double> &vol);
 
   /**
   @brief Get the total volume of solids including
@@ -383,7 +381,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcNonSolidVolume(std::vector<double> &vol);
+  void calcNonSolidVolume(vector<double> &vol);
 
   /**
   @brief Get or calculate the non-solid volume
@@ -516,14 +514,14 @@ public:
 
   @return the version number as a string
   */
-  const std::string &getVersion() const { return version_; }
+  const string &getVersion() const { return version_; }
 
   /**
   @brief Set the root name for simulation output files.
 
   @param jobname is the root name for simulation output files
   */
-  void setJobRoot(std::string jobname) {
+  void setJobRoot(string jobname) {
     jobRoot_ = jobname;
     // damageJobRoot_ = jobRoot_ + ".damage";
   }
@@ -585,7 +583,7 @@ public:
   @param size is the maximum distance defining the neighborhood [sites]
   @return a list of site indices for all neighbors within the maximum distance
   */
-  std::vector<int> getNeighborhood(const int sitenum, const int size);
+  vector<int> getNeighborhood(const int sitenum, const int size);
 
   /**
   @brief Get a pointer to a Site object at a given index in the `site_` array.
@@ -617,6 +615,7 @@ public:
     site_[index].setWmc(site_[index].getWmc() + dwmcval);
   }
 
+  /** */
   void setWmc0(int index, double dwmcval) { site_[index].setWmc0(dwmcval); }
 
   /**
@@ -634,7 +633,7 @@ public:
   @param cementMass is the combined mass of all the cement components
   @param solidMass is the combined mass of all the solids
   */
-  void normalizePhaseMasses(std::vector<double> microPhaseMass);
+  void normalizePhaseMasses(vector<double> microPhaseMass);
 
   /**
   @brief Master method to locate the interfaces for each phase in the
@@ -657,10 +656,10 @@ public:
   @return the actual number of sites that were changed for each microphase ID
   from the input growPhaseIDVect vector
   */
-  std::vector<int> growPhase(std::vector<int> growPhaseIDVect,
-                             std::vector<int> numSiteGrowVect,
-                             std::vector<std::string> growPhNameVect,
-                             int &numadded_G, int totalTRC);
+  vector<int> growPhase(vector<int> growPhaseIDVect,
+                        vector<int> numSiteGrowVect,
+                        vector<string> growPhNameVect, int &numadded_G,
+                        int totalTRC);
 
   /**
   @brief create a new growth interface for a given phase (phaseID) having a
@@ -673,6 +672,8 @@ public:
   @return the actual size of the new interface (must equals numLeft!)
   */
   void nucleatePhaseAff(int phaseID, int numLeft);
+
+  /** */
   void nucleatePhaseRnd(int phaseID, int numLeft);
 
   /**
@@ -688,10 +689,10 @@ public:
   @param totalTRC is the total call number of the changeMicrostructure method
   @return vector of the number of voxels of each phase that could not dissolve
   */
-  std::vector<int> dissolvePhase(std::vector<int> dissPhaseIDVect,
-                                 std::vector<int> numSiteDissVect,
-                                 std::vector<std::string> dissPhNameVect,
-                                 int &numadded_D, int totalTRC);
+  vector<int> dissolvePhase(vector<int> dissPhaseIDVect,
+                            vector<int> numSiteDissVect,
+                            vector<string> dissPhNameVect, int &numadded_D,
+                            int totalTRC);
 
   /**
   @brief Remove the water from a prescribed number of solution-filled sites.
@@ -719,6 +720,7 @@ public:
   */
   int fillPorosity(int numsites, int cyc);
 
+  /** */
   double fillAllPorosity(int cyc);
 
   /**
@@ -834,8 +836,10 @@ public:
   */
   void removeGrowthSite_diss(Site *loc, int pid);
 
+  /** */
   void removeGrowthSite_grow(Site *ste0, int pid);
 
+  /** */
   void removeGrowthSite_nucleation(Site *loc);
 
   /**
@@ -875,10 +879,9 @@ public:
   for a certain microphase ID (phDiff) can be dissolved
   */
   int changeMicrostructure(double time, const int simtype, bool &capWater,
-                           std::vector<int> &vectPhNumDiff,
-                           std::vector<int> &vectPhIdDiff,
-                           std::vector<std::string> &vectPhNameDiff, int repeat,
-                           int cyc);
+                           vector<int> &vectPhNumDiff,
+                           vector<int> &vectPhIdDiff,
+                           vector<string> &vectPhNameDiff, int repeat, int cyc);
 
   /**
   @brief Adjust GEMS calculated volumes of microstructure phases
@@ -900,8 +903,7 @@ public:
   @param phasenames is a vector of the microstructure phase names
   @param vol is a vector of the pre-adjusted microstructure volumes
   */
-  void adjustMicrostructureVolumes(std::vector<double> &vol, int volSize,
-                                   int cyc);
+  void adjustMicrostructureVolumes(vector<double> &vol, int volSize);
 
   /**
   @brief Calculate microstructure volume fractions
@@ -910,10 +912,9 @@ public:
   @param vol is a vector of the adjusted microstructure volumes
   @param vfrac will hold the microstructure volume fractions
   */
-  void adjustMicrostructureVolFracs(std::vector<std::string> &names,
-                                    const std::vector<double> vol,
-                                    std::vector<double> &vfrac, int volSize,
-                                    int cyc);
+  void adjustMicrostructureVolFracs(vector<string> &names,
+                                    const vector<double> vol,
+                                    vector<double> &vfrac, int volSize);
 
   /**
   @brief Calculate the pore size distribution data
@@ -953,6 +954,7 @@ public:
   */
   void writeLattice(const double curtime, const TimeStruct resolvedtime);
 
+  /** */
   void writeLatticeH(const double curtime, const TimeStruct resolvedtime);
 
   void writeLatticeXYZ(const double curtime, const TimeStruct resolvedtime);
@@ -961,6 +963,7 @@ public:
 
   void writeLatticeCFG(const double curtime, const TimeStruct resolvedtime);
 
+  /** */
   void writeNewLattice(int newZdim);
 
   /**
@@ -1028,8 +1031,8 @@ public:
   @param index is the index of the site in the `site_` array
   @param val is the vector of expansion strain components to set
   */
-  void setExpansion(int index, std::vector<double> val) {
-    std::map<int, std::vector<double>>::iterator p = expansion_.find(index);
+  void setExpansion(int index, vector<double> val) {
+    map<int, vector<double>>::iterator p = expansion_.find(index);
     if (p != expansion_.end()) {
       p->second = val;
     } else {
@@ -1043,12 +1046,12 @@ public:
   @param index is the index of the site in the `site_` array
   @return the vector of expansion strain components to set
   */
-  std::vector<double> getExpansion(int index) {
-    std::map<int, std::vector<double>>::iterator p = expansion_.find(index);
+  vector<double> getExpansion(int index) {
+    map<int, vector<double>>::iterator p = expansion_.find(index);
     if (p != expansion_.end()) {
       return p->second;
     } else {
-      std::string msg = "Could not find expansion_ match to index provided";
+      string msg = "Could not find expansion_ match to index provided";
       throw EOBException("Lattice", "getExpansion", msg, expansion_.size(),
                          index);
     }
@@ -1060,7 +1063,7 @@ public:
 
   @return the map of the strain components, keyed to the site index numbers
   */
-  std::map<int, std::vector<double>> getExpansion() { return expansion_; }
+  map<int, vector<double>> getExpansion() { return expansion_; }
 
   /**
   @brief Get the coordinates of local region for calculating expansion stress.
@@ -1074,12 +1077,12 @@ public:
   @param index is the index of a site that has crystallization pressure
   @return the (x,y,z) coordinates of the site
   */
-  // std::vector<int> getExpansionCoordin(int index) {
-  //   std::map<int, std::vector<int>>::iterator p =
-  //   expansion_coordin_.find(index); if (p != expansion_coordin_.end()) {
+  // vector<int> getExpansionCoordin(int index) {
+  //   map<int, vector<int>>::iterator p = expansion_coordin_.find(index);
+  //   if (p != expansion_coordin_.end()) {
   //     return p->second;
   //   } else {
-  //     std::string msg = "Could not find expansion_coordin_ match to index
+  //     string msg = "Could not find expansion_coordin_ match to index
   //     provided"; throw EOBException("Lattice", "getExpansionCoordin", msg,
   //                        expansion_coordin_.size(), index);
   //   }
@@ -1100,9 +1103,9 @@ public:
   @param coordin is the (x,y,z) triple of the site's coordinates
   @return the (x,y,z) coordinates of the site
   */
-  // void setExpansionCoordin(int index, std::vector<int> coordin) {
-  //   std::map<int, std::vector<int>>::iterator p =
-  //   expansion_coordin_.find(index); if (p == expansion_coordin_.end()) {
+  // void setExpansionCoordin(int index, vector<int> coordin) {
+  //   map<int, vector<int>>::iterator p = expansion_coordin_.find(index);
+  //   if (p == expansion_coordin_.end()) {
   //     expansion_coordin_.insert(make_pair(index, coordin));
   //   }
   // }
@@ -1193,7 +1196,7 @@ public:
 
   @param vol is the volume of each microstructure phase
   */
-  void calcCapillaryWaterVolume(std::vector<double> &vol);
+  void calcCapillaryWaterVolume(vector<double> &vol);
 
   /**
   @brief Get the capillary water volume
@@ -1262,8 +1265,7 @@ public:
   @param masterporevolume is the pore volume distribution
   */
   // void
-  // setMasterPoreVolume(const std::vector<struct PoreSizeVolume>
-  // masterporevolume) {
+  // setMasterPoreVolume(const vector<struct PoreSizeVolume> masterporevolume) {
   //   masterPoreVolume_ = masterporevolume;
   //   return;
   // }
@@ -1283,7 +1285,7 @@ public:
       if (idx >= masterPoreVolume_.size()) {
         throw EOBException("Lattice", "setMasterPoreVolume",
                            "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
+                           static_cast<int>(idx));
       }
       masterPoreVolume_[idx].diam = diam;
       masterPoreVolume_[idx].volume = volume;
@@ -1307,7 +1309,7 @@ public:
       if (idx >= masterPoreVolume_.size()) {
         throw EOBException("Lattice", "getMasterPoreVolume",
                            "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
+                           static_cast<int>(idx));
       }
     } catch (EOBException ex) {
       ex.printException();
@@ -1328,7 +1330,7 @@ public:
       if (idx >= masterPoreVolume_.size()) {
         throw EOBException("Lattice", "getMasterPoreVolumeDiam",
                            "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
+                           static_cast<int>(idx));
       }
     } catch (EOBException ex) {
       ex.printException();
@@ -1349,7 +1351,7 @@ public:
       if (idx >= masterPoreVolume_.size()) {
         throw EOBException("Lattice", "getMasterPoreVolumeVolume",
                            "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
+                           static_cast<int>(idx));
       }
     } catch (EOBException ex) {
       ex.printException();
@@ -1372,7 +1374,7 @@ public:
       if (idx >= masterPoreVolume_.size()) {
         throw EOBException("Lattice", "getMasterPoreVolumeVolfrac",
                            "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
+                           static_cast<int>(idx));
       }
     } catch (EOBException ex) {
       ex.printException();
@@ -1447,8 +1449,8 @@ public:
   @return vector (na,ne) where na is the number of Al-bearing sites actually
   changed, and ne is the number of ettringite sites actually grown
   */
-  std::vector<int> transform(int alphaseid, int netsitesAlphaseid, int ettrid,
-                             int netsitesEttrid, double volumeratio);
+  vector<int> transform(int alphaseid, int netsitesAlphaseid, int ettrid,
+                        int netsitesEttrid, double volumeratio);
 
   /**
   @brief Set a pointer to the AppliedStrain object for the simulation.
@@ -1468,8 +1470,7 @@ public:
   center site
   @return a list of the site indices belonging to the subvolume that was written
   */
-  std::vector<int> writeSubVolume(std::string fileName, Site *centerste,
-                                  int size);
+  vector<int> writeSubVolume(string fileName, Site *centerste, int size);
 
   /**
   @brief Assign isotropic expansion strain at a set of prescribed sites.
@@ -1483,7 +1484,7 @@ public:
   @param alnb is the collection of site indices to which strain will be assigned
   @param exp is the isotropic expansion strain to set
   */
-  void applyExpansion(std::vector<int> alnb, double exp);
+  void applyExpansion(vector<int> alnb, double exp);
 
   /**
   @brief Estimate the surface areas of all solid phases
@@ -1522,9 +1523,9 @@ public:
     // return 0.0;
   }
 
-  std::vector<double> getSurfaceArea(void) { return surfaceArea_; }
+  vector<double> getSurfaceArea(void) { return surfaceArea_; }
 
-  void resetSurfaceArea(std::vector<double> vect) { surfaceArea_ = vect; }
+  void resetSurfaceArea(vector<double> vect) { surfaceArea_ = vect; }
 
   /**
   @brief Return the current specific surface area of a phase with the aqueous
@@ -1570,17 +1571,16 @@ public:
     // So ssa/cemmass has units of m2 per g of cement
     // Multiply that by 1000.0 to get units of m2/(kg of cement)
     // if (verbose_) {
-    //    std::cout << "URANIUM all solid mass = " << allsolidmass << " g / (100
-    //    g solid)"
-    //          << std::endl;
-    //    std::cout << "URANIUM all surface = " << allsurf << " m2 / (100 g
+    //    cout << "URANIUM all solid mass = " << allsolidmass << " g / (100 g
     //    solid)"
-    //            << std::endl;
-    //    std::cout << "URANIUM cement mass = " << cemmass << " g / (100 g
-    //    solid)" << std::endl; std::cout << "URANIUM cement surface = " <<
-    //    cemsurf << " m2 / (100 g solid)"
-    //            << std::endl;
-    //    std::cout.flush();
+    //          << endl;
+    //    cout << "URANIUM all surface = " << allsurf << " m2 / (100 g solid)"
+    //            << endl;
+    //    cout << "URANIUM cement mass = " << cemmass << " g / (100 g solid)" <<
+    //    endl; cout << "URANIUM cement surface = " << cemsurf << " m2 / (100 g
+    //    solid)"
+    //            << endl;
+    //    cout.flush();
     // }
     if (cemmass > 0.0) {
       cemsurf *= (1000.0 / cemmass);
@@ -1599,8 +1599,8 @@ public:
   @param sortorder is 0 if sorting in descending order, nonzero otherwise
   @return an STL list of the site ids according to the distribution
   */
-  std::vector<int> findDomainSizeDistribution(int phaseid, const int numsites,
-                                              int maxsize, int sortorder);
+  vector<int> findDomainSizeDistribution(int phaseid, const int numsites,
+                                         int maxsize, int sortorder);
 
   /**
   @brief Estimate the <i>linear size</i> of a domain
@@ -1645,21 +1645,21 @@ public:
   */
   bool getWarning() const { return warning_; }
 
-  std::vector<int> getCount(void) { return count_; }
+  vector<int> getCount(void) { return count_; }
 
   int getCount(int phId) { return count_[phId]; }
 
-  void setCount(std::vector<int> vect) { count_ = vect; }
+  void setCount(vector<int> vect) { count_ = vect; }
 
   int getInterfaceSize(void) { return interface_.size(); }
 
   Interface getInterface(int i) { return interface_[i]; }
 
-  void setGrowthSites(int i, std::vector<Isite> vect) {
+  void setGrowthSites(int i, vector<Isite> vect) {
     interface_[i].setGrowthSites(vect);
   }
 
-  void setDissolutionSites(int i, std::vector<Isite> vect) {
+  void setDissolutionSites(int i, vector<Isite> vect) {
     interface_[i].setDissolutionSites(vect);
   }
   void setInterfaceMicroPhaseId(int i, int mPhId) {
@@ -1672,7 +1672,7 @@ public:
 
   void populateElementData(void);
 
-  std::string getElemSymb(int index) { return cfgElem_[index].symb; }
+  string getElemSymb(int index) { return cfgElem_[index].symb; }
 
   double callRNG(void) {
     numRNGcall_0_++;
@@ -1712,16 +1712,16 @@ public:
     }
     lastRNG_ = lastRNGreset;
 
-    // std::cout << std::endl
+    // cout << endl
     //      << "  Lattice::resetRNG cyc/whileCount/latticeRNGseed_: " << cyc
-    //      << " / " << whileCount << " / " << latticeRNGseed_ << std::endl;
-    // std::cout << "  Lattice::resetRNG "
+    //      << " / " << whileCount << " / " << latticeRNGseed_ << endl;
+    // cout << "  Lattice::resetRNG "
     //         "numRNGcall_0_/numRNGcallLONGMAX_/lastRNGreset/valRNG: "
     //      << numRNGcall_0_ << " / " << numRNGcallLONGMAX_ << " / "
-    //      << lastRNGreset << " / " << valRNG << std::endl;
+    //      << lastRNGreset << " / " << valRNG << endl;
 
     if (abs(lastRNGreset - valRNG) > 1.e-16) {
-      std::cout << std::endl << "Lattice::resetRNG FAILED => exit" << std::endl;
+      cout << endl << "Lattice::resetRNG FAILED => exit" << endl;
       exit(0);
     }
   }
@@ -1730,62 +1730,55 @@ public:
 
   void checkSite(int stId) {
     // int phId = site_[stId].getMicroPhaseId();
-    std::cout << std::endl
-              << " Lattice::checkSite( " << stId << " ):" << std::endl;
-    std::cout << "    phaseId : " << site_[stId].getMicroPhaseId() << std::endl;
-    std::cout << "    inDissInterfacePos_ : "
-              << site_[stId].getInDissInterfacePos() << std::endl;
+    cout << endl << " Lattice::checkSite( " << stId << " ):" << endl;
+    cout << "    phaseId : " << site_[stId].getMicroPhaseId() << endl;
+    cout << "    inDissInterfacePos_ : " << site_[stId].getInDissInterfacePos()
+         << endl;
     if (site_[stId].getInDissInterfacePos() != -1) {
-      std::cout
-          << "     in dissInterface on pos inDissInterfacePos_ : "
-          << interface_[site_[stId].getMicroPhaseId()].getDissolutionSitesId(
-                 site_[stId].getInDissInterfacePos())
-          << std::endl;
+      cout << "     in dissInterface on pos inDissInterfacePos_ : "
+           << interface_[site_[stId].getMicroPhaseId()].getDissolutionSitesId(
+                  site_[stId].getInDissInterfacePos())
+           << endl;
     }
 
-    std::vector<int> growth = site_[stId].getGrowthPhases();
+    vector<int> growth = site_[stId].getGrowthPhases();
     int size = growth.size();
     int k;
-    std::cout << std::endl << " growth_.size() : " << size << std::endl;
+    cout << endl << " growth_.size() : " << size << endl;
     for (k = 0; k < size; k++) {
-      std::cout << "       k = " << k << "   growth_[k] = " << growth[k]
-                << std::endl;
+      cout << "       k = " << k << "   growth_[k] = " << growth[k] << endl;
     }
-    std::cout << std::endl << " inGrowInterfacePos_ : " << std::endl;
+    cout << endl << " inGrowInterfacePos_ : " << endl;
     for (k = 0; k < numMicroPhases_; k++) {
-      std::cout << "       k = " << k
-                << "   site_[stId].getInGrowInterfacePos(k) = "
-                << site_[stId].getInGrowInterfacePos(k) << std::endl;
+      cout << "       k = " << k << "   site_[stId].getInGrowInterfacePos(k) = "
+           << site_[stId].getInGrowInterfacePos(k) << endl;
     }
 
-    std::cout << std::endl
-              << "     in growInterfaces on pos inGrowInterfacePos_ :"
-              << std::endl;
+    cout << endl
+         << "     in growInterfaces on pos inGrowInterfacePos_ :" << endl;
     for (k = 0; k < numMicroPhases_; k++) {
-      std::cout << "       k_ = " << k << std::endl;
-      std::cout.flush();
+      cout << "       k_ = " << k << endl;
+      cout.flush();
       if (site_[stId].getInGrowInterfacePos(k) > -1) {
         size = growthInterfaceSize_[k];
-        std::cout << "       k = " << k
-                  << "   pos = " << site_[stId].getInGrowInterfacePos(k)
-                  << "   size = " << size << std::endl;
-        std::cout.flush();
-        std::cout << "            siteId in grInt = "
-                  << interface_[k].getGrowthSitesId(
-                         site_[stId].getInGrowInterfacePos(k))
-                  << std::endl;
-        std::cout.flush();
+        cout << "       k = " << k
+             << "   pos = " << site_[stId].getInGrowInterfacePos(k)
+             << "   size = " << size << endl;
+        cout.flush();
+        cout << "            siteId in grInt = "
+             << interface_[k].getGrowthSitesId(
+                    site_[stId].getInGrowInterfacePos(k))
+             << endl;
+        cout.flush();
       }
     }
   }
 
-  std::vector<int> getGrowthInterfaceSize(void) { return growthInterfaceSize_; }
+  vector<int> getGrowthInterfaceSize(void) { return growthInterfaceSize_; }
 
-  void setGrowthInterfaceSize(std::vector<int> vect) {
-    growthInterfaceSize_ = vect;
-  }
+  void setGrowthInterfaceSize(vector<int> vect) { growthInterfaceSize_ = vect; }
 
-  std::vector<int> getDissolutionInterfaceSize(void) {
+  vector<int> getDissolutionInterfaceSize(void) {
     return dissolutionInterfaceSize_;
   }
 
@@ -1793,13 +1786,13 @@ public:
     return dissolutionInterfaceSize_[phId];
   }
 
-  void setDissolutionInterfaceSize(std::vector<int> vect) {
+  void setDissolutionInterfaceSize(vector<int> vect) {
     dissolutionInterfaceSize_ = vect;
   }
 
-  std::vector<int> chooseNucleationSitesRND(int phaseID, int numLeft);
+  vector<int> chooseNucleationSitesRND(int phaseID, int numLeft);
 
-  std::vector<int> chooseNucleationSitesAFF(int phaseID, int numLeft);
+  vector<int> chooseNucleationSitesAFF(int phaseID, int numLeft);
 
   /**
   @brief Convert (switch to electrolyte) the prescribed number of
@@ -1816,21 +1809,23 @@ public:
   switched or the ID of the first microphase (in dissPhaseIDVect) for which this
   was not possible
   */
-  std::vector<int> transformPhase(int ettrid, int netsitesEttrid,
-                                  std::vector<int> dissPhaseIDVect,
-                                  std::vector<int> numSiteDissVect,
-                                  std::vector<std::string> dissPhNameVect,
-                                  std::vector<double> volumeRatio,
-                                  int &numadded_D, int totalTRC);
+  vector<int>
+  transformPhase(int ettrid, int netsitesEttrid, vector<int> dissPhaseIDVect,
+                 vector<int> numSiteDissVect, vector<string> dissPhNameVect,
+                 vector<double> volumeRatio, int &numadded_D, int totalTRC);
 
+  /** */
   void createGrowingVectSA(void);
 
-  void transformGrowPhase(Site *ste, int growPhID, int totalTRC);
+  /** */
+  vector<int> transformLiqSol(Site *ste, int growPhID, int totalTRC);  // liq to sol
 
-  void transformChangePhase(Site *ste, int oldPhId, int newPhId, int totalTRC);
+  /** */
+  void transformSolSol(Site *ste, int oldPhId, int newPhId, int totalTRC); // sol to sol
 
-  std::vector<int> getAllSitesPhId(void) {
-    std::vector<int> allPhId(numSites_, 0);
+  /** */
+  vector<int> getAllSitesPhId(void) {
+    vector<int> allPhId(numSites_, 0);
     for (int i = 0; i < numSites_; i++) {
       allPhId[i] = site_[i].getMicroPhaseId();
     }

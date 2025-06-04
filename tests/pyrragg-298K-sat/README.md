@@ -7,5 +7,5 @@ aggregate particle containing some pyrrhotite under saturated conditions at
 The system is 300 x 300 x 50 voxels, with each voxel being 157 micrometers in
 dimension.
 
-The user may edit the chemistry.json file to change the moisture conditions from saturated
+The user may edit the simparams.json file to change the moisture conditions from saturated
 to sealed.

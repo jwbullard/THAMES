@@ -11,10 +11,9 @@ account for elastic strain energy.
 #ifndef SRC_THAMESLIB_STRAINENERGY_H_
 #define SRC_THAMESLIB_STRAINENERGY_H_
 
-#include <math.h>
-#include <string>
-#include <vector>
+#include "global.h"
+#include "Exceptions.h"
 
-extern std::vector<double> strainenergy;
+extern vector<double> strainenergy;
 
 #endif // SRC_THAMESLIB_STRAINENERGY_H_

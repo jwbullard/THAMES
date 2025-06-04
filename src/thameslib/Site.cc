@@ -5,7 +5,6 @@
 */
 
 #include "Site.h"
-#include "ChemicalSystem.h"
 
 Site::Site() {
   x_ = y_ = z_ = 0;
