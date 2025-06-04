@@ -15,6 +15,8 @@
 #include <iostream>
 #include <stdexcept>
 
+using namespace std;
+
 // String indicating THAMES version in the input microstructure file
 inline const char VERSIONSTRING[] = "#THAMES:Version:";
 
@@ -100,7 +102,7 @@ inline const char StandardType[] = "Standard";
 inline const char PozzolanicType[] = "Pozzolanic";
 
 // String for the command to convert between image files (Imagemagick)
-inline const std::string ConvertCommand = "magick";
+inline const string ConvertCommand = "magick";
 
 // Flag to indicate exiting the program
 inline const int QUIT_PROGRAM = 1;

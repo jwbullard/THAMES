@@ -33,12 +33,12 @@ Isite::Isite(const Isite &obj) {
   prob_ = obj.prob_;
 }
 
-Isite& Isite::operator=(const Isite &obj){     // copy assignment operator
+Isite &Isite::operator=(const Isite &obj) { // copy assignment operator
 
-    id_=obj.id_;
-    affinity_ = obj.affinity_;
-    verbose_ = obj.verbose_;
-    prob_ = obj.prob_;
+  id_ = obj.id_;
+  affinity_ = obj.affinity_;
+  verbose_ = obj.verbose_;
+  prob_ = obj.prob_;
 
-    return *this;
+  return *this;
 }

@@ -30,6 +30,8 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #include <map>
 #include <string>
 
+using namespace std;
+
 /**
 @class StandardKineticModel
 @brief Handles the kinetic model of pozzolanic materials
@@ -88,7 +90,7 @@ public:
 
   @return a string indicating the model type
   */
-  std::string getType() const { return (StandardType); }
+  string getType() const { return (StandardType); }
 
   /**
   @brief Set the surface area multiplier

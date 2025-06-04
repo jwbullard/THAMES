@@ -20,6 +20,8 @@ will take on more distinct details later.
 #include <iostream>
 #include <string>
 
+using namespace std;
+
 /**
 @class Declare the EOBException class
 
@@ -29,11 +31,11 @@ an out of bounds element of an array.
 class EOBException {
 
 private:
-  std::string arrayname_;    /**< Name of the array accessed */
-  std::string classname_;    /**< Name of the class that accessed the array */
-  std::string functionname_; /**< Name of the method that accessed the array */
-  int sizelimit_;            /**< Number of elements contained in the array */
-  int indx_; /**< Out-of-bounds element number that was queried */
+  string arrayname_;    /**< Name of the array accessed */
+  string classname_;    /**< Name of the class that accessed the array */
+  string functionname_; /**< Name of the method that accessed the array */
+  int sizelimit_;       /**< Number of elements contained in the array */
+  int indx_;            /**< Out-of-bounds element number that was queried */
 
 public:
   /**
@@ -58,8 +60,8 @@ public:
   @param sl is the total number of array elements in that array
   @param id is the element number (out of bounds) that was queried erroneously
   */
-  EOBException(const std::string &cname, const std::string &fileName,
-               const std::string &arname, const int sl, const unsigned int id) {
+  EOBException(const string &cname, const string &fileName,
+               const string &arname, const int sl, const unsigned int id) {
     classname_ = cname;
     functionname_ = fileName;
     arrayname_ = arname;
@@ -72,21 +74,21 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the EOB exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the array name that was queried when the EOB exception was thrown.
 
   @return the array name
   */
-  std::string &getArrayname() const { return (std::string &)arrayname_; }
+  string &getArrayname() const { return (string &)arrayname_; }
 
   /**
   @brief Get the number of elements of the array queried when the EOB exception
@@ -108,26 +110,22 @@ public:
 
   */
   void printException() {
-    std::cout << std::endl << "EOB Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << std::endl << "EOB Exception Thrown:" << std::endl;
-    std::cerr << "    Details: " << std::endl;
-    std::cerr << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
+    cout << endl << "EOB Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << endl << "EOB Exception Thrown:" << endl;
+    cerr << "    Details: " << endl;
+    cerr << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
     if (indx_ == 0) {
-      std::cout << "        Array: " << arrayname_ << std::endl;
-      std::cerr << "        Array: " << arrayname_ << std::endl;
+      cout << "        Array: " << arrayname_ << endl;
+      cerr << "        Array: " << arrayname_ << endl;
     } else {
-      std::cout << "        Array: " << arrayname_ << " contains "
-                << sizelimit_;
-      std::cout << " elements, but tried to access element " << indx_
-                << std::endl;
-      std::cerr << "        Array: " << arrayname_ << " contains "
-                << sizelimit_;
-      std::cerr << " elements, but tried to access element " << indx_
-                << std::endl;
+      cout << "        Array: " << arrayname_ << " contains " << sizelimit_;
+      cout << " elements, but tried to access element " << indx_ << endl;
+      cerr << "        Array: " << arrayname_ << " contains " << sizelimit_;
+      cerr << " elements, but tried to access element " << indx_ << endl;
     }
     return;
   }
@@ -144,10 +142,10 @@ close, write to, or read from a file.
 class FileException {
 
 private:
-  std::string filename_;     /**< Name of the offending file */
-  std::string extype_;       /**< Name of the exception description */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
+  string filename_;     /**< Name of the offending file */
+  string extype_;       /**< Name of the exception description */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -170,8 +168,8 @@ public:
   @param filename is the name of the offending file
   @param extype is the description of the exception type
   */
-  FileException(const std::string &cname, const std::string &fileName,
-                const std::string &filename, const std::string &extype) {
+  FileException(const string &cname, const string &fileName,
+                const string &filename, const string &extype) {
     classname_ = cname;
     functionname_ = fileName;
     filename_ = filename;
@@ -183,46 +181,44 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the file exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the file name that was queried when the file exception was thrown.
 
   @return the file name
   */
-  std::string &getFilename() const { return (std::string &)filename_; }
+  string &getFilename() const { return (string &)filename_; }
 
   /**
   @brief Get the file exception type description.
 
   @return the exception type description
   */
-  std::string &getExtype() const { return (std::string &)extype_; }
+  string &getExtype() const { return (string &)extype_; }
 
   /**
   @brief Provide formatted output of the exception details.
 
   */
   void printException() {
-    std::cout << std::endl << "File Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        File: " << filename_ << ", Problem:" << extype_
-              << std::endl;
-    std::cout << std::endl << "File Exception Thrown:" << std::endl;
-    std::cerr << "    Details: " << std::endl;
-    std::cerr << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cerr << "        File: " << filename_ << ", Problem: " << extype_
-              << std::endl;
+    cout << endl << "File Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        File: " << filename_ << ", Problem:" << extype_ << endl;
+    cout << endl << "File Exception Thrown:" << endl;
+    cerr << "    Details: " << endl;
+    cerr << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cerr << "        File: " << filename_ << ", Problem: " << extype_ << endl;
     return;
   }
 
@@ -238,9 +234,9 @@ operations, especially divide-by-zero exceptions.
 class FloatException {
 
 private:
-  std::string description_;  /**< Description of the floating point exception */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
+  string description_;  /**< Description of the floating point exception */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -261,8 +257,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  FloatException(const std::string &cname, const std::string &fileName,
-                 const std::string &strd) {
+  FloatException(const string &cname, const string &fileName,
+                 const string &strd) {
     classname_ = cname;
     functionname_ = fileName;
     description_ = strd;
@@ -274,7 +270,7 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the floating point
@@ -282,30 +278,30 @@ public:
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the description of the floating point exception.
 
   @return the file name
   */
-  std::string &getDescription() const { return (std::string &)description_; }
+  string &getDescription() const { return (string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
 
   */
   void printException() {
-    std::cout << std::endl << "Floating Point Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        Description: " << description_ << std::endl;
-    std::cerr << std::endl << "Floating Point Exception Thrown:" << std::endl;
-    std::cerr << "    Details: " << std::endl;
-    std::cerr << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cerr << "        Description: " << description_ << std::endl;
+    cout << endl << "Floating Point Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        Description: " << description_ << endl;
+    cerr << endl << "Floating Point Exception Thrown:" << endl;
+    cerr << "    Details: " << endl;
+    cerr << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cerr << "        Description: " << description_ << endl;
     return;
   }
 
@@ -321,10 +317,10 @@ with data handles.
 class HandleException {
 
 private:
-  std::string description_;  /**< Description of the handle exception */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
-  std::string handle_; /**< Description of the handle causing the exception */
+  string description_;  /**< Description of the handle exception */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
+  string handle_;       /**< Description of the handle causing the exception */
 
 public:
   /**
@@ -347,8 +343,8 @@ public:
   @param handle is the handle that caused the exception
   @param strd is the description of the exception
   */
-  HandleException(const std::string &cname, const std::string &fileName,
-                  const std::string &handle, const std::string &strd) {
+  HandleException(const string &cname, const string &fileName,
+                  const string &handle, const string &strd) {
     classname_ = cname;
     functionname_ = fileName;
     handle_ = handle;
@@ -360,46 +356,46 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the handle causing the exception.
 
   @return the handle
   */
-  std::string &getHandle() const { return (std::string &)handle_; }
+  string &getHandle() const { return (string &)handle_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  std::string &getDescription() const { return (std::string &)description_; }
+  string &getDescription() const { return (string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
 
   */
   void printException() {
-    std::cout << std::endl << "Handle Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        Description: " << description_ << std::endl;
-    std::cout << "             Handle: " << handle_ << std::endl;
-    std::cout << std::endl << "Floating Point Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        Description: " << description_ << std::endl;
-    std::cout << "             Handle: " << handle_ << std::endl;
+    cout << endl << "Handle Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        Description: " << description_ << endl;
+    cout << "             Handle: " << handle_ << endl;
+    cout << endl << "Floating Point Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        Description: " << description_ << endl;
+    cout << "             Handle: " << handle_ << endl;
     return;
   }
 
@@ -415,9 +411,9 @@ in the GEM3K library.
 class GEMException {
 
 private:
-  std::string description_;  /**< Description of the GEM exception */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
+  string description_;  /**< Description of the GEM exception */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -438,8 +434,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  GEMException(const std::string &cname, const std::string &fileName,
-               const std::string &strd) {
+  GEMException(const string &cname, const string &fileName,
+               const string &strd) {
     classname_ = cname;
     functionname_ = fileName;
     description_ = strd;
@@ -450,37 +446,37 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  std::string &getDescription() const { return (std::string &)description_; }
+  string &getDescription() const { return (string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
 
   */
   void printException() {
-    std::cout << std::endl << "GEM Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        " << description_ << std::endl;
-    std::cout << std::endl << "GEM Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        " << description_ << std::endl;
+    cout << endl << "GEM Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        " << description_ << endl;
+    cout << endl << "GEM Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        " << description_ << endl;
     return;
   }
 
@@ -495,9 +491,9 @@ microstructure modifications.
 */
 class MicrostructureException {
 private:
-  std::string description_;  /**< Description of the GEM exception */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
+  string description_;  /**< Description of the GEM exception */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
   bool excp_; /**< true <-> for exception / false <-> for normal exit */
 
 public:
@@ -519,8 +515,8 @@ public:
     @param fileName is the method name where the exception was thrown
     @param strd is the description of the exception
   */
-  MicrostructureException(const std::string &cname, const std::string &fileName,
-                          const std::string &strd) {
+  MicrostructureException(const string &cname, const string &fileName,
+                          const string &strd) {
     classname_ = cname;
     functionname_ = fileName;
     description_ = strd;
@@ -534,8 +530,8 @@ public:
     @param strd is the description of the exception
     @param excp is true <-> for exception / false <-> for normal exit
   */
-  MicrostructureException(const std::string &cname, const std::string &fileName,
-                          const std::string &strd, bool excp) {
+  MicrostructureException(const string &cname, const string &fileName,
+                          const string &strd, bool excp) {
     classname_ = cname;
     functionname_ = fileName;
     description_ = strd;
@@ -547,21 +543,21 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the description of the exception.
 
   @return the file name
   */
-  std::string &getDescription() const { return (std::string &)description_; }
+  string &getDescription() const { return (string &)description_; }
 
   bool getExcp() { return excp_; }
 
@@ -572,27 +568,27 @@ public:
   void printException() {
     // bool excp1_ = true;
     if (excp_) {
-      std::cout << std::endl << "Microstructure Exception Thrown:" << std::endl;
-      std::cout << "    Details: " << std::endl;
-      std::cout << "        Offending Function " << classname_
-                << "::" << functionname_ << std::endl;
-      std::cout << "        Problem: " << description_ << std::endl;
-      std::cout << std::endl << "Microstructure Exception Thrown:" << std::endl;
-      std::cout << "    Details: " << std::endl;
-      std::cout << "        Offending Function " << classname_
-                << "::" << functionname_ << std::endl;
-      std::cout << "        Problem: " << description_ << std::endl;
+      cout << endl << "Microstructure Exception Thrown:" << endl;
+      cout << "    Details: " << endl;
+      cout << "        Offending Function " << classname_
+           << "::" << functionname_ << endl;
+      cout << "        Problem: " << description_ << endl;
+      cout << endl << "Microstructure Exception Thrown:" << endl;
+      cout << "    Details: " << endl;
+      cout << "        Offending Function " << classname_
+           << "::" << functionname_ << endl;
+      cout << "        Problem: " << description_ << endl;
     } else {
-      std::cout << std::endl << "Microstructure Exception Thrown:" << std::endl;
-      std::cout << "    Details: " << std::endl;
-      std::cout << "        From Function " << classname_
-                << "::" << functionname_ << std::endl;
-      std::cout << "        reason: " << description_ << std::endl;
-      std::cout << std::endl << "Microstructure Exception Thrown:" << std::endl;
-      std::cout << "    Details: " << std::endl;
-      std::cout << "        From Function " << classname_
-                << "::" << functionname_ << std::endl;
-      std::cout << "        reason: " << description_ << std::endl;
+      cout << endl << "Microstructure Exception Thrown:" << endl;
+      cout << "    Details: " << endl;
+      cout << "        From Function " << classname_ << "::" << functionname_
+           << endl;
+      cout << "        reason: " << description_ << endl;
+      cout << endl << "Microstructure Exception Thrown:" << endl;
+      cout << "    Details: " << endl;
+      cout << "        From Function " << classname_ << "::" << functionname_
+           << endl;
+      cout << "        reason: " << description_ << endl;
     }
 
     return;
@@ -609,9 +605,9 @@ data errors.
 class DataException {
 
 private:
-  std::string description_;  /**< Description of the GEM exception */
-  std::string classname_;    /**< Name of the class that threw the exception */
-  std::string functionname_; /**< Number of function that threw the exception */
+  string description_;  /**< Description of the GEM exception */
+  string classname_;    /**< Name of the class that threw the exception */
+  string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -632,8 +628,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  DataException(const std::string &cname, const std::string &functionName,
-                const std::string &strd) {
+  DataException(const string &cname, const string &functionName,
+                const string &strd) {
     classname_ = cname;
     functionname_ = functionName;
     description_ = strd;
@@ -644,37 +640,37 @@ public:
 
   @return the class name
   */
-  std::string &getClassname() const { return (std::string &)classname_; }
+  string &getClassname() const { return (string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  std::string &getFunctionname() const { return (std::string &)functionname_; }
+  string &getFunctionname() const { return (string &)functionname_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  std::string &getDescription() const { return (std::string &)description_; }
+  string &getDescription() const { return (string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
 
   */
   void printException() {
-    std::cout << std::endl << "Data Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        Problem:" << description_ << std::endl;
-    std::cout << std::endl << "Data Exception Thrown:" << std::endl;
-    std::cout << "    Details: " << std::endl;
-    std::cout << "        Offending Function " << classname_
-              << "::" << functionname_ << std::endl;
-    std::cout << "        Problem: " << description_ << std::endl;
+    cout << endl << "Data Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        Problem:" << description_ << endl;
+    cout << endl << "Data Exception Thrown:" << endl;
+    cout << "    Details: " << endl;
+    cout << "        Offending Function " << classname_ << "::" << functionname_
+         << endl;
+    cout << "        Problem: " << description_ << endl;
     return;
   }
 

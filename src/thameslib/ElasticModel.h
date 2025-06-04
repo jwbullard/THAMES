@@ -71,6 +71,8 @@ http://ciks.cbt.nist.gov/~garbocz/manual/man.html
 #include "StrainEnergy.h"
 #include "global.h"
 
+using namespace std;
+
 /**
 @class Declare the ElasticModel base class for finite element calculations
 */
@@ -78,22 +80,20 @@ class ElasticModel {
 
 protected:
   ChemicalSystem *chemSys_;
-  int nx_;      /**< Number of voxels in x dimension */
-  int ny_;      /**< Number of voxels in y dimension */
-  int nz_;      /**< Number of voxels in z dimension */
-  int nxy_;     /**< nxy_ = nx_ * ny_ */
-  int ns_;      /**< Number of total voxels */
-  int nphase_;  /**< Maximimum allowed number of phases */
-  int npoints_; /**< Number of microstructures to process */
-  std::string
-      phasemod_fileName_; /**< File name saving the phase elastic moduli */
-  std::vector<std::vector<double>> u_;  /**< 2D displacement field */
-  std::vector<std::vector<double>> gb_; /**< Energy gradient */
-  std::vector<std::vector<double>>
+  int nx_;                    /**< Number of voxels in x dimension */
+  int ny_;                    /**< Number of voxels in y dimension */
+  int nz_;                    /**< Number of voxels in z dimension */
+  int nxy_;                   /**< nxy_ = nx_ * ny_ */
+  int ns_;                    /**< Number of total voxels */
+  int nphase_;                /**< Maximimum allowed number of phases */
+  int npoints_;               /**< Number of microstructures to process */
+  string phasemod_fileName_;  /**< File name saving the phase elastic moduli */
+  vector<vector<double>> u_;  /**< 2D displacement field */
+  vector<vector<double>> gb_; /**< Energy gradient */
+  vector<vector<double>>
       b_; /**< Coefficient of linear displacement in energy */
-  std::vector<std::vector<double>>
-      h_; /**< Auxiliary conjugate gradient variable */
-  std::vector<std::vector<double>> Ah_; /**< Local stiffness matrix */
+  vector<vector<double>> h_;  /**< Auxiliary conjugate gradient variable */
+  vector<vector<double>> Ah_; /**< Local stiffness matrix */
 
   bool verbose_; /**< Whether of not to produce verbose output */
   bool warning_; /**< Whether of not to produce warning output */
@@ -115,7 +115,7 @@ protected:
   This means that, for example, `cmod(4,1,4)` is the tensor component 1123 (or
   1132) of the 4th phase in the system.
   */
-  std::vector<std::vector<std::vector<double>>> cmod_;
+  vector<vector<vector<double>>> cmod_;
 
   /**
   @brief Array of stiffness matrices for each phase.
@@ -133,7 +133,7 @@ protected:
       - Fifth index can be 0 to 3, defining the components of the displacement
   at that corner
   */
-  std::vector<std::vector<std::vector<std::vector<std::vector<double>>>>> dk_;
+  vector<vector<vector<vector<vector<double>>>>> dk_;
 
   /**
   @brief The bulk and shear moduli of each phase.
@@ -142,9 +142,9 @@ protected:
   second index is either 0 (for bulk modulus) or 1 (for shear modulus), both
   in units of GPa.
   */
-  std::vector<std::vector<double>> phasemod_;
+  vector<vector<double>> phasemod_;
 
-  std::vector<double> prob_; /**< Array of phase volume fractions */
+  vector<double> prob_; /**< Array of phase volume fractions */
 
   /**
   @brief The neighbor table defining the mesh topology.
@@ -161,16 +161,13 @@ protected:
   The neighor table stores the list of nearest-neighbor indices for each
   element.
   */
-  std::vector<std::vector<int>> ib_;
+  vector<vector<int>> ib_;
 
-  std::vector<int> pix_; /**< Phase index label at each element */
-  std::vector<std::vector<double>>
-      elestress_; /**< Stress components at each element */
-  std::vector<std::vector<double>>
-      elestrain_;                  /**< Strain components at each element */
-  std::vector<double> strainengy_; /**< Local strain energy in each element */
-  std::vector<double>
-      avgStrainengy_; /**< Average strain energy of each phase */
+  vector<int> pix_;                  /**< Phase index label at each element */
+  vector<vector<double>> elestress_; /**< Stress components at each element */
+  vector<vector<double>> elestrain_; /**< Strain components at each element */
+  vector<double> strainengy_;        /**< Local strain energy in each element */
+  vector<double> avgStrainengy_;     /**< Average strain energy of each phase */
 
   double strxx_; /**< Prescribed stress xx component */
   double stryy_; /**< Prescribed stress yy component */
@@ -228,7 +225,7 @@ public:
   @param phasemod_fileName is the file name for saving the phase moduli data
   @param nphase is the maximum allowed number of phases in the microstructure
   */
-  // void ElasModul(std::string phasemod_fileName, int nphase);
+  // void ElasModul(string phasemod_fileName, int nphase);
   void ElasModul(void);
 
   void initStiffness(void);
@@ -290,12 +287,12 @@ public:
   @param fileName is the input file containing the microstructure data
   @param nphase is the maximum allowed number of phases in the microstructure
   */
-  // void ppixel(std::string fileName, int nphase);
-  void ppixel(std::string fileName);
+  // void ppixel(string fileName, int nphase);
+  void ppixel(string fileName);
 
-  void ppixel(std::vector<int> vectPhId);
+  void ppixel(vector<int> vectPhId);
 
-  void ppixel(std::vector<int> *p_vectPhId);
+  void ppixel(vector<int> *p_vectPhId);
 
   /**
   @brief Determine the volume fractions of the different phases.
@@ -367,10 +364,8 @@ public:
       val = strxy_;
       break;
     default:
-      std::cout << "i (" << i << ") is not a recognized stress component"
-                << std::endl;
-      std::cerr << "i (" << i << ") is not a recognized stress component"
-                << std::endl;
+      cout << "i (" << i << ") is not a recognized stress component" << endl;
+      cerr << "i (" << i << ") is not a recognized stress component" << endl;
       break;
     }
 
@@ -408,10 +403,8 @@ public:
       val = sxy_;
       break;
     default:
-      std::cout << "i (" << i << ") is not a recognized strain component"
-                << std::endl;
-      std::cerr << "i (" << i << ") is not a recognized strain component"
-                << std::endl;
+      cout << "i (" << i << ") is not a recognized strain component" << endl;
+      cerr << "i (" << i << ") is not a recognized strain component" << endl;
       break;
     }
 
@@ -444,7 +437,7 @@ public:
   */
   // virtual void femat(int nx, int ny, int nz, int ns, int nphase) {
   //   if (verbose_)
-  //     std::cout << "virtual function 'femat' in base class." << std::endl;
+  //     cout << "virtual function 'femat' in base class." << endl;
   //   return;
   // }
 
@@ -462,7 +455,7 @@ public:
   */
   // virtual int dembx(int ns, double gg, int ldemb, int kkk) {
   //   if (verbose_)
-  //     std::cout << "virtual function 'dembx' in base class." << std::endl;
+  //     cout << "virtual function 'dembx' in base class." << endl;
   //   return 0;
   // }
 
@@ -482,7 +475,7 @@ public:
   */
   // virtual double energy(int nx, int ny, int nz, int ns) {
   //   if (verbose_)
-  //     std::cout << "virtual function 'energy' in base class." << std::endl;
+  //     cout << "virtual function 'energy' in base class." << endl;
   //   return 0.0;
   // }
 
@@ -499,7 +492,7 @@ public:
   */
   // virtual void stress(int nx, int ny, int nz, int ns) {
   //   if (verbose_)
-  //     std::cout << "virtual function 'stress' in base class." << std::endl;
+  //     cout << "virtual function 'stress' in base class." << endl;
   //   return;
   // }
 
@@ -515,7 +508,7 @@ public:
   */
   // virtual void relax(double time, int kmax) {
   //  if (verbose_)
-  //     std::cout << "virtual function 'relax' in base class." << std::endl;
+  //     cout << "virtual function 'relax' in base class." << endl;
   //   return;
   // }
 
@@ -534,11 +527,11 @@ public:
   @param eyz is the input prescribed yz component of the strain
   @param exy is the input prescribed xy component of the strain
   */
-  // virtual void Calc(double time, std::string fileName, double exx, double
+  // virtual void Calc(double time, string fileName, double exx, double
   // eyy,
   //                   double ezz, double exz, double eyz, double exy) {
   //   if (verbose_)
-  //     std::cout << "virtual function 'thrMic' in base class." << std::endl;
+  //     cout << "virtual function 'thrMic' in base class." << endl;
   //   return;
   // }
 
@@ -559,7 +552,7 @@ public:
   @param time is the simulation time [hours]
   @param index is the stress component to visualize (values 0 to 5)
   */
-  void writeStress(std::string &root, double time, int index);
+  void writeStress(string &root, double time, int index);
 
   /**
   @brief Create visualization of the strain field in a 2D microstructure slice.
@@ -576,7 +569,7 @@ public:
   @param time is the simulation time [hours]
   @param index is the strain component to visualize (values 0 to 5)
   */
-  void writeStrain(std::string &root, double time, int index);
+  void writeStrain(string &root, double time, int index);
 
   /**
   @brief Create data file storing the 3D displacement field
@@ -584,8 +577,8 @@ public:
   @param root is the root name of the file to create
   @param time is the simulation time [hours]
   */
-  // void writeDisp(std::string &root, double time);
-  void writeDisp(std::string &root, std::string timeString);
+  // void writeDisp(string &root, double time);
+  void writeDisp(string &root, string timeString);
 
   /**
   @brief Create visualization of the strain energy in a 2D microstructure slice.
@@ -599,14 +592,14 @@ public:
   @param root is the root name of the file to create
   @param time is the simulation time [hours]
   */
-  void writeStrainEngy(std::string &root, double time);
+  void writeStrainEngy(string &root, double time);
 
   /**
   @brief Set the name of the file containing the phase elastic moduli
 
   @param phasemod_fileName is the file name to set
   */
-  void setPhasemodfileName(std::string phasemod_fileName) {
+  void setPhasemodfileName(string phasemod_fileName) {
     phasemod_fileName_ = phasemod_fileName;
     return;
   }
@@ -616,7 +609,7 @@ public:
 
   @return the phase modulus input file name
   */
-  std::string getPhasemodfileName(void) { return phasemod_fileName_; }
+  string getPhasemodfileName(void) { return phasemod_fileName_; }
 
   /**
   @brief Set the verbose flag

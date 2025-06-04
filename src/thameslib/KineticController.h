@@ -28,6 +28,7 @@ different kinetic models that govern the rate of hydration.
 #include <string>
 #include <vector>
 
+using namespace std;
 using json = nlohmann::json;
 
 /**
@@ -45,7 +46,7 @@ private:
       chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
   Lattice *
       lattice_; /**< Pointer to the lattice object holding the microstructure */
-  std::vector<KineticModel *>
+  vector<KineticModel *>
       phaseKineticModel_;    /***< Kinetic model for each phase */
   double temperature_;       /**< Temperature [K] */
   double refT_;              /**< Reference temperature for PK model [K] */
@@ -53,19 +54,17 @@ private:
                                 [hours] */
   double leachTime_; /**< Time at which leaching simulation starts [hours] */
 
-  std::vector<std::string>
-      name_; /**< List of names of phases in the kinetic model */
-  std::vector<std::string> ICName_;
-  std::vector<std::string> DCName_;
-  std::vector<int> microPhaseId_; /**< List of microstructure ids that are in
-                                kinetic model */
-  std::vector<double> initScaledMass_; /**< List of initial scaled masses */
-  std::vector<double> scaledMass_;     /**< List of scaled masses */
-  std::vector<double>
-      specificSurfaceArea_; /**< List of specific surface areas */
-  std::vector<double>
+  vector<string> name_; /**< List of names of phases in the kinetic model */
+  vector<string> ICName_;
+  vector<string> DCName_;
+  vector<int> microPhaseId_;      /**< List of microstructure ids that are in
+                                     kinetic model */
+  vector<double> initScaledMass_; /**< List of initial scaled masses */
+  vector<double> scaledMass_;     /**< List of scaled masses */
+  vector<double> specificSurfaceArea_; /**< List of specific surface areas */
+  vector<double>
       refSpecificSurfaceArea_; /**< List of reference specific surface areas */
-  std::vector<bool> isKinetic_;
+  vector<bool> isKinetic_;
   // int waterId_;     /**< DC index for liquid water */
   int ICNum_;       /**< Number of ICs in chemical system */
   int DCNum_;       /**< Number of DCs in chemical system */
@@ -73,18 +72,18 @@ private:
   bool verbose_;    /**< Flag for verbose output */
   bool warning_;    /**< Flag for warnining output */
 
-  std::vector<double> ICMoles_;
-  std::vector<double> DCMoles_;
-  std::vector<double> DCMolesIni_;
-  std::vector<double> ICMolesTot_;
-  std::vector<double>
+  vector<double> ICMoles_;
+  vector<double> DCMoles_;
+  vector<double> DCMolesIni_;
+  vector<double> ICMolesTot_;
+  vector<double>
       scaledMassIni_; /**< List of scaled masses before a given time step*/
 
-  std::vector<int> impurityDCID_;
-  std::vector<double> impurity_K2O_;
-  std::vector<double> impurity_Na2O_;
-  std::vector<double> impurity_Per_;
-  std::vector<double> impurity_SO3_;
+  vector<int> impurityDCID_;
+  vector<double> impurity_K2O_;
+  vector<double> impurity_Na2O_;
+  vector<double> impurity_Per_;
+  vector<double> impurity_SO3_;
 
   int pKMsize_;
 
@@ -94,7 +93,7 @@ private:
   int waterDCId_; /**< coresp to DCName = "H2O@" */
   double beginAttackTime_;
 
-  std::vector<double> surfaceAreaIni_;
+  vector<double> surfaceAreaIni_;
 
 public:
   /**
@@ -120,7 +119,7 @@ public:
   @param warning is false if suppressing warning output
   */
   KineticController(ChemicalSystem *cs, Lattice *lattice,
-                    const std::string &jsonFileName, const bool verbose,
+                    const string &jsonFileName, const bool verbose,
                     const bool warning);
 
   /**
@@ -158,7 +157,7 @@ public:
 
   @param docName is the name of the (purported) JSON input file
   */
-  void parseDoc(const std::string &docName);
+  void parseDoc(const string &docName);
 
   /**
   @brief Parse the input data for one phase in the JSON input file.
@@ -227,7 +226,7 @@ public:
 
   @return the vector of scaled masses [percent solids]
   */
-  std::vector<double> getScaledMass() const { return scaledMass_; }
+  vector<double> getScaledMass() const { return scaledMass_; }
 
   /**
   @brief Get the scaled mass of one phase
@@ -249,7 +248,7 @@ public:
 
   @return the vector of initial scaled masses [percent solids]
   */
-  std::vector<double> getInitScaledMass() const { return initScaledMass_; }
+  vector<double> getInitScaledMass() const { return initScaledMass_; }
 
   /**
   @brief Get the <i>initial</i> scaled mass of one microstructure phase
@@ -286,9 +285,7 @@ public:
 
   @return the vector of specific surface areas [m2/kg]
   */
-  std::vector<double> getSpecificSurfaceArea() const {
-    return specificSurfaceArea_;
-  }
+  vector<double> getSpecificSurfaceArea() const { return specificSurfaceArea_; }
 
   /**
   @brief Get the specific surface area of one phase
@@ -306,7 +303,7 @@ public:
 
   @return the vector of reference specific surface areas [m2/kg]
   */
-  std::vector<double> getRefSpecificSurfaceArea() const {
+  vector<double> getRefSpecificSurfaceArea() const {
     return refSpecificSurfaceArea_;
   }
 
@@ -380,7 +377,7 @@ public:
 
   @return the vector of names of phases in the kinetic model
   */
-  // std::vector<std::string> getName() const { return name_; }
+  // vector<string> getName() const { return name_; }
 
   /**
   @brief Get the name of phase with a given index in the kinetic model.
@@ -388,7 +385,7 @@ public:
   @param i is the index of the phase in the kinetic model
   @return the name of the phase with index i
   */
-  // std::string getName(const unsigned int i) const { return name_[i]; }
+  // string getName(const unsigned int i) const { return name_[i]; }
 
   /**
   @brief Set kinetic model DC moles
@@ -481,11 +478,11 @@ public:
   */
   bool getWarning() const { return warning_; }
 
-  std::vector<double> getICMoles(void) { return ICMoles_; }
+  vector<double> getICMoles(void) { return ICMoles_; }
 
-  std::vector<double> getDCMoles(void) { return DCMoles_; }
+  vector<double> getDCMoles(void) { return DCMoles_; }
 
-  std::vector<bool> getIsKinetic(void) { return isKinetic_; }
+  vector<bool> getIsKinetic(void) { return isKinetic_; }
 
   void setHydTimeIni(double val) { hydTimeIni_ = val; }
 

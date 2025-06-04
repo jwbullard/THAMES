@@ -7,6 +7,8 @@
 #include "ChemicalSystem.h"
 #include "RanGen.h"
 
+using namespace std;
+
 bool cmp(const Site *s1, const Site *s2) { return s1->getWmc() < s2->getWmc(); }
 
 bool affinitySort(const Isite s1, const Isite s2) {
@@ -31,9 +33,8 @@ Interface::Interface(const bool verbose) {
 #endif
 }
 
-Interface::Interface(ChemicalSystem *csys, std::vector<Site *> gv,
-                     std::vector<Site *> dv, std::vector<Site *> vgv,
-                     unsigned int pid, const bool verbose) {
+Interface::Interface(ChemicalSystem *csys, vector<Site *> gv, vector<Site *> dv,
+                     vector<Site *> vgv, unsigned int pid, const bool verbose) {
   int j;
   int i;
   double afty;
@@ -106,7 +107,7 @@ Interface::~Interface() {
 }
 
 void Interface::addGrowthSite(Site *loc) {
-  // std::vector<Isite>::iterator p, q, start, end;
+  // vector<Isite>::iterator p, q, start, end;
   // start = growthSites_.begin();
   // end = growthSites_.end();
 
@@ -122,7 +123,7 @@ void Interface::addGrowthSite(Site *loc) {
 }
 
 void Interface::addVoidSite(Site *loc) {
-  // std::vector<Isite>::iterator p, q, start, end;
+  // vector<Isite>::iterator p, q, start, end;
   // start = voidSites_.begin();
   // end = voidSites_.end();
 
@@ -156,8 +157,8 @@ void Interface::removeEmptiedSite(int pos0, int pos1) {
   growthSites_[pos0] = growthSites_[pos1];
   growthSites_.pop_back();
   //} catch (out_of_range &oor) {
-  //  std::cout << std::endl << "EOB Interface::removeEmptiedSite pos0/pos1 = "
-  //  << pos0 <<" / " << pos1 << " => exit" << std::endl; exit(1);
+  //  cout << endl << "EOB Interface::removeEmptiedSite pos0/pos1 = "
+  //  << pos0 <<" / " << pos1 << " => exit" << endl; exit(1);
   //}
 }
 
@@ -167,7 +168,7 @@ void Interface::removeDissolutionSite(int pos0, int pos1) {
   dissolutionSites_[pos0] = dissolutionSites_[pos1];
   dissolutionSites_.pop_back();
   //} catch (out_of_range &oor) {
-  //  std::cout << std::endl << "EOB Interface::removeDissolutionSite pos0/pos1
-  //  = " << pos0 <<" / " << pos1 << " => exit" << std::endl; exit(1);
+  //  cout << endl << "EOB Interface::removeDissolutionSite pos0/pos1
+  //  = " << pos0 <<" / " << pos1 << " => exit" << endl; exit(1);
   //}
 }

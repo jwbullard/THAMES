@@ -5,6 +5,8 @@
 */
 #include "KineticModel.h"
 
+using namespace std;
+
 KineticModel::KineticModel() {
   ///
   /// Clear out the vectors so they can be populated with values from the
@@ -39,8 +41,8 @@ KineticModel::KineticModel() {
 void KineticModel::setKineticDCMoles() {
 
 #ifdef DEBUG
-  std::cout << "KineticModel::setKineMicDCmoles" << std::endl;
-  std::cout.flush();
+  cout << "KineticModel::setKineMicDCmoles" << endl;
+  cout.flush();
 #endif
 
   try {

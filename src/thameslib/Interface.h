@@ -31,6 +31,8 @@ especially for sorting operations and removing or adding elements to vectors.
 #include "Site.h"
 #include "global.h"
 
+using namespace std;
+
 ///
 /// The ChemicalSystem class needs to be declared explicitly because
 /// it is used as a member in the Interface class.
@@ -53,10 +55,10 @@ private:
   ChemicalSystem
       *chemSys_; /**< The `ChemicalSystem` object for the simulation */
 
-  std::vector<Isite> growthSites_; /**< The list of all sites eligible for
+  vector<Isite> growthSites_; /**< The list of all sites eligible for
                                        adjacent growth */
 
-  std::vector<Isite>
+  vector<Isite>
       dissolutionSites_; /**< The list of sites eligible for self-dissolution */
 
   /// The next vector provides a list of empty pore voxels next to
@@ -64,7 +66,7 @@ private:
   /// sealed conditions where all the capillary porosity becomes
   /// empty and we need to withdraw water from neighboring subvoxel
   /// pores to keep hydrating.
-  std::vector<Isite> voidSites_; /**< The list of all sites eligible for
+  vector<Isite> voidSites_; /**< The list of all sites eligible for
                                        adjacent growth */
 
   bool verbose_; /**< Flag for verbose output */
@@ -99,9 +101,8 @@ public:
   @param pid is the integer id of the phase associated with this interface
   @param verbose is true if verbose output should be produced
   */
-  Interface(ChemicalSystem *csys, std::vector<Site *> gv,
-            std::vector<Site *> dv, std::vector<Site *> vgv, unsigned int pid,
-            const bool verbose);
+  Interface(ChemicalSystem *csys, vector<Site *> gv, vector<Site *> dv,
+            vector<Site *> vgv, unsigned int pid, const bool verbose);
 
   /**
   @brief Destructor for the Interface class.
@@ -126,14 +127,14 @@ public:
 
   @return the vector of Isite objects where growth can occur
   */
-  std::vector<Isite> getGrowthSites(void) { return growthSites_; }
+  vector<Isite> getGrowthSites(void) { return growthSites_; }
 
   /**
   @brief Gets the list of void sites next to this phase
 
   @return the vector of Isite objects where growth can occur
   */
-  std::vector<Isite> getVoidSites(void) { return voidSites_; }
+  vector<Isite> getVoidSites(void) { return voidSites_; }
 
   /**
   @brief Gets the size of the voidSites_ vector
@@ -161,7 +162,7 @@ public:
 
   @param vect is the populated vector to set as growthSites_
   */
-  void setGrowthSites(std::vector<Isite> vect) { growthSites_ = vect; }
+  void setGrowthSites(vector<Isite> vect) { growthSites_ = vect; }
 
   /**
   @brief Gets the Isite id number of a position along a growth interface
@@ -176,7 +177,7 @@ public:
 
   @param vect is the populated vector to set as voidSites_
   */
-  void setVoidSites(std::vector<Isite> vect) { voidSites_ = vect; }
+  void setVoidSites(vector<Isite> vect) { voidSites_ = vect; }
 
   /**
   @brief Gets the Isite id number of a position along a void interface
@@ -200,16 +201,14 @@ public:
 
   @return the vector of Isite objects where dissolution can occur
   */
-  std::vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
+  vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
   /**
   @brief Sets the dissolutionSites_ vector
 
   @param vect is the populated vector to set as dissolutionSites_
   */
-  void setDissolutionSites(std::vector<Isite> vect) {
-    dissolutionSites_ = vect;
-  }
+  void setDissolutionSites(vector<Isite> vect) { dissolutionSites_ = vect; }
 
   /**
   @brief Add a site to the list of sites where growth can occur adjacent to the
@@ -245,7 +244,7 @@ public:
   @param pid is the phase that could grow at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortGrowthSites(std::vector<Site> &ste, unsigned int pid);
+  bool sortGrowthSites(vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Sort the list of dissolution sites in descending order of potential for
@@ -255,7 +254,7 @@ public:
   @param pid is the phase that could dissolve at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortDissolutionSites(std::vector<Site> &ste, unsigned int pid);
+  bool sortDissolutionSites(vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Remove a site from the list of sites where growth can occur adjacent to
