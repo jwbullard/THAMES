@@ -612,8 +612,8 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   microPhaseSI_.resize(numMicroPhases_, 0.0);
 
   waterDCId_ = getDCId("H2O@");
-  waterMollarMass_ = getDCMolarMass(waterDCId_);
-  waterMollarVol_ = getDCMolarVolume(waterDCId_);
+  waterMolarMass_ = getDCMolarMass(waterDCId_);
+  waterMolarVol_ = getDCMolarVolume(waterDCId_);
 
   aliteDCId_ = getDCId(AliteDCName);
   beliteDCId_ = getDCId(BeliteDCName);
@@ -2463,11 +2463,11 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
           //      GEMPhaseName_[microPhaseMembers_[i][j]]
           //      << "   microPhaseVolume_[i](use GEMPhaseVolume_!!! ) = " <<
           //      microPhaseVolume_[i]
-          //      << "   numMoles(use waterMollarVol_(waterDCId)!!!) = "
-          //      << microPhaseVolume_[i]/waterMollarVol_ <<  endl;
+          //      << "   numMoles(use waterMolarVol_(waterDCId)!!!) = "
+          //      << microPhaseVolume_[i]/waterMolarVol_ <<  endl;
           // cout << endl << "   DCMoles_[waterDCId_] = " <<
           // DCMoles_[waterDCId_]
-          //      << "   waterMollarVol_ = " << waterMollarVol_ << endl;
+          //      << "   waterMolarVol_ = " << waterMolarVol_ << endl;
         } else if (i != VOIDID && phi < 1.0) {
           microPhaseVolume_[i] +=
               (GEMPhaseVolume_[microPhaseMembers_[i][j]] / (1.0 - phi));
@@ -2547,10 +2547,10 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       double water_molesincr;
       // int wDCId = getDCId("H2O@");
       // water_molarv = node_->DC_V0(wDCId, P_, T_);
-      water_molesincr = (initMicroVolume_ - microVolume_) / waterMollarVol_;
+      water_molesincr = (initMicroVolume_ - microVolume_) / waterMolarVol_;
       if (verbose_) {
         cout << "System is saturated: wDCId = " << waterDCId_ << endl;
-        cout << "    water_molarv = " << waterMollarVol_ << endl;
+        cout << "    water_molarv = " << waterMolarVol_ << endl;
         cout << "    volume increase of water is: "
              << (initMicroVolume_ - microVolume_) << endl;
         cout << "    water_molesincr = " << water_molesincr << endl;
@@ -2558,7 +2558,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       DCMoles_[waterDCId_] += water_molesincr;
 
       // double waterMolarMass = getDCMolarMass(wDCId);
-      addWaterMassAndVolume(water_molesincr * waterMollarMass_,
+      addWaterMassAndVolume(water_molesincr * waterMolarMass_,
                             initMicroVolume_ - microVolume_); // necessary
 
       cout << "  ChemicalSystem::calculateState - cyc = " << cyc
@@ -3711,7 +3711,7 @@ void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
   int DCId;
   double DCconc = 0.0; // mol/kgw units
   double waterMoles = DCMoles_[waterDCId_];
-  double waterMass = 0.001 * waterMoles * waterMollarMass_; // in kg
+  double waterMass = 0.001 * waterMoles * waterMolarMass_; // in kg
 
   if (doAttack) {
     cout << "    ChemicalSystem::setElectrolyteComposition - "

@@ -567,8 +567,8 @@ class ChemicalSystem {
   int isParrotKillohSize_;
 
   int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMollarMass_;
-  double waterMollarVol_;
+  double waterMolarMass_;
+  double waterMolarVol_;
   double beginAttackTime_;
   map<string, elMod> elasticModuli_;
   int aliteDCId_;

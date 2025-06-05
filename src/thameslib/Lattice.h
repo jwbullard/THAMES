@@ -67,9 +67,13 @@ private:
   string damageJobRoot_;
 
   RanGen *rg_; /**< Pointer to random number generator object */
-  int latticeRNGseed_;
-  long int numRNGcall_0_, numRNGcallLONGMAX_;
-  double lastRNG_;
+  int latticeRNGseed_;         /**< the seed of the random number
+                                    generator */
+  long int numRNGcall_0_;      /**< the first number used to keep
+                                    the RNG calls track*/
+  long int numRNGcallLONGMAX_; /**< the second number used to keep
+                                    the RNG calls track */
+  double lastRNG_;             /**< last generated random number */
 
   int xdim_;          /**< Number of sites in the x dimension */
   int ydim_;          /**< Number of sites in the y dimension */
@@ -148,7 +152,7 @@ pores in GEM units */
   vector<chemElem> cfgElem_; /**< Holds periodic table information to output
                                 files in cfg format */
 
-  double initSolidMass_; /**<  */
+  double initSolidMass_; /**< the initial solid mass of the system*/
 
   double wcRatio_;       /**< Water-to-cement mass ratio */
 
@@ -161,18 +165,23 @@ pores in GEM units */
   vector<int> dissolutionInterfaceSize_; /**< dissolution interface size of each
                                             microphase */
 
-  vector<int> growingVectSA_; /**< for SULFATE ATTACK: contains all microPhaseIds growing
-                                   due to SA attack */
-  int sizeGrowingVectSA_;     /**< size of growingVectSA_ */
+  vector<int> growingVectSA_;        /**< for SULFATE ATTACK: contains all
+                                       microPhaseIds growing due to SA attack */
+  int sizeGrowingVectSA_;            /**< size of growingVectSA_ vector*/
 
-  vector<vector<int>> shrinking_;    /**<  */
-  vector<vector<double>> volratios_; /**<  */
+  vector<vector<int>> shrinking_;    /**<  for each microPhaseId in growingVectSA_,
+                                       all the microDhaseIds that can transform
+                                       into this one*/
+  vector<vector<double>> volratios_; /**<  for each microPhaseId in growingVectSA_
+                                       and all corresponding microPhaseIds in
+                                       shrinking_, contains the molar volume ratios
+                                       of the corresponding microPhases:*/
 
   int waterDCId_;           /**< coresp to DCName = "H2O@" */
-  double waterMollarMass_;  /**< mollar mass of water ("H2O@") */
-  double waterMollarVol_;   /**< mollar volume of water ("H2O@") */
+  double waterMolarMass_;   /**< molar mass of water ("H2O@") */
+  double waterMolarVol_;    /**< molar volume of water ("H2O@") */
 
-  int DAMAGEID_;
+  // int DAMAGEID_;
 
 public:
   /**
@@ -615,8 +624,14 @@ public:
     site_[index].setWmc(site_[index].getWmc() + dwmcval);
   }
 
-  /** */
-  void setWmc0(int index, double dwmcval) { site_[index].setWmc0(dwmcval); }
+  /**
+  @brief set the internal porosity, wmc0_, of a site i.e. its contribution to
+  the "weighted mean curvature", wmc_, of the site
+
+  @param index is the index of the Site object in the `site_` array
+  @param wmc0val is the value of wmc0_ to assign to the site
+  */
+  void setWmc0(int index, double wmc0val) { site_[index].setWmc0(wmc0val); }
 
   /**
   @brief Compute normalized initial microstructure phase masses
@@ -662,18 +677,28 @@ public:
                         int totalTRC);
 
   /**
-  @brief create a new growth interface for a given phase (phaseID) having a
-  size of numLeft sites; this is necessary when the "growth" of all requested
+  @brief create a new growth interface by nucleation of numLeft sites for a
+  given phase (phaseID); this is necessary when the "growth" of all requested
   sites for this phase was not possible because the size of the
-  corresponding growth interface was zero.
+  corresponding growth interface was zero. A nucleation site is chosen according
+  to a probability computed taking into account the microPhaseId affinity toward
+  the site surrounding.
 
   @param phaseid is the id of the microstructure phase to nucleate
   @param numLeft is the number of sites to nucleate/create for this phase
-  @return the actual size of the new interface (must equals numLeft!)
   */
   void nucleatePhaseAff(int phaseID, int numLeft);
 
-  /** */
+  /**
+  @brief create a new growth interface by nucleation of numLeft sites for a
+  given phase (phaseID); this is necessary when the "growth" of all requested
+  sites for this phase was not possible because the size of the
+  corresponding growth interface was zero. A nucleation site is chosen with equal
+  probability among the electrolyte sites.
+
+  @param phaseid is the id of the microstructure phase to nucleate
+  @param numLeft is the number of sites to nucleate/create for this phase
+  */
   void nucleatePhaseRnd(int phaseID, int numLeft);
 
   /**
@@ -720,7 +745,11 @@ public:
   */
   int fillPorosity(int numsites, int cyc);
 
-  /** */
+  /**
+  @brief Add water to the all empty pore sites.
+
+  @return the added number of moles of water
+  */
   double fillAllPorosity(int cyc);
 
   /**
@@ -828,7 +857,7 @@ public:
 
   /**
   @brief Remove a site from the list of sites where growth of a given phase can
-  occur.
+  occur, during a dissolution process.
 
   @param loc is a pointer to the Site object to remove from the list of
   potential growth sites
@@ -836,10 +865,22 @@ public:
   */
   void removeGrowthSite_diss(Site *loc, int pid);
 
-  /** */
+  /**
+  @brief Remove a site from the list of sites where growth of a given phase can
+  occur, during a growth process.
+
+  @param loc is a pointer to the Site object to remove from the list of
+  potential growth sites
+  @param pid is the microstructure phase id
+  */
   void removeGrowthSite_grow(Site *ste0, int pid);
 
-  /** */
+  /**
+  @brief Remove a site from the all growth interfaces during a nucleation process.
+
+  @param loc is a pointer to the Site object to remove from the list of
+  potential growth sites
+  */
   void removeGrowthSite_nucleation(Site *loc);
 
   /**
@@ -954,16 +995,40 @@ public:
   */
   void writeLattice(const double curtime, const TimeStruct resolvedtime);
 
-  /** */
-  void writeLatticeH(const double curtime, const TimeStruct resolvedtime);
+  /**
+  @brief Write the 3D microstructure to a xyz file.
 
+  @param curtime is the current time in hours
+  @param resolvedtime is the current time resolved into y,d,h,m
+  @param root is the root name of the png output file to create
+  */
   void writeLatticeXYZ(const double curtime, const TimeStruct resolvedtime);
 
+  /**
+  @brief Write one by one the 3D microstructure into the same xyz file (append).
+
+  @param curtime is the current time in hours
+  */
   void appendXYZ(double curtime);
 
+  /**
+  @brief Write the 3D microstructure to a cfg file that can be read by AtomEye
+  program.
+
+  @param curtime is the current time in hours
+  @param resolvedtime is the current time resolved into y,d,h,m
+  @param root is the root name of the png output file to create
+  */
   void writeLatticeCFG(const double curtime, const TimeStruct resolvedtime);
 
-  /** */
+  /**
+  @brief Write to a file of a 3D sub-microStructure of the current microStructure.
+
+  The sub-microStructure output file will indicate the microPhaseId at each site.
+
+  @param newZdim is the new z dimension (height starting from  z = 0) of
+  the sub-microStructure; x and y dimensions don't change.
+  */
   void writeNewLattice(int newZdim);
 
   /**
@@ -1426,33 +1491,6 @@ public:
   void dWaterChange(double dwaterchangeval) { waterChange_ += dwaterchangeval; }
 
   /**
-  @brief Implement conversion of Al-bearing phases to ettringite.
-
-  This method is intended only for simulating sulfate attack.  The method
-  locates all the Al-bearing phases that are driven to transform. It also
-  calculates the volume of free space adjacent to this site to determine whether
-  crystallization pressure will arise.  If so, the method calculates the
-  crystallization pressure and crystallization stress-free strain.  It then
-  applies the expansion strain so that the new stress field can be calculated by
-  the ThermalStrain FE model object.
-
-  @todo Consider breaking this method into smaller pieces for maintenance and
-  readability.
-
-  @todo Generalize this for any phase transformation.
-
-  @param alphaseid is the microstructure phase id of the Al-bearing phase to
-  dissolve
-  @param netsitesAlphaseid is the number of Al-bearing sites to dissolve
-  @param ettrid is the microstructure phase id of ettringite
-  @param netsitesEttrid is the number of ettringite sites to grow
-  @return vector (na,ne) where na is the number of Al-bearing sites actually
-  changed, and ne is the number of ettringite sites actually grown
-  */
-  vector<int> transform(int alphaseid, int netsitesAlphaseid, int ettrid,
-                        int netsitesEttrid, double volumeratio);
-
-  /**
   @brief Set a pointer to the AppliedStrain object for the simulation.
 
   @param elas is a pointer to the AppliedStrain object for the simulation
@@ -1523,8 +1561,21 @@ public:
     // return 0.0;
   }
 
+  /**
+  @brief Return the current surface area vector, surfaceArea_, of all the phases
+  with the aqueous solution.
+
+  @return the estimated surface area [m2 per 100 g of all solid]
+  */
   vector<double> getSurfaceArea(void) { return surfaceArea_; }
 
+  /**
+  @brief Reset the current surface area vector, surfaceArea_, of all the phases
+  with the aqueous solution.
+
+  @param vect is the vector containing the surface area of each microPhase in the
+  microStructure
+  */
   void resetSurfaceArea(vector<double> vect) { surfaceArea_ = vect; }
 
   /**
@@ -1645,35 +1696,108 @@ public:
   */
   bool getWarning() const { return warning_; }
 
+  /**
+  @brief Get the number of sites occupied by each microPhase in the
+  microStructure (count_ vector)
+
+  @return the count_ vector
+  */
   vector<int> getCount(void) { return count_; }
 
+  /**
+  @brief Get the number of sites occupied by a given microPhase,
+  having a phId microPhaseId, in the microStructure
+
+  @param phId is the microPhaseId
+  @return the number of sites occupied by microPhaseId = phId
+  */
   int getCount(int phId) { return count_[phId]; }
 
+  /**
+  @brief reset the count_ vector, i.e. the number of sites occupied by each
+  microPhase in the microStructure
+
+  @param vect is a vector containing the number of sites for each microPhase in
+  the microStructure
+  */
   void setCount(vector<int> vect) { count_ = vect; }
 
+  /**
+  @brief Get the dimension of the interface_ vector
+
+  @return the dimension of the interface_ vector
+  */
   int getInterfaceSize(void) { return interface_.size(); }
 
-  Interface getInterface(int i) { return interface_[i]; }
+  /**
+  @brief Get both, the dissolution and growth interfaces of a given microPhase,
+  having the microPhaseId = phId
 
-  void setGrowthSites(int i, vector<Isite> vect) {
-    interface_[i].setGrowthSites(vect);
+  @param phId is the microPhaseId
+  @return the interfaces (dissolution and growth) of the microPhase with
+  microPhaseId = phId
+  */
+  Interface getInterface(int phId) { return interface_[phId]; }
+
+  /**
+  @brief Set the growth interface of the microPhase having the microPhaseId = phId
+
+  @param phId is the microPhaseId
+  @param vect is a vector containing all Isite objects belonging to the growth
+  interface oh the microPhase with microPhaseId = phId
+  */
+  void setGrowthSites(int phId, vector<Isite> vect) {
+    interface_[phId].setGrowthSites(vect);
   }
 
-  void setDissolutionSites(int i, vector<Isite> vect) {
-    interface_[i].setDissolutionSites(vect);
-  }
-  void setInterfaceMicroPhaseId(int i, int mPhId) {
-    interface_[i].setMicroPhaseId(mPhId);
+  /**
+  @brief Set the dissolution interface of the microPhase having the microPhaseId = phId
+
+  @param phId is the microPhaseId
+  @param vect is a vector containing all Isite objects belonging to the dissolution
+  interface oh the microPhase with microPhaseId = phId
+  */
+  void setDissolutionSites(int phId, vector<Isite> vect) {
+    interface_[phId].setDissolutionSites(vect);
   }
 
+  /**
+  @brief Get the initial solid mass of the system
+
+  @return the initial solid mass of the system
+  */
   double getInitSolidMass(void) { return initSolidMass_; }
 
+  /**
+  @brief find the voxels voxels without contact with electrolyte
+
+  @note NOT USED.
+  */
   void findIsolatedClusters(void);
 
+  /**
+  @brief create a chemical element database (chemical symbol, atomic number and
+  atomic mass)
+
+  */
   void populateElementData(void);
 
-  string getElemSymb(int index) { return cfgElem_[index].symb; }
+  /**
+  @brief Get the chemical symbol of a database element.
 
+  @param ind is the index of an chemical element in the chemical element database
+  @return the chemical symbol of the chemical element database having
+  the index = ind
+  */
+  string getElemSymb(int ind) { return cfgElem_[ind].symb; }
+
+  /**
+  @brief call the random number generator; count the number of calls in such a way
+  to be able to restore a given state of the random number generator, and update
+  the value of lastRNG_.
+
+  @return the generated random number corresponding to this call.
+  */
   double callRNG(void) {
     numRNGcall_0_++;
     if (numRNGcall_0_ == LONG_MAX) {
@@ -1684,16 +1808,38 @@ public:
     return lastRNG_;
   }
 
+  /**
+  @brief get the first number used to keep the RNG calls track
+  (see callRNG method)
+
+  @return the first number used to keep the RNG calls track
+  */
   long int getNumRNGcall_0(void) { return numRNGcall_0_; }
 
+  /**
+  @brief get the second number used to keep the RNG calls track
+  (see callRNG method)
+
+  @return the second number used to keep the RNG calls track
+  */
   long int getNumRNGcallLONGMAX(void) { return numRNGcallLONGMAX_; }
 
+  /**
+  @brief get the last generated random number (see callRNG method)
+
+  @return the last generated random number
+  */
   double getLastRNG(void) { return lastRNG_; }
 
-  void setRNGseed(int seed) { rg_->setSeed(seed); }
+  /**
+  @brief reset the random number generator state to the state corresponding to
+  the val_0 and valLONGMAX numbers; valRNG is used to check the correctness of
+  this reset.
 
-  int getRNGseed(void) { return latticeRNGseed_; }
-
+  @param val_0 is the first number used to keep the RNG calls
+  @param valLONGMAX is the second number used to keep the RNG calls
+  @param valRNG is the last generated number before this reset
+  */
   void resetRNG(long int val_0, long int valLONGMAX, double valRNG) {
     // latticeRNGseed_ = seed;
     rg_->setSeed(latticeRNGseed_);
@@ -1725,8 +1871,6 @@ public:
       exit(0);
     }
   }
-
-  void increaseLatticeVolume(void);
 
   void checkSite(int stId) {
     // int phId = site_[stId].getMicroPhaseId();
@@ -1774,63 +1918,134 @@ public:
     }
   }
 
+  /**
+  @brief Get the growth interface dimensions of all microPhases in the microStructure
+
+  @return vector containing the dimensions of all the growth interfaces for all
+  microPhases in the microStructure (each interface corresponding to a given microPhase)
+  */
   vector<int> getGrowthInterfaceSize(void) { return growthInterfaceSize_; }
 
+  /**
+  @brief Set the growth interface dimension of each microPhase in the microStructure
+
+  @param vect is a vector containing the dimensions of all the growth interfaces,
+  each interface corresponding to a given microPhase in the microStructure
+  */
   void setGrowthInterfaceSize(vector<int> vect) { growthInterfaceSize_ = vect; }
 
+  /**
+  @brief Get the dissolution interface dimensions of all microPhases in the microStructure
+
+  @return vector containing the dimensions of all the dissolution interfaces for all
+  microPhases in the microStructure (each interface corresponding to a given microPhase)
+  */
   vector<int> getDissolutionInterfaceSize(void) {
     return dissolutionInterfaceSize_;
   }
 
+  /**
+  @brief Get the dissolution interface dimension of a given microPhase in the microStructure
+
+  @param phId is the microPhaseId
+  @return the dimension of the dissolution interface for a microPhase having
+  the microPhaseId = phId
+  */
   int getDissolutionInterfaceSize(int phId) {
     return dissolutionInterfaceSize_[phId];
   }
 
+  /**
+  @brief Set the dissolution interface dimension of each microPhase in the microStructure
+
+  @param vect is a vector containing the dimensions of all the dissolution interfaces,
+  each interface corresponding to a given microPhase in the microStructure
+  */
   void setDissolutionInterfaceSize(vector<int> vect) {
     dissolutionInterfaceSize_ = vect;
   }
 
-  vector<int> chooseNucleationSitesRND(int phaseID, int numLeft);
-
-  vector<int> chooseNucleationSitesAFF(int phaseID, int numLeft);
-
   /**
-  @brief Convert (switch to electrolyte) the prescribed number of
-  sites of each microphase that has to dissolve
+  @brief implements a model of etttringite formation (growth) as a result
+  of the sulfate attack. Ettringite formation takes place in two steps: a
+  conversion of an Al-bearing phase voxel to an ettringite voxel (calling
+  the transformSolSol method) and the conversion, if possible, of one ore
+  more electrolyte nearest neighbor voxels to ettringite (calling
+  transformLiqSol method). It also calculates the volume of free space
+  adjacent to a converted site to determine whether crystallization pressure
+  will arise. If so, the method calculates the crystallization pressure and
+  crystallization stress-free strain. It then applies the expansion strain
+  so that the new stress field can be calculated by the ThermalStrain FE model
+  object.
 
-  @param dissPhaseIDVect is the vector of microphase IDs that must dissolve
+  @todo For the moment the model describes only monosulfate to ettringite
+  conversion - generalize this for any phase transformation.
+
+  @param ettrid is the microstructure phase id of ettringite
+  @param netsitesEttrid is the number of ettringite sites to grow
+  @param dissPhaseIDVect is a vector containing all phase Ids that can transform
+  in ettringite
   @param numSiteDissVect is a vector containing the number of voxels to dissolve
-  for each microphase ID in dissPhaseIDVect
+  (not to transform in ettringite!) for each microphase ID in dissPhaseIDVect
   @param dissPhNameVect is a vector containing the name of each microphase in
   dissPhaseIDVect
-  @param numtoadd_D is the number of sites switched by this call
+  @param volumeRatio is a vector containing the ratios between the molar volume
+  of each microphase in dissPhNameVect and the molar volume of ettringite
+  @param numtoadd_D is the number of voxels converted from an Al-bearing phase
+  to ettringite (first step of the model!)
   @param totalTRC is the total call number of the changeMicrostructure method
-  @return -1 if all requested numbers of voxels in numSiteDissVect have been
-  switched or the ID of the first microphase (in dissPhaseIDVect) for which this
-  was not possible
+  @return a vector having a dimension N equal to the number of phases that can
+  transform into ettringite + 1: first N-1 positions contain the number of voxels
+  of each phase that must be dissolved further by the "normal" dissolution (using
+  dissolvePhase method), while the last position contains the number of ettringite
+  voxels added by the current method. If the the number of  added ettringite voxels
+  is smaller than netsitesEttrid, this difference will be added calling the
+  growPhase method (“normal” growth).
   */
   vector<int>
   transformPhase(int ettrid, int netsitesEttrid, vector<int> dissPhaseIDVect,
                  vector<int> numSiteDissVect, vector<string> dissPhNameVect,
                  vector<double> volumeRatio, int &numadded_D, int totalTRC);
 
-  /** */
-  void createGrowingVectSA(void);
+  /**
+  @brief implements the first step of the model describing the ettringite growth
+  under sulfate attack conditions (see transformPhase method). It converts a solid
+  microphase occupying a voxel to another solid microphase.
 
-  /** */
-  vector<int> transformLiqSol(Site *ste, int growPhID, int totalTRC);  // liq to sol
-
-  /** */
+  @param ste is apointer to the Site object being occupied by a solid microphase
+  @param oldPhId is the solid microphase Id occupying the site ste
+  @param newPhId is the new solid microphase Id that must occupy the site ste
+  @param totalTRC is the total call number of the changeMicrostructure method
+  */
   void transformSolSol(Site *ste, int oldPhId, int newPhId, int totalTRC); // sol to sol
 
-  /** */
-  vector<int> getAllSitesPhId(void) {
-    vector<int> allPhId(numSites_, 0);
-    for (int i = 0; i < numSites_; i++) {
-      allPhId[i] = site_[i].getMicroPhaseId();
-    }
-    return allPhId;
-  }
+  /**
+  @brief implements the second step of the model describing the ettringite growth
+  under sulfate attack conditions (see transformPhase method). It converts the
+  electrolyte Id occupying a voxel to a solid microphase Id.
+  @param ste is apointer to the Site object being occupied by electrolyte
+  @param growPhID is the new solid microphase Id that must occupy the site ste
+  @param totalTRC is the total call number of the changeMicrostructure method
+  @return a vector containing the microPhaseIds of the sites that, modifying the ste site
+  occupancy, cannot belong to the dissolution interfaces of the microPhases
+  occupying these sites
+  */
+  vector<int> transformLiqSol(Site *ste, int growPhID, int totalTRC);  // liq to sol
+
+  /**
+  @brief creates the vectors growingVectSA_, shrinking_ and volratios_ vectors:
+  growingVectSA_ - contains all microPhaseIds growing due to SA attack (AFt)
+  shrinking_     - contains for each microPhaseId in growingVectSA_, all the microDhaseIds
+                   that can transform into this one (Monosulfate)
+  volratios_     - for each microPhaseId in growingVectSA_ and all corresponding
+                   microPhaseIds in shrinking_, contains the molar volume ratios
+                   of the corresponding microPhases:
+        volratios_[i, j] = molarVolume(growingVectSA_[i])/molarVolume(shrinking_[i, j])
+
+  @todo For the moment the model describes only monosulfate to ettringite
+  conversion - generalize this for any phase transformation.
+  */
+  void createGrowingVectSA(void);
 
 }; // End of Lattice class
 

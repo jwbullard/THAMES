@@ -42,8 +42,8 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
 
   numMicroPhases_ = chemSys_->getNumMicroPhases();
   waterDCId_ = chemSys_->getDCId("H2O@");
-  waterMollarMass_ = chemSys_->getDCMolarMass(waterDCId_);
-  waterMollarVol_ = chemSys_->getDCMolarVolume(waterDCId_);
+  waterMolarMass_ = chemSys_->getDCMolarMass(waterDCId_);
+  waterMolarVol_ = chemSys_->getDCMolarVolume(waterDCId_);
 
   ///
   /// Gather data from the periodic table for writing a .cfg file (alternative
@@ -724,7 +724,7 @@ void Lattice::normalizePhaseMasses(vector<double> microPhaseMass) {
       // molarMass = chemSys_->getDCMolarMass(waterId);
       pscaledMass = wsRatio_ * 100.0; // Mass of solids scaled to 100 g now
 
-      chemSys_->setDCMoles(waterDCId_, (pscaledMass / waterMollarMass_));
+      chemSys_->setDCMoles(waterDCId_, (pscaledMass / waterMolarMass_));
       if (verbose_) {
         cout << "Lattice::normalizePhaseMasses Setting initial micphase mass "
                 "and volume of "
@@ -3305,12 +3305,12 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   adjustMicrostructureVolFracs(phasenames, vol_next, vfrac_next, volNextSize);
 
   /*
-  double waterDensity = waterMollarMass_ / waterMollarVol_ / 1.0e6; // g/cm3
+  double waterDensity = waterMolarMass_ / waterMolarVol_ / 1.0e6; // g/cm3
   double waterTotMass_0 = (waterVol_0/initialMicrostructureVolume_) *
   waterDensity * 100 / initSolidMass_; double waterTotMass = vfrac_next[1] *
   waterDensity * 100 / initSolidMass_; double waterTotMoles = waterTotMass /
-  waterMollarMass_; // mol double waterTotMoles_0 = waterTotMass_0 /
-  waterMollarMass_; // mol double waterDCMolesChemSys =
+  waterMolarMass_; // mol double waterTotMoles_0 = waterTotMass_0 /
+  waterMolarMass_; // mol double waterDCMolesChemSys =
   chemSys_->getDCMoles(waterDCId_);
   // if (abs(waterDCMolesChemSys - waterTotMoles) >= 1.e-6) {
     cout << endl << "T1 waterDCMolesChemSys - waterTotMoles = "
@@ -4818,59 +4818,6 @@ void Lattice::writeLattice(const double curtime,
   out.close();
 }
 
-void Lattice::writeLatticeH(const double curtime,
-                            const TimeStruct resolvedtime) {
-  string ofileName(jobRoot_);
-
-  ostringstream ostrT;
-  ostrT << setprecision(3) << temperature_;
-  string tempstr(ostrT.str());
-
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << resolvedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << resolvedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << resolvedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << resolvedtime.minutes;
-  string timestrM(ostrM.str());
-
-  ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
-              "h" + timestrM + "m." + tempstr + "K.H.img";
-
-  if (verbose_) {
-    cout << endl
-         << "  Lattice::writeLatticeH, curtime = " << curtime
-         << "h, ofileName = " << ofileName << endl;
-    cout.flush();
-  }
-
-  ofstream out(ofileName.c_str());
-  try {
-    if (!out.is_open()) {
-      throw FileException("Lattice", "writeLatticeH", ofileName,
-                          "Could not open");
-    }
-  } catch (FileException fex) {
-    fex.printException();
-    exit(1);
-  }
-
-  // Write image header information first
-
-  out << VERSIONSTRING << " " << thamesVersion_ << endl;
-  out << XSIZESTRING << " " << xdim_ << endl;
-  out << YSIZESTRING << " " << ydim_ << endl;
-  out << ZSIZESTRING << " " << zdim_ << endl;
-  out << IMGRESSTRING << " " << resolution_ << endl;
-
-  for (int i = 0; i < numSites_; i++) {
-    out << site_[i].getMicroPhaseId() << endl;
-  }
-  out.close();
-}
-
 void Lattice::writeNewLattice(int newZdim) {
   string ofileName("newInputImg");
   ostringstream ostr_newZdim;
@@ -5605,7 +5552,7 @@ double Lattice::fillAllPorosity(int cyc) {
   double waterVoidMolesV = 0;
   double waterVoidMass = 0;
 
-  double waterDensity = waterMollarMass_ / waterMollarVol_ / 1.0e6; // g/cm3
+  double waterDensity = waterMolarMass_ / waterMolarVol_ / 1.0e6; // g/cm3
 
   cout << "       Lattice::fillAllPorosity ini - cyc = " << cyc
        << "  :  count_[VOIDID] = " << count_[VOIDID]
@@ -5692,9 +5639,9 @@ double Lattice::fillAllPorosity(int cyc) {
 
     waterVoidMass = volFracVoid * waterDensity * 100 / initSolidMass_;
 
-    waterVoidMolesM = waterVoidMass / waterMollarMass_; // mol
+    waterVoidMolesM = waterVoidMass / waterMolarMass_; // mol
     waterVoidMolesV =
-        volFracVoid * initialMicrostructureVolume_ / waterMollarVol_; // mol
+        volFracVoid * initialMicrostructureVolume_ / waterMolarVol_; // mol
   }
 
   cout << "       Lattice::fillAllPorosity fin - cyc = " << cyc
@@ -6892,10 +6839,8 @@ vector<int> Lattice::findDomainSizeDistribution(int phaseid, const int numsites,
 
 void Lattice::findIsolatedClusters(void) {
   // voxels without contact with electrolyte i.e. voxels having low
-  // probability to dissolve in this step find "isolated" clusters (voxels
-  // without contact with electrolyte i.e. voxels having low probability to
-  // dissolve in this step) these voxels will not be send to GEMS computing
-  // vfrac we use canDissolve vector instead
+  // probability to dissolve in this step these voxels will not be
+  // send to GEMS computing vfrac we use canDissolve vector instead
   // count_ vector
   vector<int> canDissolve;
   int canDissLast;

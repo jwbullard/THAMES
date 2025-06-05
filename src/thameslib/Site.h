@@ -273,6 +273,14 @@ public:
   @return the relative potential for dissolution at this site
   */
   double getWmc(void) const { return wmc_; }
+
+
+  /**
+  @brief get the internal porosity, wmc0_, of this site i.e. its contribution to
+  the "weighted mean curvature", wmc_, of the site
+
+  @return the value of wmc0_ corresponding to the microPhase occupying this site
+  */
   double getWmc0(void) const { return wmc0_; }
 
   /**
@@ -282,6 +290,12 @@ public:
   */
   void setWmc(double wmcval) { wmc_ = wmcval; }
 
+  /**
+  @brief set the internal porosity, wmc0_, of this site i.e. its contribution to
+  the "weighted mean curvature", wmc_, of the site
+
+  @param wmcval is the value of wmc0_ to assign to the site
+  */
   void setWmc0(double wmcval) { wmc0_ = wmcval; }
 
   /**
@@ -341,6 +355,14 @@ public:
       growth_.push_back(pid);
   }
 
+  /**
+  @brief add a microPhaseId to the growth_ vector belonging to this site;
+  growth_ vector contains the microPhaseIds of all microPhases that can
+  grow at this site.
+
+  @param pid is the microstructure phase id of the phase that can grow at the
+  site
+  */
   void addGrowthPhaseId(int pid) { growth_.push_back(pid); }
 
   /**

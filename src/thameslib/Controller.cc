@@ -826,8 +826,6 @@ void Controller::doCycle(double elemTimeInterval) {
                       iniLattice.site[ij].inDissInterfacePos);
             }
             for (int ij = 0; ij < dimLatticeInterface; ij++) {
-              lattice_->setInterfaceMicroPhaseId(
-                  ij, iniLattice.interface[ij].microPhaseId); // same as before!
               lattice_->setGrowthSites(ij,
                                        iniLattice.interface[ij].growthSites);
               lattice_->setDissolutionSites(
