@@ -4,6 +4,7 @@
 */
 
 #include "Controller.h"
+#include "global.h"
 
 using namespace std;
 
@@ -506,7 +507,9 @@ void Controller::doCycle(double elemTimeInterval) {
   double thrTimeToWriteLattice = 0.0167; // threshold ~ 1 minute
 
   // Main computation cycle
-  for (i = 0; (i < timeSize) && (capwater); ++i) {
+  for (i = 0;
+       (i < timeSize) && (chemSys_->getMicroPhaseVolume(ELECTROLYTEID) > 0.0);
+       ++i) {
 
     TimeStruct formattedTime = getFormattedTime(time_[i]);
     ///
@@ -787,7 +790,7 @@ void Controller::doCycle(double elemTimeInterval) {
       vectPhNameDiff.clear();
 
       changeLattice = lattice_->changeMicrostructure(
-          time_[i], simType_, capwater, numSitesNotAvailable, vectPhIdDiff,
+          time_[i], simType_, numSitesNotAvailable, vectPhIdDiff,
           vectPhNameDiff, whileCount, cyc);
 
       // if not all the voxels requested by KM/GEM for a certain microphase
@@ -969,8 +972,8 @@ void Controller::doCycle(double elemTimeInterval) {
             vectPhIdDiff.clear();
             vectPhNameDiff.clear();
             changeLattice = lattice_->changeMicrostructure(
-                time_[i], simType_, capwater, numSitesNotAvailable,
-                vectPhIdDiff, vectPhNameDiff, whileCount, cyc);
+                time_[i], simType_, numSitesNotAvailable, vectPhIdDiff,
+                vectPhNameDiff, whileCount, cyc);
             cout << endl
                  << "  Controller::doCycle - cyc = " << cyc
                  << "  &  whileCount = " << whileCount
@@ -1038,29 +1041,16 @@ void Controller::doCycle(double elemTimeInterval) {
       throw mex;
     }
 
-    // write output .txt files
-    writeTxtOutputFiles(time_[i]);
-    if (writeICsDCs)
-      writeTxtOutputFiles_onlyICsDCs(time_[i]);
-
     ///
     /// Calculate the pore size distribution and saturation
     ///
 
     lattice_->calculatePoreSizeDistribution();
 
-    ///
-    /// Check if there is any capillary pore water remaining.  If not then
-    /// we ASSUME hydration has stopped.
-    ///
-    /// @todo Generalize this idea to allow nanopore water to react by taking
-    /// into account its lower chemical potential.
-
-    if (verbose_) {
-      cout << "Controller::doCycle Returned from Lattice::changeMicrostructure"
-           << endl;
-      cout.flush();
-    }
+    // write output .txt files
+    writeTxtOutputFiles(time_[i]);
+    if (writeICsDCs)
+      writeTxtOutputFiles_onlyICsDCs(time_[i]);
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
     if ((time_index < (int)(outputTime_.size())) &&
@@ -1090,26 +1080,35 @@ void Controller::doCycle(double elemTimeInterval) {
       time_index++;
     }
 
-    double watervolume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
+    ///
+    /// Check if there is any capillary pore water remaining.  If not then
+    /// we ASSUME hydration has stopped.
+    ///
+    /// @todo Generalize this idea to allow nanopore water to react by taking
+    /// into account its lower chemical potential.
 
-    if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
-      // we will stop hydration
-      if (warning_) {
-        cout << "Controller::doCycle WARNING: System is out of capillary pore "
-                "water."
-             << endl;
-        cout << "Controller::doCycle          This version of code assumes "
-                "that only capillary"
-             << endl;
-        cout << "Controller::doCycle          water is chemically reactive, so "
-                "the system is"
-             << endl;
-        cout << "Controller::doCycle          is assumed to be incapable of "
-                "further hydration."
-             << endl;
-        cout.flush();
-      }
-    }
+    // double watervolume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
+
+    // if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
+    //   // we will stop hydration
+    //   if (warning_) {
+    //     cout << "Controller::doCycle WARNING: System is out of capillary pore
+    //     "
+    //             "water."
+    //          << endl;
+    //     cout << "Controller::doCycle          This version of code assumes "
+    //             "that only capillary"
+    //          << endl;
+    //     cout << "Controller::doCycle          water is chemically reactive,
+    //     so "
+    //             "the system is"
+    //          << endl;
+    //     cout << "Controller::doCycle          is assumed to be incapable of "
+    //             "further hydration."
+    //          << endl;
+    //     cout.flush();
+    //   }
+    // }
 
     ///
     /// The following block executes only for sulfate attack simulations

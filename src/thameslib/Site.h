@@ -70,7 +70,7 @@ protected:
   */
   double wmc_; // total porosity ("surface curvature") at this site
   double
-      wmc0_; // this site internal porosity (its own contribution at wmc_ value)
+      wmc0_; // this site internal porosity (its own contribution to wmc_ value)
   double expstrain_; /**< Assigned expansion strain by phase
                              constrained transformation or an
                              applied load */
@@ -280,6 +280,20 @@ public:
   */
   double getWmc(void) const { return wmc_; }
   double getWmc0(void) const { return wmc0_; }
+
+  /**
+  @brief Determine if a site is occupied by a porous solid
+
+  A porous solid is any phase that is not pure electrolyte but which
+  has some internal porosity (<i>i.e.<i>, 0 < porosity < 1 )
+
+  @return true if the phase occupying this site is a porous solid
+  */
+  bool isPorousSolid(void) {
+    if (wmc0_ > 1.0e-9 && wmc0_ < 9.9999e-1)
+      return (true);
+    return (false);
+  }
 
   /**
   @brief Set the "weighted mean curvature" of the site.

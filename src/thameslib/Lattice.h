@@ -645,13 +645,14 @@ public:
   void findInterfaces(void);
 
   /**
-  @brief Determine how many neighboring voxels have some internal porosity
+  @brief Determine if a voxel has at least one neighbor that is a porousorous
+  solid
 
   @param siteId is the id of the site to check
   @param neighborRange is the number of neighbors to check
-  @return total saturated pore volume fraction of all nearest neighbors
+  @return true if at least one neighbor is a porous solid
   */
-  double neighborSaturatedPorosity(const int siteID, const int neighborRange);
+  bool hasPorousSolidNeighbor(const int siteID, const int neighborRange);
 
   /**
   @brief Add (grow i.e. switch from electrolyte) the prescribed number of
@@ -674,16 +675,16 @@ public:
 
   /**
   @brief create a new growth interface for a given phase (phaseID) having a
-  size of numLeft sites; this is necessary when the "growth" of all requested
-  sites for this phase was not possible because the size of the
+  size of numToNucleate sites; this is necessary when the "growth" of all
+  requested sites for this phase was not possible because the size of the
   corresponding growth interface was zero.
 
   @param phaseid is the id of the microstructure phase to nucleate
-  @param numLeft is the number of sites to nucleate/create for this phase
-  @return the actual size of the new interface (must equals numLeft!)
+  @param numToNucleate is the number of sites to nucleate/create for this phase
+  @return the actual size of the new interface (must equals numToNucleate!)
   */
-  void nucleatePhaseAff(int phaseID, int numLeft);
-  void nucleatePhaseRnd(int phaseID, int numLeft);
+  void nucleatePhaseAff(const int phaseID, const int numToNucleate);
+  void nucleatePhaseRnd(const int phaseID, const int numToNucleate);
 
   /**
   @brief Remove (dissolve i.e. switch to electrolyte) the prescribed number of
@@ -704,17 +705,98 @@ public:
                             int totalTRC);
 
   /**
-  @brief Remove the water from a prescribed number of solution-filled sites.
+  @brief Change the volume fraction of void space
 
-  This method constructs a list of all the <i>potential</i> void sites, based
-  on whether there are multiple connected solution-filled sites in a cluster.
-  The list is then sorted essentially by the effective pore size.  Only then
-  is the list visited and the prescribed number of sites switched to void.
+  This is a pass-through function that alters the volume
+  fraction of void space in the microstructure, either adding
+  or subtracting electrolyte as necessary
 
-  @param numsites is the number of sites to switch from water to void
-  @return the actual number of sites that were changed
+  @param volFracChange is the target change in electrolyte volume
+  fraction, on a total microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual volume fraction of electrolyte changed
   */
-  int emptyPorosity(int numsites, int cyc);
+  double changeSaturationState(double volFracChange, const int cyc);
+
+  /**
+  @brief Remove a prescribed volume fraction of water from the system
+
+  This master method empties a given volume fraction of electrolyte
+  from the system, starting with the largest capillary pores and moving
+  to smaller and smaller saturated pores until either (a) the prescribed
+  volume is reached or (b) the system is completely dry.
+
+  If the number of solution-filled sites (voxels) is insufficient to balance the
+  loss of electrolyte, then we must visit the sub-voxel porosity and draw
+  remaining electrolyte from it.
+
+  This is a master method that splits the task into two parts: (a)
+  saturated pore voxels and, if necessary (b) saturated sub-voxel pores.
+
+  @param volFracToRemove is the targeted reduction in electrolyte volume
+  fraction, on a total microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual volume fraction of electrolyte removed
+  */
+  double emptyPorosity(double volFracToRemove, const int cyc);
+
+  /**
+  @brief Convert a prescribed number of electrolyte voxels to void
+
+  @param numToEmpty is the number of electrolyte voxels to remove, on a total
+  microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual number converted
+  */
+  int emptyCapillaryPorosity(int numToEmpty, const int cyc);
+
+  /**
+  @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores
+
+  @param volFracToRemove is the target reduction in electrolyte volume
+  fraction, on a total microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual volume fraction of electrolyte removed
+  */
+  double emptySubVoxelPorosity(double volFracToRemove, const int cyc);
+
+  /**
+  @brief Add a prescribed volume fraction of electrolyte to the system
+
+  This master method adds a given volume fraction of electrolyte
+  to the system, starting with the smallest subvoxel pores and moving
+  to larger and larger unsaturated pores until either (a) the prescribed
+  volume is reached or (b) the system is completely full.
+
+  This is a master method that splits the task into two parts: (a)
+  unsaturated sub-voxel pores and, if necessary (b) void voxels
+
+  @param volFracToAdd is the target increase in electrolyte volume
+  fraction, on a total microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual volume fraction of electrolyte added
+  */
+  double fillPorosity(double volFracToAdd, const int cyc);
+
+  /**
+  @brief Convert a prescribed number of void voxels to electrolyte voxels
+
+  @param numToFill is the number of electrolyte voxels to fill, on a total
+  microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual number converted
+  */
+  int fillCapillaryPorosity(int numToFill, const int cyc);
+
+  /**
+  @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores
+
+  @param volFracToAdd is the target increase in electrolyte volume fraction, on
+  a total microstructure volume basis
+  @param cyc is the current computational iteration
+  @return the actual volume fraction of electrolyte removed
+  */
+  double fillSubVoxelPorosity(double volFracToAdd, const int cyc);
 
   /**
   @brief Add water to a prescribed number of empty pore sites.
@@ -724,12 +806,12 @@ public:
   The list is then sorted essentially by the effective pore size.  Only then
   is the list visited and the prescribed number of sites switched to water.
 
-  @param numsites is the number of sites to switch from void to water
+  @param numToFill is the number of sites to switch from void to water
   @return the actual number of sites that were changed
   */
-  int fillPorosity(int numsites, int cyc);
+  int fillPorosity(int numToFill, const int cyc);
 
-  double fillAllPorosity(int cyc);
+  double fillAllPorosity(const int cyc);
 
   /**
   @brief Count the number of solution sites within a box centered on a given
@@ -868,7 +950,6 @@ public:
 
   @param time is is the simulation time [hours]
   @param simtype is the type of simulation (hydration, leaching, etc)
-  @param capWater is true if there is any capillary pore water in the system.
   @param vectPhNumDiff is the vector of maximum number of voxels belonging to
   each microphase, voxels that can be dissolved according to the system
   configuration (lattice)
@@ -884,7 +965,7 @@ public:
   @return zero if okay or nonzero if not all requested voxels
   for a certain microphase ID (phDiff) can be dissolved
   */
-  int changeMicrostructure(double time, const int simtype, bool &capWater,
+  int changeMicrostructure(double time, const int simtype,
                            vector<int> &vectPhNumDiff,
                            vector<int> &vectPhIdDiff,
                            vector<string> &vectPhNameDiff, int repeat, int cyc);
