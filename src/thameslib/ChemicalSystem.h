@@ -561,22 +561,28 @@ class ChemicalSystem {
                     // initialVal(DC_to_MPhID_)=-1
   vector<bool> cementComponent_;
   // vector<bool> GEMPhaseBelongsToCement_;
-  double initScaledCementMass_;
-  double scaledCementMass_;
-  vector<int> isParrotKilloh_;
-  int isParrotKillohSize_;
+  double scaledCementMass_;     /**< the sum of all scalled masses corresponding to
+                                     the microPhases controlled by the Parrot-Killoh
+                                     model AND to a given time step */
+  double initScaledCementMass_; /**< initial scaled cement mass i.e. scaled cement mass
+                                     for time = 0 */
 
-  int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMolarMass_;
-  double waterMolarVol_;
+  vector<int> isParrotKilloh_;  /**< vector containing the microPhaseIds of all
+                                     microPhases controlled by Parrot-Killoh model */
+  int isParrotKillohSize_;      /**< dimension of isParrotKilloh_ vector */
+
+  int waterDCId_;               /**< the DCId coresp to DCName = "H2O@" */
+  double waterMolarMass_;       /**< the water molar mass corresp. to waterDCId_ */
+  double waterMolarVol_;        /**< the water molar volume corresp. to waterDCId_ */
   double beginAttackTime_;
   map<string, elMod> elasticModuli_;
-  int aliteDCId_;
-  int beliteDCId_;
-  int aluminateDCId_;
-  int ferriteDCId_;
+  int aliteDCId_;     /**< the DCId coresp to microPhaseName = "Alite" */
+  int beliteDCId_;    /**< the DCId coresp to microPhaseName = "Belite" */
+  int aluminateDCId_; /**< the DCId coresp to microPhaseName = "Aluminate" */
+  int ferriteDCId_;   /**< the DCId coresp to microPhaseName = "Ferrite" */
 
-  double initSolidMass_;
+  double initSolidMass_;  /**< the total mass of all solid microPhases in the system,
+                               including the clinker microPhases, at time = 0*/
 
 public:
   void setInitSolidMass(double val) { initSolidMass_ = val; }
@@ -6223,6 +6229,7 @@ public:
 
   /**
   @brief add a component to the isParrotKilloh_ vector
+
   @param val is the microstructure phase ID of this PK component
   */
   void setIsParrotKilloh(int val) {

@@ -105,7 +105,7 @@ public:
   */
   int getMicroPhaseId(void) const { return microPhaseId_; }
 
-  void setMicroPhaseId(int mPhId) { microPhaseId_ = mPhId; }
+  // void setMicroPhaseId(int mPhId) { microPhaseId_ = mPhId; }
 
   /**
   @brief Gets the list of sites where growth of this phase can occur adjacent to
@@ -115,23 +115,53 @@ public:
   */
   vector<Isite> getGrowthSites(void) { return growthSites_; }
 
-  int getGrowthSize(void) { return growthSites_.size(); }
-  int getDissolutionSize(void) { return dissolutionSites_.size(); }
+  // int getGrowthSize(void) { return growthSites_.size(); }
+  // int getDissolutionSize(void) { return dissolutionSites_.size(); }
 
+  /**
+  @brief Set the growth interface of this microPhase
+
+  @param vect is a vector containing all Isite objects belonging to the growth
+  interface oh this microPhase
+  */
   void setGrowthSites(vector<Isite> vect) { growthSites_ = vect; }
 
+  /**
+  @brief Get the isite id (or equivalently the site id) beeing on the position pos
+  of the growth interface of this microPhase
+
+  @param pos is the isite position on the growth interface of this microPhase
+  @return the isite id (or equivalently the site id) beeing on the position pos
+  of the growth interface of this microPhase
+  */
   int getGrowthSitesId(int pos) { return growthSites_[pos].getId(); }
 
+  /**
+  @brief Get the isite id (or equivalently the site id) beeing on the position pos
+  of the dissolution interface of this microPhase
+
+  @param pos is the isite position on the dissolution interface of this microPhase
+  @return the isite id (or equivalently the site id) beeing on the position pos
+  of the dissolution interface of this microPhase
+  */
   int getDissolutionSitesId(int pos) { return dissolutionSites_[pos].getId(); }
 
   /**
-  @brief Gets the list of sites where dissolution of this phase can occur at the
-  interface.
+  @brief Get the list of isites, or equivalently the dissolution interface of
+  this microPhase
 
-  @return the vector of Isite objects where dissolution can occur
+  @return the vector of Isite objects corresponding to the sites where dissolution
+  can occur for this microPhase
   */
   vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
+  /**
+  @brief Set the dissolution interface of this microPhase to the one corresponding
+  to a previously saved microStructure configuration.
+
+  @param vect is the vector containing the previously saved dissolution interface
+  of this microPhase
+  */
   void setDissolutionSites(vector<Isite> vect) { dissolutionSites_ = vect; }
 
   /**
@@ -173,23 +203,24 @@ public:
   bool sortDissolutionSites(vector<Site> &ste, unsigned int pid);
 
   /**
-  @brief Remove a site from the list of sites where growth can occur adjacent to
-  the interface.
+  @brief Remove an isite from the growth interface of this microPhase
+  (equivalent: remove a site from the growth interface of this microPhase)
 
-  @todo Add possibility of verbose output.
-
-  @param loc is a pointer to the site to remove from the list of growth sites
-  @return true if the site was removed successfully, false otherwise
+  @param pos0 is the position of the isite that must be removed from the
+  growth interface of this microPhase
+  @param pos1 = size - 1, where size is the growth interface dimension
+  of this microPhase
   */
-  // bool removeGrowthSite(Site *loc);
   void removeGrowthSite(int pos0, int pos1);
 
   /**
-  @brief Remove a site from the list of sites where dissolution can occur
-  adjacent to the interface.
+  @brief Remove an isite from the dissolution interface of this microPhase
+  (equivalent: remove a site from the dissolution interface of this microPhase)
 
-  @param loc is a pointer to the site to remove from the list of growth sites
-  @return true if the site was removed successfully, false otherwise
+  @param pos0 is the position of the isite that must be removed from the
+  dissolution interface of this microPhase
+  @param pos1 = size - 1, where size is the dissolution interface dimension
+  of this microPhase
   */
   void removeDissolutionSite(int pos0, int pos1);
 
@@ -210,10 +241,27 @@ public:
   */
   bool getVerbose(void) const { return verbose_; }
 
+  /**
+  @brief Update the growth affinity of the Isite object placed on the position
+  pos of this growth interface (belonging to this microPhase).
+
+  @param pos is the position of the Isite object to be updated
+  @param afty is the value that must be added to the already growth affinity
+  value of the Isite object
+  */
   void updateAffinity(int pos, double afty) {
     growthSites_[pos].updateAffinity(afty);
   }
 
+  /**
+  @brief Get the growth affinity of the Isite object placed on the position
+  pos of this growth interface (belonging to this microPhase).
+
+  @param pos is the position of the Isite object on the position pos of this
+  growth interface
+  @return the growth affinity of the Isite object placed on the positionv pos
+  of this growth interface (belonging to this microPhase).
+  */
   double getAffinity(int pos) { return growthSites_[pos].getAffinity(); }
 
 }; // End of Interface class

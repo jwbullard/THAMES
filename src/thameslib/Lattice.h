@@ -177,9 +177,9 @@ pores in GEM units */
                                        shrinking_, contains the molar volume ratios
                                        of the corresponding microPhases:*/
 
-  int waterDCId_;           /**< coresp to DCName = "H2O@" */
-  double waterMolarMass_;   /**< molar mass of water ("H2O@") */
-  double waterMolarVol_;    /**< molar volume of water ("H2O@") */
+  int waterDCId_;           /**< the DCId coresp to DCName = "H2O@" */
+  double waterMolarMass_;   /**< the water molar mass corresp. to waterDCId_ */
+  double waterMolarVol_;    /**< the water molar volume corresp. to waterDCId_ */
 
   // int DAMAGEID_;
 

@@ -144,35 +144,39 @@ protected:
   int simType_; /**< Hydration, leaching, or sulfate attack for now */
 
   bool attack_; /**< for sulfate attack */
-  double beginAttackTime_;
-  double endAttackTime_;
-  double attackTimeInterval_;
-  vector<int> isParrotKilloh_;
-  int sizePK_;
-  bool notPKPhase = true;
+  double beginAttackTime_;      /**< Simulation time at which to begin the
+                                     attack (leach/sulfate attack) */
+  double endAttackTime_;        /**< Simulation time at which to stop the
+                                    attack (leach/sulfate attack) */
+  double attackTimeInterval_;   /**< Simulation time interval to do the
+                                     attack (leach/sulfate attack) */
+  vector<int> isParrotKilloh_;  /**< all microPhaseIds for microPhases
+                                     controlled by Parrot-Killoh model */
+  int sizePK_;                  /**< size of isParrotKilloh_ vector */
+  bool notPKPhase = true;       /**< flag saying if a microPhases is or not
+                                     controlled by Parrot-Killoh model */
 
 private:
   double sulfateAttackTime_; /**< Simulation time at which to begin sulfate
                                 attack, in hours */
   double leachTime_;         /**< Simulation time at which to begin leaching,
                                       in hours */
-  int oldDamageCount_; /**< Number of pixels in the lattice that are damaged */
-  int allDamageCount_;
+  int oldDamageCount_; /**< Number of pixels in the lattice that were already damaged */
+  int allDamageCount_; /**< Total number of pixels in the lattice that are damaged */
 
   bool verbose_; /**< Flag for verbose output */
   bool warning_; /**< Flag for warning output */
   bool xyz_;     /**< Flag for 3D movie data output */
 
-  int numMicroPhases_;
-  int numGEMPhases_;
-  int numICs_;
-  int numDCs_;
-  double temperature_; /**< Temperature */
-  double presure_;
-  int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMolarMass_;
-  int numSites_;
-  double initMicroVolume_; /**< Initial absolute volume of the microstructure */
+  int numMicroPhases_;     /**< Number of microPhases */
+  int numGEMPhases_;       /**< Number of GEM phases in the CSD */
+  int numICs_;             /**< Number of independent components (IC) */
+  int numDCs_;             /**< Number of dependent components (DC) */
+  double temperature_;     /**< Temperature [K]*/
+  int waterDCId_;          /**< the DCId coresp to DCName = "H2O@" */
+  double waterMolarMass_;  /**< the water molar mass corresp. to waterDCId_ */
+  int numSites_;           /**< Total number of microStructure voxels */
+  double initMicroVolume_; /**< Initial absolute volume of the microStructure */
 
 public:
   /**
@@ -214,9 +218,8 @@ public:
   states
       - Updating the lattice to reflect the new microstructure
 
-  @param statfilename is the name of the file to store phase statistics
-  @param choice is an int flag to specify whether simulating hydration,
-  leaching, or sulfate attack
+  @param elemTimeInterval is used by the time advance algorithm in case of GEMS
+  failure
   */
   // void doCycle(const string &statfilename, int choice, double
   // elemTimeInterval);
@@ -241,9 +244,11 @@ public:
   @param dt is the change in simulation time used by the kinetic model [hours]
   @param isFirst is true if this is the first state calculation
   (initialization)
+  @param cyc is the cycle number for the main controller loop (iteration over
+  time)
+  @return the node status handle (from ChemicalSystem::calculateState)
   */
   // void calculateState(double time, double dt, bool isFirst, int cyc);
-
   int calculateState(double time, double dt, bool isFirst, int cyc);
 
   /**

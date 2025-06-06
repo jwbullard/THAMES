@@ -141,13 +141,12 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
 
   // Assign the DC index for water
 
-  // waterId_ = chemSys_->getDCId(WaterDCName);
   DCNum_ = chemSys_->getNumDCs();
   // ICName_ = chemSys_->getICName();
   // DCName_ = chemSys_->getDCName();
   GEMPhaseNum_ = chemSys_->getNumGEMPhases();
 
-  // ICMoles_.resize(ICNum_, 0.0);
+  // ICMolesTot_.resize(ICNum_, 0.0);
   DCMoles_.resize(DCNum_, 0.0);
   DCMolesIni_.resize(DCNum_, 0.0);
 

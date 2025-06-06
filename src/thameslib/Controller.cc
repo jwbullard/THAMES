@@ -208,7 +208,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
 
   temperature_ = chemSys_->getTemperature();
   lattice_->setTemperature(temperature_);
-  presure_ = chemSys_->getP();
   waterDCId_ = chemSys_->getDCId("H2O@");
   waterMolarMass_ = chemSys_->getDCMolarMass("H2O@");
   numSites_ = lattice_->getNumSites();
