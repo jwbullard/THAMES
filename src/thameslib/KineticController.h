@@ -48,8 +48,8 @@ private:
   double leachTime_; /**< Time at which leaching simulation starts [hours] */
 
   vector<string> name_; /**< List of names of phases in the kinetic model */
-  vector<string> ICName_;
-  vector<string> DCName_;
+  // vector<string> ICName_;
+  // vector<string> DCName_;
   vector<int> microPhaseId_; /**< List of microstructure ids that are in kinetic
                                 model */
   vector<double> initScaledMass_;      /**< List of initial scaled masses */
@@ -58,17 +58,14 @@ private:
   vector<double>
       refSpecificSurfaceArea_; /**< List of reference specific surface areas */
   vector<bool> isKinetic_;
-  // int waterId_;     /**< DC index for liquid water */
-  int ICNum_;       /**< Number of ICs in chemical system */
+
   int DCNum_;       /**< Number of DCs in chemical system */
   int GEMPhaseNum_; /**< Number of GEM phases in chemical system */
   bool verbose_;    /**< Flag for verbose output */
   bool warning_;    /**< Flag for warnining output */
 
-  vector<double> ICMoles_;
   vector<double> DCMoles_;
   vector<double> DCMolesIni_;
-  vector<double> ICMolesTot_;
   vector<double>
       scaledMassIni_; /**< List of scaled masses before a given time step*/
 
@@ -333,9 +330,9 @@ public:
 
   @param sattacktime is the simulation time to begin sulfate attack [hours]
   */
-  void setSulfateAttackTime(double sattacktime) {
-    sulfateAttackTime_ = sattacktime;
-  }
+  // void setSulfateAttackTime(double sattacktime) {
+  //   sulfateAttackTime_ = sattacktime;
+  // }
 
   /**
   @brief Get the simulation time at which to begin external sulfate attack.
@@ -344,14 +341,14 @@ public:
 
   @return the simulation time to begin sulfate attack [hours]
   */
-  double getSulfateAttackTime(void) const { return sulfateAttackTime_; }
+  // double getSulfateAttackTime(void) const { return sulfateAttackTime_; }
 
   /**
   @brief Set the simulation time at which to begin leaching.
 
   @param leachtime is the simulation time to begin leaching [hours]
   */
-  void setLeachTime(double leachtime) { leachTime_ = leachtime; }
+  // void setLeachTime(double leachtime) { leachTime_ = leachtime; }
 
   /**
   @brief Get the simulation time at which to begin leaching.
@@ -360,7 +357,7 @@ public:
 
   @return the simulation time to begin leaching [hours]
   */
-  double getLeachTime(void) const { return leachTime_; }
+  // double getLeachTime(void) const { return leachTime_; }
 
   /**
   @brief Get the list of phase names used by the kinetic model.
@@ -470,11 +467,7 @@ public:
   */
   bool getWarning() const { return warning_; }
 
-  vector<double> getICMoles(void) { return ICMoles_; }
-
   vector<double> getDCMoles(void) { return DCMoles_; }
-
-  vector<bool> getIsKinetic(void) { return isKinetic_; }
 
   void setHydTimeIni(double val) { hydTimeIni_ = val; }
 

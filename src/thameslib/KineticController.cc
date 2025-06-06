@@ -25,11 +25,9 @@ KineticController::KineticController() {
   specificSurfaceArea_.clear();
   refSpecificSurfaceArea_.clear();
   isKinetic_.clear();
-  // waterId_ = 1;
-  ICNum_ = 0;
-  ICName_.clear();
+  // ICName_.clear();
   DCNum_ = 0;
-  DCName_.clear();
+  // DCName_.clear();
   GEMPhaseNum_ = 0;
 
   ///
@@ -144,14 +142,12 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
   // Assign the DC index for water
 
   // waterId_ = chemSys_->getDCId(WaterDCName);
-  ICNum_ = chemSys_->getNumICs();
   DCNum_ = chemSys_->getNumDCs();
-  ICName_ = chemSys_->getICName();
-  DCName_ = chemSys_->getDCName();
+  // ICName_ = chemSys_->getICName();
+  // DCName_ = chemSys_->getDCName();
   GEMPhaseNum_ = chemSys_->getNumGEMPhases();
 
-  ICMoles_.resize(ICNum_, 0.0);
-  ICMolesTot_.resize(ICNum_, 0.0);
+  // ICMoles_.resize(ICNum_, 0.0);
   DCMoles_.resize(DCNum_, 0.0);
   DCMolesIni_.resize(DCNum_, 0.0);
 
@@ -859,10 +855,6 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   double hyd_time = hydTimeIni_ + timestep;
 
-  for (i = 0; i < ICNum_; i++) {
-    ICMoles_[i] = 0.0;
-  }
-
   chemSys_->initDCLowerLimit(0); // check!
 
   bool doTweak = (chemSys_->getTimesGEMFailed() > 0) ? true : false;
@@ -1195,10 +1187,6 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
   double numDCMolesDissolved, massDissolved;
 
   double hyd_time = hydTimeIni_ + timestep;
-
-  for (int i = 0; i < ICNum_; i++) {
-    ICMoles_[i] = 0.0;
-  }
 
   int midx;
   int DCId = -1;
