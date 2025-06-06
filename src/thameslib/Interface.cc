@@ -113,19 +113,6 @@ void Interface::removeGrowthSite(int pos0, int pos1) {
   growthSites_.pop_back();
 }
 
-void Interface::removeEmptiedSite(int pos0, int pos1) {
-  // kept even same as removeGrowthSite
-  // if (pos0 != pos1)
-  // try {
-  growthSites_[pos0] = growthSites_[pos1];
-  growthSites_.pop_back();
-  // } catch (out_of_range &oor) {
-  //   cout << endl << "EOB Interface::removeEmptiedSite pos0/pos1 = " << pos0
-  //        <<" / " << pos1 << " => exit" << endl;
-  //   exit(1);
-  // }
-}
-
 void Interface::removeDissolutionSite(int pos0, int pos1) {
   // if (pos0 != pos1)
   // try {

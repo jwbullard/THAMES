@@ -2952,7 +2952,7 @@ int Lattice::emptyPorosity(int numsites, int cyc) {
       pos1 = growthInterfaceSize_[pid] - 1;
       sid = interface_[pid].getGrowthSitesId(pos1);
       ste1 = &site_[sid];
-      interface_[pid].removeEmptiedSite(pos0, pos1);
+      interface_[pid].removeGrowthSite(pos0, pos1);
       // if (pos0 != pos1)
       ste1->setInGrowInterfacePos(pid, pos0);
       ste0->setInGrowInterfacePos(pid, -1);

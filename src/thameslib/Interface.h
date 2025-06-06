@@ -183,7 +183,6 @@ public:
   */
   // bool removeGrowthSite(Site *loc);
   void removeGrowthSite(int pos0, int pos1);
-  void removeEmptiedSite(int pos0, int pos1);
 
   /**
   @brief Remove a site from the list of sites where dissolution can occur
