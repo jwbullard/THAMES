@@ -711,12 +711,11 @@ public:
   fraction of void space in the microstructure, either adding
   or subtracting electrolyte as necessary
 
-  @param volFracChange is the target change in electrolyte volume
+  @param volFracVoidChange is the target change in void volume
   fraction, on a total microstructure volume basis
   @param cyc is the current computational iteration
-  @return the actual volume fraction of electrolyte changed
   */
-  double changeSaturationState(double volFracChange, const int cyc);
+  double changeSaturationState(double volFracVoidChange, const int cyc);
 
   /**
   @brief Remove a prescribed volume fraction of water from the system

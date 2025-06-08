@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -210,6 +211,15 @@ public:
   @return the microstructure phase id number
   */
   int getMicroPhaseId() const { return microPhaseId_; }
+
+  /**
+  @brief Get the microstructure phase name assigned to the site.
+
+  @return the microstructure phase name
+  */
+  string getMicroPhaseName() const {
+    return chemSys_->getMicroPhaseName(microPhaseId_);
+  }
 
   /**
   @brief Set the microstructure phase id number assigned to the site.

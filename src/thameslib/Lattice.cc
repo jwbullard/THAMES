@@ -1642,9 +1642,12 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
   sizeWS = waterNucSites.size();
   int allPNS = sizeWS;
 
+  cout << endl
+       << "      Lattice::nucleatePhaseRnd numToNucleated = " << numToNucleate
+       << " and eligible water sites = " << sizeWS << endl;
+  cout.flush();
+
   if (numToNucleate > sizeWS) {
-    cout << "GODZILLA 01" << endl;
-    cout.flush();
     // Now look for void sites that neighbor porous solids
     // We may need them if there are not enough saturated capillary pore voxels
 
@@ -1657,90 +1660,42 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     }
     sizeVS = voidNucSites.size();
     allPNS += sizeVS;
-
-    // Now randomly order the saturated capillary pore voxels
-    // Then append randomly orders void voxels that neighbor porous solids
-    cout << "GODZILLA needs to nucleate " << numToNucleate << " voxels of "
-         << chemSys_->getMicroPhaseName(phaseID) << endl;
-    cout << "GODZILLA found " << sizeWS << " saturated pore sites and "
-         << sizeVS << " sites next to subvoxel pores" << endl;
-    cout << "GODZILLA therefore has " << allPNS << " potential nucleation sites"
-         << endl;
-    cout.flush();
-
-    cout << "HYDRA: Check that none of the water sites are portlandite..."
-         << endl;
-    cout.flush();
-    int chcount = 0;
-    for (k = 0; k < sizeWS; ++k) {
-      if (site_[waterNucSites[k]].getMicroPhaseId() == 3)
-        chcount++;
-    }
-    cout << "HYDRA: Found " << chcount << " portlandite sites in waterNucSites"
-         << endl;
-    cout.flush();
-
-    cout << "HYDRA: Check that none of the void sites are portlandite..."
-         << endl;
-    cout.flush();
-    chcount = 0;
-    for (k = 0; k < sizeVS; ++k) {
-      if (site_[voidNucSites[k]].getMicroPhaseId() == 3)
-        chcount++;
-    }
-    cout << "HYDRA: Found " << chcount << " portlandite sites in voidNucSites"
-         << endl;
-    cout.flush();
-
-    while (numRemaining > 0 && allPNS > 0) {
-      while ((sizeWS > 0) && (numRemaining > 0)) {
-        rng = callRNG();
-        pos = static_cast<int>(rng * sizeWS);
-        if (pos == sizeWS)
-          pos--;
-
-        seedID.push_back(waterNucSites[pos]);
-
-        waterNucSites.erase(waterNucSites.begin() + pos);
-
-        numRemaining--;
-
-        sizeWS--;
-        allPNS--;
-      }
-      while ((sizeVS > 0) && (numRemaining > 0)) {
-        rng = callRNG();
-        pos = static_cast<int>(rng * sizeVS);
-        if (pos == sizeVS)
-          pos--;
-
-        seedID.push_back(voidNucSites[pos]);
-
-        voidNucSites.erase(voidNucSites.begin() + pos);
-        numRemaining--;
-
-        sizeVS--;
-        allPNS--;
-      }
-    }
-
-    cout << "HYDRA: Check that none of the " << seedID.size()
-         << " seedID sites are portlandite..." << endl;
-    cout.flush();
-    chcount = 0;
-    for (k = 0; k < seedID.size(); ++k) {
-      if (site_[seedID[k]].getMicroPhaseId() == 3)
-        chcount++;
-    }
-    cout << "HYDRA: Found " << chcount << " portlandite sites in seedID vector"
-         << endl;
-    cout.flush();
   }
 
-  cout << "GODZILLA needs to nucleate " << numToNucleate << " voxels of "
-       << chemSys_->getMicroPhaseName(phaseID) << endl;
-  cout << "GODZILLA seedID size =  " << seedID.size() << endl;
-  cout.flush();
+  // Now randomly order the saturated capillary pore voxels
+  // Then append randomly orders void voxels that neighbor porous solids
+
+  while (numRemaining > 0 && allPNS > 0) {
+    while ((sizeWS > 0) && (numRemaining > 0)) {
+      rng = callRNG();
+      pos = static_cast<int>(rng * sizeWS);
+      if (pos == sizeWS)
+        pos--;
+
+      seedID.push_back(waterNucSites[pos]);
+
+      waterNucSites.erase(waterNucSites.begin() + pos);
+
+      numRemaining--;
+
+      sizeWS--;
+      allPNS--;
+    }
+    while ((sizeVS > 0) && (numRemaining > 0)) {
+      rng = callRNG();
+      pos = static_cast<int>(rng * sizeVS);
+      if (pos == sizeVS)
+        pos--;
+
+      seedID.push_back(voidNucSites[pos]);
+
+      voidNucSites.erase(voidNucSites.begin() + pos);
+      numRemaining--;
+
+      sizeVS--;
+      allPNS--;
+    }
+  }
 
   // We might still have run out of all possible nucleation sites
   if (numRemaining > 0) {
@@ -1769,9 +1724,6 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     sID = seedID[i];
     ste = &site_[sID];
     pid = ste->getMicroPhaseId(); // always ELECTROLYTEID or possibly VOIDID !!
-    cout << "  MOTHRA found nucleation site " << i << " (" << seedID[i]
-         << ") with " << chemSys_->getMicroPhaseName(pid) << endl;
-    cout.flush();
 
     wmcIni = ste->getWmc0();
 
@@ -1782,11 +1734,11 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
       cout << "     Done!" << endl;
       cout.flush();
     }
-    cout << "     Changing microstructure phase from " << pid << " to "
-         << phaseID << "..." << endl;
-    cout.flush();
+    // cout << "     Changing microstructure phase from " << pid << " to "
+    //      << phaseID << "..." << endl;
+    // cout.flush();
     setMicroPhaseId(ste, phaseID);
-    cout << "     Done!" << endl;
+    cout << "     " << i << " of " << sizeSeedID << " Done!" << endl;
     cout.flush();
 
     ///
@@ -1807,13 +1759,9 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     } else {
       wmcEnd = 0;
     }
-    cout << "MOTHRA setting Wmc0 to " << wmcEnd << endl;
-    cout.flush();
     ste->setWmc0(wmcEnd);
 
     dwmcval = wmcEnd - wmcIni;
-    cout << "MOTHRA changing wmc..." << dwmcval << endl;
-    cout.flush();
     ste->dWmc(dwmcval);
 
     ///
@@ -1821,17 +1769,10 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     /// later on, so we add it to the list of dissolution sites.
     ///
 
-    cout << "MOTHRA getting wmc...";
-    cout.flush();
     steWmc = ste->getWmc();
-    cout << " = " << steWmc << endl;
 
     if (steWmc > 0.0) {
-      cout << "MOTHRA adding dissolution site at " << ste->getId() << "... ";
-      cout.flush();
       addDissolutionSite(ste, phaseID);
-      cout << "    Done!" << endl;
-      cout.flush();
     }
 
     ///
@@ -1843,19 +1784,18 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     /// NN_NNN = NUM_NEAREST_NEIGHBORS +  NUM_SECONDNEAREST_NEIGHBORS;
     ///
 
+    // cout << "    GODZILLA site " << ste->getId() << "("
+    //      << ste->getMicroPhaseName() << "):";
+
     for (j = 0; j < NN_NNN; j++) {
       stenb = ste->nb(j);
-
-      // GODZILLA OUTPUT FROM HERE ...
-      cout << j << "(" << stenb->getId() << ","
-           << chemSys_->getMicroPhaseName(stenb->getMicroPhaseId()) << ")";
-      if (j == (NN_NNN - 1)) {
-        cout << endl;
-      } else {
-        cout << ",";
-      }
-      cout.flush();
-      // GODZILLA TO HERE
+      // cout << " " << stenb->getMicroPhaseName();
+      // if (j < NN_NNN - 1) {
+      //   cout << ",";
+      // } else {
+      //   cout << endl;
+      // }
+      // cout.flush();
       stenb->dWmc(dwmcval);
       stenbWmc = stenb->getWmc();
 
@@ -2877,15 +2817,15 @@ void Lattice::removeGrowthSite_diss(Site *ste0, int pid) {
   // }
 }
 
-double Lattice::changeSaturationState(double volFracChange, const int cyc) {
+double Lattice::changeSaturationState(double volFracVoidChange, const int cyc) {
 
-  double actualChange = 0.0;
-  if (volFracChange > 0.0) {
-    actualChange = fillPorosity(volFracChange, cyc);
-  } else if (volFracChange < 0.0) {
-    actualChange = emptyPorosity(-volFracChange, cyc);
+  double volFracChanged = 0.0;
+  if (volFracVoidChange > 0.0) {
+    volFracChanged = emptyPorosity(volFracVoidChange, cyc);
+  } else if (volFracVoidChange < 0.0) {
+    volFracChanged = fillPorosity(-volFracVoidChange, cyc);
   }
-  return (actualChange);
+  return (volFracChanged);
 }
 
 double Lattice::emptyPorosity(double volFracToRemove, const int cyc) {
@@ -2895,14 +2835,16 @@ double Lattice::emptyPorosity(double volFracToRemove, const int cyc) {
   int numToEmpty = static_cast<int>((volFracToRemove * numSites_) + 0.5);
   int actualEmptied = emptyCapillaryPorosity(numToEmpty, cyc);
   double dEmptied = static_cast<double>(actualEmptied);
+  double volFracRemoved = dEmptied / dNumsites;
 
   // What is the remaining volume fraction to remove?
-  double volFracRemaining = volFracToRemove - (dEmptied / dNumsites);
-  // if (volFracRemaining > 0.0) {
-  //   double subVoxRemoved = emptySubVoxelPorosity(volFracRemaining, cyc);
-  //   volFracRemaining -= subVoxRemoved;
-  // }
-  return (volFracRemaining);
+  double volFracRemaining = volFracToRemove - volFracRemoved;
+  if (volFracRemaining > 0.0) {
+    double subVoxRemoved = emptySubVoxelPorosity(volFracRemaining, cyc);
+    volFracRemoved += subVoxRemoved;
+    volFracRemaining -= subVoxRemoved;
+  }
+  return (volFracRemoved);
 }
 
 double Lattice::emptySubVoxelPorosity(double volFracToRemove, const int cyc) {
@@ -2934,16 +2876,19 @@ double Lattice::fillPorosity(double volFracToAdd, const int cyc) {
   double dNumsites = static_cast<double>(numSites_);
   double subVoxAdded = fillSubVoxelPorosity(volFracToAdd, cyc);
   double volFracRemaining = volFracToAdd - subVoxAdded;
+  double volFracAdded = subVoxAdded;
 
   // How many void voxels should be changed to electrolyte?
   if (volFracRemaining > 0.0) {
     int numToFill = static_cast<int>((volFracRemaining * numSites_) + 0.5);
     int actualFilled = fillCapillaryPorosity(numToFill, cyc);
     double dFilled = static_cast<double>(actualFilled);
-    volFracRemaining -= (dFilled / dNumsites);
+    double volFracChanged = dFilled / dNumsites;
+    volFracRemaining -= volFracChanged;
+    volFracAdded += volFracChanged;
   }
 
-  return (volFracRemaining);
+  return (volFracAdded);
 }
 
 double Lattice::fillSubVoxelPorosity(double volFracToAdd, const int cyc) {
@@ -2984,34 +2929,13 @@ int Lattice::emptyCapillaryPorosity(int numToEmpty, const int cyc) {
   /// it.
   ///
 
-  // cout << "    Lattice::emptyPorosity - check for cyc = " << cyc
-  //      << " :      numToEmpty = " << numToEmpty;
-  // cout.flush();
-
   vector<int> distVect =
       findDomainSizeDistribution(ELECTROLYTEID, numToEmpty, maxsearchsize, 0);
   int distVectSize = distVect.size();
 
-  // cout << "      distVect.size() = " << distVectSize << endl;
-  // cout.flush();
-
   ///
   /// We want to empty the sites with the largest pore count
   ///
-
-  if (distVectSize < numToEmpty) {
-    cout << endl
-         << "    Lattice::emptyPorosity - Ran out of water in the system for "
-            "cyc = "
-         << cyc << "   distVect.size() < numToEmpty : " << distVectSize << " < "
-         << numToEmpty << endl;
-    cout << "    Lattice::emptyPorosity -> normal end of the program" << endl;
-    // exit(1);
-    bool is_Error = false;
-    throw MicrostructureException("Lattice", "emptyPorosity",
-                                  "ran out of water in the system - normal end",
-                                  is_Error);
-  }
 
   int numemptied = 0;
   int siteID;
@@ -3906,40 +3830,13 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
   int numEmptyFill = newsites - cursites;
   int numEmpty = 0, numFill = 0;
-  double change = 0.0;
   cout << endl
        << "  Lattice::changeMicrostructure - cyc = " << cyc
        << " :  numEmptyFill = " << numEmptyFill
        << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
        << endl;
-  cout << "KINGKONG changeVoidFrac = " << changeVoidFrac << endl;
-  change = changeSaturationState(changeVoidFrac, cyc);
   cout.flush();
-  if (changeVoidFrac > 0) {
-    try {
-      change = emptyPorosity(changeVoidFrac, cyc);
-    } catch (MicrostructureException mex) {
-      throw mex;
-    }
-    cout << "  Lattice::changeMicrostructure - cyc = " << cyc
-         << " =>  after emptyPorosity :  numEmptyFill = " << numEmptyFill
-         << "   numEmpty = " << numEmpty
-         << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
-         << endl;
-    cout.flush();
-  } else if (changeVoidFrac < 0) {
-    try {
-      change = fillPorosity(changeVoidFrac, cyc);
-    } catch (MicrostructureException mex) {
-      throw mex;
-    }
-    cout << "  Lattice::changeMicrostructure - cyc = " << cyc
-         << " =>  after fillPorosity :  numEmptyFill = " << numEmptyFill
-         << "   numFill = " << numFill
-         << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
-         << endl;
-    cout.flush();
-  }
+  double voidFracChanged = changeSaturationState(changeVoidFrac, cyc);
 
   if (verbose_) {
     cout << "Lattice::changeMicrostructure ***netsites[" << phasenames[VOIDID]
@@ -4009,12 +3906,30 @@ int Lattice::changeMicrostructure(double time, const int simtype,
     cout << endl
          << "Lattice::changeMicrostructure error => totcount != numSites_ : "
          << totcount << " != " << numSites_ << endl;
-    cout << "time,simtype,capWater : " << time << " , " << simtype << " , "
-         << capWater << endl;
+    cout << "time,simtype: " << time << " , " << simtype << " , " << endl;
     cout << "repeat  : " << repeat << endl;
     cout << "cyc  : " << cyc << endl;
     cout << "stop program" << endl;
     exit(1);
+  }
+
+  if (abs(voidFracChanged - changeVoidFrac) > 1.0e-8) {
+    cout << "    Lattice::changeMicrostructure - Ran out of water ";
+    cout << "    Lattice::changeMicrostructure in the system for cyc = " << cyc
+         << endl;
+    cout << "        void frac change needed = " << changeVoidFrac << endl;
+    cout << "        void frac change changed = " << voidFracChanged << endl;
+
+    double water_volume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
+    double water_volfrac = water_volume / initialMicrostructureVolume_;
+    cout << "        electrolyte volume fraction left = " << water_volfrac
+         << endl;
+    cout << "    Lattice::changeMicrostructure -> normal end of the program"
+         << endl;
+    cout << endl;
+    bool is_Error = false;
+    throw MicrostructureException("Lattice", "changeMicrostructure",
+                                  "no more water in system", is_Error);
   }
 
   ///  This is a local variable and the value is never used.
@@ -4025,18 +3940,13 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   // double surfa = getSurfaceArea(chemSys_->getMicroPhaseId(CSHMicroName));
 
   if (volumeFraction_[ELECTROLYTEID] <= 0.0) {
-    capWater = false;
-    cout << endl
-         << "  Lattice::changeMicrostructure :  capWater = " << capWater
-         << endl;
     cout << "mPhId/vfrac_next_/volumeFraction_/count_: " << endl;
     for (int i = 0; i < volNextSize; i++) {
       cout << "   " << i << "  " << vfrac_next[i] << "  " << volumeFraction_[i]
            << "  " << count_[i] << endl;
     }
     cout << endl
-         << "  time, simtype, capWater : " << time << " , " << simtype << " , "
-         << capWater << endl;
+         << "  time, simtype: " << time << " , " << simtype << " , " << endl;
     cout << "  repeat  : " << repeat << endl;
     cout << "  cyc  : " << cyc << endl;
     cout << "  no CAPILLARY electrolyte in the system" << endl;
@@ -4323,7 +4233,7 @@ void Lattice::calcCapillaryWaterVolume(vector<double> &vol) {
 // }
 
 void Lattice::calculatePoreSizeDistribution(void) {
-  // First compose the full pore volume distribution
+  // Compose the full pore volume distribution
 
   vector<double> subpore_volume(volumeFraction_.size(), 0.0);
 
@@ -4569,20 +4479,42 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // double pore_volfrac =
   //     capillaryporevolumeFraction_ + subvoxelporevolumeFraction_;
 
+  // Fill sub-voxel porosity with water for now
+  double volfrac_avail;
+  double volfrac_filled;
+  masterPoreVolumeSize = masterPoreVolume_.size();
+  cout << "GODZILLA: water_volume = " << water_volume << endl;
+  cout << "GODZILLA: water_volfrac = " << water_volfrac << endl;
+  cout << "GODZILLA: subvoxelPoreVolumeFraction = "
+       << subvoxelPoreVolumeFraction_ << endl;
+  cout.flush();
+  for (int i = 0; i < masterPoreVolumeSize; ++i) {
+    volfrac_avail = masterPoreVolume_[i].volume * subvoxelPoreVolumeFraction_;
+    volfrac_filled = water_volfrac / volfrac_avail;
+    if (volfrac_filled > 1.0)
+      volfrac_filled = 1.0;
+    masterPoreVolume_[i].volfrac = volfrac_filled;
+    if (!(chemSys_->isSaturated())) { // System is sealed
+      water_volfrac -= volfrac_avail;
+      if (water_volfrac < 0.0)
+        water_volfrac = 0.0;
+    }
+  }
+
   // Only worry about unsaturated subvoxel pores if the capillary
   // pores are completely empty of water
 
+  /*
   if (volumeFraction_[ELECTROLYTEID] <= 0.0) {
     // The next variable represents the volume fraction of subvoxel
     // pores of a given size, on a total microstructure volume basis
-    double volfrac_avail = 0.0;
-    double volfrac_filled = 0.0;
+    volfrac_avail = 0.0;
+    volfrac_filled = 0.0;
     // masterporevolume is already a kind of volume fraction
     // because it has been normalized to the total subvoxel pore volume
     //    cout << "Lattice::calculatePoreSizeDistribution  "
     //          << "Master pore size volume filling" << endl;
     //    cout.flush();
-    masterPoreVolumeSize = masterPoreVolume_.size();
     for (int i = 0; i < masterPoreVolumeSize; ++i) {
       volfrac_avail = masterPoreVolume_[i].volume * subvoxelPoreVolumeFraction_;
       volfrac_filled = water_volfrac / volfrac_avail;
@@ -4607,6 +4539,7 @@ void Lattice::calculatePoreSizeDistribution(void) {
     // cout << endl;
     cout.flush();
   }
+  */
 
   return;
 }
