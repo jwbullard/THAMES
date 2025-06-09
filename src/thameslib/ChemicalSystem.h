@@ -228,10 +228,18 @@ class ChemicalSystem {
       growthTemplate_; /**< A list of the phases on which a given phase
                                is allowed to grow; one list for each phase */
   // vector<vector<int>> affinity_;
-  /**< A list of the microstructure phases with
-   which a given microstructure phase has an
-   affinity to associate when growing */
+  /**< A list of the microStructure microPhases with which a microPhase has an
+  affinity to associate when growing. The affinity vector is always the same
+  length, one entry for every microstructure phase, and the default value is
+  zero (contactanglevalue = 180); for self-affinity (the growing phase and the
+  template are the same) the default value is 1 (contactanglevalue = 0). Both,
+  affinity and self-affinity can be modified supplying, in the simparams.json
+  file, the desired values for the contact angle (see contactAngle_) */
   vector<vector<double>> affinity_;
+
+  /**< vector containing for each microPhase in the system the values for the
+  contact angle between this microPhase and all the other microPhases in the
+  system, including itself (see affinity_) */
   vector<vector<double>> contactAngle_;
 
   map<int, vector<int>>
@@ -557,10 +565,12 @@ class ChemicalSystem {
   bool warning_; /**< Whether to produce warning output */
 
   vector<int>
-      DC_to_MPhID_; // microPhaseId for a given DCId: dim(DC_to_MPhID_)=numDCs &
-                    // initialVal(DC_to_MPhID_)=-1
-  vector<bool> cementComponent_;
-  // vector<bool> GEMPhaseBelongsToCement_;
+      DC_to_MPhID_; /**< microPhaseId for a given DCId: dim(DC_to_MPhID_) = numDCs &
+                    initialVal(DC_to_MPhID_) = -1 */
+  vector<bool> cementComponent_; /**< the flag saying if a microPhase belongs or not
+                                 to the cement; the flag is assigned for each microPhase
+                                 according to its "cement_component" value in
+                                 simparams.json file */
   double scaledCementMass_;     /**< the sum of all scalled masses corresponding to
                                      the microPhases controlled by the Parrot-Killoh
                                      model AND to a given time step */
@@ -582,10 +592,9 @@ class ChemicalSystem {
   int ferriteDCId_;   /**< the DCId coresp to microPhaseName = "Ferrite" */
 
   double initSolidMass_;  /**< the total mass of all solid microPhases in the system,
-                               including the clinker microPhases, at time = 0*/
+                               including the clinker microPhases, at time = 0 */
 
 public:
-  void setInitSolidMass(double val) { initSolidMass_ = val; }
 
   /**
   @brief Constructor.
@@ -1403,6 +1412,15 @@ public:
     }
   }
 
+  /**
+  @brief Get the integer id of a microstructure phase by its name.
+
+  @note used only in ThermalStrain::ThermalStrain to assign for each
+  microPhase the tensile strength vector (tstrength_) values
+
+  @param micname is the name of the microstructure phase
+  @return the integer id associated with that phase name
+  */
   int getMicroPhaseId_SA(const string &micname) {
     map<string, int>::iterator p = microPhaseIdLookup_.find(micname);
     if (p != microPhaseIdLookup_.end()) {
@@ -1898,21 +1916,20 @@ public:
   }
 
   /**
-  @brief Set the list of affinities for growth of a microstructure phase on its
-  templates.
+  @brief Set the list of affinities for growth of a microPhase on its templates.
 
-  A given phase, whether hydration product or product of chemical degradation,
+  A given microPhase, whether hydration product or product of chemical degradation,
   will generally grow in a compact form by make the growth potential highest
-  at sites with low mean curvature and lowest at point with high mean curvature.
-  The growth sites are ordered from lowest to highest mean curvature when the
-  random growth parameter is set to zero.  Higher values of random growth
-  parameter cause more severe shuffling of the ordered list of growth sites.
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
 
   @note NOT USED.
 
-  @param idx is the microstructure phase id
-  @param avec is the list of integer affinities for growth of the phase on its
-  templates
+  @param idx is the microPhase id
+  @param avec is the list of affinities for growth of the microPhase on its templates
   */
   void setAffinity(const int idx, vector<double> avec) {
     // string msg;
@@ -1929,22 +1946,21 @@ public:
   }
 
   /**
-  @brief Set the affinity for growth of a microstructure phase on one of its
-  templates.
+  @brief Set the affinity for growth of a microPhase on one of its templates.
 
-  A given phase, whether hydration product or product of chemical degradation,
+  A given microPhase, whether hydration product or product of chemical degradation,
   will generally grow in a compact form by make the growth potential highest
-  at sites with low mean curvature and lowest at point with high mean curvature.
-  The growth sites are ordered from lowest to highest mean curvature when the
-  random growth parameter is set to zero.  Higer values of random growth
-  parameter cause more severe shuffling of the ordered list of growth sites.
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
 
   @note NOT USED.
 
-  @param idx is the microstructure phase id
+  @param idx is the microPhase id
   @param jdx is the element to access in the list of growth affinities
-  @param val is the integer affinity to assign to the phase at that element the
-  list
+  @param val is the affinity to assign to the microPhase at that element of the list
   */
   void setAffinity(const int idx, const int jdx, const double val) {
     if (idx >= static_cast<int>(affinity_.size())) {
@@ -1966,21 +1982,20 @@ public:
   }
 
   /**
-  @brief Get the list of affinities for growth of a microstructure phase on its
-  templates.
+  @brief Get the list of affinities for growth of a microPhase on its templates.
 
-  A given phase, whether hydration product or product of chemical degradation,
+  A given microPhase, whether hydration product or product of chemical degradation,
   will generally grow in a compact form by make the growth potential highest
-  at sites with low mean curvature and lowest at point with high mean curvature.
-  The growth sites are ordered from lowest to highest mean curvature when the
-  random growth parameter is set to zero.  Higer values of random growth
-  parameter cause more severe shuffling of the ordered list of growth sites.
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
 
   @note NOT USED.
 
   @param idx is the microstructure phase id of which the affinities are sought
-  @return the list of integer affinities for all the templates for growth of
-  phase idx
+  @return the list of affinities for all the templates for growth of microPhase idx
   */
   vector<double> getAffinity(const int idx) {
     // try {
@@ -1994,19 +2009,19 @@ public:
   }
 
   /**
-  @brief Get the affinitiy for growth of a microstructure phase on one of its
-  templates.
+  @brief Get the affinitiy for growth of a microPhase on one of its templates.
 
-  A given phase, whether hydration product or product of chemical degradation,
-  will generally grow in a compact form by making the growth potential highest
-  at sites with low mean curvature and lowest at point with high mean curvature.
-  The growth sites are ordered from lowest to highest mean curvature when the
-  random growth parameter is set to zero.  Higher values of random growth
-  parameter cause more severe shuffling of the ordered list of growth sites.
+  A given microPhase, whether hydration product or product of chemical degradation,
+  will generally grow in a compact form by make the growth potential highest
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
 
-  @param idx is the microstructure phase id of which the affinity is sought
+  @param idx is the microPhase id of which the affinity is sought
   @param jdx is the element in the list of affinities being queried
-  @return the affinity for the template phase associated with list element jdx
+  @return the affinity for the template microPhase associated with list element jdx
   */
   double getAffinity(const int idx, const int jdx) {
     if (idx >= static_cast<int>(affinity_.size())) {
@@ -2027,22 +2042,39 @@ public:
   }
 
   /**
-  @brief Get the list of affinities for growth of every microstructure phase.
+  @brief Get the list of affinities for growth of every microPhase.
 
-  A given phase, whether hydration product or product of chemical degradation,
+  A given microPhase, whether hydration product or product of chemical degradation,
   will generally grow in a compact form by make the growth potential highest
-  at sites with low mean curvature and lowest at point with high mean curvature.
-  The growth sites are ordered from lowest to highest mean curvature when the
-  random growth parameter is set to zero.  Higer values of random growth
-  parameter cause more severe shuffling of the ordered list of growth sites.
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
 
   @note Used only in this class's copy constructor.
 
-  @return the list of all integer affinities for all the templates for growth of
-  all phases
+  @return the list of all affinities for all the templates for growth of
+  all microPhases
   */
   vector<vector<double>> getAffinity(void) const { return affinity_; }
 
+  /**
+  @brief Get the list of contact angles for growth of every microPhase.
+
+  A given microPhase, whether hydration product or product of chemical degradation,
+  will generally grow in a compact form by make the growth potential highest
+  at sites with high affinity and lowest at sites with low affinity; the current
+  growth site for a given microPhase is choosen with a probability depending on the
+  value of its affinity for this microPhase in respect with the affinities of all
+  the other growth sites, including itself, corresponding to all the microPhases
+  that can grow in the current time step.
+
+  @note Used only in this class's copy constructor.
+
+  @return the list of all contact angles for all the templates for growth of
+  all microPhases
+  */
   vector<vector<double>> getContactAngle(void) const { return contactAngle_; }
 
   /**
@@ -2548,6 +2580,15 @@ public:
     return microPhaseMembers_;
   }
 
+  /**
+  @brief Get the list of volume fractions of all the GEM CSD phases for all the
+  microPhases in the system.
+
+  @note Used only in this class's copy constructor.
+
+  @return the vector of volume fractions of each GEM CSD phase for all the
+  microPhases in the system.
+  */
   map<int, vector<double>> getMicroPhaseMemberVolumeFraction(void) const {
     return microPhaseMemberVolumeFraction_;
   }
@@ -2744,42 +2785,6 @@ public:
       cout << endl << "   exit" << endl;
       exit(1);
     }
-    /*
-        try {
-          map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
-    #ifdef DEBUG
-          cout << "ChemicalSystem::getMicroPhaseDCMembers micro phase id " <<
-    idx
-               << " looking for dc index " << jdx << endl;
-          cout << "ChemicalSystem::getMicroPhaseDCMembers size = "
-               << microPhaseDCMembers_.size() << endl;
-          cout.flush();
-    #endif
-          if (p != microPhaseDCMembers_.end()) {
-    #ifdef DEBUG
-            cout << "micro phase id " << idx << " looking for dc index " << jdx
-                 << endl;
-            cout.flush();
-    #endif
-            if (jdx < (p->second).size()) {
-              return (p->second)[jdx];
-            } else {
-              throw EOBException("ChemicalSystem", "getMicroPhaseDCMembers",
-                                 "microPhaseDCMembers_", (p->second).size(),
-    jdx);
-            }
-          } else {
-            msg = "Could not find microPhaseDCMembers_ match to index provided";
-            throw EOBException("ChemicalSystem", "getMicroPhaseDCMembers", msg,
-                               microPhaseDCMembers_.size(), 0);
-          }
-        } catch (EOBException eex) {
-          eex.printException();
-          cout.flush();
-          cerr.flush();
-          exit(1);
-        }
-    */
   }
 
   /**
@@ -3093,6 +3098,11 @@ public:
     cout.flush();
   }
 
+  /**
+  @brief Output the number of moles impossed as upper limit for every dependent
+  component (DC) in the system.
+
+  */
   // void writeDCUpperLimit() {
   //   cout << endl;
   //   cout << "Vector of DCUpperLimit:" << endl;
@@ -3104,6 +3114,11 @@ public:
   //   cout.flush();
   // }
 
+  /**
+  @brief Output the number of moles impossed as lower limit for every dependent
+  component (DC) in the system.
+
+  */
   // void writeDCLowerLimit() {
   //   cout << endl;
   //   cout << "Vector of DCLowerLimit:" << endl;
@@ -5787,6 +5802,11 @@ public:
   void setMicroPhaseSI(void);
   // void setMicroPhaseSI(bool sa);
 
+  /**
+  @brief Set the vector of saturation indices of all microPhases.
+
+  @param t is the current time
+  */
   void setMicroPhaseSI(double t);
 
   /**
@@ -5963,6 +5983,11 @@ public:
 
   //*@*********************************************
 
+  /**
+  @brief write down all important information about the chemical definition
+  of the system.
+
+  */
   void checkChemSys(void);
 
   /**
@@ -5990,15 +6015,12 @@ public:
   }
 
   /**
-  @brief Get the map of of the vector index of the microstructure phases by
-  name.
-
-  The integer id of each microstructure phase is keyed to its name in this map,
-  so one can "look up" a phase id by the name of that phase.
+  @brief Get the index of the microPhase given by its name.
 
   @note Used only in this class's copy constructor.
 
-  @return the microstructure phase lookup map (look up by name)
+  @param str is the microPhase name
+  @return the microPhase index (look up by name)
   */
   int getMicroPhaseIdLookup(string str) {
     string msg;
@@ -6014,6 +6036,14 @@ public:
     }
   }
 
+  /**
+  @brief Get the index of an IC given by its name.
+
+  @note Used only in this class's copy constructor.
+
+  @param str is the IC name
+  @return the IC index (look up by name)
+  */
   int getICIdLookup(string str) // ICId -> xCH
   {
     string msg;
@@ -6029,6 +6059,14 @@ public:
     }
   }
 
+  /**
+  @brief Get the index of a DC given by its name.
+
+  @note Used only in this class's copy constructor.
+
+  @param str is the DC name
+  @return the DC index (look up by name)
+  */
   int getDCIdLookup(string str) // DCId -> xCH
   {
     string msg;
@@ -6044,6 +6082,14 @@ public:
     }
   }
 
+  /**
+  @brief Get the index of the GEM phase given by its name.
+
+  @note Used only in this class's copy constructor.
+
+  @param str is the GEM phase name
+  @return the GEM phase index (look up by name)
+  */
   int getGEMPhaseIdLookup(string str) {
     string msg;
     map<string, int>::iterator p = GEMPhaseIdLookup_.find(str);
@@ -6058,43 +6104,117 @@ public:
     }
   }
 
-  string getMicroPhaseName(int i) { return microPhaseName_[i]; }
+  /**
+  @brief Get the microPhaseName corresponding to a given microPhaseId.
 
+  @param pid is the microPhaseId.
+  @return the microPhaseName corresponding to pid.
+  */
+  string getMicroPhaseName(int pid) { return microPhaseName_[pid]; }
+
+  /**
+  @brief Get the current mole number of DC directly from GEM IPM work structure.
+
+  @param idx is DC DCH index.
+  @return the current mole number of DC directly from GEM IPM work structure.
+  */
   double getDCMolesNode(const unsigned int idx) { return node_->DC_n(idx); }
 
-  bool getIsDCKinetic(int i) { return isDCKinetic_[i]; }
+  /**
+  @brief Get the isDCKinetic_ flag of the dependent component (DC) having the
+  DCId = dcid.
 
-  void setIsDCKinetic(int i, bool val) { isDCKinetic_[i] = val; }
+  The isDCKinetic_ is true if this is a kinetic controlled DC or it is false if
+  it is not a kinetic controlled DC.
 
-  void setDC_to_MPhID(int i, int val) { DC_to_MPhID_[i] = val; }
+  @param dcid is the DCId of a DC.
+  @return the isDCKinetic_ flag of the DC having the DCId = dcid.
+  */
+  bool getIsDCKinetic(int dcid) { return isDCKinetic_[dcid]; }
 
-  int getDC_to_MPhID(int i) { return DC_to_MPhID_[i]; }
+  /**
+  @brief Set the isDCKinetic_ flag of the dependent component (DC) having the
+  DCId = dcid, at the value val
 
-  void addWaterMassAndVolume(double massVal, double volVal) {
+  The isDCKinetic_ is true if this is a kinetic controlled DC or it is false if
+  it is not a kinetic controlled DC.
 
-    // int wMPhID = getMicroPhaseId("Electrolyte");
-    // cout << "wMPhID = " << wMPhID << endl;
+  @param dcid is the DCId of a DC.
+  @param val is the value to be set to the isDCKinetic_ flag of the DC with
+  DCId = dcid
+  @return the isDCKinetic_ flag of the DC having the DCId = dcid.
+  */
+  void setIsDCKinetic(int dcid, bool val ) { isDCKinetic_[dcid] = val; }
 
-    microPhaseMass_[1] += massVal;
-    microPhaseVolume_[1] += volVal;
+  /**
+  @brief Set the microPhaseID corresponding to a given DCId (a microPhase
+  that corresponds to a given dependent component).
 
-    return;
-  }
+  The DCId is the one corresponding to the first DC member of each microPhase,
+  i.e. the DCId = microPhaseDCMembers_[microPhaseId][0].
 
-  bool isCementComponent(int i) { return cementComponent_[i]; }
+  @param dcid is a DCId
+  @param pid is a microPhaseId
+  */
+  void setDC_to_MPhID(int dcid, int pid) { DC_to_MPhID_[dcid] = pid; }
 
+  /**
+  @brief Get the microPhaseID corresponding to the DCId = dcid (a microPhase
+  that corresponds to a given dependent component).
+
+  @param dcid is a DCId.
+  @return the microPhaseId corresponding to this dcid.
+  */
+  int getDC_to_MPhID(int dcid) { return DC_to_MPhID_[dcid]; }
+
+  /**
+  @brief Get the cement component flag of the microPhase having microPhaseId = pid.
+
+  @param pid is the microPhaseId.
+  @return the cement component flag of the microPhase having microPhaseId = pid.
+   */
+  bool isCementComponent(int pid) { return cementComponent_[pid]; }
+
+  /**
+  @brief Initialize both the initial scaled cement mass (initScaledCementMass_)
+  and scaled cement mass (scaledCementMass_) of the system at their initial values
+  (val - corresponding to the current time time = 0).
+
+  @param val is the value of the initial scaled cement mass at current time = 0.
+  */
   void setInitScaledCementMass(double val) {
     initScaledCementMass_ = scaledCementMass_ = val;
   }
 
-  double getInitScaledCementMass(void) { return initScaledCementMass_; }
+  /**
+  @brief Get the scaled cement mass needed to compute the total degree of reaction
+  of the cement components before to start the hydration process corresponding to
+  the current time step.
 
+  @return the scaled cement mass before to start the hydration process corresponding to
+  the current time step.
+  */
   double getScaledCementMass(void) { return scaledCementMass_; }
 
-  void setZeroMicroPhaseSI(void) { microPhaseSI_.resize(numMicroPhases_, 0.0); }
+  /**
+  @brief Initialize the database containing the RGB values defined by default for
+  each microPhase in the system and used to write the xyz, cfg and png output
+  files;
 
+  The default RGB values corresponding to a given microPhase can be rewritten
+  using the simparams.json file; if a microPhase has no associated RGB values
+  the program asks you to define a new entry associating to this new
+  microPhase the desired RGB values.
+
+  */
   void initColorMap(void);
 
+  /**
+  @brief Get the RGB vector of a given microPhase.
+
+  @param pid is the microPhaseId.
+  @return the RGB vector (integer) of a given microPhase having the microPhaseId = pid.
+  */
   vector<int> getRGB(int pid) {
     string mPhName = microPhaseName_[pid];
     map<string, elemColor>::iterator p = colorN_.find(mPhName);
@@ -6140,6 +6260,14 @@ public:
     }
   }
 
+  /**
+  @brief Get the RGB vector of a given microPhase.
+
+  @note NOT USED.
+
+  @param pid is the microPhaseId.
+  @return the RGB vector (float) of a given microPhase having the microPhaseId = pid.
+  */
   vector<float> getRGBf(int pid) {
     string mPhName = microPhaseName_[pid];
     map<string, elemColor>::iterator p = colorN_.find(mPhName);
@@ -6185,13 +6313,26 @@ public:
     }
   }
 
-  void updateMicroPhaseMasses(int idx, double val, int called) {
-    int DCId = 0;
-    if (idx > ELECTROLYTEID) {
-      microPhaseMassDissolved_[idx] = microPhaseMass_[idx] - val;
-      microPhaseMass_[idx] = val;
+  /**
+  @brief update the scaled mass of a given kinetic controlled microPhase after
+  the hydration reaction corresponding to the current time step.
 
-      DCId = getMicroPhaseDCMembers(idx, 0);
+  @param pid is microPhaseId.
+  @param val is the dissolved scaled mass of this microPhase during the current
+  time step.
+  @param called is a flag to identify where is comming from this method:
+  called = 0 if updateMicroPhaseMasses was called from calculateKineticStep;
+  called = 1 if updateMicroPhaseMasses was called from updateKineticStep. For
+  both calculateKineticStep and updateKineticStep methods, see the
+  KineticController class documentation.
+  */
+  void updateMicroPhaseMasses(int pid, double val, int called) {
+    int DCId = 0;
+    if (pid > ELECTROLYTEID) {
+      microPhaseMassDissolved_[pid] = microPhaseMass_[pid] - val;
+      microPhaseMass_[pid] = val;
+
+      DCId = getMicroPhaseDCMembers(pid, 0);
       double v0 = node_->DC_V0(DCId, P_, T_);
       double dcmm = getDCMolarMass(DCId);
       if (dcmm < 1.0e-9) {
@@ -6200,28 +6341,28 @@ public:
         fex.printException();
         exit(1);
       }
-      // setMicroPhaseVolume(idx, (val * v0 / dcmm));
-      microPhaseVolume_[idx] = val * v0 / dcmm;
+      // setMicroPhaseVolume(pid, (val * v0 / dcmm));
+      microPhaseVolume_[pid] = val * v0 / dcmm;
       if (verbose_) {
         if (called == 0) {
-          cout << "    ChemicalSystem::updateMicroPhaseMassess for idx = "
-               << setw(3) << right << idx << " : " << setw(15) << left
-               << microPhaseName_[idx]
+          cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
+               << setw(3) << right << pid << " : " << setw(15) << left
+               << microPhaseName_[pid]
                << " (called = 0) => updated scaledMass = " << val
-               << " and volume = " << microPhaseVolume_[idx] << endl;
+               << " and volume = " << microPhaseVolume_[pid] << endl;
         } else {
-          cout << "    ChemicalSystem::updateMicroPhaseMassess for idx = "
-               << setw(3) << right << idx << " : " << setw(15) << left
-               << microPhaseName_[idx]
+          cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
+               << setw(3) << right << pid << " : " << setw(15) << left
+               << microPhaseName_[pid]
                << " (called = 1) => updated scaledMass = " << val
-               << " and volume = " << microPhaseVolume_[idx] << endl;
+               << " and volume = " << microPhaseVolume_[pid] << endl;
         }
         cout.flush();
       }
     } else {
       cout << endl
-           << "   error in ChemicalSystem::setKCMicroPhaseMasses : idx = "
-           << idx << endl;
+           << "   error in ChemicalSystem::setKCMicroPhaseMasses : pid = "
+           << pid << endl;
       cout << endl << "   exit" << endl;
       exit(1);
     }
@@ -6338,11 +6479,42 @@ public:
   double calculateCrystalStrain(int growPhId, double poreVolFrac, double Kp,
                                 double Ks);
 
+  /**
+  @brief Set the time at wich the attack (leaching/sulfate attack) of the hydrated
+  microStructure starts
+
+  @param val is the starting time of the attack
+  */
   void setIniAttackTime(const double val) { beginAttackTime_ = val; }
 
+  /**
+  @brief Initialize the elastic moduli database
+
+  Each element of this database is a structure containing for each microPOhase in
+  the system its bulk modulus (K[GPa]), shear modulus (G[GPa]), Young's modulus
+  (E[GPa]) and the Poisson's ratio.
+
+  */
   void initElasticModuliMap(void);
 
+  /**
+  @brief Get the elastic moduli database component corresponding to a given
+  by name microPhase
+
+  @param str the microPhase name
+  @return the elastic moduli database component corresponding to the microPhase
+  named by the input variable str
+  */
   elMod getElasticModuliComp(string str) { return elasticModuli_[str]; }
+
+
+  /**
+  @brief Set the total mass of all solid microPhases in the system, including the
+  clinker microPhases, at time = 0
+
+  @param val is the total solid mass of the system at time = 0
+  */
+  void setInitSolidMass(double val) { initSolidMass_ = val; }
 
 }; // End of ChemicalSystem class
 

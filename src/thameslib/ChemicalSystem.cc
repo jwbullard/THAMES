@@ -1912,11 +1912,11 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
   out << endl << "        equivalence microPhaseId/DCId/GEMPhaseId:" << endl;
   for (int i = ELECTROLYTEID; i < numMicroPhases_; ++i) {
     // if (i >= 1) {
-    string pname = getMicroPhaseName(i);
     int DCId = getMicroPhaseDCMembers(i, 0);
     int indDBR = node_->DCtoPh_DBR(DCId);
 
-    out << endl << "   " << i << "\tpname: " << pname << endl;
+    out << endl << "   " << i << "\tmicroPhaseName_[i]: "
+        << microPhaseName_[i] << endl;
     out << "          GEMPhaseId: " << indDBR
         << "\tGEMPhaseName_: " << GEMPhaseName_[indDBR] << endl;
     out << "          DCId      : " << DCId << "\tDCName_: " << DCName_[DCId]
@@ -1980,7 +1980,7 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
 
   if (verbose_) {
     cout << "ChemicalSystem::calcMicroPhasePorosity for "
-         << getMicroPhaseName(idx) << endl;
+         << microPhaseName_[idx] << endl;
     cout << "    This phase's GEM phase id = " << gemphaseid
          << " and volume = " << getMicroPhaseVolume(idx) << " m3" << endl;
     cout << "    The DC members for this GEM phase are:" << endl;
@@ -2057,7 +2057,7 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
       porosity = 0.0;
     }
     if (verbose_) {
-      cout << "    " << getMicroPhaseName(idx)
+      cout << "    " << microPhaseName_[idx]
            << " subvoxel porosity = " << porosity << endl;
       cout.flush();
     }
@@ -2543,23 +2543,21 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
   if (isSaturated_) { // System is saturated
     if (initMicroVolume_ > microVolume_) {
-      // double water_molarv;
-      double water_molesincr;
-      // int wDCId = getDCId("H2O@");
-      // water_molarv = node_->DC_V0(wDCId, P_, T_);
-      water_molesincr = (initMicroVolume_ - microVolume_) / waterMolarVol_;
+
+      double water_volincr = initMicroVolume_ - microVolume_;
+      double water_molesincr = water_volincr / waterMolarVol_;
       if (verbose_) {
         cout << "System is saturated: wDCId = " << waterDCId_ << endl;
         cout << "    water_molarv = " << waterMolarVol_ << endl;
-        cout << "    volume increase of water is: "
-             << (initMicroVolume_ - microVolume_) << endl;
+        cout << "    volume increase of water is: " << water_volincr
+             << endl;
         cout << "    water_molesincr = " << water_molesincr << endl;
       }
       DCMoles_[waterDCId_] += water_molesincr;
 
       // double waterMolarMass = getDCMolarMass(wDCId);
-      addWaterMassAndVolume(water_molesincr * waterMolarMass_,
-                            initMicroVolume_ - microVolume_); // necessary
+      microPhaseMass_[1] += (water_molesincr * waterMolarMass_);
+      microPhaseVolume_[1] += water_volincr;
 
       cout << "  ChemicalSystem::calculateState - cyc = " << cyc
            << " : water_molesincr = " << water_molesincr << endl;
@@ -2664,7 +2662,7 @@ void ChemicalSystem::setMicroPhaseSI(double time) {
   try {
     double aveSI = 0.0;
     double moles = 0.0;
-    vector<int> microPhaseDCMembers;
+    // vector<int> microPhaseDCMembers;
     string pname;
 
     // Query CSD node to set the SI of every microPhase
