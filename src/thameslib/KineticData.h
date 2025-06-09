@@ -92,7 +92,9 @@ struct KineticData {
   double sio2;           /**< Mole fraction SiO2 in material */
   double al2o3;          /**< Mole fraction Al2O3 in material */
   double cao;            /**< Mole fraction CaO in material */
-  double rh;
-  double rhFactor;
+  double rh_;            /**< relative humidity */
+  double rhFactor_;      /**< relative humidity factor, i.e. the correction
+                         of the hydration rate taking into account the
+                         ambient relative humidity */
 };
 #endif // SRC_THAMESLIB_KINETICDATA_H_

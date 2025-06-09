@@ -31,8 +31,8 @@ THAMES allows some flexibility in defining different types of kinetic models.
 class KineticModel {
 
 protected:
-  string modelName_;
-  int numPhases_; /**< Total number of phases in the kinetic model */
+  string modelName_; /**< The kinetic model name in the kinetic model */
+  int numPhases_;    /**< Total number of phases in the kinetic model */
   ChemicalSystem *
       chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
   Lattice *
@@ -240,7 +240,6 @@ public:
 
   /**
   @brief Get the microstructure id in the KineticModel.
-
 
   @return the list of all microstructure ids.
   */
@@ -590,6 +589,11 @@ public:
   */
   // bool getWarning() const { return warning_; }
 
+  /**
+  @brief Get the name of this kinetic model
+
+  @return the name of this kinetic model
+  */
   string getModelName(void) { return modelName_; }
 }; // End of KineticModel class
 

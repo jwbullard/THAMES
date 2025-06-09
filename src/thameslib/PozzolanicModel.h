@@ -56,9 +56,11 @@ protected:
   double al2o3_;  /**< Mass fraction of Al2O3 (unitless) */
   double cao_;    /**< Mass fraction of CaO (unitless) */
 
-  double rh_;
-  double rhFactor_;
-  double arrhenius_;
+  double rh_;        /**< relative humidity */
+  double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
+                     hydration rate taking into account the ambient relative
+                     humidity */
+  double arrhenius_; /**< arrhenius factor */
 
 public:
   /**
