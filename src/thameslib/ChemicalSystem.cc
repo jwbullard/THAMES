@@ -1049,7 +1049,7 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
     /// microstructure phase, and the default value is zero (contactanglevalue =
     /// 180); for self-affinity (the growing phase and the template are the
     /// same) the default value is 1 (contactanglevalue = 0). Both, affinity and
-    /// self-affinity can be modified supplying, in the chemistry.json file, the
+    /// self-affinity can be modified supplying, in the simparams.json file, the
     /// desired values for the contact angle
 
     // f(th) = (2 - 3 cos(th) + (cos(th))^3)/4

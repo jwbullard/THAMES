@@ -977,7 +977,7 @@ public:
   /**
   @brief Write the microstructure colors to a file
 
-  This is done to save processing the chemistry.json file just to get the colors
+  This is done to save processing the simparams.json file just to get the colors
   and will make post-processing of images easier.
 
   @param root is the root name of the output file to create

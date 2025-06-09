@@ -6107,7 +6107,7 @@ public:
            << " has no associated rgb values by default!" << endl;
       cout << endl << "   => program stops !" << endl;
       cout << endl
-           << "Please add in the chemistry.json file before " << mPhName
+           << "Please add in the simparams.json file before " << mPhName
            << " close phase definition tag (</phase>)," << endl
            << "the following lines replacing VALUE with convenient integer "
               "numbers in [0,255]: "
@@ -6132,7 +6132,7 @@ public:
         i++;
       }
       cout << endl
-           << "After modifying and saving the chemistry.json file, please "
+           << "After modifying and saving the simparams.json file, please "
               "restart the program."
            << endl
            << endl;
@@ -6177,7 +6177,7 @@ public:
         i++;
       }
       cout << endl
-           << "After modifying and saving the chemistry.json file, please "
+           << "After modifying and saving the simparams.json file, please "
               "restart the program."
            << endl
            << endl;

@@ -124,7 +124,7 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
 
   if (verbose_) {
     cout << "KineticController::KineticController Finished reading "
-            "chemistry.json "
+            "simparams.json "
          << endl;
     int size = microPhaseId_.size();
     for (int i = 0; i < size; ++i) {
