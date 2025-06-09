@@ -548,6 +548,11 @@ class ChemicalSystem {
   double initMicroVolume_; /**< Initial absolute volume of the microstructure */
   double
       microVoidVolume_; /**< Absolute volume of void space in microstrucxture */
+  double GEMVolume_;    /**< Absolute volume of the microstructure, units are
+                           m3/100g */
+  // double newMicroVolume_;  /**< Absolute volume of the microstructure */
+  double initGEMVolume_; /**< Initial absolute volume of the microstructure,
+                            units are m3/100g */
 
   /**
   @brief Saturation index of each phase in the GEM CSD.
@@ -3558,12 +3563,47 @@ public:
   double *getGEMPhaseVolume() const { return GEMPhaseVolume_; }
 
   /**
+  @brief Get the GEM system volume (units m3/100 g)
+
+  @return sum of all GEM phase volumes
+  */
+  double getGEMVolume() {
+    double volume = 0.0;
+    for (int i = 0; i < numGEMPhases_; ++i) {
+      if (GEMPhaseClassCode_[i] != 'g') {
+        volume += GEMPhaseVolume_[i];
+      }
+    }
+    GEMVolume_ = volume;
+    return volume;
+  }
+
+  /**
+  @brief Set the initial GEM system volume (units m3/100 g)
+
+  */
+  void setInitGEMVolume() {
+    double volume = 0.0;
+    for (int i = 0; i < numGEMPhases_; ++i) {
+      if (GEMPhaseClassCode_[i] != 'g') {
+        volume += GEMPhaseVolume_[i];
+      }
+    }
+    initGEMVolume_ = volume;
+    return;
+  }
+
+  /**
+  @brief Set the initial GEM system volume (units m3/100 g)
+
+  */
+  double getInitGEMVolume() { return (initGEMVolume_); }
+
+  /**
   @brief Get the volume of a GEM CSD phase (by id).
 
-  @note NOT USED.
-
   @param idx is the GEM phase id to query
-  @return the volume assigned to that GEM phase
+  @return the volume assigned to that GEM phase in units of m3/100 g
   */
   double getGEMPhaseVolume(const int idx) {
     if (idx < numGEMPhases_) {

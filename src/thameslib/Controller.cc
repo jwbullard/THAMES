@@ -115,6 +115,21 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     outfs << endl;
     outfs.close();
 
+    outfilename = jobRoot_ + "_PhaseVolumes.csv";
+    outfs.open(outfilename.c_str());
+    if (!outfs) {
+      throw FileException("Controller", "Controller", outfilename,
+                          "Could not append");
+    }
+
+    outfs << "Time(h)";
+    for (int i = 0; i < numGEMPhases_; i++) {
+      outfs << "," << chemSys_->getGEMPhaseName(i) << "(m3/100g)";
+    }
+    outfs << ",Total Volume (m3/100g),Chemical Shrinkage Strain";
+    outfs << endl;
+    outfs.close();
+
     outfilename = jobRoot_ + "_SurfaceAreas.csv";
     outfs.open(outfilename.c_str());
     if (!outfs) {
@@ -188,7 +203,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     for (int i = 0; i < chemSys_->getNumMicroPhases(); i++) {
       outfs << "," << chemSys_->getMicroPhaseName(i);
     }
-    outfs << ",Total Volume (m3/100g),Chemical Shrinkage (m3/100g)";
     outfs << endl;
     outfs.close();
 
@@ -507,8 +521,8 @@ void Controller::doCycle(double elemTimeInterval) {
   double thrTimeToWriteLattice = 0.0167; // threshold ~ 1 minute
 
   // Main computation cycle
-  for (i = 0;
-       (i < timeSize) && (chemSys_->getMicroPhaseVolume(ELECTROLYTEID) > 0.0);
+  for (i = 0; (i < timeSize) &&
+              (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0.0);
        ++i) {
 
     TimeStruct formattedTime = getFormattedTime(time_[i]);
@@ -517,6 +531,14 @@ void Controller::doCycle(double elemTimeInterval) {
     ///
 
     bool isFirst = (i == 0) ? true : false;
+    if (isFirst) {
+      // write output .txt files
+      writeTxtOutputFiles(0.0);
+      if (writeICsDCs)
+        writeTxtOutputFiles_onlyICsDCs(0.0);
+    } else if (i == 1) {
+      chemSys_->setInitGEMVolume();
+    }
 
     cyc++;
 
@@ -1600,6 +1622,27 @@ void Controller::writeTxtOutputFiles(double time) {
   outfs << endl;
   outfs.close();
 
+  outfilename = jobRoot_ + "_PhaseVolumes.csv";
+  outfs.open(outfilename.c_str(), ios::app);
+  if (!outfs) {
+    throw FileException("Controller", "calculateState", outfilename,
+                        "Could not append");
+  }
+
+  outfs << setprecision(5) << time;
+  for (i = 0; i < numGEMPhases_; i++) {
+    outfs << "," << chemSys_->getGEMPhaseVolume(i);
+  }
+  if (time >= time_[1]) {
+    double sysvol = chemSys_->getGEMVolume();
+    double initsysvol = chemSys_->getInitGEMVolume();
+    outfs << "," << sysvol << "," << ((initsysvol - sysvol) / initsysvol);
+  } else {
+    outfs << ", ,0.0";
+  }
+  outfs << endl;
+  outfs.close();
+
   outfilename = jobRoot_ + "_SurfaceAreas.csv";
   outfs.open(outfilename.c_str(), ios::app);
   if (!outfs) {
@@ -1642,9 +1685,6 @@ void Controller::writeTxtOutputFiles(double time) {
   for (i = 0; i < numMicroPhases_; i++) {
     outfs << "," << (lattice_->getVolumeFraction(i));
   }
-  double micvol = lattice_->getMicrostructureVolume();
-  double initmicvol = lattice_->getInitialMicrostructureVolume();
-  outfs << "," << micvol << "," << (initmicvol - micvol);
   outfs << endl;
   outfs.close();
 

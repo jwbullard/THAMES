@@ -636,6 +636,7 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     // <<endl;
 
     chemSys_->setInitMicroVolume(totmicvol);
+    chemSys_->setInitGEMVolume();
     initialMicrostructureVolume_ = totmicvol;
 
     // Initially assume that all free water and void space

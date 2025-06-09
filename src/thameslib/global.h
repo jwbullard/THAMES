@@ -52,7 +52,7 @@ inline const char FerriteDCName[] = "C4AF";
 
 // String indicating the liquid solution GEM Phase name
 // @todo Make this general somehow
-inline const char WaterGEMName[] = "aq_gen";
+inline const char ElectrolyteGEMName[] = "aq_gen";
 
 // String indicating the liquid water DC name
 // @todo Make this general somehow

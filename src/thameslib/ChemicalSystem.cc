@@ -1322,7 +1322,7 @@ void ChemicalSystem::parseGEMPhaseData(const nlohmann::json::iterator p,
       phaseData.GEMPhaseName.push_back(const_cast<char *>(mypstr.c_str()));
       // mypstr = pp.value();
       // phaseData.GEMPhaseName.push_back(mypstr);
-      // if (mypstr == WaterGEMName) {
+      // if (mypstr == ElectrolyteGEMName) {
       //   scrapeWaterDCs = true;
       // } else {
       //   scrapeWaterDCs = false;
