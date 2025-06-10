@@ -531,14 +531,6 @@ void Controller::doCycle(double elemTimeInterval) {
     ///
 
     bool isFirst = (i == 0) ? true : false;
-    if (isFirst) {
-      // write output .txt files
-      writeTxtOutputFiles(0.0);
-      if (writeICsDCs)
-        writeTxtOutputFiles_onlyICsDCs(0.0);
-    } else if (i == 1) {
-      chemSys_->setInitGEMVolume();
-    }
 
     cyc++;
 
@@ -1062,6 +1054,12 @@ void Controller::doCycle(double elemTimeInterval) {
 
       throw mex;
     }
+
+    /// After one cycle we have removed artificial phase information
+    /// introduced by the GEMS data files, so we can now calculate
+    /// the initial system volume according to GEMS
+    if (isFirst)
+      chemSys_->setInitGEMVolume();
 
     ///
     /// Calculate the pore size distribution and saturation
@@ -2096,6 +2094,8 @@ void Controller::parseDoc(const string &docName) {
     int j = 0;
     bool done = false;
     int outputTimeSize = static_cast<int>(outputTime_.size());
+    // GODZILLA: Include time = 0.0
+    time_.push_back(0.0);
     while (testTime < finalTime) {
       testTime += (0.1 * (testTime + 0.024));
       done = false;
