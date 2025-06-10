@@ -344,6 +344,13 @@ public:
   */
   int getZ() const { return z_; }
 
+  /**
+  @brief Get the vector of x, y and z coordinates of this site in the
+  mesh coordinate frame.
+
+  @return the vector of x, y and z coordinates of this site in the
+  mesh coordinate frame.
+  */
   vector<int> getXYZ() {
     vector<int> v(3, 0);
     v[0] = x_;
