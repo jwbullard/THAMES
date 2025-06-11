@@ -22,9 +22,8 @@
 
 #include "../GEMS3K-standalone/GEMS3K/node.h"
 #include "../Resources/include/nlohmann/json.hpp"
-using json = nlohmann::json;
-using namespace std;
 
+using json = nlohmann::json;
 
 // String indicating THAMES version in the input microstructure file
 inline const char VERSIONSTRING[] = "#THAMES:Version:";

@@ -31,7 +31,7 @@ THAMES allows some flexibility in defining different types of kinetic models.
 class KineticModel {
 
 protected:
-  string modelName_; /**< The kinetic model name in the kinetic model */
+  std::string modelName_; /**< The kinetic model name in the kinetic model */
   int numPhases_;    /**< Total number of phases in the kinetic model */
   ChemicalSystem *
       chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
@@ -45,13 +45,13 @@ protected:
                                 [h] */
   double leachTime_; /**< Time at which leaching simulation starts [h] */
 
-  string name_;      /**< Name of phase controlled by this kinetic model */
+  std::string name_;      /**< Name of phase controlled by this kinetic model */
   int microPhaseId_; /**< Microstructure id controlled by this model */
   int DCId_;         /**< List of DC ids from the ChemicalSystem object */
   int GEMPhaseId_;   /**< List of phase ids from the ChemicalSystem object */
 
-  vector<string> ICName_;      /**< Names of ICs */
-  vector<string> DCName_;      /**< Names of DCs */
+  std::vector<std::string> ICName_;      /**< Names of ICs */
+  std::vector<std::string> DCName_;      /**< Names of DCs */
   double scaledMass_;          /**< Phase mass percent, total solids basis */
   double initScaledMass_;      /**< Initial phase scaled mass */
   double activationEnergy_;    /**< Apparent activation energy for the reaction
@@ -109,7 +109,7 @@ public:
 
   @return a string indicating the model type
   */
-  virtual string getType() const { return (GenericType); }
+  virtual std::string getType() const { return (GenericType); }
 
   /**
   @brief Set the specific surface area
@@ -318,14 +318,14 @@ public:
 
   @param icname is the list of IC names
   */
-  // void setICName(vector<string> icname) { ICName_ = icname; }
+  // void setICName(std::vector<std::string> icname) { ICName_ = icname; }
 
   /**
   @brief Get the IC names
 
   @return the list of IC names
   */
-  // vector<string> getICName() const { return ICName_; }
+  // std::vector<std::string> getICName() const { return ICName_; }
 
   /**
   @brief Set the DC names
@@ -334,14 +334,14 @@ public:
 
   @param dcname is the list of DC names
   */
-  // void setDCName(vector<string> dcname) { DCName_ = dcname; }
+  // void setDCName(std::vector<std::string> dcname) { DCName_ = dcname; }
 
   /**
   @brief Get the DC names
 
   @return the list of DC names
   */
-  // vector<string> getDCName() const { return DCName_; }
+  // std::vector<std::string> getDCName() const { return DCName_; }
 
   /**
   @brief Set the total number of phases in the kinetic model.
@@ -401,7 +401,7 @@ public:
 
   @return the vector of names of phases in the kinetic model
   */
-  string getName() const { return name_; }
+  std::string getName() const { return name_; }
 
   /**
   @brief Get the list of activation energies for the phases in the kinetic
@@ -594,7 +594,7 @@ public:
 
   @return the name of this kinetic model
   */
-  string getModelName(void) { return modelName_; }
+  std::string getModelName(void) { return modelName_; }
 }; // End of KineticModel class
 
 #endif // SRC_THAMESLIB_KINETICMODEL_H_

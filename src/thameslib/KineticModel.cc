@@ -5,6 +5,8 @@
 */
 #include "KineticModel.h"
 
+using std::cout; using std::endl;
+
 KineticModel::KineticModel() {
   ///
   /// Clear out the vectors so they can be populated with values from the

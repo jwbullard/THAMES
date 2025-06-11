@@ -5,6 +5,9 @@
 
 #include "Controller.h"
 
+using std::cout; using std::endl;
+using std::string; using std::vector; using std::map;
+
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,
                        const string &jsonFileName, const string &jobname,
@@ -2063,4 +2066,53 @@ void Controller::parseDoc(const string &docName) {
   }
 
   return;
+}
+
+TimeStruct Controller::getResolvedTime(const double curtime) {
+
+  int s_per_h = static_cast<int>(S_PER_H);
+  int s_per_year = static_cast<int>(S_PER_YEAR);
+  int s_per_day = static_cast<int>(S_PER_DAY);
+  int s_per_minute = static_cast<int>(S_PER_MINUTE);
+  int min_per_h = 60;
+  int h_per_day = 24;
+  int d_per_year = 365;
+
+  TimeStruct mytime;
+  mytime.years = mytime.days = mytime.hours = mytime.minutes = 0;
+
+  // Convert curtime (currently in h) into nearest second
+  double curtime_in_s_dbl = curtime * S_PER_H;
+  int curtime_s = static_cast<int>(curtime_in_s_dbl + 0.5);
+
+  // How many years is this?
+  mytime.years = curtime_s / s_per_year;
+  curtime_s -= (mytime.years * s_per_year);
+  // Convert remaining time into days
+  mytime.days = curtime_s / s_per_day;
+  curtime_s -= (mytime.days * s_per_day);
+  // Convert remaining time into hours
+  mytime.hours = curtime_s / s_per_h;
+  curtime_s -= (mytime.hours * s_per_h);
+  // Convert remaining time into minutes
+  mytime.minutes = curtime_s / s_per_minute;
+  curtime_s -= (mytime.minutes * s_per_minute);
+   // Round up minutes if curtime_in_s >= 30
+  if (curtime_s >= 30) {
+    mytime.minutes += 1;
+    // Propagate this rounding to other time units
+    if (mytime.minutes > min_per_h) {
+      mytime.hours += 1;
+      mytime.minutes -= min_per_h;
+      if (mytime.hours > h_per_day) {
+        mytime.days += 1;
+        mytime.hours -= h_per_day;
+        if (mytime.days > d_per_year) {
+          mytime.years += 1;
+          mytime.days -= d_per_year;
+        }
+      }
+    }
+  }
+  return mytime;
 }

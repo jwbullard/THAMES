@@ -51,10 +51,10 @@ private:
   ChemicalSystem
       *chemSys_; /**< The `ChemicalSystem` object for the simulation */
 
-  vector<Isite> growthSites_; /**< The list of all sites eligible for
+  std::vector<Isite> growthSites_; /**< The list of all sites eligible for
                                        adjacent growth */
 
-  vector<Isite>
+  std::vector<Isite>
       dissolutionSites_; /**< The list of sites eligible for self-dissolution */
 
   bool verbose_;         /**< Flag for verbose output */
@@ -87,8 +87,8 @@ public:
   @param pid is the integer id of the phase associated with this interface
   @param verbose is true if verbose output should be produced
   */
-  Interface(ChemicalSystem *csys, vector<Site *> gv,
-            vector<Site *> dv, unsigned int pid, const bool verbose);
+  Interface(ChemicalSystem *csys, std::vector<Site *> gv,
+            std::vector<Site *> dv, unsigned int pid, const bool verbose);
 
   /**
   @brief Destructor for the Interface class.
@@ -113,7 +113,7 @@ public:
 
   @return the vector of Isite objects where growth can occur
   */
-  vector<Isite> getGrowthSites(void) { return growthSites_; }
+  std::vector<Isite> getGrowthSites(void) { return growthSites_; }
 
   // int getGrowthSize(void) { return growthSites_.size(); }
   // int getDissolutionSize(void) { return dissolutionSites_.size(); }
@@ -124,7 +124,7 @@ public:
   @param vect is a vector containing all Isite objects belonging to the growth
   interface oh this microPhase
   */
-  void setGrowthSites(vector<Isite> vect) { growthSites_ = vect; }
+  void setGrowthSites(std::vector<Isite> vect) { growthSites_ = vect; }
 
   /**
   @brief Get the isite id (or equivalently the site id) beeing on the position pos
@@ -153,7 +153,7 @@ public:
   @return the vector of Isite objects corresponding to the sites where dissolution
   can occur for this microPhase
   */
-  vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
+  std::vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
   /**
   @brief Set the dissolution interface of this microPhase to the one corresponding
@@ -162,7 +162,7 @@ public:
   @param vect is the vector containing the previously saved dissolution interface
   of this microPhase
   */
-  void setDissolutionSites(vector<Isite> vect) { dissolutionSites_ = vect; }
+  void setDissolutionSites(std::vector<Isite> vect) { dissolutionSites_ = vect; }
 
   /**
   @brief Add a site to the list of sites where growth can occur adjacent to the
@@ -190,7 +190,7 @@ public:
   @param pid is the phase that could grow at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortGrowthSites(vector<Site> &ste, unsigned int pid);
+  bool sortGrowthSites(std::vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Sort the list of dissolution sites in descending order of potential for
@@ -200,7 +200,7 @@ public:
   @param pid is the phase that could dissolve at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortDissolutionSites(vector<Site> &ste, unsigned int pid);
+  bool sortDissolutionSites(std::vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Remove an isite from the growth interface of this microPhase
@@ -229,10 +229,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag

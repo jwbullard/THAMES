@@ -31,11 +31,11 @@ protected:
   int microPhaseId_ = 0; /**< The microstructure phase assignment */
   ChemicalSystem
       *chemSys_;       /**< Pointer to simulation's ChemicalSystem object */
-  vector<int> growth_; /**< Vector of phases that can grow at this site */
+  std::vector<int> growth_; /**< Vector of phases that can grow at this site */
   double stressFreeVolume_; /**< Stress-free volume of the site */
   double trueVolume_;       /**< Actual volume of site, accounting for stress */
   bool damage_ = false;     /**< True if site is damaged, false otherwise */
-  vector<Site *> nb_; /**< List of site ids that are neighbors to this site */
+  std::vector<Site *> nb_; /**< List of site ids that are neighbors to this site */
 
   /**
   @brief Ranking of potential for dissolution if the site is an interface site.
@@ -71,7 +71,7 @@ protected:
 
   bool verbose_;     /**< Flag to determine verbose output */
 
-  vector<int> inGrowInterfacePos_; /**< vector of the site position in each
+  std::vector<int> inGrowInterfacePos_; /**< vector of the site position in each
                                         growth interface (-1 if the site doesn't
                                         belong to a growth interface) */
   int inDissInterfacePos_;         /**< site position in the corresponding
@@ -79,7 +79,7 @@ protected:
                                         doesn't belong to the dissolution
                                         interface) */
 
-  vector<int> inGrowthVectorPos_;  /**< vector of the site position in the
+  std::vector<int> inGrowthVectorPos_;  /**< vector of the site position in the
                                         growth vector (-1 if the site doesn't
                                         belong to the growth vector) */
   int inDissolutionVectorPos_;     /**< vector of the site position in the
@@ -162,7 +162,7 @@ public:
   corresponding growth interfaces (-1 if the site doesn't belong to a given
   microPhase growth interface)
   */
-  void setInGrowInterfacePosVector(vector<int> vect) {
+  void setInGrowInterfacePosVector(std::vector<int> vect) {
     inGrowInterfacePos_ = vect;
   }
 
@@ -173,7 +173,7 @@ public:
   @return the vector containing the site positions on the growth interfaces
   correponding to a given microStructure configuration (a given time)
   */
-  vector<int> getInGrowInterfacePosVector() { return inGrowInterfacePos_; }
+  std::vector<int> getInGrowInterfacePosVector() { return inGrowInterfacePos_; }
 
 
   /**
@@ -296,7 +296,7 @@ public:
 
   @return the neighbor vector (pointers) of this site
   */
-  vector<Site *> getNb() { return nb_; }
+  std::vector<Site *> getNb() { return nb_; }
 
   /**
   @brief Get the index number of the site (position in the 1D Lattice vector).
@@ -351,13 +351,7 @@ public:
   @return the vector of x, y and z coordinates of this site in the
   mesh coordinate frame.
   */
-  vector<int> getXYZ() {
-    vector<int> v(3, 0);
-    v[0] = x_;
-    v[1] = y_;
-    v[2] = z_;
-    return v;
-  }
+  std::vector<int> getXYZ();
 
   /**
   @brief Get the "weighted mean curvature" of the site.
@@ -461,13 +455,7 @@ public:
   @param pid is the microstructure phase id of the phase that can grow at the
   site
   */
-  void setGrowthSite(int pid) {
-    vector<int>::iterator start = growth_.begin();
-    vector<int>::iterator end = growth_.end();
-    vector<int>::iterator p = find(start, end, pid);
-    if (p == growth_.end())
-      growth_.push_back(pid);
-  }
+  void setGrowthSite(int pid);
 
   /**
   @brief add a microPhaseId to the growth_ vector belonging to this site;
@@ -488,33 +476,14 @@ public:
 
   @param pid is the id of the microstructure phase to remove
   */
-  void removeGrowthSite(int pid) {
-    bool found = false;
-    int size = growth_.size();
-    int i = -1;
-
-    for (i = 0; i < size; i++) {
-      if (growth_[i] == pid) {
-        growth_[i] = growth_[size - 1];
-        growth_.pop_back();
-        found = true;
-        break;
-      }
-    }
-    if (found == false) {
-      cout << endl << " stop - void removeGrowthSite(int pid) " << endl;
-      cout.flush();
-      cout << endl << "i size pid " << i << " " << size << " " << pid << endl;
-      exit(1);
-    }
-  }
+  void removeGrowthSite(int pid);
 
   /**
   @brief Get the entire list of all microPhases that can grow at the site.
 
   @return the list of ids of all microPhases that can grow at the site
   */
-  vector<int> getGrowthPhases() const { return growth_; }
+  std::vector<int> getGrowthPhases() const { return growth_; }
 
 
   /**
@@ -522,7 +491,7 @@ public:
 
   @param vect is the vector of ids of all microPhases that can grow at the site
   */
-  void setGrowthPhases(vector<int> vect) {
+  void setGrowthPhases(std::vector<int> vect) {
     growth_.clear();
     growth_ = vect;
   }
@@ -552,19 +521,7 @@ public:
   @param vol is the stress-free volume of the site to assign, normalized by
   reference site volume
   */
-  void setStressFreeVolume(double vol) {
-    if (vol < 0) {
-      cout
-          << "in the setStrfreevolume function...volume should not be negative."
-          << endl;
-      cerr
-          << "in the setStrfreevolume function...volume should not be negative."
-          << endl;
-      exit(1);
-    } else {
-      stressFreeVolume_ = vol;
-    }
-  }
+  void setStressFreeVolume(double vol);
 
   /**
   @brief Get the stress-free volume of the site.
@@ -591,18 +548,7 @@ public:
   @param vol is the actual volume of the site, normalized by the strain-free
   site volume
   */
-  void setTrueVolume(double vol) {
-    if (vol < 0) {
-      cout << "in the setTrueVolume function...volume should not be negative."
-           << endl;
-      cerr << "in the setTrueVolume function...volume should not be negative."
-           << endl;
-      exit(1);
-    } else {
-      trueVolume_ = vol;
-    }
-    return;
-  }
+  void setTrueVolume(double vol);
 
   /**
   @brief Set the expansion strain at the site.

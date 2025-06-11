@@ -5,6 +5,8 @@
 */
 #include "ParrotKillohModel.h"
 
+using std::cout; using std::endl;
+
 ParrotKillohModel::ParrotKillohModel() {
   ///
   /// Default value for w/c ratio in PK model is 0.45

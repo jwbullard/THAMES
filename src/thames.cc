@@ -5,6 +5,9 @@
 
 #include "thames.h"
 
+using std::cout; using std::cin; using std::endl;
+using std::string;
+
 /**
 @brief The main block for running THAMES.
 

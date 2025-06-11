@@ -103,29 +103,29 @@ struct PhaseData {
   double na2o;
   double mgo;
   double so3;
-  vector<struct PoreSizeVolume> poreSizeDist;
+  std::vector<struct PoreSizeVolume> poreSizeDist;
   int red;
   int green;
   int blue;
   int gray;
-  vector<int> colors;
-  string thamesName;
-  vector<char *> GEMPhaseName, DCName;
-  vector<int> GEMPhaseDCMembers;
-  vector<int> GEMPhaseId;
-  vector<double> microPhaseDCPorosities;
-  vector<int> DCId;
-  vector<int> growthTemplate;
-  vector<double> affinity;
-  vector<double> contactAngle;
+  std::vector<int> colors;
+  std::string thamesName;
+  std::vector<char *> GEMPhaseName, DCName;
+  std::vector<int> GEMPhaseDCMembers;
+  std::vector<int> GEMPhaseId;
+  std::vector<double> microPhaseDCPorosities;
+  std::vector<int> DCId;
+  std::vector<int> growthTemplate;
+  std::vector<double> affinity;
+  std::vector<double> contactAngle;
 };
 #endif
 
 struct elemColor {
   int colorId;
-  string altName;
-  vector<int> rgb;
-  vector<float> rgbf;
+  std::string altName;
+  std::vector<int> rgb;
+  std::vector<float> rgbf;
   int gray;
   float grayf;
 };
@@ -135,7 +135,7 @@ struct elMod {
   float G;
   float E;
   float n;
-  string altName;
+  std::string altName;
 };
 
 /**
@@ -197,37 +197,37 @@ class ChemicalSystem {
   int numGEMPhases_;       /**< Number of GEM phases in the CSD */
   int numSolutionPhases_;  /**< Number of GEM solution phases in the CSD;
                                 solution phases are non-stoichiometric */
-  vector<string> microPhaseName_; /**< Names of phases identified in a THAMES
+  std::vector<std::string> microPhaseName_; /**< Names of phases identified in a THAMES
                                         microstructure */
-  vector<string>
+  std::vector<std::string>
       stressPhaseName_; /**< Names of phases that can have crystallization
                                 pressure in the microstructure */
-  vector<string> weakPhaseName_; /**< Names of solid phases that can be damaged
+  std::vector<std::string> weakPhaseName_; /**< Names of solid phases that can be damaged
                                         by stress in the microstructure */
-  vector<string> porousPhaseName_; /**< Names of solid phases that have internal
+  std::vector<std::string> porousPhaseName_; /**< Names of solid phases that have internal
                                           porosity in the microstructure */
-  vector<int> stressPhaseId_;   /**< IDs of phases that can have crystallization
+  std::vector<int> stressPhaseId_;   /**< IDs of phases that can have crystallization
                                         pressure in the microstructure */
-  vector<int> weakPhaseId_;     /**< IDs of solid phases that can be damaged
+  std::vector<int> weakPhaseId_;     /**< IDs of solid phases that can be damaged
                                        by stress in the microstructure */
-  vector<int> porousPhaseId_;   /**< IDs of solid phases that have internal
+  std::vector<int> porousPhaseId_;   /**< IDs of solid phases that have internal
                                        porosity in the microstructure */
-  vector<string> ICName_;       /**< Names of ICs in the GEM CSD */
-  vector<string> DCName_;       /**< Names of DCs in the GEM CSD */
-  vector<string> GEMPhaseName_; /**< Names of phases in the GEM CSD */
-  vector<int> microPhaseId_; /**< Unique ids of THAMES microstructure phases */
+  std::vector<std::string> ICName_;       /**< Names of ICs in the GEM CSD */
+  std::vector<std::string> DCName_;       /**< Names of DCs in the GEM CSD */
+  std::vector<std::string> GEMPhaseName_; /**< Names of phases in the GEM CSD */
+  std::vector<int> microPhaseId_; /**< Unique ids of THAMES microstructure phases */
 
-  // vector<vector<int>>
+  // std::vector<std::vector<int>>
   //     RdICId_; /**< List of ICs that can be an impurity in each phase */
-  // vector<vector<double>> Rd_;  /**< Rd values for each IC in each phase */
-  vector<double> ICMolarMass_; /**< One molar mass for each IC [g/mm3ol] */
-  vector<double> DCMolarMass_; /**< One molar mass for each DC [g/mol] */
-  vector<double>
+  // std::vector<std::vector<double>> Rd_;  /**< Rd values for each IC in each phase */
+  std::vector<double> ICMolarMass_; /**< One molar mass for each IC [g/mm3ol] */
+  std::vector<double> DCMolarMass_; /**< One molar mass for each DC [g/mol] */
+  std::vector<double>
       GEMPhaseMolarMass_; /**< One molar mass for each GEM phase [g/mol] */
-  vector<vector<int>>
+  std::vector<std::vector<int>>
       growthTemplate_; /**< A list of the phases on which a given phase
                                is allowed to grow; one list for each phase */
-  // vector<vector<int>> affinity_;
+  // std::vector<std::vector<int>> affinity_;
   /**< A list of the microStructure microPhases with which a microPhase has an
   affinity to associate when growing. The affinity vector is always the same
   length, one entry for every microstructure phase, and the default value is
@@ -235,30 +235,30 @@ class ChemicalSystem {
   template are the same) the default value is 1 (contactanglevalue = 0). Both,
   affinity and self-affinity can be modified supplying, in the simparams.json
   file, the desired values for the contact angle (see contactAngle_) */
-  vector<vector<double>> affinity_;
+  std::vector<std::vector<double>> affinity_;
 
   /**< vector containing for each microPhase in the system the values for the
   contact angle between this microPhase and all the other microPhases in the
   system, including itself (see affinity_) */
-  vector<vector<double>> contactAngle_;
+  std::vector<std::vector<double>> contactAngle_;
 
-  map<int, vector<int>>
+  std::map<int, std::vector<int>>
       microPhaseMembers_; /**< A list of all the CSD phase ids that are
                                 associated with a given microstructure phase */
 
-  map<int, vector<int>>
+  std::map<int, std::vector<int>>
       microPhaseDCMembers_; /**< A list of all the CSD DC ids that are
                             associated with a given microstructure phase */
-  map<int, vector<double>>
+  std::map<int, std::vector<double>>
       microPhaseDCPorosities_; /**< A list of all the CSD DC porosities that are
                            associated with a given microstructure phase */
-  map<int, vector<int>>
+  std::map<int, std::vector<int>>
       GEMPhaseDCMembers_; /**< A list of all the CSD DC ids that are
                               associated with a given CSD phase */
 
-  vector<bool> isKinetic_;   /**< Whether of not each phase is kinetically
+  std::vector<bool> isKinetic_;   /**< Whether of not each phase is kinetically
                                    controlled */
-  vector<bool> isDCKinetic_; /**< Whether of not each DC is kinetically
+  std::vector<bool> isDCKinetic_; /**< Whether of not each DC is kinetically
                                  controlled */
   /**
   @brief Initial solution composition
@@ -267,7 +267,7 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> initialSolutionComposition_;
+  std::map<int, double> initialSolutionComposition_;
 
   /**
   @brief Fixed solution composition
@@ -276,7 +276,7 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> fixedSolutionComposition_;
+  std::map<int, double> fixedSolutionComposition_;
 
   /**
   @brief Attack solution composition
@@ -285,7 +285,7 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> attackSolutionComposition_;
+  std::map<int, double> attackSolutionComposition_;
 
   double gasSolidRatio_; /**< mass ratio of gas to solids */
 
@@ -296,7 +296,7 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> initialGasComposition_;
+  std::map<int, double> initialGasComposition_;
 
   /**
   @brief Fixed gas composition
@@ -305,7 +305,7 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> fixedGasComposition_;
+  std::map<int, double> fixedGasComposition_;
 
   /**
   @brief Attack gas composition
@@ -314,60 +314,60 @@ class ChemicalSystem {
   dependent component (DC), and the value is the concentration of that DC in
   molal units [mol/kgw].
   */
-  map<int, double> attackGasComposition_;
+  std::map<int, double> attackGasComposition_;
 
   /**
   @brief Volume fraction of each GEM CSD phase associated with a THAMES phase.
 
   @warning This variable might not be used
   */
-  map<int, vector<double>> microPhaseMemberVolumeFraction_;
+  std::map<int, std::vector<double>> microPhaseMemberVolumeFraction_;
 
-  vector<double> microPhasePorosity_; /**< The sub-voxel porosity of a given
+  std::vector<double> microPhasePorosity_; /**< The sub-voxel porosity of a given
                                   phase, such as C-S-H (dimensionless) */
 
   /**
   @brief Sub-voxel pore size distribution (volume basis) of each phase
   */
-  vector<vector<struct PoreSizeVolume>> poreSizeDistribution_;
+  std::vector<std::vector<struct PoreSizeVolume>> poreSizeDistribution_;
 
-  vector<double> k2o_;        /**< Mass fraction of K<sub>2</sub>O dissolved in
+  std::vector<double> k2o_;        /**< Mass fraction of K<sub>2</sub>O dissolved in
                                     each phase, in units of
                                     g per 100 g of the phase */
-  vector<double> na2o_;       /**< Mass fraction of Na<sub>2</sub>O dissolved in
+  std::vector<double> na2o_;       /**< Mass fraction of Na<sub>2</sub>O dissolved in
                                     each phase, in units of
                                     g per 100 g of the phase */
-  vector<double> mgo_;        /**< Mass fraction of MgO dissolved in
+  std::vector<double> mgo_;        /**< Mass fraction of MgO dissolved in
                                     each phase, in units of
                                     g per 100 g of the phase */
-  vector<double> so3_;        /**< Mass fraction of SO<sub>3</sub> dissolved in
+  std::vector<double> so3_;        /**< Mass fraction of SO<sub>3</sub> dissolved in
                                     each phase, in units of
                                     g per 100 g of the phase */
-  vector<int> grayscale_;     /**< A number on [0,255] giving the relative
+  std::vector<int> grayscale_;     /**< A number on [0,255] giving the relative
                                    grayscale brightness of the THAMES
                                    phases in a backscattered electron image */
-  vector<vector<int>> color_; /**< A list of <r,g,b> values specifying the
+  std::vector<std::vector<int>> color_; /**< A list of <r,g,b> values specifying the
                                     color of the THAMES phases in a false
                                     color micrograph */
 
-  map<string, elemColor> colorN_;
+  std::map<std::string, elemColor> colorN_;
 
-  map<string, int> microPhaseIdLookup_; /**< Map that returns the vector index
+  std::map<std::string, int> microPhaseIdLookup_; /**< Map that returns the vector index
                                          of the microstructure phase name */
-  map<string, int> ICIdLookup_; /**< Map that returns the vector index of the
+  std::map<std::string, int> ICIdLookup_; /**< Map that returns the vector index of the
                                         IC name */
-  map<string, int> DCIdLookup_; /**< Map that returns the vector index of the
+  std::map<std::string, int> DCIdLookup_; /**< Map that returns the vector index of the
                                         DC name */
-  map<string, int> GEMPhaseIdLookup_; /**< Map that returns the vector index of
+  std::map<std::string, int> GEMPhaseIdLookup_; /**< Map that returns the vector index of
                                          the GEM CSD phase name */
 
-  map<int, vector<int>>
+  std::map<int, std::vector<int>>
       microPhaseToGEMPhase_; /**< Map that returns the GEM CSD phase for
                               a given microstructure phase */
-  vector<vector<double>>
+  std::vector<std::vector<double>>
       DCStoich_; /**< List of amount of moles of each IC in a DC */
 
-  vector<double> DCCharge_; /**< Charge associated with a DC */
+  std::vector<double> DCCharge_; /**< Charge associated with a DC */
 
   double *pGEMPhaseStoich_; /**< List of amount of moles of each IC in a
                                 GEM CSD phase (pointer form) */
@@ -392,7 +392,7 @@ class ChemicalSystem {
   */
   double *pSolutSolidStoich_;
 
-  vector<vector<double>>
+  std::vector<std::vector<double>>
       GEMPhaseStoich_; /**< List of amount of moles of each IC in
                            a given GEM CSD phase (vector form) */
 
@@ -443,7 +443,7 @@ class ChemicalSystem {
       - f = formula unit
       - z = electric charge
   */
-  vector<char> ICClassCode_;
+  std::vector<char> ICClassCode_;
 
   /**
   @brief List of one-letter class codes for each DC, specifying its kind.
@@ -466,7 +466,7 @@ class ChemicalSystem {
       - H = hydrogen gas, H<sub>2</sub>
       - N = nitrogen gas, N<sub>2</sub>
   */
-  vector<char> DCClassCode_;
+  std::vector<char> DCClassCode_;
 
   /**
   @brief List of one-letter class codes for each phase defined in GEM CSD,
@@ -482,7 +482,7 @@ class ChemicalSystem {
       - s = condensed solid solution phase
       - d = dispersed multicomponent solid phase
   */
-  vector<char> GEMPhaseClassCode_;
+  std::vector<char> GEMPhaseClassCode_;
 
   double T_;             /**< System-wide temperature [K] */
   double P_;             /**< System-wide pressure [Pa] */
@@ -536,11 +536,11 @@ class ChemicalSystem {
   */
   double leachTime_;
 
-  vector<double>
+  std::vector<double>
       microPhaseMass_; /**< Absolute mass of each microstructure phase */
-  vector<double> microPhaseMassDissolved_; /**< Absolute mass dissolved of each
+  std::vector<double> microPhaseMassDissolved_; /**< Absolute mass dissolved of each
                                               microstructure phase */
-  vector<double>
+  std::vector<double>
       microPhaseVolume_; /**< Absolute volume of each microstructure phase */
 
   double microVolume_; /**< Absolute volume of the microstructure */
@@ -558,16 +558,16 @@ class ChemicalSystem {
   value of that activity product.  This variable stores the current SI for each
   solid phase in the GEM CSD.
   */
-  vector<double> SI_;
-  vector<double> microPhaseSI_;
+  std::vector<double> SI_;
+  std::vector<double> microPhaseSI_;
 
   bool verbose_; /**< Whether to produce verbose output */
   bool warning_; /**< Whether to produce warning output */
 
-  vector<int>
+  std::vector<int>
       DC_to_MPhID_; /**< microPhaseId for a given DCId: dim(DC_to_MPhID_) = numDCs &
                     initialVal(DC_to_MPhID_) = -1 */
-  vector<bool> cementComponent_; /**< the flag saying if a microPhase belongs or not
+  std::vector<bool> cementComponent_; /**< the flag saying if a microPhase belongs or not
                                  to the cement; the flag is assigned for each microPhase
                                  according to its "cement_component" value in
                                  simparams.json file */
@@ -577,7 +577,7 @@ class ChemicalSystem {
   double initScaledCementMass_; /**< initial scaled cement mass i.e. scaled cement mass
                                      for time = 0 */
 
-  vector<int> isParrotKilloh_;  /**< vector containing the microPhaseIds of all
+  std::vector<int> isParrotKilloh_;  /**< vector containing the microPhaseIds of all
                                      microPhases controlled by Parrot-Killoh model */
   int isParrotKillohSize_;      /**< dimension of isParrotKilloh_ vector */
 
@@ -585,7 +585,7 @@ class ChemicalSystem {
   double waterMolarMass_;       /**< the water molar mass corresp. to waterDCId_ */
   double waterMolarVol_;        /**< the water molar volume corresp. to waterDCId_ */
   double beginAttackTime_;
-  map<string, elMod> elasticModuli_;
+  std::map<std::string, elMod> elasticModuli_;
   int aliteDCId_;     /**< the DCId coresp to microPhaseName = "Alite" */
   int beliteDCId_;    /**< the DCId coresp to microPhaseName = "Belite" */
   int aluminateDCId_; /**< the DCId coresp to microPhaseName = "Aluminate" */
@@ -608,7 +608,7 @@ public:
   @param verbose is true if producing verbose output
   @param warning is true if producing verbose output
   */
-  ChemicalSystem(const string &GEMfilename, const string &jsonFileName,
+  ChemicalSystem(const std::string &GEMfilename, const std::string &jsonFileName,
                  const bool verbose, const bool warning = false);
 
   /**
@@ -639,15 +639,15 @@ public:
   @param ipmName is the name of the IPM data file
   @param dbrName is the name of the DBR data file
   */
-  void getJSONFiles(const char *masterFileName, string &dchName,
-                    string &ipmName, string &dbrName);
+  void getJSONFiles(const char *masterFileName, std::string &dchName,
+                    std::string &ipmName, std::string &dbrName);
 
   /**
   @brief Master function for parsing an input file in JSON format.
 
   @param docName is the name of the JSON document to parse
   */
-  void parseDoc(const string &docName);
+  void parseDoc(const std::string &docName);
 
   /**
   @brief Parse input about the initial solution composition from a JSON
@@ -686,7 +686,7 @@ public:
   @param phaseids is a map associating phase names with id numbers
   */
   void parseMicroPhaseNames(const json::iterator cdi,
-                            map<string, int> &phaseids);
+                            std::map<std::string, int> &phaseids);
 
   /**
   @brief Parse input about a microstructure phase from a JSON document.
@@ -697,7 +697,7 @@ public:
   @param phaseData holds the structure of collected phase data from the document
   */
   void parseMicroPhases(const json::iterator cdi, int numEntries,
-                        map<string, int> phaseids,
+                        std::map<std::string, int> phaseids,
                         PhaseData &phaseData);
 
   /**
@@ -769,7 +769,7 @@ public:
   @param phaseData holds the structure of collected phase data from the document
   */
   void parseInterfaceData(const json::iterator p,
-                          map<string, int> &phaseids,
+                          std::map<std::string, int> &phaseids,
                           PhaseData &phaseData);
 
   /**
@@ -780,7 +780,7 @@ public:
   @param phaseData holds the structure of collected phase data from the document
   */
   void parseAffinityData(const json::iterator pp,
-                         map<string, int> &phaseids,
+                         std::map<std::string, int> &phaseids,
                          PhaseData &phaseData);
 
   /**
@@ -892,7 +892,7 @@ public:
   @param idx is the phase index number (non-negative)
   @param str is the name to assign to the phase
   */
-  void setMicroPhaseName(const int idx, const string &str) {
+  void setMicroPhaseName(const int idx, const std::string &str) {
     // try {
     microPhaseName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -911,9 +911,9 @@ public:
   @param idx is the phase index number (non-negative)
   @return the name of the phase
   */
-  string &getMicroPhaseName(const unsigned int idx) {
+  std::string &getMicroPhaseName(const unsigned int idx) {
     // try {
-    return (string &)microPhaseName_[idx];
+    return (std::string &)microPhaseName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getMicroPhaseName",
     //  "microPhaseName_",
@@ -928,7 +928,7 @@ public:
 
   @return the vector of microstructure phase names
   */
-  vector<string> getMicroPhaseName(void) const { return microPhaseName_; }
+  std::vector<std::string> getMicroPhaseName(void) const { return microPhaseName_; }
 
   /**
   @brief Set the name of a microstructure phase that can have crystallization
@@ -939,7 +939,7 @@ public:
   @param idx is the phase index number (non-negative)
   @param str is the name to assign to the phase
   */
-  void setStressPhaseName(const unsigned int idx, const string &str) {
+  void setStressPhaseName(const unsigned int idx, const std::string &str) {
     // try {
     stressPhaseName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -958,9 +958,9 @@ public:
   @param idx is the phase index number (non-negative)
   @return the name of the phase
   */
-  string &getStressPhaseName(const unsigned int idx) {
+  std::string &getStressPhaseName(const unsigned int idx) {
     // try {
-    return (string &)stressPhaseName_[idx];
+    return (std::string &)stressPhaseName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getStressPhaseName",
     //                  "stressPhaseName_", stressPhaseName_.size(), idx);
@@ -975,7 +975,7 @@ public:
 
   @return the vector of microstructure phase names
   */
-  vector<string> getStressPhaseName(void) const { return stressPhaseName_; }
+  std::vector<std::string> getStressPhaseName(void) const { return stressPhaseName_; }
 
   /**
   @brief Get the list of all microstructure ids that can have crystallization
@@ -983,7 +983,7 @@ public:
 
   @return the vector of stress phase ids
   */
-  vector<int> getStressPhaseId_(void) const { return stressPhaseId_; }
+  std::vector<int> getStressPhaseId_(void) const { return stressPhaseId_; }
 
   /**
   @brief Determine if a given microstructure phase is eligible
@@ -1017,7 +1017,7 @@ public:
   @param str is the name to check
   @return true if the phase is subject to crystallization pressure
   */
-  bool isStress(const string &str) {
+  bool isStress(const std::string &str) {
     bool istress = false;
     int size = stressPhaseName_.size();
     for (int i = 0; i < size; ++i) {
@@ -1036,7 +1036,7 @@ public:
   @param idx is the phase index number (non-negative)
   @param str is the name to assign to the phase
   */
-  void setWeakPhaseName(const unsigned int idx, const string &str) {
+  void setWeakPhaseName(const unsigned int idx, const std::string &str) {
     // try {
     weakPhaseName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -1054,9 +1054,9 @@ public:
   @param idx is the phase index number (non-negative)
   @return the name of the phase
   */
-  string &getWeakPhaseName(const unsigned int idx) {
+  std::string &getWeakPhaseName(const unsigned int idx) {
     // try {
-    return (string &)weakPhaseName_[idx];
+    return (std::string &)weakPhaseName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getWeakPhaseName", "weakPhaseName_",
     //                  weakPhaseName_.size(), idx);
@@ -1071,14 +1071,14 @@ public:
 
   @return the vector of microstructure phase names
   */
-  vector<string> getWeakPhaseName(void) const { return weakPhaseName_; }
+  std::vector<std::string> getWeakPhaseName(void) const { return weakPhaseName_; }
 
   /**
   @brief Get the list of all microstructure ids that can be damaged by stress
 
   @return the vector of microstructure phase ids
   */
-  vector<int> getWeakPhaseId_(void) const { return weakPhaseId_; }
+  std::vector<int> getWeakPhaseId_(void) const { return weakPhaseId_; }
 
   /**
   @brief Determine if a given microstructure phase is eligible
@@ -1112,7 +1112,7 @@ public:
   @param str is the name to check
   @return true if the phase is subject to damage
   */
-  bool isWeak(const string &str) {
+  bool isWeak(const std::string &str) {
     bool isweak = false;
     int size = weakPhaseName_.size();
     for (int i = 0; i < size; ++i) {
@@ -1132,7 +1132,7 @@ public:
   @param idx is the phase index number (non-negative)
   @param str is the name to assign to the phase
   */
-  void setPorousPhaseName(const unsigned int idx, const string &str) {
+  void setPorousPhaseName(const unsigned int idx, const std::string &str) {
     // try {
     porousPhaseName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -1150,9 +1150,9 @@ public:
   @param idx is the phase index number (non-negative)
   @return the name of the phase
   */
-  string &getPorousPhaseName(const unsigned int idx) {
+  std::string &getPorousPhaseName(const unsigned int idx) {
     // try {
-    return (string &)porousPhaseName_[idx];
+    return (std::string &)porousPhaseName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getPorousPhaseName",
     //                  "porousPhaseName_", porousPhaseName_.size(), idx);
@@ -1167,14 +1167,14 @@ public:
 
   @return the vector of microstructure porous phase names
   */
-  vector<string> getPorousPhaseName(void) const { return porousPhaseName_; }
+  std::vector<std::string> getPorousPhaseName(void) const { return porousPhaseName_; }
 
   /**
   @brief Get the list of all microstructure ids with internal porosity
 
   @return the vector of porous phase ids
   */
-  vector<int> getPorousPhaseId_(void) const { return porousPhaseId_; }
+  std::vector<int> getPorousPhaseId_(void) const { return porousPhaseId_; }
 
   /**
   @brief Determine if a given microstructure phase is porous
@@ -1185,7 +1185,7 @@ public:
   @param str is the name to check
   @return true if the phase is porous
   */
-  bool isPorous(const string &str) {
+  bool isPorous(const std::string &str) {
     bool isporous = false;
     int size = porousPhaseName_.size();
     for (int i = 0; i < size; ++i) {
@@ -1225,7 +1225,7 @@ public:
   @param idx is the IC index number (non-negative)
   @param str is the name to assign to the IC
   */
-  void setICName(const unsigned int idx, const string &str) {
+  void setICName(const unsigned int idx, const std::string &str) {
     // try {
     ICName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -1244,9 +1244,9 @@ public:
   @param idx is the IC index number (non-negative)
   @return the name of the IC
   */
-  string &getICName(const unsigned int idx) {
+  std::string &getICName(const unsigned int idx) {
     // try {
-    return (string &)ICName_[idx];
+    return (std::string &)ICName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getICName", "ICName_",
     //  ICName_.size(),
@@ -1261,7 +1261,7 @@ public:
 
   @return the vector of IC names
   */
-  vector<string> getICName(void) const { return ICName_; }
+  std::vector<std::string> getICName(void) const { return ICName_; }
 
   /**
   @brief Set the name of a dependent component (DC).
@@ -1271,7 +1271,7 @@ public:
   @param idx is the DC index number (non-negative)
   @param str is the name to assign to the DC
   */
-  void setDCName(const unsigned int idx, const string &str) {
+  void setDCName(const unsigned int idx, const std::string &str) {
     // try {
     DCName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -1290,9 +1290,9 @@ public:
   @param idx is the DC index number (non-negative)
   @return the name of the DC
   */
-  string &getDCName(const unsigned int idx) {
+  std::string &getDCName(const unsigned int idx) {
     // try {
-    return (string &)DCName_[idx];
+    return (std::string &)DCName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getDCName", "DCName_",
     //  DCName_.size(),
@@ -1307,7 +1307,7 @@ public:
 
   @return the vector of DC names
   */
-  vector<string> getDCName(void) const { return DCName_; }
+  std::vector<std::string> getDCName(void) const { return DCName_; }
 
   /**
   @brief Set the name of a phase in the GEM CSD.
@@ -1317,7 +1317,7 @@ public:
   @param idx is the GEM phase index number (non-negative)
   @param str is the name to assign to the phase
   */
-  void setGEMPhaseName(const unsigned int idx, const string &str) {
+  void setGEMPhaseName(const unsigned int idx, const std::string &str) {
     // try {
     GEMPhaseName_[idx] = str;
     //} catch (out_of_range &oor) {
@@ -1335,9 +1335,9 @@ public:
   @param idx is the GEM phase index number (non-negative)
   @return the name of the GEM phase
   */
-  string &getGEMPhaseName(const unsigned int idx) {
+  std::string &getGEMPhaseName(const unsigned int idx) {
     // try {
-    return (string &)GEMPhaseName_[idx];
+    return (std::string &)GEMPhaseName_[idx];
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getGEMPhaseName", "GEMPhaseName_",
     //                  GEMPhaseName_.size(), idx);
@@ -1351,7 +1351,7 @@ public:
 
   @return the vector of GEM phase names
   */
-  vector<string> getGEMPhaseName(void) const { return GEMPhaseName_; }
+  std::vector<std::string> getGEMPhaseName(void) const { return GEMPhaseName_; }
 
   /**
   @brief Set the integer id of a microstructure phase.
@@ -1399,12 +1399,12 @@ public:
   @param micname is the name of the microstructure phase
   @return the integer id associated with that phase name
   */
-  int getMicroPhaseId(const string &micname) {
-    map<string, int>::iterator p = microPhaseIdLookup_.find(micname);
+  int getMicroPhaseId(const std::string &micname) {
+    std::map<std::string, int>::iterator p = microPhaseIdLookup_.find(micname);
     if (p != microPhaseIdLookup_.end()) {
       return p->second;
     } else {
-      string msg = "Could not find microPhaseId_ match to " + micname;
+      std::string msg = "Could not find microPhaseId_ match to " + micname;
       EOBException ex("ChemicalSystem", "getMicroPhaseId", msg,
                       microPhaseId_.size(), 0);
       ex.printException();
@@ -1421,8 +1421,8 @@ public:
   @param micname is the name of the microstructure phase
   @return the integer id associated with that phase name
   */
-  int getMicroPhaseId_SA(const string &micname) {
-    map<string, int>::iterator p = microPhaseIdLookup_.find(micname);
+  int getMicroPhaseId_SA(const std::string &micname) {
+    std::map<std::string, int>::iterator p = microPhaseIdLookup_.find(micname);
     if (p != microPhaseIdLookup_.end()) {
       return p->second;
     } else {
@@ -1435,7 +1435,7 @@ public:
 
   @return the vector holding phase id numbers
   */
-  vector<int> getMicroPhaseId(void) const { return microPhaseId_; }
+  std::vector<int> getMicroPhaseId(void) const { return microPhaseId_; }
 
   /**
   @brief Get the list of booleans indicating whether a microstructure
@@ -1445,7 +1445,7 @@ public:
 
   @return the vector holding phase id numbers
   */
-  vector<bool> getIsKinetic(void) const { return isKinetic_; }
+  std::vector<bool> getIsKinetic(void) const { return isKinetic_; }
 
   /**
   @brief Get the kinetic status of a microstructure phase by its id
@@ -1472,7 +1472,7 @@ public:
   @param micname is the name of a microstructure phase
   @return true if it is kinetically controlled
   */
-  bool isKinetic(const string micname) {
+  bool isKinetic(const std::string micname) {
     // try {
     int idx = getMicroPhaseId(micname);
     return isKinetic_[idx];
@@ -1489,7 +1489,7 @@ public:
 
   @param idx is the index of a microstructure phase
   */
-  void setIsKinetic(vector<bool> &isKinetic) {
+  void setIsKinetic(std::vector<bool> &isKinetic) {
     isKinetic_ = isKinetic;
     return;
   }
@@ -1500,9 +1500,9 @@ public:
   @param icname is the name of the proposed IC
   @return true if the IC is recognized
   */
-  bool isIC(const string &icname) {
-    string msg;
-    map<string, int>::iterator p = ICIdLookup_.find(icname);
+  bool isIC(const std::string &icname) {
+    std::string msg;
+    std::map<std::string, int>::iterator p = ICIdLookup_.find(icname);
     if (p != ICIdLookup_.end()) {
       return true;
     }
@@ -1515,14 +1515,14 @@ public:
   @param icname is the name of the IC
   @return the integer id associated with that IC name (non-negative)
   */
-  int getICId(const string &icname) {
-    map<string, int>::iterator p = ICIdLookup_.find(icname);
+  int getICId(const std::string &icname) {
+    std::map<std::string, int>::iterator p = ICIdLookup_.find(icname);
     if (p != ICIdLookup_.end()) {
       return p->second;
     } else {
       if (warning_) {
-        cout << "WARNING: Could not find ICIdLookup_ match to " << icname
-             << endl;
+        std::cout << "WARNING: Could not find ICIdLookup_ match to "
+                  << icname << std::endl;
       }
       return (numICs_ + 9999); // nonsense number should be detected
     }
@@ -1534,8 +1534,8 @@ public:
   @param dcname is the name of the proposed DC
   @return true if the DC is recognized
   */
-  bool isDC(const string &dcname) {
-    map<string, int>::iterator p = DCIdLookup_.find(dcname);
+  bool isDC(const std::string &dcname) {
+    std::map<std::string, int>::iterator p = DCIdLookup_.find(dcname);
     if (p != DCIdLookup_.end()) {
       return true;
     }
@@ -1548,7 +1548,7 @@ public:
   @param dcname is the name of the DC
   @return true if the DC is solid
   */
-  bool isDCSolid(const string &dcname) {
+  bool isDCSolid(const std::string &dcname) {
     if (isDC(dcname)) {
       char classcode = getDCClassCode(getDCId(dcname));
       if (classcode == 'I' || classcode == 'J' || classcode == 'M' ||
@@ -1565,12 +1565,13 @@ public:
   @param dcname is the name of the DC
   @return the integer id associated with that DC name
   */
-  int getDCId(const string &dcname) {
-    map<string, int>::iterator p = DCIdLookup_.find(dcname);
+  int getDCId(const std::string &dcname) {
+    std::map<std::string, int>::iterator p = DCIdLookup_.find(dcname);
     if (p != DCIdLookup_.end()) {
       return p->second;
     } else {
-      cout << "WARNING: Could not find DCIdLookup_ match to " << dcname << endl;
+      std::cout << "WARNING: Could not find DCIdLookup_ match to "
+                << dcname << std::endl;
       // cout << "WARNING: Here are the ones I know about:" << endl;
       // cout.flush();
       // p = DCIdLookup_.begin();
@@ -1582,7 +1583,7 @@ public:
       // }
       // cout << "WARNING:" << endl;
       // cout.flush();
-      cout << "exit the program" << endl;
+      std::cout << "exit the program" << std::endl;
       exit(1);
       return (numDCs_ + 9999);
     }
@@ -1594,8 +1595,8 @@ public:
   @param phasename is the name of the proposed phase
   @return true if the GEM phase is recognized
   */
-  bool isGEMPhase(const string &phasename) {
-    map<string, int>::iterator p = GEMPhaseIdLookup_.find(phasename);
+  bool isGEMPhase(const std::string &phasename) {
+    std::map<std::string, int>::iterator p = GEMPhaseIdLookup_.find(phasename);
     if (p != GEMPhaseIdLookup_.end()) {
       return true;
     }
@@ -1608,8 +1609,8 @@ public:
   @param phasename is the name of the GEM phase
   @return the integer id associated with that GEM phase name
   */
-  int getGEMPhaseId(const string &phasename) {
-    map<string, int>::iterator p = GEMPhaseIdLookup_.find(phasename);
+  int getGEMPhaseId(const std::string &phasename) {
+    std::map<std::string, int>::iterator p = GEMPhaseIdLookup_.find(phasename);
     if (p != GEMPhaseIdLookup_.end()) {
       return p->second;
     } else {
@@ -1630,7 +1631,7 @@ public:
   @return the integer id associated with that GEM phase name
   */
   int getGEMPhaseId(const int thamesid) {
-    string gemphasename = GEMPhaseName_[thamesid];
+    std::string gemphasename = GEMPhaseName_[thamesid];
     return (getGEMPhaseId(gemphasename));
   }
 
@@ -1644,19 +1645,19 @@ public:
   @return the integer id  of the GEM phase stored at position idx in the list
   */
   int getMicroPhaseToGEMPhase(const int i, const int idx) {
-    map<int, vector<int>>::iterator p = microPhaseToGEMPhase_.find(i);
+    std::map<int, std::vector<int>>::iterator p = microPhaseToGEMPhase_.find(i);
     if (p != microPhaseToGEMPhase_.end()) {
       if (idx < static_cast<int>((p->second).size())) {
         return (p->second)[idx];
       } else {
-        string msg = "microPhaseToGEMPhase_";
+        std::string msg = "microPhaseToGEMPhase_";
         EOBException ex("ChemicalSystem", "getMicroPhaseToGEMPhase(1)", msg,
                         (p->second).size(), idx);
         ex.printException();
         exit(1);
       }
     } else {
-      string msg =
+      std::string msg =
           "Could not find microPhaseToGEMPhase_ match to index provided";
       EOBException ex("ChemicalSystem", "getMicroPhaseToGEMPhase(1)", msg,
                       microPhaseToGEMPhase_.size(), 0);
@@ -1673,12 +1674,12 @@ public:
   @return the vector of integer ids of the GEM phases for that microstructure
   phase
   */
-  vector<int> getMicroPhaseToGEMPhase(const int i) {
-    map<int, vector<int>>::iterator p = microPhaseToGEMPhase_.find(i);
+  std::vector<int> getMicroPhaseToGEMPhase(const int i) {
+    std::map<int, std::vector<int>>::iterator p = microPhaseToGEMPhase_.find(i);
     if (p != microPhaseToGEMPhase_.end()) {
       return p->second;
     } else {
-      string msg =
+      std::string msg =
           "Could not find microPhaseToGEMPhase_ match to index provided";
       EOBException ex("ChemicalSystem", "getMicroPhaseToGEMPhase(2)", msg,
                       microPhaseToGEMPhase_.size(), 0);
@@ -1697,10 +1698,10 @@ public:
   @param GEMphaseid is the integer id of the GEM phase
   */
   void setMicroPhaseToGEMPhase(const int microPhaseid, const int GEMphaseid) {
-    map<int, vector<int>>::iterator p =
+    std::map<int, std::vector<int>>::iterator p =
         microPhaseToGEMPhase_.find(microPhaseid);
     if (p == microPhaseToGEMPhase_.end()) {
-      vector<int> GEMphasevector;
+      std::vector<int> GEMphasevector;
       GEMphasevector.clear();
       GEMphasevector.push_back(GEMphaseid);
       microPhaseToGEMPhase_.insert(make_pair(microPhaseid, GEMphasevector));
@@ -1728,7 +1729,7 @@ public:
   @return the vector of integer ids of the GEM phases for that microstructure
   phase
   */
-  vector<int> getMicroPhaseToGEMPhase(const string &microPhasename) {
+  std::vector<int> getMicroPhaseToGEMPhase(const std::string &microPhasename) {
     int i = static_cast<int>(getMicroPhaseId(microPhasename));
     return (getMicroPhaseToGEMPhase(i));
   }
@@ -1742,7 +1743,7 @@ public:
   @return the map relating every microstructure phase to a list of its
   associated GEM phases
   */
-  map<int, vector<int>> getMicroPhaseToGEMPhase(void) const {
+  std::map<int, std::vector<int>> getMicroPhaseToGEMPhase(void) const {
     return microPhaseToGEMPhase_;
   }
 
@@ -1785,7 +1786,7 @@ public:
 
   @return the vector of random growth parameters for all microstructure phases
   */
-  // vector<double> getRandomGrowth(void) const { return randomGrowth_; }
+  // std::vector<double> getRandomGrowth(void) const { return randomGrowth_; }
 
   /**
   @brief Construct the growth template based on affinity values
@@ -1796,10 +1797,10 @@ public:
   @param idx is the vector of all affinities
   @return the ordered vector of those phases that have positive affinities
   */
-  vector<int> calcGrowthTemplate(vector<double> affty) {
-    vector<int> posaffty;
+  std::vector<int> calcGrowthTemplate(std::vector<double> affty) {
+    std::vector<int> posaffty;
     int size = affty.size();
-    // string msg;
+    // std::string msg;
     // try {
     for (int i = 0; i < size; ++i) {
       if (affty[i] > 0)
@@ -1827,8 +1828,8 @@ public:
   @param idx is the microstructure phase id
   @return the list of all templates for growth of that phase
   */
-  vector<int> getGrowthTemplate(const int idx) {
-    // string msg;
+  std::vector<int> getGrowthTemplate(const int idx) {
+    // std::string msg;
     // try {
     return growthTemplate_[idx];
     //} catch (out_of_range &oor) {
@@ -1856,7 +1857,7 @@ public:
   @return the integer id of the growth template phase at element jdx
   */
   int getGrowthTemplate(const int idx, const int jdx) {
-    string msg;
+    std::string msg;
     if (idx >= static_cast<int>(growthTemplate_.size())) {
       msg = "growthTemplate_";
       EOBException ex("ChemicalSystem", "getGrowthTemplate", msg,
@@ -1887,7 +1888,7 @@ public:
 
   @return the whole growth template list for all phases
   */
-  vector<vector<int>> getGrowthTemplate(void) const { return growthTemplate_; }
+  std::vector<std::vector<int>> getGrowthTemplate(void) const { return growthTemplate_; }
 
   /**
   @brief Determine if a microstructure phase is a template for another phase's
@@ -1931,8 +1932,8 @@ public:
   @param idx is the microPhase id
   @param avec is the list of affinities for growth of the microPhase on its templates
   */
-  void setAffinity(const int idx, vector<double> avec) {
-    // string msg;
+  void setAffinity(const int idx, std::vector<double> avec) {
+    // std::string msg;
     // try {
     affinity_[idx] = avec;
     //} catch (out_of_range &oor) {
@@ -1964,14 +1965,14 @@ public:
   */
   void setAffinity(const int idx, const int jdx, const double val) {
     if (idx >= static_cast<int>(affinity_.size())) {
-      string msg = "affinity_";
+      std::string msg = "affinity_";
       EOBException ex("ChemicalSystem", "setAffinity", msg, affinity_.size(),
                       idx);
       ex.printException();
       exit(1);
     }
     if (jdx >= static_cast<int>(affinity_[idx].size())) {
-      string msg = "affinity_";
+      std::string msg = "affinity_";
       EOBException ex("ChemicalSystem", "setAffinity", msg,
                       affinity_[idx].size(), jdx);
       ex.printException();
@@ -1997,7 +1998,7 @@ public:
   @param idx is the microstructure phase id of which the affinities are sought
   @return the list of affinities for all the templates for growth of microPhase idx
   */
-  vector<double> getAffinity(const int idx) {
+  std::vector<double> getAffinity(const int idx) {
     // try {
     return affinity_[idx];
     //} catch (out_of_range &oor) {
@@ -2025,14 +2026,14 @@ public:
   */
   double getAffinity(const int idx, const int jdx) {
     if (idx >= static_cast<int>(affinity_.size())) {
-      string msg = "affinity_";
+      std::string msg = "affinity_";
       EOBException ex("ChemicalSystem", "getAffinity", msg, affinity_.size(),
                       idx);
       ex.printException();
       exit(1);
     }
     if (jdx >= static_cast<int>(affinity_[idx].size())) {
-      string msg = "affinity_";
+      std::string msg = "affinity_";
       EOBException ex("ChemicalSystem", "getAffinity", msg,
                       affinity_[idx].size(), jdx);
       ex.printException();
@@ -2057,7 +2058,7 @@ public:
   @return the list of all affinities for all the templates for growth of
   all microPhases
   */
-  vector<vector<double>> getAffinity(void) const { return affinity_; }
+  std::vector<std::vector<double>> getAffinity(void) const { return affinity_; }
 
   /**
   @brief Get the list of contact angles for growth of every microPhase.
@@ -2075,7 +2076,7 @@ public:
   @return the list of all contact angles for all the templates for growth of
   all microPhases
   */
-  vector<vector<double>> getContactAngle(void) const { return contactAngle_; }
+  std::vector<std::vector<double>> getContactAngle(void) const { return contactAngle_; }
 
   /**
   @brief Set the potassium impurity content for a given clinker phase, on an
@@ -2240,7 +2241,7 @@ public:
   @return a list of the mass percentages of potassium in all clinker phases on
   an oxide basis, with units of g per 100 g of each clinker phase
   */
-  vector<double> getK2o(void) const { return k2o_; }
+  std::vector<double> getK2o(void) const { return k2o_; }
 
   /**
   @brief Get the sodium impurity content for all clinker phases, on an oxide
@@ -2251,7 +2252,7 @@ public:
   @return a list of the mass percentages of sodium in all clinker phases on an
   oxide basis, with units of g per 100 g of each clinker phase
   */
-  vector<double> getNa2o(void) const { return na2o_; }
+  std::vector<double> getNa2o(void) const { return na2o_; }
 
   /**
   @brief Get the magnesium impurity content for all clinker phases, on an oxide
@@ -2262,7 +2263,7 @@ public:
   @return a list of the mass percentages of magnesium in all clinker phases on
   an oxide basis, with units of g per 100 g of each clinker phase
   */
-  vector<double> getMgo(void) const { return mgo_; }
+  std::vector<double> getMgo(void) const { return mgo_; }
 
   /**
   @brief Get the sulfur impurity content for all clinker phases, on an oxide
@@ -2273,7 +2274,7 @@ public:
   @return a list of the mass percentages of sulfur in all clinker phases on an
   oxide basis, with units of g per 100 g of each clinker phase
   */
-  vector<double> getSo3(void) const { return so3_; }
+  std::vector<double> getSo3(void) const { return so3_; }
 
   /**
   @brief Set the internal porosity of a microstructure phase.
@@ -2353,7 +2354,7 @@ public:
   @return the volume fraction of the phase occupied by pores at the scale of one
   micrometer
   */
-  double getMicroPhasePorosity(const string &str) {
+  double getMicroPhasePorosity(const std::string &str) {
     int idx = getMicroPhaseId(str);
     // try {
     return microPhasePorosity_[idx];
@@ -2385,7 +2386,7 @@ public:
   @return the list of porosities of all microstructure phases at the scale of
   one micrometer
   */
-  vector<double> getMicroPhasePorosity() const { return microPhasePorosity_; }
+  std::vector<double> getMicroPhasePorosity() const { return microPhasePorosity_; }
 
   /**
   @brief Get the list of sub-voxel pore size distributions.
@@ -2399,7 +2400,7 @@ public:
   @return the list of pore size distributions of all microstructure phases
   at the scale of one voxel
   */
-  vector<vector<struct PoreSizeVolume>> getPoreSizeDistribution() const {
+  std::vector<std::vector<struct PoreSizeVolume>> getPoreSizeDistribution() const {
     return poreSizeDistribution_;
   }
 
@@ -2413,8 +2414,8 @@ public:
   @param mpvec is the vector of all GEM CSD phase ids associated with the
   microstructure phase
   */
-  void setMicroPhaseMembers(const int idx, vector<int> mpvec) {
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+  void setMicroPhaseMembers(const int idx, std::vector<int> mpvec) {
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       p->second = mpvec;
     } else {
@@ -2434,8 +2435,8 @@ public:
   @param val is GEM CSD phase id to assign to this element in the list
   */
   void setMicroPhaseMembers(const int idx, const int jdx, const int val) {
-    string msg;
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
         (p->second)[jdx] = val;
@@ -2464,9 +2465,9 @@ public:
   @return the vector of all GEM CSD phase ids associated with the microstructure
   phase
   */
-  vector<int> getMicroPhaseMembers(const int idx) {
-    string msg;
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+  std::vector<int> getMicroPhaseMembers(const int idx) {
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       return p->second;
     } else {
@@ -2488,10 +2489,10 @@ public:
   @return the vector of all GEM CSD phase ids associated with the microstructure
   phase
   */
-  vector<int> getMicroPhaseMembers(const string &str) {
-    string msg;
+  std::vector<int> getMicroPhaseMembers(const std::string &str) {
+    std::string msg;
     int idx = getMicroPhaseId(str);
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       return p->second;
     } else {
@@ -2515,8 +2516,8 @@ public:
   @return the GEM CSD phase id at element jdx in the list
   */
   int getMicroPhaseMembers(const int idx, const int jdx) {
-    string msg;
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
         return (p->second)[jdx];
@@ -2546,10 +2547,10 @@ public:
   microstructure phase idx
   @return the GEM CSD phase id at element jdx in the list
   */
-  int getMicroPhaseMembers(const string &str, const int jdx) {
-    string msg;
+  int getMicroPhaseMembers(const std::string &str, const int jdx) {
+    std::string msg;
     int idx = getMicroPhaseId(str);
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
         return (p->second)[jdx];
@@ -2576,7 +2577,7 @@ public:
 
   @return the map of all GEM CSD associations for all microstructure phases
   */
-  map<int, vector<int>> getMicroPhaseMembers(void) const {
+  std::map<int, std::vector<int>> getMicroPhaseMembers(void) const {
     return microPhaseMembers_;
   }
 
@@ -2589,7 +2590,7 @@ public:
   @return the vector of volume fractions of each GEM CSD phase for all the
   microPhases in the system.
   */
-  map<int, vector<double>> getMicroPhaseMemberVolumeFraction(void) const {
+  std::map<int, std::vector<double>> getMicroPhaseMemberVolumeFraction(void) const {
     return microPhaseMemberVolumeFraction_;
   }
 
@@ -2603,9 +2604,9 @@ public:
   @return the vector of volume fractions of each GEM CSD phase for this
   microstructure phase
   */
-  vector<double> getMicroPhaseMemberVolumeFraction(const int idx) {
-    string msg;
-    map<int, vector<double>>::iterator p =
+  std::vector<double> getMicroPhaseMemberVolumeFraction(const int idx) {
+    std::string msg;
+    std::map<int, std::vector<double>>::iterator p =
         microPhaseMemberVolumeFraction_.find(idx);
     if (p != microPhaseMemberVolumeFraction_.end()) {
       return p->second;
@@ -2632,8 +2633,8 @@ public:
   list
   */
   double getMicroPhaseMemberVolumeFraction(const int idx, const int jdx) {
-    string msg;
-    map<int, vector<double>>::iterator p =
+    std::string msg;
+    std::map<int, std::vector<double>>::iterator p =
         microPhaseMemberVolumeFraction_.find(idx);
     if (p != microPhaseMemberVolumeFraction_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
@@ -2664,8 +2665,8 @@ public:
   @param idx is the microstructure phase in question
   @param mpvec is the list of all DCs for that phase
   */
-  void setMicroPhaseDCMembers(const int idx, vector<int> mpvec) {
-    map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
+  void setMicroPhaseDCMembers(const int idx, std::vector<int> mpvec) {
+    std::map<int, std::vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
     if (p != microPhaseDCMembers_.end()) {
       p->second = mpvec;
     } else {
@@ -2684,8 +2685,8 @@ public:
   @param val is the DC component id to set at that position in the list
   */
   void setMicroPhaseDCMembers(const int idx, const int jdx, const int val) {
-    string msg;
-    map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
     if (p != microPhaseDCMembers_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
         (p->second)[jdx] = val;
@@ -2713,12 +2714,12 @@ public:
   @param idx is the microstructure phase id in question
   @return the list of all DC component ids for that phase
   */
-  vector<int> getMicroPhaseDCMembers(const int idx) {
-    map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
+  std::vector<int> getMicroPhaseDCMembers(const int idx) {
+    std::map<int, std::vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
     if (p != microPhaseDCMembers_.end()) {
       return p->second;
     } else {
-      string msg =
+      std::string msg =
           "Could not find microPhaseDCMembers_ match to index provided";
       EOBException ex("ChemicalSystem", "getMicroPhaseDCMembers", msg,
                       microPhaseDCMembers_.size(), 0);
@@ -2736,10 +2737,10 @@ public:
   @param str is the name of the microstructure phase in question
   @return the list of all DC component ids for that phase
   */
-  vector<int> getMicroPhaseDCMembers(const string &str) {
-    string msg;
+  std::vector<int> getMicroPhaseDCMembers(const std::string &str) {
+    std::string msg;
     int idx = getMicroPhaseId(str);
-    map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
+    std::map<int, std::vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
     if (p != microPhaseDCMembers_.end()) {
       return p->second;
     } else {
@@ -2761,31 +2762,7 @@ public:
   phase idx
   @return the DC component id to set at that position in the list
   */
-  int getMicroPhaseDCMembers(const int idx, const int jdx) {
-
-    try {
-      // return microPhaseDCMembers_[idx][jdx];
-      return microPhaseDCMembers_.at(idx).at(jdx);
-    } catch (out_of_range &oor) {
-      cout << endl
-           << "   ChemicalSystem::getMicroPhaseDCMembers error :" << endl;
-      cout << "     Could not find microPhaseDCMembers_ match to indexes "
-              "provided"
-           << endl;
-      cout << "     idx = " << idx << " & jdx = " << jdx << endl;
-      if (idx > static_cast<int>(microPhaseDCMembers_.size()) - 1) {
-        cout << "     microPhaseDCMembers_.size() = "
-             << microPhaseDCMembers_.size() << endl;
-      } else {
-        cout << "     microPhaseDCMembers_.size() = "
-             << microPhaseDCMembers_.size() << endl;
-        cout << "     microPhaseDCMembers_[idx].size() = "
-             << microPhaseDCMembers_[idx].size() << endl;
-      }
-      cout << endl << "   exit" << endl;
-      exit(1);
-    }
-  }
+  int getMicroPhaseDCMembers(const int idx, const int jdx);
 
   /**
   @brief Get one of the DC component ids for a given microstructure phase name.
@@ -2795,10 +2772,10 @@ public:
   phase idx
   @return the DC component id to set at that position in the list
   */
-  int getMicroPhaseDCMembers(const string &str, const int jdx) {
-    string msg;
+  int getMicroPhaseDCMembers(const std::string &str, const int jdx) {
+    std::string msg;
     int idx = getMicroPhaseId(str);
-    map<int, vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
+    std::map<int, std::vector<int>>::iterator p = microPhaseDCMembers_.find(idx);
     if (p != microPhaseDCMembers_.end()) {
       if (jdx < static_cast<int>((p->second).size())) {
         return (p->second)[jdx];
@@ -2824,7 +2801,7 @@ public:
 
   @return the map of all DC component ids for every microstructure phase
   */
-  map<int, vector<int>> getMicroPhaseDCMembers(void) const {
+  std::map<int, std::vector<int>> getMicroPhaseDCMembers(void) const {
     return microPhaseDCMembers_;
   }
 
@@ -2836,7 +2813,7 @@ public:
 
   @return the map of all DC member ids for that GEM phase
   */
-  map<int, vector<int>> getGEMPhaseDCMembers(void) const {
+  std::map<int, std::vector<int>> getGEMPhaseDCMembers(void) const {
     return GEMPhaseDCMembers_;
   }
 
@@ -2847,7 +2824,7 @@ public:
 
   @return the map of all DC member porosities
   */
-  map<int, vector<double>> getMicroPhaseDCPorosities(void) const {
+  std::map<int, std::vector<double>> getMicroPhaseDCPorosities(void) const {
     return microPhaseDCPorosities_;
   }
 
@@ -2858,9 +2835,9 @@ public:
   @param idx is the index of the microstructure phase
   @return the vector of all DC member porosities for that microstructure phase
   */
-  vector<double> getMicroPhaseDCPorosities(const int idx) {
-    string msg;
-    map<int, vector<double>>::iterator p = microPhaseDCPorosities_.find(idx);
+  std::vector<double> getMicroPhaseDCPorosities(const int idx) {
+    std::string msg;
+    std::map<int, std::vector<double>>::iterator p = microPhaseDCPorosities_.find(idx);
     if (p != microPhaseDCPorosities_.end()) {
       return p->second;
     } else {
@@ -2879,9 +2856,9 @@ public:
   @param idx is the GEM phase id in question
   @return the list of all DC component ids for that GEM phase
   */
-  vector<int> getGEMPhaseDCMembers(const int idx) {
-    string msg;
-    map<int, vector<int>>::iterator p = GEMPhaseDCMembers_.find(idx);
+  std::vector<int> getGEMPhaseDCMembers(const int idx) {
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = GEMPhaseDCMembers_.find(idx);
     if (p != GEMPhaseDCMembers_.end()) {
       return p->second;
     } else {
@@ -2902,10 +2879,10 @@ public:
   @param str is the GEM phase name in question
   @return the list of all DC component ids for that GEM phase
   */
-  vector<int> getGEMPhaseDCMembers(const string &str) {
-    string msg;
+  std::vector<int> getGEMPhaseDCMembers(const std::string &str) {
+    std::string msg;
     int pidx = getGEMPhaseId(str);
-    map<int, vector<int>>::iterator p = GEMPhaseDCMembers_.find(pidx);
+    std::map<int, std::vector<int>>::iterator p = GEMPhaseDCMembers_.find(pidx);
     if (p != GEMPhaseDCMembers_.end()) {
       return p->second;
     } else {
@@ -2926,7 +2903,7 @@ public:
   @param jdx is the element position in the list of all DCs for GEM phase idx
   @return the DC component id to set at that position in the list
   */
-  unsigned int getGEMPhaseDCMembers(const string &str, const unsigned int jdx);
+  unsigned int getGEMPhaseDCMembers(const std::string &str, const unsigned int jdx);
 
   /**
   @brief Set the number of moles of a given independent component (IC) in the
@@ -2984,7 +2961,7 @@ public:
   */
   void checkICMoles(void) {
     int i, j;
-    vector<double> ICMoles;
+    std::vector<double> ICMoles;
     ICMoles.resize(numICs_, 0.0);
 
     for (j = 0; j < numDCs_; j++) {
@@ -3007,17 +2984,7 @@ public:
   system.
 
   */
-  void writeICMoles(void) {
-    cout << endl;
-    cout << "Vector of Independent Components:" << endl;
-    for (int i = 0; i < numICs_; i++) {
-      cout << "    ICId: " << ICIdLookup_[ICName_[i]] << "\t" << ICName_[i]
-           << ": " << ICMoles_[i] << " mol" << endl;
-    }
-    cout << endl;
-    cout.flush();
-    return;
-  }
+  void writeICMoles(void);
 
   /**
   @brief Set the number of moles of a given dependent component (DC) in the
@@ -3069,7 +3036,7 @@ public:
   @param str is the GEM DC name to query
   @return the number of moles assigned to that DC
   */
-  double getDCMoles(const string &str) {
+  double getDCMoles(const std::string &str) {
     int idx = getDCId(str);
     if (idx < numDCs_) {
       return DCMoles_[idx];
@@ -3085,18 +3052,7 @@ public:
   system.
 
   */
-  void writeDCMoles() {
-    cout << endl;
-    cout << "Vector of Dependent Components:" << endl;
-    for (int i = 0; i < numDCs_; i++) {
-      cout << "    DCId: " << DCIdLookup_[DCName_[i]] << "\t" << DCName_[i]
-           << ": " << DCMoles_[i] << " mol"
-           << " \tmolarVolume = " << getDCMolarVolume(i)
-           << " \tvolume = " << DCMoles_[i] * getDCMolarVolume(i) << endl;
-    }
-    cout << endl;
-    cout.flush();
-  }
+  void writeDCMoles();
 
   /**
   @brief Output the number of moles impossed as upper limit for every dependent
@@ -3179,7 +3135,7 @@ public:
   @param str is the GEM DC name to query
   @return the molar enthalpy assigned to that DC (J/mol)
   */
-  double getDCH0(const string &str) {
+  double getDCH0(const std::string &str) {
     int idx = getDCId(str);
     if (idx < numDCs_) {
       return DCH0_[idx];
@@ -3195,15 +3151,7 @@ public:
   system.
 
   */
-  void writeDCH0() {
-    cout << endl;
-    cout << "Vector of Dependent Components:" << endl;
-    for (int i = 0; i < numDCs_; i++) {
-      cout << "    " << DCName_[i] << ": " << DCH0_[i] << " J/mol" << endl;
-    }
-    cout << endl;
-    cout.flush();
-  }
+  void writeDCH0();
 
   /**
   @brief Get the total enthalpy of an dependent component (DC) in the system.
@@ -3273,7 +3221,7 @@ public:
   @param name is the GEM phase name to query
   @return the number of moles assigned to that GEM phase
   */
-  double getGEMPhaseMoles(const string &name) {
+  double getGEMPhaseMoles(const std::string &name) {
     int idx = getGEMPhaseId(name);
     if (idx < numGEMPhases_) {
       return GEMPhaseMoles_[idx];
@@ -3355,16 +3303,7 @@ public:
   @brief Output the number of moles of every GEM phase in the system.
 
   */
-  void writePhaseMoles(void) {
-    cout << endl;
-    cout << "Vector of Phases:" << endl;
-    for (int i = 0; i < numGEMPhases_; i++) {
-      cout << "    " << GEMPhaseName_[i] << ": " << GEMPhaseMoles_[i] << " mol"
-           << endl;
-    }
-    cout << endl;
-    cout.flush();
-  }
+  void writePhaseMoles(void);
 
   /**
   @brief Set the mass of a given GEM CSD phase [g].
@@ -3429,8 +3368,8 @@ public:
   @param str is the GEM phase name to query
   @return the mass assigned to that GEM phase [g]
   */
-  double getGEMPhaseMass(const string &str) {
-    string msg;
+  double getGEMPhaseMass(const std::string &str) {
+    std::string msg;
     int idx = getGEMPhaseId(str);
     if (idx < numGEMPhases_) {
       return GEMPhaseMass_[idx];
@@ -3510,8 +3449,8 @@ public:
   @param str is the GEM phase name to query
   @return the mass assigned to that GEM phase in the previous time step
   */
-  // double getPrevGEMPhaseMass(const string &str) {
-  //   string msg;
+  // double getPrevGEMPhaseMass(const std::string &str) {
+  //   std::string msg;
   //   unsigned int idx = getGEMPhaseId(str);
   //   if (idx < numGEMPhases_) {
   //     return prevGEMPhaseMass_[idx];
@@ -3596,8 +3535,8 @@ public:
   @param str is the GEM phase name to query
   @return the volume assigned to that GEM phase
   */
-  double getGEMPhaseVolume(const string &str) {
-    string msg;
+  double getGEMPhaseVolume(const std::string &str) {
+    std::string msg;
     int idx = getGEMPhaseId(str);
     if (idx < numGEMPhases_) {
       return GEMPhaseVolume_[idx];
@@ -3694,8 +3633,8 @@ public:
   @param str is the GEM phase name to query
   @return the volume assigned to that GEM phase in the previous time step
   */
-  double getPrevGEMPhaseVolume(const string &str) {
-    string msg;
+  double getPrevGEMPhaseVolume(const std::string &str) {
+    std::string msg;
     int idx = getGEMPhaseId(str);
     if (idx < numGEMPhases_) {
       return prevGEMPhaseVolume_[idx];
@@ -3810,25 +3749,16 @@ public:
   @param val is the volume to assign to that microstructure phase
   */
   void setMicroPhaseVolume(const int idx, const double val) {
-    // try {
     microPhaseVolume_[idx] = val;
-    //} catch (out_of_range &oor) {
-    //  EOBException ex("ChemicalSystem", "setMicroPhaseVolume",
-    //                  "microPhaseVolume_", microPhaseVolume_.size(), idx);
-    //  ex.printException();
-    //  exit(1);
-    //}
-
     // Calculate the subvoxel porosity of this phase as well
     if (idx != VOIDID) {
       if (verbose_) {
-        cout << "Going into calcMicroPhasePorosity(" << idx << ")" << endl;
-        cout.flush();
+        std::cout << "Going into calcMicroPhasePorosity("
+                  << idx << ")" << std::endl;
+        std::cout.flush();
       }
       calcMicroPhasePorosity(idx);
     }
-
-    // return;
   }
 
   /**
@@ -3843,7 +3773,7 @@ public:
 
   @return a vector of volumes of every microstructure phase
   */
-  vector<double> getMicroPhaseVolume(void) const { return microPhaseVolume_; }
+  std::vector<double> getMicroPhaseVolume(void) const { return microPhaseVolume_; }
 
   /**
   @brief Get the volume of a microstructure phase (by id).
@@ -3877,7 +3807,7 @@ public:
 
   @return a pointer to the list of masses of every microstructure phase
   */
-  vector<double> getMicroPhaseMass(void) const { return microPhaseMass_; }
+  std::vector<double> getMicroPhaseMass(void) const { return microPhaseMass_; }
 
   /**
   @brief Get the mass of a microstructure phase (by id).
@@ -3902,20 +3832,7 @@ public:
 
   @note NOT USED.
   */
-  void writeMicroPhases(void) {
-    cout << endl;
-    cout << "Microstructure phase quantities:" << endl;
-    cout << "Name     Mass (g)     Volume (m3)" << endl;
-    cout << "----     --------     -----------" << endl;
-    int size = microPhaseName_.size();
-    for (int i = 1; i < size; i++) {
-      cout << microPhaseName_[i] << "     " << microPhaseMass_[i] << "     "
-           << microPhaseVolume_[i] << endl;
-    }
-    cout << "Void     0.0    " << microVoidVolume_ << endl;
-    cout << endl;
-    cout.flush();
-  }
+  void writeMicroPhases(void);
 
   /**
   @brief Set the mass dissolved of a microstructure phase (by id).
@@ -3946,7 +3863,7 @@ public:
   @return a pointer to the list of dissolved masses of every microstructure
   phase
   */
-  vector<double> getMicroPhaseMassDissolved(void) const {
+  std::vector<double> getMicroPhaseMassDissolved(void) const {
     return microPhaseMassDissolved_;
   }
 
@@ -4167,8 +4084,8 @@ public:
   @param str is the name of the IC
   @return the molar mass of that IC, [g/mol]
   */
-  double getICMolarMass(const string &str) {
-    // string msg;
+  double getICMolarMass(const std::string &str) {
+    // std::string msg;
     int idx = getICId(str);
     // try {
     return ICMolarMass_[idx];
@@ -4188,7 +4105,7 @@ public:
 
   @return the vector of IC molar masses [g/mol]
   */
-  vector<double> getICMolarMass(void) const { return ICMolarMass_; }
+  std::vector<double> getICMolarMass(void) const { return ICMolarMass_; }
 
   /**
   @brief Set the molar mass of a particular dependent component (DC) [g/mol].
@@ -4235,8 +4152,8 @@ public:
   @param str is the name of the DC
   @return the molar mass of that DC, [g/mol]
   */
-  double getDCMolarMass(const string &str) {
-    // string msg;
+  double getDCMolarMass(const std::string &str) {
+    // std::string msg;
     int idx = getDCId(str);
     // try {
     return DCMolarMass_[idx];
@@ -4256,7 +4173,7 @@ public:
 
   @return the vector of DC molar masses [g/mol]
   */
-  vector<double> getDCMolarMass(void) const { return DCMolarMass_; }
+  std::vector<double> getDCMolarMass(void) const { return DCMolarMass_; }
 
   /**
   @brief Get the molar volume of a particular dependent component (DC), by id
@@ -4277,10 +4194,8 @@ public:
   @param str is the name of the DC
   @return the molar volume of that DC, [m3]
   */
-  double getDCMolarVolume(const string &str) {
-    string msg;
-    double V0 = getDCMolarVolume(getDCId(str));
-    return V0;
+  double getDCMolarVolume(const std::string &str) {
+    return getDCMolarVolume(getDCId(str));
   }
 
   /**
@@ -4290,7 +4205,7 @@ public:
 
   @return the vector of GEM phase molar masses [g/mol]
   */
-  vector<double> getGEMPhaseMolarMass(void) const { return GEMPhaseMolarMass_; }
+  std::vector<double> getGEMPhaseMolarMass(void) const { return GEMPhaseMolarMass_; }
 
   /**
   @brief Set the molar masses of all GEM CSD phases [g/mol].
@@ -4339,8 +4254,8 @@ public:
   @param str is the name of the GEM phase
   @return the molar mass of that GEM phase [g/mol]
   */
-  double getGEMPhaseMolarMass(const string &str) {
-    // string msg;
+  double getGEMPhaseMolarMass(const std::string &str) {
+    // std::string msg;
     int idx = getGEMPhaseId(str);
     // try {
     return GEMPhaseMolarMass_[idx];
@@ -4392,7 +4307,7 @@ public:
   @param dcidx is the id of the DC being queried
   @return the list of moles of each IC in the DC specified by dcidx
   */
-  vector<double> getDCStoich(const int dcidx) {
+  std::vector<double> getDCStoich(const int dcidx) {
     // try {
     return DCStoich_[dcidx];
     //} catch (out_of_range &oor) {
@@ -4414,7 +4329,7 @@ public:
 
   @return the matrix of moles of each IC in every DCs.
   */
-  vector<vector<double>> getDCStoich(void) const { return DCStoich_; }
+  std::vector<std::vector<double>> getDCStoich(void) const { return DCStoich_; }
 
   /**
   @brief Get the charge of a particular DC.
@@ -4445,7 +4360,7 @@ public:
   @param dcname is the name of the DC being queried
   @return the charge of the DC specified by dcidx (valence)
   */
-  double getDCCharge(const string &dcname) {
+  double getDCCharge(const std::string &dcname) {
     double chg = getDCCharge(getDCId(dcname));
     return (chg);
   }
@@ -4460,7 +4375,7 @@ public:
 
   @return the charge of all DCs (valence)
   */
-  vector<double> getDCCharge(void) const { return DCCharge_; }
+  std::vector<double> getDCCharge(void) const { return DCCharge_; }
 
   /**
   @brief Get the number of moles all ICs in all GEM CSD phases.
@@ -4490,10 +4405,7 @@ public:
   all the phase stoichiometries into the 1D `pGEMPhaseStoich_` array.
 
   */
-  void setPGEMPhaseStoich(void) {
-    getPGEMPhaseStoich();
-    return;
-  }
+  void setPGEMPhaseStoich(void) { getPGEMPhaseStoich(); }
 
   /**
   @brief Set the moles of one IC component of one GEM CSD phase.
@@ -4538,10 +4450,7 @@ public:
   @brief Caller function for `getGEMPhaseStoich`.
 
   */
-  void setGEMPhaseStoich(void) {
-    getGEMPhaseStoich();
-    return;
-  }
+  void setGEMPhaseStoich(void) { getGEMPhaseStoich(); }
 
   /**
   @brief Get the number of moles of an IC in a GEM phase.
@@ -4632,7 +4541,7 @@ public:
   @param icidx is the index of the IC being queried
   @return the molar stoichiometry of the icidx-th IC in phase id pidx
   */
-  double getGEMPhaseStoich(const string &str, const int icidx) {
+  double getGEMPhaseStoich(const std::string &str, const int icidx) {
     int pidx = getGEMPhaseId(str);
     if (pidx >= static_cast<int>(GEMPhaseStoich_.size())) {
       EOBException ex("ChemicalSystem", "getGEMPhaseStoich", "GEMPhaseStoich_",
@@ -4661,7 +4570,7 @@ public:
   @param pidx is the id of the GEM phase to query
   @return the list of moles of each IC in phase id pidx
   */
-  vector<double> getGEMPhaseStoich(const int pidx) {
+  std::vector<double> getGEMPhaseStoich(const int pidx) {
     // try {
     return GEMPhaseStoich_[pidx];
     //} catch (out_of_range &oor) {
@@ -4685,7 +4594,7 @@ public:
   @param str is the name of the GEM phase to query
   @return the list of moles of each IC in phase id pidx
   */
-  vector<double> getGEMPhaseStoich(const string &str) {
+  std::vector<double> getGEMPhaseStoich(const std::string &str) {
     int pidx = getGEMPhaseId(str);
     // try {
     return GEMPhaseStoich_[pidx];
@@ -4721,7 +4630,7 @@ public:
 
   @return the 2D matrix of moles of each IC in each GEM phase
   */
-  vector<vector<double>> getGEMPhaseStoich(void) const {
+  std::vector<std::vector<double>> getGEMPhaseStoich(void) const {
     return GEMPhaseStoich_;
   }
 
@@ -4841,7 +4750,7 @@ public:
   @param dcname is the name of the DC being queried
   @return the chemical activity of the DC
   */
-  double getDCActivity(const string &dcname) {
+  double getDCActivity(const std::string &dcname) {
     int dcidx = getDCId(dcname);
     if (dcidx < numDCs_) {
       return (node_->Get_aDC(dcidx));
@@ -4881,7 +4790,7 @@ public:
   @param dcname is the name of the DC component begin queried
   @return the concentration of the DC in appropriate units
   */
-  double getDCConcentration(const string &dcname) {
+  double getDCConcentration(const std::string &dcname) {
     int dcidx = getDCId(dcname);
     if (dcidx < numDCs_) {
       return (node_->Get_cDC(dcidx));
@@ -5013,7 +4922,7 @@ public:
   @param mpidx is the index of the microstructure phase
   @param cv is the vector of rgb values to set for that phase
   */
-  void setColor(const int mpidx, vector<int> cv) {
+  void setColor(const int mpidx, std::vector<int> cv) {
     if (mpidx >= static_cast<int>(color_.size())) {
       EOBException ex("ChemicalSystem", "setColor", "color_", color_.size(),
                       mpidx);
@@ -5030,7 +4939,7 @@ public:
   @param mpidx is the index of the microstructure phase
   @return the vector of rgb values defining this phase's color
   */
-  vector<int> getColor(const int mpidx) {
+  std::vector<int> getColor(const int mpidx) {
     // try {
     return color_[mpidx];
     //} catch (out_of_range &oor) {
@@ -5048,7 +4957,7 @@ public:
 
   @param cv is the 2D matrix of rgb values to set each microstructure phase
   */
-  void setColor(vector<vector<int>> cv) { color_ = cv; }
+  void setColor(std::vector<std::vector<int>> cv) { color_ = cv; }
 
   /**
   @brief Get the 2D matrix of rgb triplets for color of every microstructure
@@ -5058,7 +4967,7 @@ public:
 
   @return the 2D matrix of rgb values of every microstructure phase
   */
-  vector<vector<int>> getColor(void) const { return color_; }
+  std::vector<std::vector<int>> getColor(void) const { return color_; }
 
   /**
   @brief Set the grayscale value of a microstructure phase.
@@ -5115,7 +5024,7 @@ public:
 
   @param gv is the list of grayscale values to set each microstructure phase
   */
-  void setGrayscale(vector<int> gv) { grayscale_ = gv; }
+  void setGrayscale(std::vector<int> gv) { grayscale_ = gv; }
 
   /**
   @brief Get the list of grayscale values of every microstructure phase.
@@ -5124,7 +5033,7 @@ public:
 
   @return the list of grayscale values of every microstructure phase
   */
-  vector<int> getGrayscale(void) const { return grayscale_; }
+  std::vector<int> getGrayscale(void) const { return grayscale_; }
 
   /**
   @brief Get the map of of the vector index of the microstructure phases by
@@ -5137,7 +5046,7 @@ public:
 
   @return the microstructure phase lookup map (look up by name)
   */
-  map<string, int> getMicroPhaseIdLookup(void) const {
+  std::map<std::string, int> getMicroPhaseIdLookup(void) const {
     return microPhaseIdLookup_;
   }
 
@@ -5152,7 +5061,7 @@ public:
 
   @return the IC lookup map (look up by name)
   */
-  map<string, int> getICIdLookup(void) const { return ICIdLookup_; }
+  std::map<std::string, int> getICIdLookup(void) const { return ICIdLookup_; }
 
   /**
   @brief Get the map of of the vector index of the dependent components (DC) by
@@ -5165,7 +5074,7 @@ public:
 
   @return the DC lookup map (look up by name)
   */
-  map<string, int> getDCIdLookup(void) const { return DCIdLookup_; }
+  std::map<std::string, int> getDCIdLookup(void) const { return DCIdLookup_; }
 
   /**
   @brief Get the map of of the vector index of the GEM CSD phases by name.
@@ -5177,7 +5086,7 @@ public:
 
   @return the DC lookup map (look up by name)
   */
-  map<string, int> getGEMPhaseIdLookup(void) const { return GEMPhaseIdLookup_; }
+  std::map<std::string, int> getGEMPhaseIdLookup(void) const { return GEMPhaseIdLookup_; }
 
   /**
   @brief Get the class code of an independent component (IC).
@@ -5205,7 +5114,7 @@ public:
 
   @return the list of character class codes of the ICs
   */
-  vector<char> getICClassCode(void) const { return ICClassCode_; }
+  std::vector<char> getICClassCode(void) const { return ICClassCode_; }
 
   /**
   @brief Get the class code of a dependent component (DC).
@@ -5229,7 +5138,7 @@ public:
 
   @return the list of character class codes of the DCs
   */
-  vector<char> getDCClassCode(void) const { return DCClassCode_; }
+  std::vector<char> getDCClassCode(void) const { return DCClassCode_; }
 
   /**
   @brief Get the class code of a phase defined in the GEM CSD.
@@ -5253,7 +5162,7 @@ public:
 
   @return the list of character class codes of the GEM phases
   */
-  vector<char> getGEMPhaseClassCode(void) const { return GEMPhaseClassCode_; }
+  std::vector<char> getGEMPhaseClassCode(void) const { return GEMPhaseClassCode_; }
 
   /**
   @brief Set the system temperature [K].
@@ -5532,7 +5441,6 @@ public:
   */
   void setTimesGEMFailed(const int ntimes) {
     timesGEMFailed_ = (ntimes >= 0) ? ntimes : 0;
-    return;
   }
 
   /**
@@ -5689,7 +5597,6 @@ public:
     for (int i = 0; i < numICs_; i++) {
       ICMoles_[i] += DCStoich_[dcid][i] * moles;
     }
-
     return;
   }
 
@@ -5714,8 +5621,8 @@ public:
     for (int i = 0; i < numICs_; i++) {
       if ((ICMoles_[i] + DCStoich_[dcid][i] * moles) < 2.0e-17) {
         possible = false;
-        cout << "The growth of this phase can cause one or more IC moles to be"
-             << " lower than 2.0e-17, so this phase can not grow." << endl;
+        std::cout << "The growth of this phase can cause one or more IC moles to be"
+             << " lower than 2.0e-17, so this phase can not grow." << std::endl;
         break;
       }
     }
@@ -5725,45 +5632,14 @@ public:
   /**
   @brief Set the vector of saturation indices of all GEM CSD phases.
   */
-  void setSI(void) {
-    SI_.clear();
-    double *Falp;
-    Falp = (node_->ppmm())->Falp;
-    for (int i = 0; i < numGEMPhases_; i++) {
-      double si = pow(10, Falp[i]);
-      SI_.push_back(si);
-      // if (verbose_) {
-      //  cout << "logSI for i = " << i << " (" << GEMPhaseName_[i] << ") is:
-      //  Falp[i] = "
-      //       << Falp[i] << "   &   SI_[i] = " << SI_[i] << endl;
-      // }
-      if (GEMPhaseName_[i] == "ettr") {
-        cout << endl << "ChemicalSystem::setSI : " << endl;
-        cout << "\t\t" << i << "\t" << GEMPhaseName_[i] << "\tFalp: " << Falp[i]
-             << "\tPh_SatInd: " << node_->Ph_SatInd(i)
-             << "\tSI_(Falp): " << SI_[i] << endl;
-      }
-    }
-
-    // cout << endl << "ChemicalSystem::setSI : " << endl;
-    // for (int i = 0; i < numGEMPhases_; i++) {
-    //   cout << "\t: " << i << "\tFalp: " << Falp[i]<< "\tSI_: " << SI_[i]
-    //        << "\tPh_SatInd: " << node_->Ph_SatInd(i) //pow(10,
-    //        node_->Ph_SatInd(i))
-    //   //          << "\tFalp: " << Falp[i]
-    //        << "\t\t" << GEMPhaseName_[i] << endl;
-    // }
-    // cout << "ChemicalSystem::setSI : end" << endl;
-
-    return;
-  }
+  void setSI(void);
 
   /**
   @brief Get the vector of saturation indices of all GEM CSD phases.
 
   @return the vector of saturation indices of all GEM CSD phases
   */
-  vector<double> getSI(void) { return SI_; }
+  std::vector<double> getSI(void) { return SI_; }
 
   /**
   @brief Get the saturation index of a GEM CSD phase, by its id.
@@ -5793,7 +5669,7 @@ public:
   @param str is the name of the GEM phase to query
   @return the saturation index of the GEM phase
   */
-  double getSI(const string &str) { return SI_[getGEMPhaseId(str)]; }
+  double getSI(const std::string &str) { return SI_[getGEMPhaseId(str)]; }
 
   /**
   @brief Set the vector of saturation indices of all microstructure phases.
@@ -5814,7 +5690,7 @@ public:
 
   @return the vector of saturation indices of all microstructure phases
   */
-  vector<double> getMicroPhaseSI(void) { return microPhaseSI_; }
+  std::vector<double> getMicroPhaseSI(void) { return microPhaseSI_; }
 
   /**
   @brief Get the saturation index of a microstructure phase, by its id.
@@ -5841,7 +5717,7 @@ public:
   @param str is the name of the microstructure phase to query
   @return the saturation index of the microstructure phase
   */
-  double getMicroPhaseSI(const string &str) {
+  double getMicroPhaseSI(const std::string &str) {
     return microPhaseSI_[getMicroPhaseId(str)];
   }
 
@@ -5851,7 +5727,7 @@ public:
   @param dcstr is the name of the GEM DC to query
   @return the activity of the DC
   */
-  double getActivity(const string &dcstr) {
+  double getActivity(const std::string &dcstr) {
     // try {
     return node_->DC_a(getDCId(dcstr));
     //} catch (out_of_range &oor) {
@@ -5867,7 +5743,7 @@ public:
 
   @return the vector of moles of each IC in the aqueous solution
   */
-  vector<double> getSolution(void);
+  std::vector<double> getSolution(void);
 
   /**
   @brief Get the initial solution composition other than water
@@ -5877,7 +5753,7 @@ public:
 
   @return the initial solute concentration map
   */
-  map<int, double> getInitialSolutionComposition(void) {
+  std::map<int, double> getInitialSolutionComposition(void) {
     return initialSolutionComposition_;
   }
 
@@ -5889,7 +5765,7 @@ public:
 
   @return the fixed solute concentration map
   */
-  map<int, double> getFixedSolutionComposition(void) {
+  std::map<int, double> getFixedSolutionComposition(void) {
     return fixedSolutionComposition_;
   }
 
@@ -5901,7 +5777,7 @@ public:
 
   @return the initial solute concentration map
   */
-  map<int, double> getInitialGasComposition(void) {
+  std::map<int, double> getInitialGasComposition(void) {
     return initialGasComposition_;
   }
 
@@ -5913,7 +5789,7 @@ public:
 
   @return the fixed solute concentration map
   */
-  map<int, double> getFixedGasComposition(void) { return fixedGasComposition_; }
+  std::map<int, double> getFixedGasComposition(void) { return fixedGasComposition_; }
 
   /**
   @brief Set the gas-solid mass ratio
@@ -6000,9 +5876,9 @@ public:
   @return the vector of all GEM CSD phase ids associated with the microstructure
   phase
   */
-  vector<int> getMicroPhaseMembers(const unsigned int idx) {
-    string msg;
-    map<int, vector<int>>::iterator p = microPhaseMembers_.find(idx);
+  std::vector<int> getMicroPhaseMembers(const unsigned int idx) {
+    std::string msg;
+    std::map<int, std::vector<int>>::iterator p = microPhaseMembers_.find(idx);
     if (p != microPhaseMembers_.end()) {
       return p->second;
     } else {
@@ -6022,13 +5898,13 @@ public:
   @param str is the microPhase name
   @return the microPhase index (look up by name)
   */
-  int getMicroPhaseIdLookup(string str) {
-    string msg;
-    map<string, int>::iterator p = microPhaseIdLookup_.find(str);
+  int getMicroPhaseIdLookup(std::string str) {
+    std::string msg;
+    std::map<std::string, int>::iterator p = microPhaseIdLookup_.find(str);
     if (p != microPhaseIdLookup_.end()) {
       return p->second;
     } else {
-      msg = "Could not find microPhaseIdLookup_ match to string provided";
+      msg = "Could not find microPhaseIdLookup_ match to std::string provided";
       EOBException ex("ChemicalSystem", "getMicroPhaseIdLookup", msg,
                       microPhaseIdLookup_.size(), 0);
       ex.printException();
@@ -6044,14 +5920,14 @@ public:
   @param str is the IC name
   @return the IC index (look up by name)
   */
-  int getICIdLookup(string str) // ICId -> xCH
+  int getICIdLookup(std::string str) // ICId -> xCH
   {
-    string msg;
-    map<string, int>::iterator p = ICIdLookup_.find(str);
+    std::string msg;
+    std::map<std::string, int>::iterator p = ICIdLookup_.find(str);
     if (p != ICIdLookup_.end()) {
       return p->second;
     } else {
-      msg = "Could not find ICIdLookup_ match to string provided";
+      msg = "Could not find ICIdLookup_ match to std::string provided";
       EOBException ex("ChemicalSystem", "getICIdLookup", msg,
                       ICIdLookup_.size(), 0);
       ex.printException();
@@ -6067,14 +5943,14 @@ public:
   @param str is the DC name
   @return the DC index (look up by name)
   */
-  int getDCIdLookup(string str) // DCId -> xCH
+  int getDCIdLookup(std::string str) // DCId -> xCH
   {
-    string msg;
-    map<string, int>::iterator p = DCIdLookup_.find(str);
+    std::string msg;
+    std::map<std::string, int>::iterator p = DCIdLookup_.find(str);
     if (p != DCIdLookup_.end()) {
       return p->second;
     } else {
-      msg = "Could not find DCIdLookup_ match to string provided";
+      msg = "Could not find DCIdLookup_ match to std::string provided";
       EOBException ex("ChemicalSystem", "getDCIdLookup", msg,
                       DCIdLookup_.size(), 0);
       ex.printException();
@@ -6090,13 +5966,13 @@ public:
   @param str is the GEM phase name
   @return the GEM phase index (look up by name)
   */
-  int getGEMPhaseIdLookup(string str) {
-    string msg;
-    map<string, int>::iterator p = GEMPhaseIdLookup_.find(str);
+  int getGEMPhaseIdLookup(std::string str) {
+    std::string msg;
+    std::map<std::string, int>::iterator p = GEMPhaseIdLookup_.find(str);
     if (p != GEMPhaseIdLookup_.end()) {
       return p->second;
     } else {
-      msg = "Could not find GEMPhaseIdLookup_ match to string provided";
+      msg = "Could not find GEMPhaseIdLookup_ match to std::string provided";
       EOBException ex("ChemicalSystem", "getGEMPhaseIdLookup", msg,
                       GEMPhaseIdLookup_.size(), 0);
       ex.printException();
@@ -6110,7 +5986,7 @@ public:
   @param pid is the microPhaseId.
   @return the microPhaseName corresponding to pid.
   */
-  string getMicroPhaseName(int pid) { return microPhaseName_[pid]; }
+  std::string getMicroPhaseName(int pid) { return microPhaseName_[pid]; }
 
   /**
   @brief Get the current mole number of DC directly from GEM IPM work structure.
@@ -6215,50 +6091,7 @@ public:
   @param pid is the microPhaseId.
   @return the RGB vector (integer) of a given microPhase having the microPhaseId = pid.
   */
-  vector<int> getRGB(int pid) {
-    string mPhName = microPhaseName_[pid];
-    map<string, elemColor>::iterator p = colorN_.find(mPhName);
-    if (p != colorN_.end()) {
-      return colorN_[mPhName].rgb;
-    } else {
-      cout << endl << "**********************************************" << endl;
-      cout << endl
-           << "   Microphase " << mPhName
-           << " has no associated rgb values by default!" << endl;
-      cout << endl << "   => program stops !" << endl;
-      cout << endl
-           << "Please add in the simparams.json file before " << mPhName
-           << " close phase definition tag (</phase>)," << endl
-           << "the following lines replacing VALUE with convenient integer "
-              "numbers in [0,255]: "
-           << endl;
-      cout << endl << "<display_data>" << endl;
-      cout << " <red> VALUE </red>" << endl;
-      cout << " <green> VALUE </green>" << endl;
-      cout << " <blue> VALUE </blue>" << endl;
-      cout << " <gray> VALUE </gray>" << endl;
-      cout << "</display_data>" << endl;
-      cout << endl
-           << "The following microphaseses are defined by default in THAMES "
-              "3.0.0: "
-           << endl;
-      int i = 0;
-      for (map<string, elemColor>::iterator pp = colorN_.begin();
-           pp != colorN_.end(); pp++) {
-        cout << "   " << setw(3) << i << " : " << setw(15) << left << pp->first
-             << setw(5) << right << "rgb:" << setw(5) << pp->second.rgb[0]
-             << setw(5) << pp->second.rgb[1] << setw(5) << pp->second.rgb[2]
-             << setw(10) << "gray:" << setw(5) << pp->second.gray << endl;
-        i++;
-      }
-      cout << endl
-           << "After modifying and saving the simparams.json file, please "
-              "restart the program."
-           << endl
-           << endl;
-      exit(0);
-    }
-  }
+  std::vector<int> getRGB(int pid);
 
   /**
   @brief Get the RGB vector of a given microPhase.
@@ -6268,50 +6101,7 @@ public:
   @param pid is the microPhaseId.
   @return the RGB vector (float) of a given microPhase having the microPhaseId = pid.
   */
-  vector<float> getRGBf(int pid) {
-    string mPhName = microPhaseName_[pid];
-    map<string, elemColor>::iterator p = colorN_.find(mPhName);
-    if (p != colorN_.end()) {
-      return colorN_[mPhName].rgbf;
-    } else {
-      cout << endl << "**********************************************" << endl;
-      cout << endl
-           << "   Microphase " << mPhName
-           << " has no associated rgb values by default!" << endl;
-      cout << endl << "   => program stops !" << endl;
-      cout << endl
-           << "Please add in the chemistry file before " << mPhName
-           << " close phase definition tag (</phase>)," << endl
-           << "the following lines replacing VALUE with convenient integer "
-              "numbers in [0,255]: "
-           << endl;
-      cout << endl << "<display_data>" << endl;
-      cout << " <red> VALUE </red>" << endl;
-      cout << " <green> VALUE </green>" << endl;
-      cout << " <blue> VALUE </blue>" << endl;
-      cout << " <gray> VALUE </gray>" << endl;
-      cout << "</display_data>" << endl;
-      cout << endl
-           << "The following microphaseses are defined by default in THAMES "
-              "3.0.0: "
-           << endl;
-      int i = 0;
-      for (map<string, elemColor>::iterator pp = colorN_.begin();
-           pp != colorN_.end(); pp++) {
-        cout << "   " << setw(3) << i << " : " << setw(15) << left << pp->first
-             << setw(5) << right << "rgb:" << setw(5) << pp->second.rgb[0]
-             << setw(5) << pp->second.rgb[1] << setw(5) << pp->second.rgb[2]
-             << setw(10) << "gray:" << setw(5) << pp->second.gray << endl;
-        i++;
-      }
-      cout << endl
-           << "After modifying and saving the simparams.json file, please "
-              "restart the program."
-           << endl
-           << endl;
-      exit(0);
-    }
-  }
+  std::vector<float> getRGBf(int pid);
 
   /**
   @brief update the scaled mass of a given kinetic controlled microPhase after
@@ -6326,47 +6116,7 @@ public:
   both calculateKineticStep and updateKineticStep methods, see the
   KineticController class documentation.
   */
-  void updateMicroPhaseMasses(int pid, double val, int called) {
-    int DCId = 0;
-    if (pid > ELECTROLYTEID) {
-      microPhaseMassDissolved_[pid] = microPhaseMass_[pid] - val;
-      microPhaseMass_[pid] = val;
-
-      DCId = getMicroPhaseDCMembers(pid, 0);
-      double v0 = node_->DC_V0(DCId, P_, T_);
-      double dcmm = getDCMolarMass(DCId);
-      if (dcmm < 1.0e-9) {
-        FloatException fex("ChemicalSystem", "updateKCMicroPhaseMassess",
-                           "Divide by zero (dcmm)");
-        fex.printException();
-        exit(1);
-      }
-      // setMicroPhaseVolume(pid, (val * v0 / dcmm));
-      microPhaseVolume_[pid] = val * v0 / dcmm;
-      if (verbose_) {
-        if (called == 0) {
-          cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
-               << setw(3) << right << pid << " : " << setw(15) << left
-               << microPhaseName_[pid]
-               << " (called = 0) => updated scaledMass = " << val
-               << " and volume = " << microPhaseVolume_[pid] << endl;
-        } else {
-          cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
-               << setw(3) << right << pid << " : " << setw(15) << left
-               << microPhaseName_[pid]
-               << " (called = 1) => updated scaledMass = " << val
-               << " and volume = " << microPhaseVolume_[pid] << endl;
-        }
-        cout.flush();
-      }
-    } else {
-      cout << endl
-           << "   error in ChemicalSystem::setKCMicroPhaseMasses : pid = "
-           << pid << endl;
-      cout << endl << "   exit" << endl;
-      exit(1);
-    }
-  }
+  void updateMicroPhaseMasses(int pid, double val, int called);
 
   /**
   @brief add a component to the isParrotKilloh_ vector
@@ -6392,7 +6142,7 @@ public:
   @return the isParrotKilloh_ vector : all microPhaseIds for microphases
   controlled by Parrot-Killoh model
   */
-  vector<int> getIsParrotKilloh(void) { return isParrotKilloh_; }
+  std::vector<int> getIsParrotKilloh(void) { return isParrotKilloh_; }
 
   /**
   @brief Write out the boundary conditions on the electrolyte
@@ -6505,7 +6255,7 @@ public:
   @return the elastic moduli database component corresponding to the microPhase
   named by the input variable str
   */
-  elMod getElasticModuliComp(string str) { return elasticModuli_[str]; }
+  elMod getElasticModuliComp(std::string str) { return elasticModuli_[str]; }
 
 
   /**
@@ -6518,10 +6268,10 @@ public:
 
 }; // End of ChemicalSystem class
 
-inline string CSHMicroName;
-inline string MonocarbMicroName;
-inline string HydrotalcMicroName;
-inline string AFTMicroName;
-inline string MonosulfMicroName;
+inline std::string CSHMicroName;
+inline std::string MonocarbMicroName;
+inline std::string HydrotalcMicroName;
+inline std::string AFTMicroName;
+inline std::string MonosulfMicroName;
 
 #endif // SRC_THAMESLIB_CHEMICALSYSTEM_H_

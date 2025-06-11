@@ -94,7 +94,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (PozzolanicType); }
+  std::string getType() const { return (PozzolanicType); }
 
   /**
   @brief Set the surface area multiplier

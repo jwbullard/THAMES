@@ -5,6 +5,9 @@
 */
 #include "ThermalStrain.h"
 
+using std::cout; using std::endl;
+using std::string; using std::vector; using std::map;
+
 ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
                              ChemicalSystem *cs, int npoints,
                              const bool verbose, const bool warning)
@@ -3456,4 +3459,37 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
   }
 
   return Lstep;
+}
+
+double ThermalStrain::getEleStrain(int i, int j) {
+  if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
+    cout << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    cerr << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    exit(1);
+  } else {
+    return elestrain_[i][j];
+  }
+}
+
+double ThermalStrain::getEleStress(int i, int j) {
+  if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
+    cout << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    cerr << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    exit(1);
+  } else {
+    return elestress_[i][j];
+  }
+}
+
+void ThermalStrain::setExpansionCoord(int index, std::vector<int> cor) {
+  map<int, vector<int>>::iterator p = exp_.find(index);
+  if (p != exp_.end()) {
+    p->second = cor;
+  } else {
+    exp_.insert(make_pair(index, cor));
+  }
 }

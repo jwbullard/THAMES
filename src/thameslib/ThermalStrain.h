@@ -137,41 +137,41 @@ protected:
   double localgtest_;
   double localgg_;               /**< The square of the gradient
                                      `gb_`<sup>2</sup> */
-  vector<double> tstrength_;     /**< Assumed tensile strength of
+  std::vector<double> tstrength_;     /**< Assumed tensile strength of
                                    various phases [MPa] */
-  vector<vector<double>> b0_;    /**< xx component of linear b vector
+  std::vector<std::vector<double>> b0_;    /**< xx component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b1_;    /**< yy component of linear b vector
+  std::vector<std::vector<double>> b1_;    /**< yy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b2_;    /**< zz component of linear b vector
+  std::vector<std::vector<double>> b2_;    /**< zz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b3_;    /**< xz component of linear b vector
+  std::vector<std::vector<double>> b3_;    /**< xz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b4_;    /**< yz component of linear b vector
+  std::vector<std::vector<double>> b4_;    /**< yz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b5_;    /**< xy component of linear b vector
+  std::vector<std::vector<double>> b5_;    /**< xy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  map<int, vector<int>> exp_;    /**< @todo Find out what this is :
+  std::map<int, std::vector<int>> exp_;    /**< @todo Find out what this is :
                                       list of sites ids and their
                                      coordinates where local expansion
                                      occurs */
-  vector<vector<double>> eigen_; /**< Six components of the eigenstrain
+  std::vector<std::vector<double>> eigen_; /**< Six components of the eigenstrain
                                    tensor for each mesh element, so
                                    eigen_[ns][6] */
-  vector<vector<double>> T_;     /**< Linear (in displacement) thermal
+  std::vector<std::vector<double>> T_;     /**< Linear (in displacement) thermal
                                  energy term, one for each phase,
                                  so T_[nphase][3] */
-  vector<vector<vector<vector<double>>>>
+  std::vector<std::vector<std::vector<std::vector<double>>>>
       zcon_;                          /**< Stores thermal energy associated
                                          with macrostrains */
-  vector<vector<vector<double>>> ss_; /**< Shear stress tensor components,
-                                         one at every element, so the
+  std::vector<std::vector<std::vector<double>>> ss_; /**< Shear stress tensor
+                                         components, one at every element, so the
                                          dimensions are ss_[ns][3][3] */
   int kmax_; /**< the number of relaxation steps for a given elastic computation */
 public:
@@ -212,7 +212,7 @@ public:
   @param nz is the number of elements in the z dimension
   @param ns is the total number of mesh elements
   @param nphase is the maximum number of phases in the system
-  @param nskip is 0 if this is the first cycle, nonzero otherwise
+  @param iskip is 0 if this is the first cycle, nonzero otherwise
   */
   // void femat(int nx, int ny, int nz, int ns, int nphase, int iskip);
   void femat(int iskip);
@@ -379,7 +379,7 @@ public:
   @param eyz is the yz component of the macrostrain
   @param exy is the xy component of the macrostrain
   */
-  void Calc(double time, string fileName, double exx, double eyy, double ezz,
+  void Calc(double time, std::string fileName, double exx, double eyy, double ezz,
             double exz, double eyz, double exy);
 
   /**
@@ -453,14 +453,7 @@ public:
   @param index is the id of the element in the 1D ordering of elements
   @param cor is the (x,y,z) coordinates of that site
   */
-  void setExpansionCoord(int index, vector<int> cor) {
-    map<int, vector<int>>::iterator p = exp_.find(index);
-    if (p != exp_.end()) {
-      p->second = cor;
-    } else {
-      exp_.insert(make_pair(index, cor));
-    }
-  }
+  void setExpansionCoord(int index, std::vector<int> cor);
 
   /**
   @brief Clear the map of expansion sites.
@@ -470,7 +463,7 @@ public:
   void setExpansionCoord(void) { exp_.clear(); }
 
   /**
-  @brief Get a component of the the elastic stress at an element.
+  @brief Get a component of the elastic stress at an element.
 
   @todo Determine what units are returned for stress.
 
@@ -482,19 +475,9 @@ public:
   5)
   @return the stress component [GPa]
   */
-  double getEleStress(int i, int j) {
-    if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
-      cout << "i should be between 0 and ns_, "
-           << "and j should be between 0 and 6." << endl;
-      cerr << "i should be between 0 and ns_, "
-           << "and j should be between 0 and 6." << endl;
-      exit(1);
-    } else {
-      return elestress_[i][j];
-    }
-  }
+  double getEleStress(int i, int j);
 
-  vector<double> getEleStressMod(int i) { return elestress_[i]; }
+  std::vector<double> getEleStressMod(int i) { return elestress_[i]; }
 
   /**
   @brief Get a component of the the elastic strain at an element.
@@ -507,17 +490,7 @@ public:
   5)
   @return the strain component
   */
-  double getEleStrain(int i, int j) {
-    if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
-      cout << "i should be between 0 and ns_, "
-           << "and j should be between 0 and 6." << endl;
-      cerr << "i should be between 0 and ns_, "
-           << "and j should be between 0 and 6." << endl;
-      exit(1);
-    } else {
-      return elestrain_[i][j];
-    }
-  }
+  double getEleStrain(int i, int j);
 
   /**
   @brief Get the tensile strength at a site in the 3D element mesh.

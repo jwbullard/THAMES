@@ -5,6 +5,9 @@
 */
 #include "ElasticModel.h"
 
+using std::cout; using std::cerr; using std::endl;
+using std::string; using std::vector;
+
 ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
                            int npoints, const bool verbose,
                            const bool warning) : chemSys_(cs) {
@@ -1200,5 +1203,22 @@ void ElasticModel::writeStrainEngy(string &root, double time) {
     //                "system(buff.c_str())", "resCallSystem = -1");
     exit(1);
   }
+  return;
+}
+
+void ElasticModel::assig(void) {
+  for (int i = 0; i < nphase_; i++) {
+    prob_[i] = 0.0;
+  }
+
+  for (int m = 0; m < ns_; m++) {
+    prob_[pix_[m]] += 1;
+  }
+
+  double ns_dbl = ns_;
+  for (int i = 0; i < nphase_; i++) {
+    prob_[i] = prob_[i] / ns_dbl; // check!
+  }
+
   return;
 }

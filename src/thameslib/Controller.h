@@ -16,8 +16,8 @@
 struct RestoreSite {
   // for each site in site_:
   int microPhaseId;               // The microstructure phase assignment
-  vector<int> growth;             // vector of phases that can grow at this site
-  vector<int> inGrowInterfacePos; // vector of the site position in each growth
+  std::vector<int> growth;             // vector of phases that can grow at this site
+  std::vector<int> inGrowInterfacePos; // vector of the site position in each growth
                                   //   interface
   int inDissInterfacePos; // site position in the corresponding dissolution
                           // interface
@@ -31,9 +31,9 @@ struct RestoreInterface {
   //  from Interface
   unsigned int
       microPhaseId; /**< The phase id of the voxels at this interface */
-  vector<Isite>
+  std::vector<Isite>
       growthSites; /**< The list of all sites eligible foradjacent growth */
-  vector<Isite>
+  std::vector<Isite>
       dissolutionSites; /**< The list of sites eligible for self-dissolution */
   //    for each Isite:
   //      unsigned int id_; /**< The id of the corresponding Site */
@@ -45,15 +45,15 @@ struct RestoreInterface {
 
 struct RestoreSystem {
   // from ChemicalSystem (in fact from KineticController):
-  // vector<double> ICMoles;
-  vector<double> DCMoles;
+  // std::vector<double> ICMoles;
+  std::vector<double> DCMoles;
   // from Lattice:
-  vector<int> count;
-  vector<int> growthInterfaceSize;
-  vector<int> dissolutionInterfaceSize;
-  vector<RestoreSite> site; /**< 1D list of Site objects (site = voxel) */
+  std::vector<int> count;
+  std::vector<int> growthInterfaceSize;
+  std::vector<int> dissolutionInterfaceSize;
+  std::vector<RestoreSite> site; /**< 1D list of Site objects (site = voxel) */
   // from Interface
-  vector<RestoreInterface> interface;
+  std::vector<RestoreInterface> interface;
 
   long int numRNGcall_0;
   long int numRNGcallLONGMAX;
@@ -70,20 +70,20 @@ struct RestoreSystem {
 //  of each phase in the system in the previous time step */
 //
 // from Lattice:
-//   vector<Site> site_;     /**< 1D list of Site objects (site = voxel) */
+//   std::vector<Site> site_;     /**< 1D list of Site objects (site = voxel) */
 //   for each site in site_:
 //     unsigned int microPhaseId_;   // The microstructure phase assignment
-//     vector<unsigned int> growth_; // Vector of phases that can grow at this
+//     std::vector<unsigned int> growth_; // Vector of phases that can grow at this
 //     site
 //    double wmc_;                  // total porosity ("surface curvature") at
 //    this site double wmc0_;                 // this site internal porosity
 //    (its own contribution at wmc_ value)
 //    >>int visit_;<<               // reset to 0
-// vector<Interface> interface_;     //
+// std::vector<Interface> interface_;     //
 //   from Interface
 //     microPhaseId_; /**< The phase id of the voxels at this interface */
-//     vector<Isite> growthSites_; /**< The list of all sites eligible
-//     foradjacent growth */ vector<Isite> dissolutionSites_; /**< The list of
+//     std::vector<Isite> growthSites_; /**< The list of all sites eligible
+//     foradjacent growth */ std::vector<Isite> dissolutionSites_; /**< The list of
 //     sites eligible for self-dissolution */ for each Isite:
 //       unsigned int id_; /**< The id of the corresponding Site */
 //       int affinity_;    /**< The affinity for growth of a phase at the site
@@ -91,7 +91,7 @@ struct RestoreSystem {
 //       */ bool verbose_;    /**< Flag for whether to produce verbose output */
 //       double prob_;     /**< The growth probability of a phase at this site
 //       (computed according the affinity) */ double probIni_;
-// vector<int> count_;               // recreate or restored
+// std::vector<int> count_;               // recreate or restored
 
 /**
 @class Controller
@@ -128,17 +128,17 @@ time step.
 class Controller {
 
 protected:
-  string jobRoot_;   /**< Root name for all output files */
+  std::string jobRoot_;   /**< Root name for all output files */
   Lattice *lattice_; /**< Pointer to microstructure lattice object */
   KineticController
       *kineticController_;    /**< Pointer to kinetic controller object */
   ThermalStrain *thermalstr_; /**< Pointer to the finite element model object */
 
   ChemicalSystem *chemSys_; /**< Pointer to `ChemicalSystem` object */
-  vector<double> time_;     /**< List of simulation times for each iteration */
-  vector<double>
+  std::vector<double> time_;     /**< List of simulation times for each iteration */
+  std::vector<double>
       timeInitial_; /**< List of simulation times for each iteration */
-  vector<double> outputTime_; /**< List of times to output image */
+  std::vector<double> outputTime_; /**< List of times to output image */
   // double statfreq_;            /**< Frequency to output statistics */
 
   int simType_; /**< Hydration, leaching, or sulfate attack for now */
@@ -150,7 +150,7 @@ protected:
                                     attack (leach/sulfate attack) */
   double attackTimeInterval_;   /**< Simulation time interval to do the
                                      attack (leach/sulfate attack) */
-  vector<int> isParrotKilloh_;  /**< all microPhaseIds for microPhases
+  std::vector<int> isParrotKilloh_;  /**< all microPhaseIds for microPhases
                                      controlled by Parrot-Killoh model */
   int sizePK_;                  /**< size of isParrotKilloh_ vector */
   bool notPKPhase = true;       /**< flag saying if a microPhases is or not
@@ -203,7 +203,7 @@ public:
   */
   Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
              ThermalStrain *thmstr, const int simtype,
-             const string &jsonFileName, const string &jobname,
+             const std::string &jsonFileName, const std::string &jobname,
              const bool verbose, const bool warning, const bool xyz);
 
   /**
@@ -221,7 +221,7 @@ public:
   @param elemTimeInterval is used by the time advance algorithm in case of GEMS
   failure
   */
-  // void doCycle(const string &statfilename, int choice, double
+  // void doCycle(const std::string &statfilename, int choice, double
   // elemTimeInterval);
   void doCycle(double elemTimeInterval);
 
@@ -264,7 +264,7 @@ public:
   @param docname is the name of the JSON input file containing the Controller
   parameters
   */
-  void parseDoc(const string &docname);
+  void parseDoc(const std::string &docname);
 
   /**
   @brief Set the simulation time at which to begin sulfate attack simulation.
@@ -301,10 +301,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag
@@ -318,10 +315,7 @@ public:
 
   @param iswarning is true if warning output should be produced
   */
-  void setWarning(const bool iswarning) {
-    warning_ = iswarning;
-    return;
-  }
+  void setWarning(const bool iswarning) { warning_ = iswarning; }
 
   /**
   @brief Get the warning flag
@@ -335,10 +329,7 @@ public:
 
   @param isxyz is true if 3D visualization data output should be produced
   */
-  void setXyz(const bool isxyz) {
-    xyz_ = isxyz;
-    return;
-  }
+  void setXyz(const bool isxyz) { xyz_ = isxyz; }
 
   /**
   @brief Get the xyz flag
@@ -367,55 +358,7 @@ public:
   @param time is the simulation time in h
   @return TimeStruct data structure
   */
-  TimeStruct getResolvedTime(const double curtime) {
-
-    int s_per_h = static_cast<int>(S_PER_H);
-    int s_per_year = static_cast<int>(S_PER_YEAR);
-    int s_per_day = static_cast<int>(S_PER_DAY);
-    int s_per_minute = static_cast<int>(S_PER_MINUTE);
-    int min_per_h = 60;
-    int h_per_day = 24;
-    int d_per_year = 365;
-
-    TimeStruct mytime;
-    mytime.years = mytime.days = mytime.hours = mytime.minutes = 0;
-
-    // Convert curtime (currently in h) into nearest second
-    double curtime_in_s_dbl = curtime * S_PER_H;
-    int curtime_s = static_cast<int>(curtime_in_s_dbl + 0.5);
-
-    // How many years is this?
-    mytime.years = curtime_s / s_per_year;
-    curtime_s -= (mytime.years * s_per_year);
-    // Convert remaining time into days
-    mytime.days = curtime_s / s_per_day;
-    curtime_s -= (mytime.days * s_per_day);
-    // Convert remaining time into hours
-    mytime.hours = curtime_s / s_per_h;
-    curtime_s -= (mytime.hours * s_per_h);
-    // Convert remaining time into minutes
-    mytime.minutes = curtime_s / s_per_minute;
-    curtime_s -= (mytime.minutes * s_per_minute);
-
-    // Round up minutes if curtime_in_s >= 30
-    if (curtime_s >= 30) {
-      mytime.minutes += 1;
-      // Propagate this rounding to other time units
-      if (mytime.minutes > min_per_h) {
-        mytime.hours += 1;
-        mytime.minutes -= min_per_h;
-        if (mytime.hours > h_per_day) {
-          mytime.days += 1;
-          mytime.hours -= h_per_day;
-          if (mytime.days > d_per_year) {
-            mytime.years += 1;
-            mytime.days -= d_per_year;
-          }
-        }
-      }
-    }
-    return mytime;
-  }
+  TimeStruct getResolvedTime(const double curtime);
 
 }; // End of Controller class
 

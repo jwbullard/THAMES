@@ -85,7 +85,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (StandardType); }
+  std::string getType() const { return (StandardType); }
 
   /**
   @brief Set the surface area multiplier

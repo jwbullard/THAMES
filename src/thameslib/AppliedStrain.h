@@ -176,7 +176,7 @@ public:
   @param eyz is the yz component of the applied strain
   @param exy is the xy component of the applied strain
   */
-  void calc(string fileName, double exx, double eyy, double ezz, double exz,
+  void calc(std::string fileName, double exx, double eyy, double ezz, double exz,
             double eyz, double exy);
 
   /**
@@ -185,7 +185,7 @@ public:
   @param fileName is the file name for the microstructure image
   @return the bulk modulus (GPa)
   */
-  double getBulkModulus(string fileName);
+  double getBulkModulus(std::string fileName);
 
 }; // End of AppliedStrain class
 

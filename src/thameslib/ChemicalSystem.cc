@@ -5,6 +5,9 @@
 
 #include "ChemicalSystem.h"
 
+using std::cout; using std::cerr; using std::endl;
+using std::string; using std::vector; using std::map;
+
 ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
                                &jsonFileName, const bool verbose,
                                const bool warning) {
@@ -3907,3 +3910,254 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
 
   return crystalStrain;
 }
+
+void ChemicalSystem::updateMicroPhaseMasses(int pid, double val, int called) {
+  int DCId = 0;
+  if (pid > ELECTROLYTEID) {
+    microPhaseMassDissolved_[pid] = microPhaseMass_[pid] - val;
+    microPhaseMass_[pid] = val;
+
+    DCId = getMicroPhaseDCMembers(pid, 0);
+    double v0 = node_->DC_V0(DCId, P_, T_);
+    double dcmm = getDCMolarMass(DCId);
+    if (dcmm < 1.0e-9) {
+      FloatException fex("ChemicalSystem", "updateKCMicroPhaseMassess",
+                         "Divide by zero (dcmm)");
+      fex.printException();
+      exit(1);
+    }
+    // setMicroPhaseVolume(pid, (val * v0 / dcmm));
+    microPhaseVolume_[pid] = val * v0 / dcmm;
+    if (verbose_) {
+      if (called == 0) {
+        cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
+             << setw(3) << right << pid << " : " << setw(15) << left
+             << microPhaseName_[pid]
+             << " (called = 0) => updated scaledMass = " << val
+             << " and volume = " << microPhaseVolume_[pid] << endl;
+      } else {
+        cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
+             << setw(3) << right << pid << " : " << setw(15) << left
+             << microPhaseName_[pid]
+             << " (called = 1) => updated scaledMass = " << val
+             << " and volume = " << microPhaseVolume_[pid] << endl;
+      }
+      cout.flush();
+    }
+  } else {
+    cout << endl
+         << "   error in ChemicalSystem::setKCMicroPhaseMasses : pid = "
+         << pid << endl;
+    cout << endl << "   exit" << endl;
+    exit(1);
+  }
+}
+
+std::vector<float> ChemicalSystem::getRGBf(int pid) {
+  std::string mPhName = microPhaseName_[pid];
+  std::map<std::string, elemColor>::iterator p = colorN_.find(mPhName);
+  if (p != colorN_.end()) {
+    return colorN_[mPhName].rgbf;
+  } else {
+    cout << endl << "**********************************************" << endl;
+    cout << endl
+         << "   Microphase " << mPhName
+         << " has no associated rgb values by default!" << endl;
+    cout << endl << "   => program stops !" << endl;
+    cout << endl
+         << "Please add in the chemistry file before " << mPhName
+         << " close phase definition tag (</phase>)," << endl
+         << "the following lines replacing VALUE with convenient integer "
+            "numbers in [0,255]: "
+         << endl;
+    cout << endl << "<display_data>" << endl;
+    cout << " <red> VALUE </red>" << endl;
+    cout << " <green> VALUE </green>" << endl;
+    cout << " <blue> VALUE </blue>" << endl;
+    cout << " <gray> VALUE </gray>" << endl;
+    cout << "</display_data>" << endl;
+    cout << endl
+         << "The following microphaseses are defined by default in THAMES "
+            "3.0.0: "
+         << endl;
+    int i = 0;
+    for (std::map<std::string, elemColor>::iterator pp = colorN_.begin();
+         pp != colorN_.end(); pp++) {
+      cout << "   " << setw(3) << i << " : " << setw(15) << left << pp->first
+           << setw(5) << right << "rgb:" << setw(5) << pp->second.rgb[0]
+           << setw(5) << pp->second.rgb[1] << setw(5) << pp->second.rgb[2]
+           << setw(10) << "gray:" << setw(5) << pp->second.gray << endl;
+      i++;
+    }
+    cout << endl
+         << "After modifying and saving the simparams.json file, please "
+            "restart the program."
+         << endl
+         << endl;
+    exit(0);
+  }
+}
+
+std::vector<int> ChemicalSystem::getRGB(int pid) {
+  std::string mPhName = microPhaseName_[pid];
+  std::map<std::string, elemColor>::iterator p = colorN_.find(mPhName);
+  if (p != colorN_.end()) {
+    return colorN_[mPhName].rgb;
+  } else {
+    cout << endl << "**********************************************" << endl;
+    cout << endl
+         << "   Microphase " << mPhName
+         << " has no associated rgb values by default!" << endl;
+    cout << endl << "   => program stops !" << endl;
+    cout << endl
+         << "Please add in the simparams.json file before " << mPhName
+         << " close phase definition tag (</phase>)," << endl
+         << "the following lines replacing VALUE with convenient integer "
+            "numbers in [0,255]: "
+         << endl;
+    cout << endl << "<display_data>" << endl;
+    cout << " <red> VALUE </red>" << endl;
+    cout << " <green> VALUE </green>" << endl;
+    cout << " <blue> VALUE </blue>" << endl;
+    cout << " <gray> VALUE </gray>" << endl;
+    cout << "</display_data>" << endl;
+    cout << endl
+         << "The following microphaseses are defined by default in THAMES "
+            "3.0.0: "
+         << endl;
+    int i = 0;
+    for (std::map<std::string, elemColor>::iterator pp = colorN_.begin();
+         pp != colorN_.end(); pp++) {
+      cout << "   " << setw(3) << i << " : " << setw(15) << left << pp->first
+           << setw(5) << right << "rgb:" << setw(5) << pp->second.rgb[0]
+           << setw(5) << pp->second.rgb[1] << setw(5) << pp->second.rgb[2]
+           << setw(10) << "gray:" << setw(5) << pp->second.gray << endl;
+      i++;
+    }
+    cout << endl
+         << "After modifying and saving the simparams.json file, please "
+            "restart the program."
+         << endl
+         << endl;
+    exit(0);
+  }
+}
+
+void ChemicalSystem::setSI(void) {
+  SI_.clear();
+  double *Falp;
+  Falp = (node_->ppmm())->Falp;
+  for (int i = 0; i < numGEMPhases_; i++) {
+    double si = pow(10, Falp[i]);
+    SI_.push_back(si);
+    // if (verbose_) {
+    //  cout << "logSI for i = " << i << " (" << GEMPhaseName_[i] << ") is:
+    //  Falp[i] = "
+    //       << Falp[i] << "   &   SI_[i] = " << SI_[i] << endl;
+    // }
+    if (GEMPhaseName_[i] == "ettr") {
+      cout << endl << "ChemicalSystem::setSI : " << endl;
+      cout << "\t\t" << i << "\t" << GEMPhaseName_[i] << "\tFalp: " << Falp[i]
+           << "\tPh_SatInd: " << node_->Ph_SatInd(i)
+           << "\tSI_(Falp): " << SI_[i] << endl;
+    }
+  }
+
+  // cout << endl << "ChemicalSystem::setSI : " << endl;
+  // for (int i = 0; i < numGEMPhases_; i++) {
+  //   cout << "\t: " << i << "\tFalp: " << Falp[i]<< "\tSI_: " << SI_[i]
+  //        << "\tPh_SatInd: " << node_->Ph_SatInd(i) //pow(10,
+  //        node_->Ph_SatInd(i))
+  //   //          << "\tFalp: " << Falp[i]
+  //        << "\t\t" << GEMPhaseName_[i] << endl;
+  // }
+  // cout << "ChemicalSystem::setSI : end" << endl;
+}
+
+void ChemicalSystem::writeMicroPhases(void) {
+  cout << endl;
+  cout << "Microstructure phase quantities:" << endl;
+  cout << "Name     Mass (g)     Volume (m3)" << endl;
+  cout << "----     --------     -----------" << endl;
+  int size = microPhaseName_.size();
+  for (int i = 1; i < size; i++) {
+    cout << microPhaseName_[i] << "     " << microPhaseMass_[i] << "     "
+         << microPhaseVolume_[i] << endl;
+  }
+  cout << "Void     0.0    " << microVoidVolume_ << endl;
+  cout << endl;
+  cout.flush();
+}
+
+void ChemicalSystem::writePhaseMoles(void) {
+  cout << endl;
+  cout << "Vector of Phases:" << endl;
+  for (int i = 0; i < numGEMPhases_; i++) {
+    cout << "    " << GEMPhaseName_[i] << ": " << GEMPhaseMoles_[i] << " mol"
+         << endl;
+  }
+  cout << endl;
+  cout.flush();
+}
+
+void ChemicalSystem::writeDCH0() {
+  cout << endl;
+  cout << "Vector of Dependent Components:" << endl;
+  for (int i = 0; i < numDCs_; i++) {
+    cout << "    " << DCName_[i] << ": " << DCH0_[i] << " J/mol" << endl;
+  }
+  cout << endl;
+  cout.flush();
+}
+
+void ChemicalSystem::writeDCMoles() {
+  cout << endl;
+  cout << "Vector of Dependent Components:" << endl;
+  for (int i = 0; i < numDCs_; i++) {
+    cout << "    DCId: " << DCIdLookup_[DCName_[i]] << "\t" << DCName_[i]
+         << ": " << DCMoles_[i] << " mol"
+         << " \tmolarVolume = " << getDCMolarVolume(i)
+         << " \tvolume = " << DCMoles_[i] * getDCMolarVolume(i) << endl;
+  }
+  cout << endl;
+  cout.flush();
+}
+
+void ChemicalSystem::writeICMoles(void) {
+  cout << endl;
+  cout << "Vector of Independent Components:" << endl;
+  for (int i = 0; i < numICs_; i++) {
+    cout << "    ICId: " << ICIdLookup_[ICName_[i]] << "\t" << ICName_[i]
+         << ": " << ICMoles_[i] << " mol" << endl;
+  }
+  cout << endl;
+  cout.flush();
+  return;
+}
+
+int ChemicalSystem::getMicroPhaseDCMembers(const int idx, const int jdx) {
+
+  try {
+    // return microPhaseDCMembers_[idx][jdx];
+    return microPhaseDCMembers_.at(idx).at(jdx);
+  } catch (out_of_range &oor) {
+    cout << endl
+         << "   ChemicalSystem::getMicroPhaseDCMembers error :" << endl;
+    cout << "     Could not find microPhaseDCMembers_ match to indexes "
+            "provided"
+         << endl;
+    cout << "     idx = " << idx << " & jdx = " << jdx << endl;
+    if (idx > static_cast<int>(microPhaseDCMembers_.size()) - 1) {
+      cout << "     microPhaseDCMembers_.size() = "
+           << microPhaseDCMembers_.size() << endl;
+    } else {
+      cout << "     microPhaseDCMembers_.size() = "
+           << microPhaseDCMembers_.size() << endl;
+      cout << "     microPhaseDCMembers_[idx].size() = "
+           << microPhaseDCMembers_[idx].size() << endl;
+    }
+    cout << endl << "   exit" << endl;
+    exit(1);
+  }
+}
+

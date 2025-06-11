@@ -153,7 +153,7 @@ Gibbs energy of formation of the varioud dependent components (DCs) as
 a result of elastic deformation, either by an applied load or as a result
 of phase transformation misfit strain.
 */
-vector<double> strainenergy;
+std::vector<double> strainenergy;
 
 /**
 @brief Print a help message for invoking the command
@@ -171,7 +171,7 @@ This functions uses the GNU getopt_long functionality
 @param outputFolder is the name of the folder for output data files
 @return 0 if no errors, non-zero if error
 */
-int checkArgs(int argc, char **argv, string &outputFolder);
+int checkArgs(int argc, char **argv, std::string &outputFolder);
 
 /**
 @brief Create output folder and copy input files to it
@@ -183,9 +183,10 @@ int checkArgs(int argc, char **argv, string &outputFolder);
 @param initMicName is name of the initial microstructure image file
 @param simParamName is name of the simulation parameter file
 */
-void prepOutputFolder(const string &outputFolder, string &jobRoot,
-                      const string &gemInputName, string &statFileName,
-                      const string &initMicName, const string &simParamName);
+void prepOutputFolder(const std::string &outputFolder, std::string &jobRoot,
+                      const std::string &gemInputName,
+                      std::string &statFileName, const std::string &initMicName,
+                      const std::string &simParamName);
 
 /**
 @brief Write the formatted report file listing job properties and input.
@@ -202,9 +203,10 @@ through its `writeChemSys` method.
 
 If a file is not present, the file name should be given as an empty string.
 */
-void writeReport(const string &jobroot, struct tm *itime,
-                 const string &initMicName, const string &simParamName,
-                 const string &csdName, ChemicalSystem *csys);
+void writeReport(const std::string &jobroot, struct tm *itime,
+                 const std::string &initMicName,
+                 const std::string &simParamName, const std::string &csdName,
+                 ChemicalSystem *csys);
 
 /**
 @brief write the timing data
@@ -235,6 +237,6 @@ void deleteDynAllocMem(ChemicalSystem *ChemSys, Lattice *Mic, RanGen *RNG,
                        AppliedStrain *AppliedStrainSolver,
                        KineticController *KController, Controller *Ctrl,
                        clock_t st_time, time_t lt, bool errorProgram,
-                       const string &outputFolder);
+                       const std::string &outputFolder);
 
 #endif // SRC_THAMES_H_

@@ -159,7 +159,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (ParrotKillohType); }
+  std::string getType() const { return (ParrotKillohType); }
 
   /**
   @brief Set the w/s mass ratio of the system for the kinetic model equations.

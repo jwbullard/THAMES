@@ -5,6 +5,9 @@
 */
 #include "KineticController.h"
 
+using std::cout; using std::endl;
+using std::string; using std::vector;
+
 KineticController::KineticController() {
   temperature_ = 293.15;
 

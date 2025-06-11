@@ -5,6 +5,9 @@
 */
 #include "Lattice.h"
 
+using std::cout; using std::endl;
+using std::string; using std::vector; using std::map;
+
 Lattice::Lattice(ChemicalSystem *cs) : chemSys_(cs) {
   xdim_ = ydim_ = zdim_ = 0;
   time_ = 0.0;
@@ -7506,4 +7509,50 @@ void Lattice::populateElementData(void) {
   cfgElem_.push_back(elem);
 
   return;
+}
+
+void Lattice::checkSite(int stId) {
+  // int phId = site_[stId].getMicroPhaseId();
+  cout << endl << " Lattice::checkSite( " << stId << " ):" << endl;
+  cout << "    phaseId : " << site_[stId].getMicroPhaseId() << endl;
+  cout << "    inDissInterfacePos_ : " << site_[stId].getInDissInterfacePos()
+       << endl;
+  if (site_[stId].getInDissInterfacePos() != -1) {
+    cout << "     in dissInterface on pos inDissInterfacePos_ : "
+         << interface_[site_[stId].getMicroPhaseId()].getDissolutionSitesId(
+                site_[stId].getInDissInterfacePos())
+         << endl;
+  }
+
+  std::vector<int> growth = site_[stId].getGrowthPhases();
+  int size = growth.size();
+  int k;
+  cout << endl << " growth_.size() : " << size << endl;
+  for (k = 0; k < size; k++) {
+    cout << "       k = " << k << "   growth_[k] = " << growth[k] << endl;
+  }
+  cout << endl << " inGrowInterfacePos_ : " << endl;
+  for (k = 0; k < numMicroPhases_; k++) {
+    cout << "       k = " << k << "   site_[stId].getInGrowInterfacePos(k) = "
+         << site_[stId].getInGrowInterfacePos(k) << endl;
+  }
+
+  cout << endl
+       << "     in growInterfaces on pos inGrowInterfacePos_ :" << endl;
+  for (k = 0; k < numMicroPhases_; k++) {
+    cout << "       k_ = " << k << endl;
+    cout.flush();
+    if (site_[stId].getInGrowInterfacePos(k) > -1) {
+      size = growthInterfaceSize_[k];
+      cout << "       k = " << k
+           << "   pos = " << site_[stId].getInGrowInterfacePos(k)
+           << "   size = " << size << endl;
+      cout.flush();
+      cout << "            siteId in grInt = "
+           << interface_[k].getGrowthSitesId(
+                  site_[stId].getInGrowInterfacePos(k))
+           << endl;
+      cout.flush();
+    }
+  }
 }

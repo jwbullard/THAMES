@@ -5,6 +5,8 @@
 */
 #include "PozzolanicModel.h"
 
+using std::cout; using std::endl;
+
 PozzolanicModel::PozzolanicModel() {
 
   ///

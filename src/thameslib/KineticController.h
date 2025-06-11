@@ -39,7 +39,7 @@ private:
       chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
   Lattice *
       lattice_; /**< Pointer to the lattice object holding the microstructure */
-  vector<KineticModel *>
+  std::vector<KineticModel *>
       phaseKineticModel_;    /***< Kinetic model for each phase */
   double temperature_;       /**< Temperature [K] */
   double refT_;              /**< Reference temperature for PK model [K] */
@@ -47,17 +47,17 @@ private:
                                 [hours] */
   double leachTime_; /**< Time at which leaching simulation starts [hours] */
 
-  vector<string> name_; /**< List of names of phases in the kinetic model */
-  // vector<string> ICName_; /**< Names of ICs in the GEM CSD */
-  // vector<string> DCName_; /**< Names of DCs in the GEM CSD */
-  vector<int> microPhaseId_; /**< List of microstructure ids that are in kinetic
+  std::vector<std::string> name_; /**< List of names of phases in the kinetic model */
+  // std::vector<std::string> ICName_; /**< Names of ICs in the GEM CSD */
+  // std::vector<std::string> DCName_; /**< Names of DCs in the GEM CSD */
+  std::vector<int> microPhaseId_; /**< List of microstructure ids that are in kinetic
                                 model */
-  vector<double> initScaledMass_;      /**< List of initial scaled masses */
-  vector<double> scaledMass_;          /**< List of scaled masses */
-  vector<double> specificSurfaceArea_; /**< List of specific surface areas */
-  vector<double>
+  std::vector<double> initScaledMass_;      /**< List of initial scaled masses */
+  std::vector<double> scaledMass_;          /**< List of scaled masses */
+  std::vector<double> specificSurfaceArea_; /**< List of specific surface areas */
+  std::vector<double>
       refSpecificSurfaceArea_; /**< List of reference specific surface areas */
-  vector<bool> isKinetic_; /** vector setting the isKinetic property of each
+  std::vector<bool> isKinetic_; /** vector setting the isKinetic property of each
                                microPhase in the system; true for a kinetic
                                controlled microPhase */
 
@@ -66,29 +66,29 @@ private:
   bool verbose_;    /**< Flag for verbose output */
   bool warning_;    /**< Flag for warnining output */
 
-  vector<double> DCMoles_;     /**< vector of all DC moles - after the dissolution
+  std::vector<double> DCMoles_;     /**< vector of all DC moles - after the dissolution
                                     corresponding to the current time step - to be
                                     sent to GEMS */
-  vector<double> DCMolesIni_;  /**< vector of all DC moles - before to start the
+  std::vector<double> DCMolesIni_;  /**< vector of all DC moles - before to start the
                                     dissolution corresponding to the current time
                                     step*/
-  vector<double>
+  std::vector<double>
       scaledMassIni_; /**< List of scaled masses before a given time step*/
 
-  vector<int> impurityDCID_; /**< vector of the DCIds of all impurities contained
+  std::vector<int> impurityDCID_; /**< vector of the DCIds of all impurities contained
                                   and able to be eliberated by dissolution of each
                                   kinetic controlled microPhases (in order, DCIds
                                   of: K2O, Na2O, Per, SO3) */
-  vector<double> impurity_K2O_;  /**< the number of K2O moles corresponding to the
+  std::vector<double> impurity_K2O_;  /**< the number of K2O moles corresponding to the
                                       dissolved mass from each kinetic controlled
                                       microPhase during a given time step */
-  vector<double> impurity_Na2O_; /**< the number of Na2O moles corresponding to the
+  std::vector<double> impurity_Na2O_; /**< the number of Na2O moles corresponding to the
                                       dissolved mass from each kinetic controlled
                                       microPhase during a given time step */
-  vector<double> impurity_Per_;  /**< the number of MgO moles corresponding to the
+  std::vector<double> impurity_Per_;  /**< the number of MgO moles corresponding to the
                                       dissolved mass from each kinetic controlled
                                       microPhase during a given time step */
-  vector<double> impurity_SO3_;  /**< the number of SO3 moles corresponding to the
+  std::vector<double> impurity_SO3_;  /**< the number of SO3 moles corresponding to the
                                       dissolved mass from each kinetic controlled
                                       microPhase during a given time step */
 
@@ -103,7 +103,7 @@ private:
                                    (sulfate attack for now); hydration stops when
                                    the current time equqls beginAttackTime_ */
 
-  vector<double> surfaceAreaIni_; /**< vector of surface areas of each microPhase
+  std::vector<double> surfaceAreaIni_; /**< vector of surface areas of each microPhase
                                        before to start the dissolution for a given
                                        time step */
 
@@ -131,7 +131,7 @@ public:
   @param warning is false if suppressing warning output
   */
   KineticController(ChemicalSystem *cs, Lattice *lattice,
-                    const string &jsonFileName, const bool verbose,
+                    const std::string &jsonFileName, const bool verbose,
                     const bool warning);
 
   /**
@@ -169,7 +169,7 @@ public:
 
   @param docName is the name of the (purported) JSON input file
   */
-  void parseDoc(const string &docName);
+  void parseDoc(const std::string &docName);
 
   /**
   @brief Parse the input data for one phase in the JSON input file.
@@ -238,7 +238,7 @@ public:
 
   @return the vector of scaled masses [percent solids]
   */
-  vector<double> getScaledMass() const { return scaledMass_; }
+  std::vector<double> getScaledMass() const { return scaledMass_; }
 
   /**
   @brief Get the scaled mass of one phase
@@ -260,7 +260,7 @@ public:
 
   @return the vector of initial scaled masses [percent solids]
   */
-  vector<double> getInitScaledMass() const { return initScaledMass_; }
+  std::vector<double> getInitScaledMass() const { return initScaledMass_; }
 
   /**
   @brief Get the <i>initial</i> scaled mass of one microstructure phase
@@ -297,7 +297,7 @@ public:
 
   @return the vector of specific surface areas [m2/kg]
   */
-  vector<double> getSpecificSurfaceArea() const { return specificSurfaceArea_; }
+  std::vector<double> getSpecificSurfaceArea() const { return specificSurfaceArea_; }
 
   /**
   @brief Get the specific surface area of one phase
@@ -306,16 +306,14 @@ public:
   @param midx is the microstructure id of the phase to query
   @return the specific surface area [m2/kg]
   */
-  double getSpecificSurfaceArea(const int midx) {
-    return specificSurfaceArea_[midx];
-  }
+  double getSpecificSurfaceArea(const int midx) { return specificSurfaceArea_[midx]; }
 
   /**
   @brief Get the list of reference specific surface areas
 
   @return the vector of reference specific surface areas [m2/kg]
   */
-  vector<double> getRefSpecificSurfaceArea() const {
+  std::vector<double> getRefSpecificSurfaceArea() const {
     return refSpecificSurfaceArea_;
   }
 
@@ -389,7 +387,7 @@ public:
 
   @return the vector of names of phases in the kinetic model
   */
-  // vector<string> getName() const { return name_; }
+  // std::vector<std::string> getName() const { return name_; }
 
   /**
   @brief Get the name of phase with a given index in the kinetic model.
@@ -397,7 +395,7 @@ public:
   @param i is the index of the phase in the kinetic model
   @return the name of the phase with index i
   */
-  // string getName(const unsigned int i) const { return name_[i]; }
+  // std::string getName(const unsigned int i) const { return name_[i]; }
 
   /**
   @brief Set kinetic model DC moles
@@ -471,10 +469,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag
@@ -488,10 +483,7 @@ public:
 
   @param iswarning is true if verbose output should be produced
   */
-  void setWarning(const bool iswarning) {
-    warning_ = iswarning;
-    return;
-  }
+  void setWarning(const bool iswarning) { warning_ = iswarning; }
 
   /**
   @brief Get the warning flag
@@ -507,7 +499,7 @@ public:
   @return a vector containing the number of moles of every dependent component
   (DC) in the system.
   */
-  vector<double> getDCMoles(void) { return DCMoles_; }
+  std::vector<double> getDCMoles(void) { return DCMoles_; }
 
   /**
   @brief Set the initial hydration time (hydTimeIni_) at its previous value
