@@ -477,6 +477,18 @@ public:
   */
   double getEleStress(int i, int j);
 
+  /**
+  @brief Get the vector of the elastic stress at an element.
+
+  @todo Determine what units are returned for stress.
+
+  @todo Change the name of this method to something like
+  getElementStressComponent.
+
+  @param i is the element id in the 1D ordering of elements (a vector in Voigt
+  notation having 6)
+  @return the stress vector [GPa]
+  */
   std::vector<double> getEleStressMod(int i) { return elestress_[i]; }
 
   /**
