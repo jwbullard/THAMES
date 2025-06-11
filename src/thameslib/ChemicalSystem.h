@@ -118,6 +118,9 @@ struct PhaseData {
   std::vector<int> growthTemplate;
   std::vector<double> affinity;
   std::vector<double> contactAngle;
+  int growingSA;
+  std::vector<int> shrinkingSA;
+  std::vector<double> volRatiosSA;
 };
 #endif
 
@@ -594,6 +597,15 @@ class ChemicalSystem {
   double initSolidMass_;  /**< the total mass of all solid microPhases in the system,
                                including the clinker microPhases, at time = 0 */
 
+  std::vector<int> growingVectSA_;          /**< for SULFATE ATTACK: contains all
+                                       microPhaseIds growing due to SA attack */
+  std::vector<std::vector<int>> shrinkingSA_;    /**<  for each microPhaseId in growingVectSA_,
+                                       all the microDhaseIds that can transform
+                                       into this one*/
+  std::vector<std::vector<double>> volRatiosSA_; /**<  for each microPhaseId in growingVectSA_
+                                       and all corresponding microPhaseIds in
+                                       shrinking_, contains the molar volume ratios
+                                       of the corresponding microPhases:*/
 public:
 
   /**
@@ -783,6 +795,17 @@ public:
                          std::map<std::string, int> &phaseids,
                          PhaseData &phaseData);
 
+  /**
+  @brief Parse input about the sulfate attack parameters for each microPhase
+  that can grow as result of the sulfate attack.
+
+  @param pp is an iterator over the JSON data object
+  @param phaseids is a map associating phase names with id numbers
+  @param phaseData holds the structure of collected phase data from the document
+  */
+  void parseSulfateAttackData(const json::iterator p,
+                              std::map<std::string, int> &phaseids,
+                              PhaseData &phaseData);
   /**
   @brief Set the total number of possible microstructure phases in the system.
 
@@ -6265,6 +6288,22 @@ public:
   @param val is the total solid mass of the system at time = 0
   */
   void setInitSolidMass(double val) { initSolidMass_ = val; }
+
+  /** 
+  @brief Initialize all vectors controlling the sulfate attack in Lattice class
+  @note called from Lattice::createGrowingVectSA, called at its turn from 
+  Controller::Controller
+
+  @param growingVect corresponds to growingVectSA_ in Lattice class
+  @param shrinkingVect corresponds to shrinking_ in Lattice class
+  @param volRatiosVect corresponds to volRatios_ in Lattice class
+  */
+  void getVectorsSA (std::vector<int> &growingVect, std::vector<std::vector<int>> &shrinkingVect,
+                     std::vector<std::vector<double>> &volRatiosVect) {
+    growingVect = growingVectSA_;
+    shrinkingVect = shrinkingSA_;
+    volRatiosVect = volRatiosSA_;
+  }
 
 }; // End of ChemicalSystem class
 

@@ -184,10 +184,12 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   dissolutionInterfaceSize_.clear();
   growthInterfaceSize_.resize(numMicroPhases_, 0);
   dissolutionInterfaceSize_.resize(numMicroPhases_, 0);
-  // growthVector.clear();
-  // dissolutionVector.clear();
 
-  // count_.clear();
+  // vectors based on simparams.json file, calling ChemicalSystem::getVectorsSA
+  growingVectSA_.clear();
+  shrinking_.clear();
+  volratios_.clear();
+
   count_.resize(numMicroPhases_, 0);
 
   expansion_.clear();
@@ -6482,56 +6484,86 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
 
 void Lattice::createGrowingVectSA() {
 
-  growingVectSA_.clear();
-  shrinking_.clear();
-  volratios_.clear();
-  vector<int> idummy;
-  idummy.clear();
-  vector<double> ddummy;
-  ddummy.clear();
+  chemSys_->getVectorsSA(growingVectSA_, shrinking_, volratios_);
 
-  growingVectSA_.push_back(chemSys_->getMicroPhaseId(AFTMicroName));
-  sizeGrowingVectSA_ = growingVectSA_.size();
-  shrinking_.resize(sizeGrowingVectSA_, idummy);
-  volratios_.resize(sizeGrowingVectSA_, ddummy);
-  int i = -1;
-  // for (int i = 0; i < growingSize; ++i) {
-  if (MonosulfMicroName.length() > 0) {
-    i++;
-    shrinking_[i].push_back(chemSys_->getMicroPhaseId(MonosulfMicroName));
-    volratios_[i].push_back(2.288);
+  int gSize = growingVectSA_.size();
+  int sSize = shrinking_.size();
+  int vSize = volratios_.size();
+
+  sizeGrowingVectSA_ = gSize;
+
+  if (gSize == 0 || sSize == 0 || vSize == 0) {
+    string msg = "gSize = 0 || sSize = 0 || vSize = 0";
+    cout << endl
+         << "Lattice::createGrowingVectSA() - error: " << msg << endl;
+    cout << "     growingVectSA_.size() : gSize = " << gSize << endl;
+    cout << "     shrinking_.size()     : sSize = " << sSize << endl;
+    cout << "     volratios_.size()     : vSize = " << vSize << endl;
+    cout << endl << "end program" << endl;
+    throw DataException("Lattice", "createGrowingVectSA", msg);
+    // exit(0);
+  } else {
+
+    cout << endl << "   Lattice::createGrowingVectSA() - create growingVectSA_, "
+                    "shrinking_ and volratios_ vectors:" << endl;
+    cout << "     growingVectSA_.size() = " << gSize << endl;
+    cout << "     shrinking_.size()     = " << sSize << endl;
+    cout << "     volratios_.size()     = " << vSize << endl;
+    for (int i = 0; i < gSize; i++) {
+      cout << endl << "     growingVectSA_[" << i << "] = " << growingVectSA_[i]
+           << "  :  " << chemSys_->getMicroPhaseName(growingVectSA_[i])
+           << endl;
+      sSize = shrinking_[i].size();
+      vSize = volratios_[i].size();
+      if (sSize != vSize) {
+        ostringstream ostr;
+        ostr << i;
+        string msg = "sSize != vSize for i = " + ostr.str();
+
+        cout << endl
+             << "Lattice::createGrowingVectSA() - error: " << msg << endl;
+        cout << "     growingVectSA_.size() : gSize = " << gSize << endl;
+        cout << "     shrinking_.size()     : sSize = " << sSize << endl;
+        cout << "     volratios_.size()     : vSize = " << vSize << endl;
+        cout << endl << "end program" << endl;
+        throw DataException("Lattice", "createGrowingVectSA", msg);
+        // exit(0);
+      }
+      for (int j = 0; j < sSize; j++) {
+        cout << "       shrinking_[" << i << "," << j << "] = " << shrinking_[i][j]
+             << "  :  " << chemSys_->getMicroPhaseName(shrinking_[i][j]) << endl;
+        cout << "          volratios_[" << i << "," << j << "] = "
+             << setprecision(3) << volratios_[i][j] << endl;
+      }
+    }
   }
-  //  if (MonocarbMicroName.length() > 0) {
-  //    i++;
-  //    shrinking_[i].push_back(chemSys_->getMicroPhaseId(MonocarbMicroName));
-  //    volratios_[i].push_back(2.699);
-  //  }
-  //  // if (HemicarbMicroName.length() > 0) {
-  //  //   i++;
-  //  // shrinking_[i].push_back(chemSys_->getMicroPhaseId(HemicarbMicroName));
-  //  //   volratios_[i].push_back(2.485);
-  //  // }
-  //  if (HydrotalcMicroName.length() > 0) {
-  //    i++;
-  //    shrinking_[i].push_back(chemSys_->getMicroPhaseId(HydrotalcMicroName));
-  //    volratios_[i].push_back(3.211);
-  //  }
-  //}
+  cout << setprecision(15);
 
-  cout << endl << "   Lattice::createGrowingVectSA() :" << endl;
-  cout << "     CSHMicroName       : " << CSHMicroName
-       << " (id = " << chemSys_->getMicroPhaseId(CSHMicroName) << ")" << endl;
-  cout << "     MonocarbMicroName  : " << MonocarbMicroName
-       << " (id = " << chemSys_->getMicroPhaseId(MonocarbMicroName) << ")"
-       << endl;
-  cout << "     MonosulfMicroName  : " << MonosulfMicroName
-       << " (id = " << chemSys_->getMicroPhaseId(MonosulfMicroName) << ")"
-       << endl;
-  cout << "     HydrotalcMicroName : " << HydrotalcMicroName
-       << " (id = " << chemSys_->getMicroPhaseId(HydrotalcMicroName) << ")"
-       << endl;
-  cout << "     AFTMicroName       : " << AFTMicroName
-       << " (id = " << chemSys_->getMicroPhaseId(AFTMicroName) << ")" << endl;
+  // cout << "     AFTMicroName       : " << AFTMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(AFTMicroName) << ") : " << endl;
+  // cout << "       MonocarbMicroName  : " << MonocarbMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(MonocarbMicroName) << ")"
+  //      << endl;
+  //      shrinking_[i].push_back(chemSys_->getMicroPhaseId(MonocarbMicroName));
+  //      volratios_[i].push_back(2.699);
+  // cout << "       HemicarbMicroName  : " << HemicarbMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(HemicarbMicroName) << ")"
+  //      << endl;
+  //      shrinking_[i].push_back(chemSys_->getMicroPhaseId(HemicarbMicroName));
+  //      volratios_[i].push_back(2.485);
+  // cout << "       HydrotalcMicroName : " << HydrotalcMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(HydrotalcMicroName) << ")"
+  //      << endl;
+  //      shrinking_[i].push_back(chemSys_->getMicroPhaseId(HydrotalcMicroName));
+  //      volratios_[i].push_back(3.211);
+  // cout << "       MonosulfMicroName  : " << MonosulfMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(MonosulfMicroName) << ")"
+  //      << endl;
+  //      shrinking_[i].push_back(chemSys_->getMicroPhaseId(MonosulfMicroName));
+  //      volratios_[i].push_back(2.288);
+  //
+  // cout << "       CSHMicroName       : " << CSHMicroName
+  //      << " (id = " << chemSys_->getMicroPhaseId(CSHMicroName) << ")" << endl;
 }
 
 vector<int> Lattice::writeSubVolume(string fileName, Site *centerste,

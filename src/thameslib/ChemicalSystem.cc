@@ -108,6 +108,10 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   fixedGasComposition_.clear();
   cementComponent_.clear();
 
+  growingVectSA_.clear();
+  shrinkingSA_.clear();
+  volRatiosSA_.clear();
+
   color_.clear();
   // colorN_ used in initColorMap() and output files
   colorN_.clear();
@@ -1079,6 +1083,11 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
     phaseData.GEMPhaseId.clear();
     phaseData.GEMPhaseName.clear();
     phaseData.microPhaseDCPorosities.clear();
+
+    phaseData.growingSA = -1;
+    phaseData.shrinkingSA.clear();
+    phaseData.volRatiosSA.clear();
+
     //  phaseData.RdId.clear();
     //  phaseData.RdVal.clear();
     phaseData.stressCalc = 0;
@@ -1145,6 +1154,15 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
     if (p != cdi.value()[i].end()) {
       try {
         parseInterfaceData(p, phaseids, phaseData);
+      } catch (DataException dex) {
+        throw dex;
+      }
+    }
+    p = cdi.value()[i].find("sulfateAttack_data");
+    if (p != cdi.value()[i].end()) {
+      try {
+        phaseData.growingSA = phaseData.id;
+        parseSulfateAttackData(p, phaseids, phaseData);
       } catch (DataException dex) {
         throw dex;
       }
@@ -1240,6 +1258,24 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
     //  Rd_.push_back(phaseData.RdVal);
     microPhaseMembers_.insert(make_pair(phaseData.id, phaseData.GEMPhaseId));
     microPhaseDCMembers_.insert(make_pair(phaseData.id, phaseData.DCId));
+
+    if (phaseData.growingSA != -1) {
+      int size = growingVectSA_.size();
+      bool inVector = false;
+      for (int i = 0; i < size; i++) {
+        if(phaseData.growingSA == growingVectSA_[i]) {
+          inVector = true;
+          break;
+        }
+      }
+      if (!inVector) {
+        growingVectSA_.push_back(phaseData.growingSA);
+        if (phaseData.shrinkingSA.size() > 0)
+          shrinkingSA_.push_back(phaseData.shrinkingSA);
+        if (phaseData.volRatiosSA.size() > 0)
+          volRatiosSA_.push_back(phaseData.volRatiosSA);
+      }
+    }
 
     numMicroPhases_++;
 
@@ -1581,6 +1617,29 @@ void ChemicalSystem::parseAffinityData(const json::iterator pp,
     }
   }
 
+  return;
+}
+
+void ChemicalSystem::parseSulfateAttackData(const json::iterator p,
+                                            map<string, int> &phaseids,
+                                            PhaseData &phaseData) {
+  string myStr("Null");
+
+  json::iterator pp;
+  for (int i = 0; i < static_cast<int>(p.value().size()); ++i) {
+    pp = p.value()[i].find("shrinkingMicroPhase");
+    if (pp != p.value()[i].end()) {
+      myStr = pp.value();
+      map<string, int>::iterator it = phaseids.find(myStr);
+      if (it != phaseids.end()) {
+        phaseData.shrinkingSA.push_back(it->second);
+        pp = p.value()[i].find("volumeRatio");
+        if (pp != p.value()[i].end()) {
+          phaseData.volRatiosSA.push_back(pp.value());
+        }
+      }
+    }
+  }
   return;
 }
 

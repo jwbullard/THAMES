@@ -1152,6 +1152,16 @@
             }
           ]
         },
+        "sulfateAttack_data" : [
+         {
+           "shrinkingMicroPhase" : "Monosulfate",
+           "volumeRatio" : 2.288
+         },
+         {
+           "comment_shrinkingMicroPhase" : "Hydrotalcite",
+           "comment_volumeRatio" : 3.211
+         }
+        ],
         "gemphase_data": [
           {
             "gemphasename": "C6AsH13",

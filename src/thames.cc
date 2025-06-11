@@ -213,6 +213,9 @@ int main(int argc, char **argv) {
   } catch (FloatException flex) {
     flex.printException();
     errorProgram = true;
+  } catch (DataException dex) {
+    dex.printException();
+    errorProgram = true;
   }
   if (errorProgram) {
     deleteDynAllocMem(ChemSys, Mic, RNG, ThermalStrainSolver,
