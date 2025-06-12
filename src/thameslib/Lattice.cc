@@ -6016,20 +6016,21 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
             int pid;
             string pname;
             int size = extractSteIdVect.size();
-            cout << endl << "        >>>> forLoop -> bcl/extractSteIdVect.size   : "
-                 << setw(8) << right << bcl << "  "
-                 << setw(3) << right << extractSteIdVect.size() << endl;
+            // cout << endl << "        >>>> forLoop -> bcl/extractSteIdVect.size   : "
+            //      << setw(8) << right << bcl << "  "
+            //      << setw(3) << right << extractSteIdVect.size() << endl;
             for (int i = 0; i < size; i++) {
               pid = site_[extractSteIdVect[i]].getMicroPhaseId();
               pname = chemSys_->getMicroPhaseName(pid);
-              cout << "          i/extractSteIdVect[i]/microPhaseId/microPhaseName : "
-                   << setw(3) << right << i << "  "
-                   << setw(10) << right << extractSteIdVect[i] << "  "
-                   << setw(3) << right << pid << "  " << setw(15) << left << pname
-                   << endl;
-              if (pid == 14) { // dissPhaseIDVect[0] now
-                cout << "            * - extract siteId " << extractSteIdVect[i]
-                     << " from dissolutionVector !!!" << endl;
+              // cout << "          i/extractSteIdVect[i]/microPhaseId/microPhaseName : "
+              //      << setw(3) << right << i << "  "
+              //      << setw(10) << right << extractSteIdVect[i] << "  "
+              //      << setw(3) << right << pid << "  " << setw(15) << left << pname
+              //      << endl;
+              // if (pid == 14) { // dissPhaseIDVect[0] now
+              if (pid == dissPhaseIDVect[0]) { // dissPhaseIDVect[0] = 14 now!!!
+                // cout << "            * - extract siteId " << extractSteIdVect[i]
+                //      << " from dissolutionVector !!!" << endl;
                 int posDissVect = site_[extractSteIdVect[i]].getInDissolutionVectorPos();
                 site_[extractSteIdVect[i]].setInDissolutionVectorPos(-1);
                 if (posDissVect != dissolutionVectorSize - 1) {
@@ -6041,10 +6042,10 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
                 dissolutionVector.pop_back();
                 dissolutionVectorSize--;
                 sumWmc -= 1;
-              } else {
-                cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
-                          << endl;
-              }
+              } // else {
+              //   cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
+              //        << endl;
+              // }
             }
           }
 
@@ -6093,20 +6094,21 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
             int pid;
             string pname;
             int size = extractSteIdVect.size();
-            cout << endl << "        >>>> whileLoop -> bcl/extractSteIdVect.size : "
-                 << setw(8) << right << bcl << "  "
-                 << setw(3) << right << extractSteIdVect.size() << endl;
+            // cout << endl << "        >>>> whileLoop -> bcl/extractSteIdVect.size : "
+            //      << setw(8) << right << bcl << "  "
+            //      << setw(3) << right << extractSteIdVect.size() << endl;
             for (int i = 0; i < size; i++) {
               pid = site_[extractSteIdVect[i]].getMicroPhaseId();
               pname = chemSys_->getMicroPhaseName(pid);
-              cout << "          i/extractSteIdVect[i]/microPhaseId/microPhaseName : "
-                   << setw(3) << right << i << "  "
-                   << setw(10) << right << extractSteIdVect[i] << "  "
-                   << setw(3) << right << pid << "  " << setw(15) << left << pname
-                   << endl;
-              if (pid == 14) { // dissPhaseIDVect[0] now
-                cout << "            * - extract siteId " << extractSteIdVect[i]
-                     << " from dissolutionVector !!!" << endl;
+              // cout << "          i/extractSteIdVect[i]/microPhaseId/microPhaseName : "
+              //      << setw(3) << right << i << "  "
+              //      << setw(10) << right << extractSteIdVect[i] << "  "
+              //      << setw(3) << right << pid << "  " << setw(15) << left << pname
+              //      << endl;
+              // if (pid == 14) { // dissPhaseIDVect[0] now
+              if (pid == dissPhaseIDVect[0]) { // dissPhaseIDVect[0] = 14 now!!!
+                // cout << "            * - extract siteId " << extractSteIdVect[i]
+                //      << " from dissolutionVector !!!" << endl;
                 int posDissVect = site_[extractSteIdVect[i]].getInDissolutionVectorPos();
                 site_[extractSteIdVect[i]].setInDissolutionVectorPos(-1);
                 if (posDissVect != dissolutionVectorSize - 1) {
@@ -6118,10 +6120,10 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
                 dissolutionVector.pop_back();
                 dissolutionVectorSize--;
                 sumWmc -= 1;
-              } else {
-                cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
-                          << endl;
-              }
+              } // else {
+              //   cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
+              //        << endl;
+              // }
             }
           }
 

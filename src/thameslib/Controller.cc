@@ -988,9 +988,8 @@ void Controller::doCycle(double elemTimeInterval) {
         kineticController_->setHydTimeIni(time_[i]);
 
         cout << endl
-             << "Controller::doCycle - hydration & lattice update => normal "
-                "end - cyc = "
-             << cyc << " (i = " << i << ")" << endl;
+             << "Controller::doCycle - hydration & lattice update - cyc = "
+             << cyc << " (i = " << i << ")   =>   normal end" << endl;
       }
 
     } catch (DataException dex) {
@@ -1426,9 +1425,8 @@ void Controller::doCycle(double elemTimeInterval) {
       }
 
       cout << endl
-           << "Controller::doCycle - sulfate attack module => normal end - cyc "
-              "= "
-           << cyc << " (i = " << i << ")" << endl;
+           << "Controller::doCycle - sulfate attack module - cyc = "
+           << cyc << " (i = " << i << ")   =>   normal end" << endl;
     }
   }
 
