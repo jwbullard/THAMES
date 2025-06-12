@@ -306,25 +306,23 @@ const int B_ORANGERED = 0;
 
 // Global variables
 
-using namespace std;
-
-vector<int> Mic;
-string RootName;
-string TypeName;
-string OutName;
+std::vector<int> Mic;
+std::string RootName;
+std::string TypeName;
+std::string OutName;
 int Xsize, Ysize, Zsize;
 
 // Function declarations
 int checkargs(int argc, char **argv);
-int processImageFiles(vector<string> &names, vector<string> &times);
-int getFileNamesAndTimes(vector<string> &names, vector<string> &times);
-int writeXYZFile(const string &time, const string &fname, vector<float> &red,
-                 vector<float> &green, vector<float> &blue);
+int processImageFiles(std::vector<std::string> &names, std::vector<std::string> &times);
+int getFileNamesAndTimes(std::vector<std::string> &names, std::vector<std::string> &times);
+int writeXYZFile(const std::string &time, const std::string &fname, std::vector<float> &red,
+                 std::vector<float> &green, std::vector<float> &blue);
 int countSolid(void);
 bool isSolid(int i, int j, int k);
 int toIndex(int i, int j, int k);
-void getPcolors(vector<float> &red, vector<float> &green, vector<float> &blue);
-void getVcolors(vector<float> &red, vector<float> &green, vector<float> &blue);
-void getTcolors(vector<float> &red, vector<float> &green, vector<float> &blue);
+void getPcolors(std::vector<float> &red, std::vector<float> &green, std::vector<float> &blue);
+void getVcolors(std::vector<float> &red, std::vector<float> &green, std::vector<float> &blue);
+void getTcolors(std::vector<float> &red, std::vector<float> &green, std::vector<float> &blue);
 void printHelp(void);
-string getLeftPaddingString(string const &str, int n, char paddedChar);
+std::string getLeftPaddingString(std::string const &str, int n, char paddedChar);

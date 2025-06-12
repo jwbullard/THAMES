@@ -5,6 +5,8 @@
 
 #include "viz.h"
 
+using namespace std;
+
 /* Make Transparency a global variable */
 float transparency;
 

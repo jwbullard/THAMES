@@ -1,11 +1,6 @@
 #include "vcctl2thames.h"
-#include <algorithm>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
+
+using namespace std;
 
 int main(int argc, char **argv) {
   int xsize, ysize, zsize;
