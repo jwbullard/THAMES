@@ -65,7 +65,7 @@ int checkargs(int argc, char **argv) {
     case static_cast<int>('f'):
       itype = optarg;
       TypeName = itype;
-      for (int j = 0; j < TypeName.size(); ++j) {
+      for (int j = 0; j < static_cast<int>(TypeName.size()); ++j) {
         TypeName[j] = tolower(TypeName[j]);
       }
       cout << "TypeName = " << TypeName << endl;
@@ -139,7 +139,7 @@ int processImageFiles(vector<string> &names, vector<string> &times) {
   string fname = RootName;
   fname.append("_Frames.xyz");
 
-  for (int i = 0; i < names.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(names.size()); ++i) {
     ifstream in(names[i].c_str());
 
     // Read the version stuff
@@ -679,19 +679,19 @@ int getFileNamesAndTimes(vector<string> &names, vector<string> &times) {
   string tmptime, tmpname;
   float tmpftime;
 
-  for (int i = 0; i < names.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(names.size()); ++i) {
     cout << "Presort Name " << i << " = " << names[i] << endl;
   }
-  for (int i = 0; i < times.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(times.size()); ++i) {
     cout << "Presort Time " << i << " = " << times[i] << endl;
   }
 
-  for (int i = 0; i < times.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(times.size()); ++i) {
     timef[i] = stof(times[i]);
   }
 
-  for (int i = 0; i < timef.size() - 1; ++i) {
-    for (int j = i; j < timef.size(); ++j) {
+  for (int i = 0; i < static_cast<int>(timef.size()) - 1; ++i) {
+    for (int j = i; j < static_cast<int>(timef.size()); ++j) {
       if (timef[j] < timef[i]) {
         tmpftime = timef[i];
         tmptime = times[i];
@@ -710,15 +710,15 @@ int getFileNamesAndTimes(vector<string> &names, vector<string> &times) {
   // for file sorting later
 
   string padtime;
-  for (int i = 0; i < times.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(times.size()); ++i) {
     padtime = getLeftPaddingString(times[i], 7, '0');
     times[i] = padtime;
   }
 
-  for (int i = 0; i < names.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(names.size()); ++i) {
     cout << "Name " << i << " = " << names[i] << endl;
   }
-  for (int i = 0; i < times.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(times.size()); ++i) {
     cout << "Time " << i << " = " << times[i] << endl;
   }
 
