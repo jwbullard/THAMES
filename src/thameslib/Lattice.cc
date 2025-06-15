@@ -4608,20 +4608,25 @@ void Lattice::writePoreSizeDistribution(const double curtime,
     cout.flush();
   }
 
-  out << "Time = " << curtime << " h,," << endl;
-  out << "Voxel-scale pore volume fraction (> 100 nm) = "
-      << voxelPoreVolumeFraction_ << ",," << endl;
-  out << "Voxel-scale void volume fraction = " << volumeFraction_[VOIDID]
-      << ",," << endl;
+  out << "Time = " << curtime << " h" << endl;
+  out << "Voxel-scale pore volume fraction (>= " << 1.0e9 * resolution_
+      << " nm) = " << voxelPoreVolumeFraction_ << endl;
   out << "Saturated voxel-scale pore volume fraction = "
-      << voxelPoreVolumeFraction_ - volumeFraction_[VOIDID] << ",," << endl;
-  out << "Nanopore volume fraction (<= 100 nm) = "
-      << subvoxelPoreVolumeFraction_ << ",," << endl;
-  out << "Total pore volume fraction = " << pore_volfrac << ",," << endl;
-  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << ",,"
+      << voxelPoreVolumeFractionSaturated_ << endl;
+  out << "Empty voxel-scale void volume fraction = "
+      << voxelPoreVolumeFraction_ - voxelPoreVolumeFractionSaturated_ << endl;
+  out << "Subvoxel volume fraction (< " << 1.0e9 * resolution_
+      << " nm) = " << subvoxelPoreVolumeFraction_ << endl;
+  out << "Saturated subvoxel volume fraction (< " << 1.0e9 * resolution_
+      << " nm) = " << subvoxelPoreVolumeFractionSaturated_ << endl;
+  out << "Empty subvoxel-scale void volume fraction = "
+      << subvoxelPoreVolumeFraction_ - subvoxelPoreVolumeFractionSaturated_
       << endl;
-  out << "Pore size saturation data:,," << endl;
+  out << "Total pore volume fraction = " << pore_volfrac << endl;
+  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << endl;
+  out << "Pore size saturation data:" << endl;
   out << "Diameter (nm),Volume Fraction,Fraction Saturated" << endl;
+  out << "Masterporevolume size = " << masterPoreSizeDist_.size() << endl;
 
   int masterPoreSizeDistSize = masterPoreSizeDist_.size();
   for (int i = 0; i < masterPoreSizeDistSize; i++) {
