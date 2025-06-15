@@ -120,27 +120,33 @@ private:
 volume units */
   double initialMicrostructureVolume_; /**< Initial microstructure volume in GEM
 volume units */
-  double capillaryPoreVolume_;         /**< Total volume of capillary pores */
-  double capillaryPoreVolumeFraction_; /**< Total volume fraction of capillary
-                                          pores */
-  double subvoxelPoreVolume_;          /**< Total volume of subvoxel pores */
-  double nonSolidVolume_;              /**< Total volume not solid */
-  double solidVolumeWithPores_;        /** Total solid volume including their
+  double voxelPoreVolume_;             /**< Total volume of voxel pores */
+  double voxelPoreVolumeFraction_;     /**< Total volume fraction of voxel
+                                              pores */
+  double voxelPoreVolumeFractionSaturated_; /**< Total volume fraction of
+                                            saturated voxel pores on
+                                            microstructure volume basis*/
+  double subvoxelPoreVolume_;         /**< Total volume of subvoxel pores */
+  double nonSolidVolume_;             /**< Total volume not solid */
+  double solidVolumeWithPores_;       /** Total solid volume including their
 internal pore volume */
-  double waterVolume_;                 /** volume of electrolyte in GEM
+  double waterVolume_;                /** volume of electrolyte in GEM
 volume units */
-  double voidVolume_;                  /** volume of void in GEM volume
+  double voidVolume_;                 /** volume of void in GEM volume
 units */
-  double capillaryWaterVolume_;        /**< Volume of capillary pore water */
-  double capillaryVoidVolume_;         /**< Volume of capillary void space
-(no water) */
-  double subvoxelWaterVolume_;         /**< Volume of water in subvoxel
+  double voxelWaterVolume_;           /**< Volume of voxel pore water */
+  double voxelVoidVolume_;            /**< Volume of voxel void space
+   (no water) */
+  double subvoxelWaterVolume_;        /**< Volume of water in subvoxel
 pores in GEM units */
-  double subvoxelPoreVolumeFraction_;  /**< Total volume fraction of subvoxel
-                                          pores */
+  double subvoxelPoreVolumeFraction_; /**< Total volume fraction of subvoxel
+                                         pores */
+  double subvoxelPoreVolumeFractionSaturated_; /**< Total volume fraction of
+                                            saturated subvoxel pores on
+                                            microstructure volume basis*/
 
-  vector<struct PoreSizeVolume>
-      masterPoreVolume_; /**< Pore size distribution and saturation */
+  vector<struct PoreSizeData>
+      masterPoreSizeDist_; /**< Pore size distribution and saturation */
 
   double time_;              /**< The current simulation time [h] */
   double temperature_;       /**< The current simulation temperature [K] */
@@ -721,7 +727,7 @@ public:
   @brief Remove a prescribed volume fraction of water from the system
 
   This master method empties a given volume fraction of electrolyte
-  from the system, starting with the largest capillary pores and moving
+  from the system, starting with the largest voxel pores and moving
   to smaller and smaller saturated pores until either (a) the prescribed
   volume is reached or (b) the system is completely dry.
 
@@ -747,7 +753,7 @@ public:
   @param cyc is the current computational iteration
   @return the actual number converted
   */
-  int emptyCapillaryPorosity(int numToEmpty, const int cyc);
+  int emptyVoxelPorosity(int numToEmpty, const int cyc);
 
   /**
   @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores
@@ -785,7 +791,7 @@ public:
   @param cyc is the current computational iteration
   @return the actual number converted
   */
-  int fillCapillaryPorosity(int numToFill, const int cyc);
+  int fillVoxelPorosity(int numToFill, const int cyc);
 
   /**
   @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores
@@ -939,8 +945,8 @@ public:
   at those sites. The interfaces and lists of dissolution and growth sites are
   updated accordingly, too.
 
-  @note Water is assumed to be chemically reactive only if it is in capillary
-  porosity (microstructure id ELECTROLYTEID).  If the capillary water is
+  @note Water is assumed to be chemically reactive only if it is in voxel
+  porosity (microstructure id ELECTROLYTEID).  If the voxel water is
   exhausted then some reaction can still happen with water in nanoporosity, but
   for now we assume that the nanopore water is chemically unreactive and cannot
   be removed.
@@ -978,8 +984,8 @@ public:
   scales smaller than the lattice spatial resolution.  This method fixes
   those volume fractions, paying special attention to the water distribution.
 
-  @note Water is assumed to be chemically reactive only if it is in capillary
-  porosity (microstructure id ELECTROLYTEID).  If the capillary water is
+  @note Water is assumed to be chemically reactive only if it is in voxel
+  porosity (microstructure id ELECTROLYTEID).  If the voxel water is
   exhausted then some reaction can still happen with water in nanoporosity, but
   for now we assume that the nanopore water is chemically unreactive and cannot
   be removed.
@@ -999,6 +1005,7 @@ public:
 
   @param names is a vector of the adjusted microstructure volumes
   @param vol is a vector of the pre-adjusted microstructure volumes that come
+  r
   from GEMS (not based on voxels)
   @param vfrac will hold the microstructure volume fractions
   @param volSize is the number of elements in the vol vector
@@ -1014,6 +1021,59 @@ public:
 
   */
   void calculatePoreSizeDistribution(void);
+
+  /**
+  @brief Get the pore size distribution contribution of each
+  phase to the whole microstructure
+
+  This function returns a matrix. Each column corresponds to one of the
+  microstructure phases that posssesses an internal porosity and each
+  row of a column correponds to a volume fraction for a given pore diameter
+
+  @return A 2D vector of doubles
+  */
+  vector<vector<struct PoreSizeData>> getPhasePoreSizeDistributions(void);
+
+  /**
+  @brief Get the maximum phase pore diameter from among all the defined
+  pore diameters for each microstructure phase
+
+  @param phasePoreSizeDist is a 2D matrix representing the pore size
+  distribution of each phase
+  @return The maximum pore diameter found (nm) within any phase
+  */
+  double getMaxPhasePoreDiameter(
+      const vector<vector<struct PoreSizeData>> phasePoreSizeDist);
+
+  /**
+  @brief Calculate the overall pore size distribution of the
+  microstructure, `masterPoreSizeDist_`, as a histogram with pre-defined
+  diameters
+
+  @param histogramDiameters is a vector of diameters (nm) to use for binning
+  @param phasePoreSizeDist is a 2D matrix representing the pore size
+  distribution of each phase
+  */
+  void calcMasterPoreSizeDist(
+      const vector<double> histogramDiameters,
+      const vector<vector<struct PoreSizeData>> phasePoreSizeDist);
+  /**
+  @brief Set up the binned pore diameters for master pore size distribution
+
+  @return A vector of doubles corresponding holding the binning diameters (nm)
+  */
+  vector<double> setPSDiameters(void);
+
+  /**
+  @brief Get the pore volume fractions associated with each phase
+
+  This will be the volume fraction of the microstructure that is occupied
+  by pores (no matter the size) of each phase.
+
+  @return A vector of doubles corresponding to the pore volume fractions of each
+  phase
+  */
+  vector<double> getPoreVolumeFractions(void);
 
   /**
   @brief Write the pore size distribution data to a file
@@ -1220,41 +1280,84 @@ public:
   }
 
   /**
-  @brief Get the total capillary pore volume
+  @brief Get the total voxel pore volume
 
-  @return the volume of capillary pores (GEMS volume units)
+  @return the volume of voxel pores (GEMS volume units)
   */
-  double getCapillaryPoreVolume(void) const { return capillaryPoreVolume_; }
+  double getVoxelPoreVolume(void) const { return voxelPoreVolume_; }
 
   /**
-  @brief Set the capillary pore volume
+  @brief Set the voxel pore volume
 
-  @param capillaryporevolume is the capillary pore volume (GEMS volume units)
+  @param voxelporevolume is the voxel pore volume (GEMS volume units)
   */
-  void setCapillaryPoreVolume(double capillaryporevolume) {
-    capillaryPoreVolume_ = capillaryporevolume;
+  void setVoxelPoreVolume(double voxelporevolume) {
+    voxelPoreVolume_ = voxelporevolume;
   }
 
   /**
-  @brief Get the total capillary pore volume fraction
+  @brief Get the total voxel pore volume fraction
   This is calculated on a total system volume basis
 
-  @return the volume fraction of capillary pores (microstructure basis)
+  @return the volume fraction of voxel pores (microstructure basis)
   */
-  double getCapillaryPoreVolumeFraction(void) const {
-    return capillaryPoreVolumeFraction_;
+  double getVoxelPoreVolumeFraction(void) const {
+    return voxelPoreVolumeFraction_;
   }
 
   /**
-  @brief Set the capillary pore volume fraction
+  @brief Get the total voxel-scale saturated pore volume fraction
+  This is calculated on a total microstructure volume basis
+
+  @return the volume fraction of voxel-scale pores (microstructure basis)
+  */
+  double getVoxelPoreVolumeFractionSaturated(void) const {
+    return voxelPoreVolumeFractionSaturated_;
+  }
+
+  /**
+  @brief Get the total voxel-scale saturated pore volume fraction
+  This is calculated on a total microstructure volume basis
+
+  @return the volume fraction of voxel pores (microstructure basis)
+  */
+  double getSubvoxelPoreVolumeFractionSaturated(void) const {
+    return subvoxelPoreVolumeFractionSaturated_;
+  }
+
+  /**
+  @brief Set the voxel pore volume fraction
   This is calculated on a total system volume basis
 
-  @param capillaryPoreVolumeFraction is the capillary pore volume
+  @param voxelPoreVolumeFraction is the voxel pore volume
   fraction (microstructure basis)
   */
-  void
-  setCapillaryPoreVolumeFraction(const double capillaryPoreVolumeFraction) {
-    capillaryPoreVolumeFraction_ = capillaryPoreVolumeFraction;
+  void setVoxelPoreVolumeFraction(const double voxelPoreVolumeFraction) {
+    voxelPoreVolumeFraction_ = voxelPoreVolumeFraction;
+  }
+
+  /**
+  @brief Set the voxel-scale pore saturated volume fraction
+  This is calculated on a total microstructure volume basis
+
+  @param voxelPoreVolumeFractionSaturated is the voxel pore volume
+  fraction (microstructure basis)
+  */
+  void setVoxelPoreVolumeFractionSaturated(
+      const double voxelPoreVolumeFractionSaturated) {
+    voxelPoreVolumeFractionSaturated_ = voxelPoreVolumeFractionSaturated;
+  }
+
+  /**
+  @brief Set the subvoxel-scale pore saturated volume fraction
+  This is calculated on a total microstructure volume basis
+
+  @param subvoxelPoreVolumeFractionSaturated is the subvoxel pore volume
+  fraction (microstructure basis)
+  */
+  void setSubvoxelPoreVolumeFractionSaturated(
+      const double subvoxelPoreVolumeFractionSaturated) {
+    subvoxelPoreVolumeFractionSaturated_ = subvoxelPoreVolumeFractionSaturated;
   }
 
   /**
@@ -1283,50 +1386,50 @@ public:
   }
 
   /**
-  @brief Get the capillary water volume
+  @brief Get the voxel water volume
 
   @param vol is the volume of each microstructure phase
   */
-  void calcCapillaryWaterVolume(vector<double> &vol);
+  void calcVoxelWaterVolume(vector<double> &vol);
 
   /**
-  @brief Get the capillary water volume
+  @brief Get the voxel water volume
 
-  @return the capillary water volume
+  @return the voxel water volume
   */
-  double getCapillaryWaterVolume(void) const { return capillaryWaterVolume_; }
+  double getVoxelWaterVolume(void) const { return voxelWaterVolume_; }
 
   /**
-  @brief Set the capillary water volume
+  @brief Set the voxel water volume
 
-  @param capillarywatervolume is the capillary water volume (GEMS volume units)
+  @param voxelwatervolume is the voxel water volume (GEMS volume units)
   */
-  void setCapillaryWaterVolume(const double capillarywatervolume) {
-    capillaryWaterVolume_ = capillarywatervolume;
+  void setVoxelWaterVolume(const double voxelwatervolume) {
+    voxelWaterVolume_ = voxelwatervolume;
   }
 
   /**
-  @brief Get the capillary void volume
+  @brief Get the voxel void volume
 
   @param vol is the volume of each microstructure phase
   @param calc is true only if calculating instead of just returning
   */
-  // void calcCapillaryVoidVolume(void);
+  // void calcVoxelVoidVolume(void);
 
   /**
-  @brief Get the capillary void volume
+  @brief Get the voxel void volume
 
-  @return the capillary void volume
+  @return the voxel void volume
   */
-  double getCapillaryVoidVolume(void) const { return capillaryWaterVolume_; }
+  double getVoxelVoidVolume(void) const { return voxelWaterVolume_; }
 
   /**
-  @brief Set the capillary void volume
+  @brief Set the voxel void volume
 
-  @param capillaryvoidvolume is the capillary void volume (GEMS volume units)
+  @param voxelvoidvolume is the voxel void volume (GEMS volume units)
   */
-  void setCapillaryVoidVolume(const double capillaryvoidvolume) {
-    capillaryVoidVolume_ = capillaryvoidvolume;
+  void setVoxelVoidVolume(const double voxelvoidvolume) {
+    voxelVoidVolume_ = voxelvoidvolume;
   }
 
   /**
@@ -1351,109 +1454,6 @@ public:
   }
 
   /**
-  @brief Set the master pore volume distribution
-
-  @param masterporevolume is the pore volume distribution
-  */
-  // void
-  // setMasterPoreVolume(const vector<struct PoreSizeVolume>
-  // masterporevolume) {
-  //   masterPoreVolume_ = masterporevolume;
-  //   return;
-  // }
-
-  /**
-  @brief Set the master pore volume distribution of a particular size
-
-  @param idx is the index to set
-  @param diam is the diameter in nm
-  @param volume is the volume of pores this size, in nm3
-  @param volfrac is the volume fraction of this size filled with electrolyte
-  */
-  /*
-  void setMasterPoreVolume(const int idx, const double diam,
-                           const double volume, const double volfrac) {
-    try {
-      if (idx >= masterPoreVolume_.size()) {
-        throw EOBException("Lattice", "setMasterPoreVolume",
-                           "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
-      }
-      masterPoreVolume_[idx].diam = diam;
-      masterPoreVolume_[idx].volume = volume;
-      masterPoreVolume_[idx].volfrac = volfrac;
-    } catch (EOBException ex) {
-      ex.printException();
-      exit(1);
-    }
-    return;
-  }
-  */
-
-  /**
-  @brief Get the master pore volume distribution of a particular size
-  @param idx is the index to get
-  @return the structure holding the pore size distribution data for that element
-  */
-  /*
-  struct PoreSizeVolume getMasterPoreVolume(const int idx) {
-    try {
-      if (idx >= masterPoreVolume_.size()) {
-        throw EOBException("Lattice", "getMasterPoreVolume",
-                           "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
-      }
-    } catch (EOBException ex) {
-      ex.printException();
-      exit(1);
-    }
-    return (masterPoreVolume_[idx]);
-  }
-  */
-
-  /**
-  @brief Get the diameter of the idx element of the pore volume distribution
-  @param idx is the index to get
-  @return the diameter of that element in the pore size distribution (nm)
-  */
-  /*
-  double getMasterPoreVolumeDiam(const int idx) {
-    try {
-      if (idx >= masterPoreVolume_.size()) {
-        throw EOBException("Lattice", "getMasterPoreVolumeDiam",
-                           "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
-      }
-    } catch (EOBException ex) {
-      ex.printException();
-      exit(1);
-    }
-    return (masterPoreVolume_[idx].diam);
-  }
-  */
-
-  /**
-  @brief Get the total volume of the idx element of the pore volume distribution
-  @param idx is the index to get
-  @return the volume of that element in the pore size distribution (nm3)
-  */
-  /*
-  double getMasterPoreVolumeVolume(const int idx) {
-    try {
-      if (idx >= masterPoreVolume_.size()) {
-        throw EOBException("Lattice", "getMasterPoreVolumeVolume",
-                           "masterPoreVolume_", masterPoreVolume_.size(),
-                           (int)idx);
-      }
-    } catch (EOBException ex) {
-      ex.printException();
-      exit(1);
-    }
-    return (masterPoreVolume_[idx].volume);
-  }
-  */
-
-  /**
   @brief Get the volume fraction saturated  of the idx element of the pore
   volume distribution
   @param idx is the index to get
@@ -1462,16 +1462,16 @@ public:
   */
   double getMasterPoreVolumeVolfrac(const int idx) {
     try {
-      if (idx >= masterPoreVolume_.size()) {
+      if (idx >= masterPoreSizeDist_.size()) {
         throw EOBException("Lattice", "getMasterPoreVolumeVolfrac",
-                           "masterPoreVolume_", masterPoreVolume_.size(),
+                           "masterPoreSizeDist_", masterPoreSizeDist_.size(),
                            (int)idx);
       }
     } catch (EOBException ex) {
       ex.printException();
       exit(1);
     }
-    return (masterPoreVolume_[idx].volfrac);
+    return (masterPoreSizeDist_[idx].volfrac);
   }
 
   /**
@@ -1479,11 +1479,11 @@ public:
   @return the diameter of the largest pore containing electrolyte
   */
   double getLargestSaturatedPore(void) {
-    double capsize = 1000.0; // nm of capillary pores
-    int size = masterPoreVolume_.size();
+    double capsize = 1000.0; // nm of voxel pores
+    int size = masterPoreSizeDist_.size();
     for (int i = 0; i < size; i++) {
-      if (masterPoreVolume_[i].volfrac < 1.0) {
-        return (masterPoreVolume_[i].diam);
+      if (masterPoreSizeDist_[i].volfrac < 1.0) {
+        return (masterPoreSizeDist_[i].diam);
       }
     }
     return (capsize);

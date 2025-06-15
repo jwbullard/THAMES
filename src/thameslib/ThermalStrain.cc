@@ -3018,7 +3018,8 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
       cout.flush();
 #endif
 
-      localRelax(boxsize_, expcor[0], expcor[1], expcor[2], expindex);
+      // GODZILLA The function below is NOT DEFINED anywhere
+      // localRelax(boxsize_, expcor[0], expcor[1], expcor[2], expindex);
     }
   }
   relax(kmax);

@@ -448,7 +448,7 @@ void Controller::doCycle(double elemTimeInterval) {
   cout << endl << "Controller::doCycle(...) Entering Main time loop" << endl;
 
   static double timestep = 0.0;
-  bool capwater = true; // True if some capillary water is available
+  bool voxwater = true; // True if some voxel-scale water is available
   time_index = 0;
 
   int timesGEMFailed_loc = 0;
@@ -602,7 +602,7 @@ void Controller::doCycle(double elemTimeInterval) {
       }
     }
 
-    /// Assume that only capillary pore water is chemically reactive,
+    /// Assume that only voxel-scale pore water is chemically reactive,
     /// while water in nanopores is chemically inert.
     ///
     ///
@@ -1101,7 +1101,7 @@ void Controller::doCycle(double elemTimeInterval) {
     }
 
     ///
-    /// Check if there is any capillary pore water remaining.  If not then
+    /// Check if there is any voxel-scale pore water remaining.  If not then
     /// we ASSUME hydration has stopped.
     ///
     /// @todo Generalize this idea to allow nanopore water to react by taking
@@ -1112,12 +1112,13 @@ void Controller::doCycle(double elemTimeInterval) {
     // if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
     //   // we will stop hydration
     //   if (warning_) {
-    //     cout << "Controller::doCycle WARNING: System is out of capillary pore
+    //     cout << "Controller::doCycle WARNING: System is out of voxel-scale
+    //     pore
     //     "
     //             "water."
     //          << endl;
     //     cout << "Controller::doCycle          This version of code assumes "
-    //             "that only capillary"
+    //             "that only voxel-scale"
     //          << endl;
     //     cout << "Controller::doCycle          water is chemically reactive,
     //     so "

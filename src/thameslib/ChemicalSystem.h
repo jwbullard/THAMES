@@ -42,14 +42,14 @@ using namespace std;
 #define CHEMSYSDATASTRUCT
 
 /**
-@struct PoreSizeVolume
+@struct PoreSizeData
 @brief Volume fraction of a sub-voxel pore of a giveen effective diameter
 */
 
-struct PoreSizeVolume {
+struct PoreSizeData {
   double diam;
-  double volume;
   double volfrac;
+  double volfracsat;
 };
 
 /**
@@ -110,7 +110,7 @@ struct PhaseData {
   double na2o;
   double mgo;
   double so3;
-  vector<struct PoreSizeVolume> poreSizeDist;
+  vector<struct PoreSizeData> poreSizeDist;
   int red;
   int green;
   int blue;
@@ -329,7 +329,7 @@ class ChemicalSystem {
   /**
   @brief Sub-voxel pore size distribution (volume basis) of each phase
   */
-  vector<vector<struct PoreSizeVolume>> poreSizeDistribution_;
+  vector<vector<struct PoreSizeData>> poreSizeDistribution_;
 
   vector<double> k2o_;        /**< Mass fraction of K<sub>2</sub>O dissolved in
                                     each phase, in units of
@@ -512,7 +512,7 @@ class ChemicalSystem {
 
   If this variable is nonzero, then the porosity imbibes water from an external
   reservoir as it is consumed by reactions.  If it is set to zero,then the water
-  is not replaced and the capillary porosity begins to desiccate.
+  is not replaced and the voxel-scale porosity begins to desiccate.
   */
   bool isSaturated_;
 
@@ -2371,7 +2371,7 @@ public:
   @return the list of pore size distributions of all microstructure phases
   at the scale of one voxel
   */
-  vector<vector<struct PoreSizeVolume>> getPoreSizeDistribution() const {
+  vector<vector<struct PoreSizeData>> getPoreSizeDistribution() const {
     return poreSizeDistribution_;
   }
 

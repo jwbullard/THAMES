@@ -21,7 +21,7 @@ Lattice::Lattice(ChemicalSystem *cs) : chemSys_(cs) {
   volumePerVoxel_ = areaPerFace_ * resolution_; // in m3 units
   site_.clear();
   depthEffect_ = false;
-  masterPoreVolume_.clear();
+  masterPoreSizeDist_.clear();
 #ifdef DEBUG
   verbose_ = true;
 #else
@@ -66,7 +66,7 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   volumePerVoxel_ = areaPerFace_ * resolution_; // in m3 units
   site_.clear();
   // depthEffect_ = true;
-  masterPoreVolume_.clear();
+  masterPoreSizeDist_.clear();
 
 #ifdef DEBUG
   verbose_ = true;
@@ -640,9 +640,9 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     initialMicrostructureVolume_ = totmicvol;
 
     // Initially assume that all free water and void space
-    // is capillary volume
+    // is in voxels
 
-    capillaryPoreVolumeFraction_ =
+    voxelPoreVolumeFraction_ =
         getVolumeFraction(ELECTROLYTEID) + getVolumeFraction(VOIDID);
 
   } catch (FloatException flex) {
@@ -691,7 +691,7 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
 Lattice::~Lattice() {
   interface_.clear();
   site_.clear();
-  masterPoreVolume_.clear();
+  masterPoreSizeDist_.clear();
   // delete rg_;
 }
 
@@ -1629,11 +1629,11 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
   seedID.clear();
 
   ///
-  /// @todo JWB Prefer saturated capillary pore voxels, but then allow
+  /// @todo JWB Prefer saturated pore voxels, but then allow
   /// additional nucleation in void sites adjacent to saturated subvoxel
   /// porosity
 
-  // Start filling in saturated capillary pore voxels
+  // Start filling in saturated pore voxels
   waterNucSites.clear();
   for (k = 0; k < numSites_; ++k) {
     if (site_[k].getMicroPhaseId() == ELECTROLYTEID) {
@@ -1650,7 +1650,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
 
   if (numToNucleate > sizeWS) {
     // Now look for void sites that neighbor porous solids
-    // We may need them if there are not enough saturated capillary pore voxels
+    // We may need them if there are not enough saturated pore voxels
 
     voidNucSites.clear();
     for (k = 0; k < numSites_; ++k) {
@@ -1663,7 +1663,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     allPNS += sizeVS;
   }
 
-  // Now randomly order the saturated capillary pore voxels
+  // Now randomly order the saturated pore voxels
   // Then append randomly orders void voxels that neighbor porous solids
 
   while (numRemaining > 0 && allPNS > 0) {
@@ -1729,18 +1729,18 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     wmcIni = ste->getWmc0();
 
     if (pid == ELECTROLYTEID) {
-      cout << "     Removing Growth site at " << sID << "...";
-      cout.flush();
+      //      cout << "     Removing Growth site at " << sID << "...";
+      //      cout.flush();
       removeGrowthSite_nucleation(ste);
-      cout << "     Done!" << endl;
-      cout.flush();
+      //      cout << "     Done!" << endl;
+      //      cout.flush();
     }
     // cout << "     Changing microstructure phase from " << pid << " to "
     //      << phaseID << "..." << endl;
     // cout.flush();
     setMicroPhaseId(ste, phaseID);
-    cout << "     " << i << " of " << sizeSeedID << " Done!" << endl;
-    cout.flush();
+    //     cout << "     " << i << " of " << sizeSeedID << " Done!" << endl;
+    //    cout.flush();
 
     ///
     /// Weighted mean curvature (wmc) is changed by the difference
@@ -1784,9 +1784,6 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     ///
     /// NN_NNN = NUM_NEAREST_NEIGHBORS +  NUM_SECONDNEAREST_NEIGHBORS;
     ///
-
-    // cout << "    GODZILLA site " << ste->getId() << "("
-    //      << ste->getMicroPhaseName() << "):";
 
     for (j = 0; j < NN_NNN; j++) {
       stenb = ste->nb(j);
@@ -1945,14 +1942,14 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
        << dissolutionInterfaceSize_[phaseID] << endl;
 
   seedID.clear();
-  /// JWB: Must be enough saturated capillary pore voxels for all the
+  /// JWB: Must be enough saturated pore voxels for all the
   /// nucleating phase to occupy.
   ///
-  /// @todo Prefer saturated capillary pore voxels, but then allow
+  /// @todo Prefer saturated pore voxels, but then allow
   /// additional nucleation in void sites adjacent to saturated subvoxel
   /// porosity
 
-  // Start filling in saturated capillary pore voxels
+  // Start filling in saturated pore voxels
   wAffSum = vAffSum = 0.0;
   waterNucSites.clear();
   for (k = 0; k < numSites_; ++k) {
@@ -1976,7 +1973,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
 
   if (numToNucleate > sizeWS) {
     // We also will void sites that neighbor porous solids
-    // because there are not enough saturated capillary pore voxels
+    // because there are not enough saturated pore voxels
 
     voidNucSites.clear();
     for (k = 0; k < numSites_; ++k) {
@@ -1997,7 +1994,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
     allPNS += sizeVS;
   }
 
-  // Now randomly order the saturated capillary pore voxels
+  // Now randomly order the saturated pore voxels
   // Then append randomly orders void voxels that neighbor porous solids
 
   while (numRemaining > 0 && allPNS > 0) {
@@ -2834,7 +2831,7 @@ double Lattice::emptyPorosity(double volFracToRemove, const int cyc) {
   // How many saturated sites should be removed?
   double dNumsites = static_cast<double>(numSites_);
   int numToEmpty = static_cast<int>((volFracToRemove * numSites_) + 0.5);
-  int actualEmptied = emptyCapillaryPorosity(numToEmpty, cyc);
+  int actualEmptied = emptyVoxelPorosity(numToEmpty, cyc);
   double dEmptied = static_cast<double>(actualEmptied);
   double volFracRemoved = dEmptied / dNumsites;
 
@@ -2852,19 +2849,21 @@ double Lattice::emptySubVoxelPorosity(double volFracToRemove, const int cyc) {
 
   double volFracRemoved = 0.0;
   double volfrac_filled = 0.0;
-  int masterPoreVolumeSize = masterPoreVolume_.size();
-  for (int i = masterPoreVolumeSize - 1; (i >= 0) && (volFracToRemove > 0.0);
+  int masterPoreSizeDistSize = masterPoreSizeDist_.size();
+  for (int i = masterPoreSizeDistSize - 1; (i >= 0) && (volFracToRemove > 0.0);
        --i) {
 
     // volfrac_filled is the volume fraction of size-i saturated porosity on
     // a total microstructure volume basis
-    volfrac_filled = masterPoreVolume_[i].volume * masterPoreVolume_[i].volfrac;
+    volfrac_filled =
+        masterPoreSizeDist_[i].volfrac * masterPoreSizeDist_[i].volfracsat;
 
     // Deduct this amount or volFracToRemove, whichever is less
     double newvfracfilled = volfrac_filled - volFracToRemove;
     if (newvfracfilled < 0.0)
       newvfracfilled = 0.0;
-    masterPoreVolume_[i].volfrac = newvfracfilled / masterPoreVolume_[i].volume;
+    masterPoreSizeDist_[i].volfracsat =
+        newvfracfilled / masterPoreSizeDist_[i].volfrac;
 
     volFracRemoved = (volfrac_filled - newvfracfilled);
     volFracToRemove -= volFracRemoved;
@@ -2882,7 +2881,7 @@ double Lattice::fillPorosity(double volFracToAdd, const int cyc) {
   // How many void voxels should be changed to electrolyte?
   if (volFracRemaining > 0.0) {
     int numToFill = static_cast<int>((volFracRemaining * numSites_) + 0.5);
-    int actualFilled = fillCapillaryPorosity(numToFill, cyc);
+    int actualFilled = fillVoxelPorosity(numToFill, cyc);
     double dFilled = static_cast<double>(actualFilled);
     double volFracChanged = dFilled / dNumsites;
     volFracRemaining -= volFracChanged;
@@ -2896,22 +2895,22 @@ double Lattice::fillSubVoxelPorosity(double volFracToAdd, const int cyc) {
 
   double volFracAdded = 0.0;
   double volfrac_empty = 0.0;
-  int masterPoreVolumeSize = masterPoreVolume_.size();
-  for (int i = masterPoreVolumeSize - 1; (i >= 0) && (volFracToAdd > 0.0);
+  int masterPoreSizeDistSize = masterPoreSizeDist_.size();
+  for (int i = masterPoreSizeDistSize - 1; (i >= 0) && (volFracToAdd > 0.0);
        --i) {
 
     // volfrac_empty is the volume fraction of size-i empty porosity on
     // a total microstructure volume basis
-    volfrac_empty =
-        masterPoreVolume_[i].volume * (1.0 - masterPoreVolume_[i].volfrac);
+    volfrac_empty = masterPoreSizeDist_[i].volfrac *
+                    (1.0 - masterPoreSizeDist_[i].volfracsat);
 
     // Deduct this amount or volFracToAdd from the empty porosity, whichever is
     // less
     double newvfracempty = volfrac_empty - volFracToAdd;
     if (newvfracempty < 0.0)
       newvfracempty = 0.0;
-    masterPoreVolume_[i].volfrac =
-        1.0 - (newvfracempty / masterPoreVolume_[i].volume);
+    masterPoreSizeDist_[i].volfracsat =
+        1.0 - (newvfracempty / masterPoreSizeDist_[i].volfrac);
 
     volFracAdded = (volfrac_empty - newvfracempty);
     volFracToAdd -= volFracAdded;
@@ -2919,7 +2918,7 @@ double Lattice::fillSubVoxelPorosity(double volFracToAdd, const int cyc) {
   return (volFracAdded);
 }
 
-int Lattice::emptyCapillaryPorosity(int numToEmpty, const int cyc) {
+int Lattice::emptyVoxelPorosity(int numToEmpty, const int cyc) {
   int maxsearchsize = 3;
   Site *stenb;
 
@@ -2977,7 +2976,7 @@ int Lattice::emptyCapillaryPorosity(int numToEmpty, const int cyc) {
   return (numemptied);
 }
 
-int Lattice::fillCapillaryPorosity(int numToFill, const int cyc) {
+int Lattice::fillVoxelPorosity(int numToFill, const int cyc) {
 
   int maxsearchsize = 10;
 
@@ -3336,7 +3335,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   ///
 
   // Remember we added two extra slots onto the end of vfrac_next
-  // to hold the volume fraction of capillary space and subvoxel pore space
+  // to hold the volume fraction of voxel-scale space and subvoxel pore space
   // But those two are not needed here anymore
 
   if (verbose_) {
@@ -3348,9 +3347,9 @@ int Lattice::changeMicrostructure(double time, const int simtype,
       cout << ", or " << (int)((double)(numSites_ * vfrac_next[i])) << " sites"
            << endl;
     }
-    cout << "Lattice::changeMicrostructure ****Volume fraction[capillary "
+    cout << "Lattice::changeMicrostructure ****Volume fraction[voxel "
          << "pores] in next state"
-         << " should be = " << capillaryPoreVolumeFraction_ << endl;
+         << " should be = " << voxelPoreVolumeFraction_ << endl;
     cout << "Lattice::changeMicrostructure ****Volume fraction[subvoxel "
             "pores] "
             "in next state"
@@ -3830,7 +3829,6 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   wnewsites = wcursites - (newsites - cursites);
 
   int numEmptyFill = newsites - cursites;
-  int numEmpty = 0, numFill = 0;
   cout << endl
        << "  Lattice::changeMicrostructure - cyc = " << cyc
        << " :  numEmptyFill = " << numEmptyFill
@@ -3862,7 +3860,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
     // cursites)/(double)(numSites_)); cout << "But WILL BE " <<
     // vfrac_next[ELECTROLYTEID] << " after creating void space" << endl;
 
-    cout << "Lattice::changeMicrostructure Number CAPILLARY VOXELS "
+    cout << "Lattice::changeMicrostructure Number VOXEL-SCALE VOXELS "
          << "actually emptied was:  " << numEmptyFill << endl;
 
     ///
@@ -3950,11 +3948,12 @@ int Lattice::changeMicrostructure(double time, const int simtype,
          << "  time, simtype: " << time << " , " << simtype << " , " << endl;
     cout << "  repeat  : " << repeat << endl;
     cout << "  cyc  : " << cyc << endl;
-    cout << "  no CAPILLARY electrolyte in the system" << endl;
+    cout << "  no VOXEL-SCALE electrolyte in the system" << endl;
 
     bool is_Error = false;
     // throw MicrostructureException("Lattice", "changeMicrostructure",
-    //                            "no capillary water in the system", is_Error);
+    //                            "no voxel scale water in the system",
+    //                            is_Error);
     // exit(0);
   }
 
@@ -3973,7 +3972,7 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   cout.flush();
 #endif
   subvoxelWaterVolume_ = 0;
-  capillaryWaterVolume_ = 0;
+  voxelWaterVolume_ = 0;
   waterVolume_ = vol[1];
 
   // Find the total system volume according to GEMS, in m3
@@ -3984,7 +3983,7 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   // The lattice has a fixed volume given by a fixed number
   // of voxels multiplied by the volume per voxel
 
-  // The capillary water volume is now calculated, during
+  // The voxel-scale water volume is now calculated, during
   // which the subvoxel pore volume is calculated as well
 
   solidVolumeWithPores_ = 0.0;
@@ -4001,7 +4000,7 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   // time that Lattice::changeMicrostructure is called
   // We currently insist remain the volume of the system, so if
   // the microstructure volume deviates from the system volume,
-  // we add or subtract capillary porosity to keep them equal
+  // we add or subtract voxel-scale porosity to keep them equal
 
   // Calculate the subvoxel pore volume
   subvoxelPoreVolume_ = 0.0;
@@ -4014,17 +4013,17 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   double solidvolume = solidVolumeWithPores_ - subvoxelPoreVolume_;
   // microstructureVolume_ = chemSys_->getMicroVolume();
   nonSolidVolume_ = initialMicrostructureVolume_ - solidvolume; //
-  // nonSolidVolume_ IS capillaryVoidVolume_ + capillaryWaterVolume_ +
-  // subvoxelPoreVolume_ capillaryPoreVolume_ = nonSolidVolume_ -
+  // nonSolidVolume_ IS voxelVoidVolume_ + voxelWaterVolume_ +
+  // subvoxelPoreVolume_ voxelPoreVolume_ = nonSolidVolume_ -
   // subvoxelPoreVolume_;
-  capillaryPoreVolume_ = initialMicrostructureVolume_ - solidVolumeWithPores_;
+  voxelPoreVolume_ = initialMicrostructureVolume_ - solidVolumeWithPores_;
 
-  // calcCapillaryWaterVolume
+  // calcVoxelWaterVolume
   waterVolume_ = vol[ELECTROLYTEID];
 
   // Up to this point, vol[ELECTROLYTEID] is the total volume
   // of pore solution in the system regardless of whether it is
-  // capillary or subvoxel
+  // voxel or subvoxel
   // First need to trim off any extra water that lies outside the system
 
   voidVolume_ = nonSolidVolume_ - waterVolume_;
@@ -4032,37 +4031,37 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   if (voidVolume_ < 0.0)
     waterVolume_ = nonSolidVolume_;
 
-  capillaryWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
-  if (capillaryWaterVolume_ < 0.0) {
+  voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
+  if (voxelWaterVolume_ < 0.0) {
     subvoxelWaterVolume_ = waterVolume_;
-    capillaryWaterVolume_ = 0;
+    voxelWaterVolume_ = 0;
   } else {
     subvoxelWaterVolume_ = subvoxelPoreVolume_; // check!
   }
 
-  capillaryVoidVolume_ = capillaryPoreVolume_ - capillaryWaterVolume_;
-  if (capillaryVoidVolume_ < 0.0)
-    capillaryVoidVolume_ = 0.0;
+  voxelVoidVolume_ = voxelPoreVolume_ - voxelWaterVolume_;
+  if (voxelVoidVolume_ < 0.0)
+    voxelVoidVolume_ = 0.0;
 
   if (chemSys_->isSaturated()) { // System is saturated
-    capillaryVoidVolume_ = 0.0;
-    capillaryWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
+    voxelVoidVolume_ = 0.0;
+    voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
     subvoxelWaterVolume_ = subvoxelPoreVolume_;
   }
 
   /// From here to the end of this time cycle, vol[ELECTROLYTEID] is the
-  /// volume of capillary pore water only, not the total volume of water.
+  /// volume of voxel-scale pore water only, not the total volume of water.
   /// We can always recover the total volume of water by asking ChemicalSystem
   /// for it.
 
-  capillaryPoreVolume_ = capillaryVoidVolume_ + capillaryWaterVolume_;
-  vol[ELECTROLYTEID] = capillaryWaterVolume_;
-  vol[VOIDID] = capillaryVoidVolume_;
+  voxelPoreVolume_ = voxelVoidVolume_ + voxelWaterVolume_;
+  vol[ELECTROLYTEID] = voxelWaterVolume_;
+  vol[VOIDID] = voxelVoidVolume_;
 
   /// If this has been coded correctly, all we have done is determine how
-  /// much of the microstructure water should be assigned to capillary pores
-  /// And since only capillary pore water is visible in the microstructure,
-  /// we assign the capillary pore water to ELECTROLYTEID and neglect any
+  /// much of the microstructure water should be assigned to voxel-scale pores
+  /// And since only voxel-scale pore water is visible in the microstructure,
+  /// we assign the voxel-scale pore water to ELECTROLYTEID and neglect any
   /// subvoxel electrolyte contribution
 
   if (verbose_) {
@@ -4070,12 +4069,12 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
     cout << "Lattice::adjustMicrostructureVolumesRESULTS:" << endl;
     cout << "Lattice::adjustMicrostructureVolumesAll water volume = "
          << waterVolume_ << " m3" << endl;
-    cout << "Lattice::adjustMicrostructureVolumesAll void volume = "
+    cout << "Lattice::adjustMicrostructureVolumes All void volume = "
          << voidVolume_ << endl;
-    cout << "Lattice::adjustMicrostructureVolumesCapillary water volume = "
-         << capillaryWaterVolume_ << " m3" << endl;
-    cout << "Lattice::adjustMicrostructureVolumesCapillary void volume = "
-         << capillaryVoidVolume_ << " m3" << endl;
+    cout << "Lattice::adjustMicrostructureVolumes Voxel water volume = "
+         << voxelWaterVolume_ << " m3" << endl;
+    cout << "Lattice::adjustMicrostructureVolumes Voxel void volume = "
+         << voxelVoidVolume_ << " m3" << endl;
     cout << "Lattice::adjustMicrostructureVolumesSubvoxel water volume = "
          << subvoxelWaterVolume_ << " m3" << endl;
     cout << "Lattice::adjustMicrostructureVolumesSubvoxel pore volume = "
@@ -4089,8 +4088,8 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize,
   //      endl;
   // cout << "     waterVolume_/capPoreVol/capVoidVol/capWaterVol"
   //         "/subvoxelWaterVolume_ :   "
-  //      << waterVolume_ << " / " << capillaryPoreVolume_ << " / "
-  //      << capillaryVoidVolume_ << " / " << capillaryWaterVolume_<< " / "
+  //      << waterVolume_ << " / " << voxelPoreVolume_ << " / "
+  //      << voxelVoidVolume_ << " / " << voxelWaterVolume_<< " / "
   //      << subvoxelWaterVolume_ << endl;
 
   ///
@@ -4112,7 +4111,7 @@ void Lattice::adjustMicrostructureVolFracs(vector<string> &names,
 #endif
 
   // Remember there are now two extra slots at the end of vfrac, just
-  // like at the end of vol.  These two extra slots hold the capillary
+  // like at the end of vol.  These two extra slots hold the voxel-scale
   // pore space and the subvoxel pore space
 
   // vfrac.clear();
@@ -4136,7 +4135,7 @@ void Lattice::adjustMicrostructureVolFracs(vector<string> &names,
   //
   // Microstructure volume consists of the sum of (1) the *apparent
   // volumes* of all the solid phases (solid plus subvoxel pores)
-  // and (2) the capillary pore volume
+  // and (2) the voxel-scale pore volume
 
 #ifdef DEBUG
   cout << "Lattice::adjustMicrostructureVolFracs Calculated "
@@ -4164,9 +4163,9 @@ void Lattice::adjustMicrostructureVolFracs(vector<string> &names,
   }
 
   // Calculate volume fraction of subvoxel porosity and
-  // capillary porosity whether saturated or not
-  capillaryPoreVolumeFraction_ =
-      capillaryPoreVolume_ / initialMicrostructureVolume_; // totmicvolume;
+  // voxel-scale porosity whether saturated or not
+  voxelPoreVolumeFraction_ =
+      voxelPoreVolume_ / initialMicrostructureVolume_; // totmicvolume;
   subvoxelPoreVolumeFraction_ =
       subvoxelPoreVolume_ / initialMicrostructureVolume_; // totmicvolume;
 
@@ -4218,197 +4217,63 @@ void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
   }
 }
 
-void Lattice::calcCapillaryWaterVolume(vector<double> &vol) {
+void Lattice::calcVoxelWaterVolume(vector<double> &vol) {
   calcSubvoxelPoreVolume(vol);
-  capillaryWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
-  if (capillaryWaterVolume_ < 0.0)
-    capillaryWaterVolume_ = 0.0;
+  voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+  if (voxelWaterVolume_ < 0.0)
+    voxelWaterVolume_ = 0.0;
   if (chemSys_->isSaturated()) {
-    capillaryWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+    voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
   }
 }
 
-// void Lattice::calcCapillaryVoidVolume() {
-//   capillaryPoreVolume_ = nonSolidVolume_ - subvoxelPoreVolume_;
-//   capillaryVoidVolume_ = capillaryPoreVolume_ - capillaryWaterVolume_;
+// void Lattice::calcVoxelVoidVolume() {
+//   voxelPoreVolume_ = nonSolidVolume_ - subvoxelPoreVolume_;
+//   voxelVoidVolume_ = voxelPoreVolume_ - voxelWaterVolume_;
 // }
 
 void Lattice::calculatePoreSizeDistribution(void) {
-  // Compose the full pore volume distribution
+  // Define some commonly used local variables
 
-  vector<double> subpore_volume(volumeFraction_.size(), 0.0);
-
-  // Following will hold the subvoxel porosity of a phase
-  double phi = 0.0;
-  double upper_cutoff_porosity = 0.8;
-
-  // Get the combined pore volume as a function of diameter
-  int size = volumeFraction_.size();
-  for (int i = 0; i < size; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      phi = chemSys_->getMicroPhasePorosity(i);
-      if (phi > upper_cutoff_porosity)
-        phi = upper_cutoff_porosity;
-      subpore_volume[i] = volumeFraction_[i] * phi;
-    }
-  }
-
-  // At this point subpore_volumes are not normalized
-  // but we now know their total volume so we can do that later
-
-  vector<vector<struct PoreSizeVolume>> porevolume;
-
-  porevolume = chemSys_->getPoreSizeDistribution();
-
-  // subpore_volume[i] is the non-normalized pore volume fraction
-  // within all of phase i throughout the microstructure.  We
-  // now partition that non-normalized volume among the different
-  // pore diameters for that phase using the normalized
-  // pore volume distribution for that phase
+  int i; // vector indices
+  // STEP 1:
+  // The microstructure has a PSD
+  // that is made up of the contributions of the PSDs
+  // of each microstructure phase.
   //
-  /// @todo Watch out that pore size distributions are indexed
-  /// the same as the THAMES phase id numbers, or else change this
-  /// code below.
+  // Calculate the contribution that each phase makes
+  // to the microstructure's overall PSD
 
-  int porevolumeSize = porevolume.size();
-  int porevolume_i_size;
-  int j;
-  for (int i = 0; i < porevolumeSize; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      porevolume_i_size = porevolume[i].size();
-      for (j = 0; j < porevolume_i_size; ++j) {
-        porevolume[i][j].volume = porevolume[i][j].volfrac * subpore_volume[i];
-      }
-    }
-  }
+  vector<vector<struct PoreSizeData>> phasePoreSizeDist =
+      getPhasePoreSizeDistributions();
 
-  // At this point we have the non-normalized volume of all subvoxel pores
-  // as a function of their diameters. Bin them in increments of
-  // 1 nanometer
+  // STEP 2:
+  // Determine the maximum pore diameter (nm) from among all pore
+  // size distributions defined
+  double maxUpperDiameter = getMaxPhasePoreDiameter(phasePoreSizeDist);
 
-  // Create and initialize the binned volume distribution
-  vector<struct PoreSizeVolume> zpsvec;
-  vector<vector<struct PoreSizeVolume>> binnedporevolume;
-  binnedporevolume.resize(porevolume.size(), zpsvec);
+  // STEP 3:
+  // Create a histogram of the combined pore size distributions
+  // of all phases, taking account of the phase volume fractions also,
+  // using pre-defined diameter bins
+  vector<double> histogramDiameters = setPSDiameters();
+  calcMasterPoreSizeDist(histogramDiameters, phasePoreSizeDist);
 
-  int binnedporevolumeSize;
-  int binnedporevolume_i_size;
-
-  // Done initializing the binned pore volume distribution
-
-  double maxsize = 1.0;
-  double maxmaxsize = 1.0;
-  double cumulative_volume = 0.0;
-  double cumulative_volfrac = 0.0;
-  struct PoreSizeVolume dpsv;
-  dpsv.diam = dpsv.volfrac = dpsv.volume = 0.0;
-
-  for (int i = 0; i < porevolumeSize; ++i) { //
-    if (i > ELECTROLYTEID) {
-      maxsize = 1.0;
-      j = 0;
-      porevolume_i_size = porevolume[i].size();
-      while (j < porevolume_i_size) {
-        while ((j < porevolume_i_size) && (porevolume[i][j].diam <= maxsize)) {
-          cumulative_volume += porevolume[i][j].volume;
-          cumulative_volfrac += porevolume[i][j].volfrac;
-          j++;
-        }
-        binnedporevolume[i].push_back(dpsv);
-        binnedporevolume[i][binnedporevolume[i].size() - 1].diam = maxsize;
-        binnedporevolume[i][binnedporevolume[i].size() - 1].volume =
-            cumulative_volume;
-        binnedporevolume[i][binnedporevolume[i].size() - 1].volfrac =
-            cumulative_volfrac;
-        cumulative_volume = cumulative_volfrac = 0.0;
-        maxsize += 1.0;
-      }
-      if (maxsize > maxmaxsize)
-        maxmaxsize = maxsize;
-    }
-  }
-
-  if (verbose_) {
-    cout << "Lattice::calculatePoreSizeDistribution  maxmaxsize = "
-         << maxmaxsize << endl;
-    cout << "Lattice::calculatePoreSizeDistribution  Binned pore distributions"
-         << endl;
-    for (int i = 0; i < porevolumeSize; ++i) {
-      if (i > ELECTROLYTEID) {
-        porevolume_i_size = porevolume[i].size();
-        cout << "Lattice::calculatePoreSizeDistribution: Distribution " << i
-             << " of " << (porevolumeSize - 1) << " now has "
-             << porevolume_i_size << " elements" << endl;
-        cout << "Lattice::calculatePoreSizeDistribution  %%%% "
-             << chemSys_->getMicroPhaseName(i) << endl;
-        binnedporevolume_i_size = binnedporevolume[i].size();
-        for (int j = 0; j < binnedporevolume_i_size; ++j) {
-          cout << "Lattice::calculatePoreSizeDistribution    "
-               << "binnedporevolume[" << i << "][" << j
-               << "]: diam = " << binnedporevolume[i][j].diam
-               << ", volume = " << binnedporevolume[i][j].volume
-               << ", volfrac = " << binnedporevolume[i][j].volfrac << endl;
-          cout.flush();
-          if (binnedporevolume[i][j].volume > 0.0) {
-            cout << "Lattice::calculatePoreSizeDistribution: Distribution "
-                 << "  %%%%%%% diam = " << binnedporevolume[i][j].diam << " nm,"
-                 << " volume = " << binnedporevolume[i][j].volume << ","
-                 << " volfrac = " << binnedporevolume[i][j].volfrac << endl;
-          }
-        }
-      }
-    }
+  // GODZILLA OUTPUT HISTOGRAM DATA FOR EACH PHASE FROM HERE ...
+  cout << "Lattice::calculatePoreSizeDistribution  resolution_ = "
+       << resolution_ << " m" << endl;
+  cout << "Lattice::calculatePoreSizeDistribution  maxUpperDiameter = "
+       << maxUpperDiameter << " nm" << endl;
+  cout << "Lattice::calculatePoreSizeDistribution Histogram:" << endl;
+  for (i = 0; i < masterPoreSizeDist_.size(); ++i) {
+    cout << "diam = " << masterPoreSizeDist_[i].diam
+         << ", volfrac = " << masterPoreSizeDist_[i].volfrac
+         << ", volfracsat = " << masterPoreSizeDist_[i].volfracsat << endl;
     cout.flush();
   }
-
-  // Now all subvoxel pores have been binned in 1-nm bins.
-  // Combine them into a single distribution for all phases
-
-  // double totsubvoxel_volume = 0.0;
-  struct PoreSizeVolume dumps;
-  dumps.diam = 0.0;
-  dumps.volfrac = 0.0;
-  dumps.volume = 0.0;
-  masterPoreVolume_.clear();
-  masterPoreVolume_.resize(int(maxmaxsize) - 1, dumps);
-  int masterPoreVolumeSize;
-
-  binnedporevolumeSize = binnedporevolume.size();
-  for (int i = 0; i < binnedporevolumeSize; ++i) {
-    // cumulative_volume = 0.0;
-    // cumulative_volfrac = 0.0;
-    binnedporevolume_i_size = binnedporevolume[i].size();
-    for (j = 0; j < binnedporevolume_i_size; ++j) {
-      masterPoreVolume_[j].diam = binnedporevolume[i][j].diam;
-      masterPoreVolume_[j].volume += binnedporevolume[i][j].volume;
-      // totsubvoxel_volume += binnedporevolume[i][j].volume;
-      masterPoreVolume_[j].volfrac = 0.0;
-    }
-  }
-
-  // Normalize the pore volume distribution relative to the
-  // total subvoxel pore volume, stored already in totsubvoxel_volume
-
-  // for (int i = 0; i < masterPoreVolume_.size(); ++i) {
-  //     masterPoreVolume_[i].volume = masterPoreVolume_[i].volume
-  //                                    / totsubvoxel_volume;
-  // }
-
-  if (verbose_) {
-    cout << "Lattice::calculatePoreSizeDistribution  Master pore "
-         << "size volume fractions" << endl;
-    masterPoreVolumeSize = masterPoreVolume_.size();
-    for (int i = 0; i < masterPoreVolumeSize; ++i) {
-      if (masterPoreVolume_[i].volume > 0.0) {
-        cout << "Lattice::calculatePoreSizeDistribution diam = "
-             << masterPoreVolume_[i].diam << " nm,"
-             << " volume = " << masterPoreVolume_[i].volume << ","
-             << " volfrac = " << masterPoreVolume_[i].volfrac << endl
-             << endl;
-      }
-    }
-    cout.flush();
-  }
+  cout << endl;
+  cout.flush();
+  // ... TO HERE GODZILLA
 
   // At this point we have a complete pore volume distribution
   // for the microstructure.  We next need to determine
@@ -4417,15 +4282,15 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // When we arrive at this function, we know the following
   // information:
   //
-  // Volume fraction of saturated capillary pores on a total
+  // Volume fraction of saturated voxel-scale pores on a total
   // microstructure volume basis = volumeFraction_[ELECTROLYTEID]
   //
-  // Volume fraction of unsaturated capillary pores
+  // Volume fraction of unsaturated voxel-scale pores
   // on a total microstructure volume basis
   // = volumeFraction_[VOIDID]
   //
-  // Volume fraction of capillary pores on a total
-  // microstructure volume basis = capillaryporevolumeFraction_
+  // Volume fraction of voxel-scale pores on a total
+  // microstructure volume basis = voxelporevolumeFraction_
   //
   // Volume fraction of subvoxel pores on a total
   // microstructure volume basis = subvoxelporevolumeFraction_
@@ -4434,7 +4299,7 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // that are saturated
 
   // water_volume is the absolute volume (m3) of aqueous
-  // solution according to GEMS, whether in capillary
+  // solution according to GEMS, whether in voxel-scale
   // pores, subvoxel pores, or squeezed outside the
   // system due to lack of porosity to contain it.
 
@@ -4453,18 +4318,18 @@ void Lattice::calculatePoreSizeDistribution(void) {
   // double initmicrovol = chemSys_->getInitMicroVolume();
 
   // This is the volume fraction of liquid water whether
-  // in capillary or subvoxel porosity, on a total
+  // in voxel-scale or subvoxel porosity, on a total
   // microstructure volume basis
 
   // We may have had to push some of the system's
-  // capillary water outside the boundary of the
+  // voxel-scale water outside the boundary of the
   // microstructure due to lack of space, so maybe
   // water_volume is larger than the actual volume
   // fraction of water available within the microstructure
   // We can check for that now, though.
 
   // double excesswater =
-  //    water_volume - capillaryPoreVolume_ - subvoxelPoreVolume_;
+  //    water_volume - voxelPoreVolume_ - subvoxelPoreVolume_;
 
   // If excess water > 0 then we have a completely
   // saturated system and it is easy to write out
@@ -4472,75 +4337,174 @@ void Lattice::calculatePoreSizeDistribution(void) {
 
   double water_volfrac = water_volume / initialMicrostructureVolume_;
 
-  // This is the total porosity including capillary
+  // This is the total porosity including voxel-scale
   // pore volume fraction and subvoxel pore volume
   // fraction, all on a total microstructure volume
   // basis
 
   // double pore_volfrac =
-  //     capillaryporevolumeFraction_ + subvoxelporevolumeFraction_;
+  //     voxelporevolumeFraction_ + subvoxelporevolumeFraction_;
 
   // Fill sub-voxel porosity with water for now
   double volfrac_avail;
   double volfrac_filled;
-  masterPoreVolumeSize = masterPoreVolume_.size();
+  int masterPoreSizeDistSize = masterPoreSizeDist_.size();
   cout << "GODZILLA: water_volume = " << water_volume << endl;
   cout << "GODZILLA: water_volfrac = " << water_volfrac << endl;
   cout << "GODZILLA: subvoxelPoreVolumeFraction = "
        << subvoxelPoreVolumeFraction_ << endl;
+  cout << "GODZILLA: voxelPoreVolumeFraction = " << voxelPoreVolumeFraction_
+       << endl;
   cout.flush();
-  for (int i = 0; i < masterPoreVolumeSize; ++i) {
-    volfrac_avail = masterPoreVolume_[i].volume * subvoxelPoreVolumeFraction_;
+  for (i = 0; i < masterPoreSizeDistSize; ++i) {
+    volfrac_avail = masterPoreSizeDist_[i].volfrac;
     volfrac_filled = water_volfrac / volfrac_avail;
     if (volfrac_filled > 1.0)
       volfrac_filled = 1.0;
-    masterPoreVolume_[i].volfrac = volfrac_filled;
+    masterPoreSizeDist_[i].volfracsat = volfrac_filled;
     if (!(chemSys_->isSaturated())) { // System is sealed
       water_volfrac -= volfrac_avail;
       if (water_volfrac < 0.0)
         water_volfrac = 0.0;
     }
-  }
-
-  // Only worry about unsaturated subvoxel pores if the capillary
-  // pores are completely empty of water
-
-  /*
-  if (volumeFraction_[ELECTROLYTEID] <= 0.0) {
-    // The next variable represents the volume fraction of subvoxel
-    // pores of a given size, on a total microstructure volume basis
-    volfrac_avail = 0.0;
-    volfrac_filled = 0.0;
-    // masterporevolume is already a kind of volume fraction
-    // because it has been normalized to the total subvoxel pore volume
-    //    cout << "Lattice::calculatePoreSizeDistribution  "
-    //          << "Master pore size volume filling" << endl;
-    //    cout.flush();
-    for (int i = 0; i < masterPoreVolumeSize; ++i) {
-      volfrac_avail = masterPoreVolume_[i].volume * subvoxelPoreVolumeFraction_;
-      volfrac_filled = water_volfrac / volfrac_avail;
-      if (volfrac_filled > 1.0)
-        volfrac_filled = 1.0;
-      masterPoreVolume_[i].volfrac = volfrac_filled;
-      if (!(chemSys_->isSaturated())) { // System is sealed
-        water_volfrac -= volfrac_avail;
-        if (water_volfrac < 0.0)
-          water_volfrac = 0.0;
-      }
-      //    if (masterPoreVolume_[i].volume > 0.0) {
-      //      cout << "Lattice::calculatePoreSizeDistribution diam = "
-      //       << masterPoreVolume_[i].diam << " nm,"
-      //       << " vfrac avail = " << volfrac_avail << ","
-      //       << " volume = " << masterPoreVolume_[i].volume << ","
-      //       << " volfilled = " << masterPoreVolume_[i].volfrac << ","
-      //       << " waterfrac left = " << water_volfrac << endl;
-      //    cout.flush();
-      //    }
+    if (masterPoreSizeDist_[i].diam >= 1.0e9 * resolution_) {
+      voxelPoreVolumeFractionSaturated_ +=
+          (masterPoreSizeDist_[i].volfrac * masterPoreSizeDist_[i].volfracsat);
+    } else {
+      subvoxelPoreVolumeFractionSaturated_ +=
+          (masterPoreSizeDist_[i].volfrac * masterPoreSizeDist_[i].volfracsat);
     }
-    // cout << endl;
-    cout.flush();
   }
-  */
+
+  return;
+}
+
+vector<vector<struct PoreSizeData>>
+Lattice::getPhasePoreSizeDistributions(void) {
+
+  // STEP 1:
+  // Get the input PSD of each microstructure phase
+  // including void and electrolyte voxels
+  vector<vector<struct PoreSizeData>> poreSizeDist =
+      chemSys_->getPoreSizeDistribution();
+
+  // Chemical system does not know the voxel resolution, so we
+  // must set the diameter of electrolyte and void voxels manually
+  poreSizeDist[VOIDID][0].diam = poreSizeDist[ELECTROLYTEID][0].diam =
+      1.0e9 * resolution_; // in nanometer units
+
+  // STEP 2: Get the internal porosity of each phase (dimensionless)
+  // which is the internal volume fraction of pores within a phase
+  vector<double> pore_volfrac = getPoreVolumeFractions();
+
+  // STEP 3:
+  // Partition the total porosity of each phase
+  // among its different pore diameters
+  //
+  /// @note The PSDs must be indexed
+  /// the same as the THAMES phase id numbers, or else change this
+  /// code below.
+
+  int numPhasesWithPSD = poreSizeDist.size();
+  int numPSDRowsForThisPhase;
+  for (int i = 0; i < numPhasesWithPSD; ++i) {
+    numPSDRowsForThisPhase = poreSizeDist[i].size();
+    for (int j = 0; j < numPSDRowsForThisPhase; ++j) {
+      poreSizeDist[i][j].volfrac *= pore_volfrac[i];
+    }
+  }
+
+  return (poreSizeDist);
+}
+
+double Lattice::getMaxPhasePoreDiameter(
+    const vector<vector<struct PoreSizeData>> phasePoreSizeDist) {
+
+  int numPSDRowsForThisPhase = 0;
+  double upperDiameterForThisPhase = 0.0;
+  double maxUpperDiameter = 0.0;
+  for (int i = 0; i < phasePoreSizeDist.size(); ++i) {
+    numPSDRowsForThisPhase = phasePoreSizeDist[i].size();
+    if (numPSDRowsForThisPhase != 0) {
+      upperDiameterForThisPhase =
+          phasePoreSizeDist[i][numPSDRowsForThisPhase - 1].diam;
+      if (upperDiameterForThisPhase > maxUpperDiameter)
+        maxUpperDiameter = upperDiameterForThisPhase;
+    }
+  }
+
+  return (maxUpperDiameter);
+}
+
+vector<double> Lattice::getPoreVolumeFractions(void) {
+  // Get the volume fraction of the microstructure occupied
+  // by internal pores of each phase
+  int numMicroPhases = volumeFraction_.size();
+  vector<double> pore_volfrac(numMicroPhases, 0.0);
+
+  // The variable phi will hold the "subvoxel" porosity of a phase
+  double phi = 0.0;
+
+  for (int i = 0; i < numMicroPhases; ++i) {
+    phi = chemSys_->getMicroPhasePorosity(i);
+    pore_volfrac[i] = volumeFraction_[i] * phi;
+  }
+  return (pore_volfrac);
+}
+
+vector<double> Lattice::setPSDiameters(void) {
+  vector<double> binnedDiams;
+  binnedDiams.clear();
+  double upperDiameter = 1.0e9 * resolution_;
+
+  for (double xit = 0.3; pow(10.0, xit) < upperDiameter; xit += 0.05) {
+    binnedDiams.push_back(pow(10.0, xit));
+  }
+  binnedDiams.push_back(upperDiameter);
+  return (binnedDiams);
+}
+
+void Lattice::calcMasterPoreSizeDist(
+    const vector<double> histogramDiameters,
+    const vector<vector<struct PoreSizeData>> phasePoreSizeDist) {
+
+  int numHistogramDiameters = histogramDiameters.size();
+  masterPoreSizeDist_.clear();
+
+  struct PoreSizeData dpsv;
+  dpsv.diam = dpsv.volfrac = 0.0;
+  dpsv.volfracsat = 1.0;
+
+  int numPhasesWithPSD = phasePoreSizeDist.size();
+
+  double diameter = 0.0;
+  int i, j, k;
+  int numPSDRowsForThisPhase = 0;
+  vector<int> stoppedAt(numPhasesWithPSD, 0);
+  subvoxelPoreVolumeFraction_ = voxelPoreVolumeFraction_ = 0.0;
+
+  for (k = 0; k < numHistogramDiameters; ++k) {
+    diameter = histogramDiameters[k];
+    dpsv.diam = diameter;
+    for (j = 0; j < numPhasesWithPSD; ++j) {
+      numPSDRowsForThisPhase = phasePoreSizeDist[j].size();
+      if (numPSDRowsForThisPhase > 0) {
+        for (i = stoppedAt[j]; (phasePoreSizeDist[j][i].diam <= diameter) &&
+                               (i < numPSDRowsForThisPhase);
+             ++i) {
+          dpsv.volfrac += phasePoreSizeDist[j][i].volfrac;
+        }
+        stoppedAt[j] = i;
+      }
+    }
+    if (diameter < 1.0e9 * resolution_) {
+      subvoxelPoreVolumeFraction_ += dpsv.volfrac;
+    } else {
+      voxelPoreVolumeFraction_ += dpsv.volfrac;
+    }
+    masterPoreSizeDist_.push_back(dpsv);
+    dpsv.volfrac = 0.0;
+  }
 
   return;
 }
@@ -4555,15 +4519,15 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   // When we arrive at this function, we know the following
   // information:
   //
-  // Volume fraction of saturated capillary pores on a total
+  // Volume fraction of saturated voxel-scale pores on a total
   // microstructure volume basis = volumeFraction_[ELECTROLYTEID]
   //
-  // Volume fraction of unsaturated capillary pores
+  // Volume fraction of unsaturated voxel-scale pores
   // on a total microstructure volume basis
   // = volumeFraction_[VOIDID]
   //
-  // Volume fraction of capillary pores on a total
-  // microstructure volume basis = capillaryPoreVolumeFraction_
+  // Volume fraction of voxel-scale pores on a total
+  // microstructure volume basis = voxelPoreVolumeFraction_
   //
   // Volume fraction of subvoxel pores on a total
   // microstructure volume basis = subvoxelPoreVolumeFraction_
@@ -4575,18 +4539,17 @@ void Lattice::writePoreSizeDistribution(const double curtime,
 
   // cout << endl << "--> waterVolume_         : " << waterVolume_ <<
   // endl; cout << "--> microstructureVolume_: " <<
-  // microstructureVolume_ << endl; cout << "--> capillaryPoreVolume_
-  // : " << capillaryPoreVolume_ << endl; cout << "-->
+  // microstructureVolume_ << endl; cout << "--> voxelPoreVolume_
+  // : " << voxelPoreVolume_ << endl; cout << "-->
   // subvoxelPoreVolume_  : " << subvoxelPoreVolume_ << endl; cout <<
   // "--> excesswater          : " << excesswater << endl;
 
-  // This is the total porosity including capillary
+  // This is the total porosity including voxel-scale
   // pore volume fraction and subvoxel pore volume
   // fraction, all on a total microstructure volume
   // basis
 
-  double pore_volfrac =
-      capillaryPoreVolumeFraction_ + subvoxelPoreVolumeFraction_;
+  double pore_volfrac = voxelPoreVolumeFraction_ + subvoxelPoreVolumeFraction_;
 
   string ofileName(jobRoot_);
 
@@ -4623,45 +4586,54 @@ void Lattice::writePoreSizeDistribution(const double curtime,
 
   if (verbose_) {
     cout << "Time = " << curtime << " h" << endl;
-    cout << "Capillary pore volume fraction (> 100 nm) = "
-         << capillaryPoreVolumeFraction_ << endl;
-    cout << "Capillary void volume fraction = " << volumeFraction_[VOIDID]
+    cout << "Voxel-scale pore volume fraction (>= " << 1.0e9 * resolution_
+         << " nm) = " << voxelPoreVolumeFraction_ << endl;
+    cout << "Saturated voxel-scale pore volume fraction = "
+         << voxelPoreVolumeFractionSaturated_ << endl;
+    cout << "Empty voxel-scale void volume fraction = "
+         << voxelPoreVolumeFraction_ - voxelPoreVolumeFractionSaturated_
          << endl;
-    cout << "Saturated capillary pore volume fraction = "
-         << capillaryPoreVolumeFraction_ - volumeFraction_[VOIDID] << endl;
-    cout << "Nanopore volume fraction (<= 100 nm) = "
-         << subvoxelPoreVolumeFraction_ << endl;
-    cout << "Total pore volume fraction = " << pore_volfrac << endl << endl;
+    cout << "Subvoxel volume fraction (< " << 1.0e9 * resolution_
+         << " nm) = " << subvoxelPoreVolumeFraction_ << endl;
+    cout << "Saturated subvoxel volume fraction (< " << 1.0e9 * resolution_
+         << " nm) = " << subvoxelPoreVolumeFractionSaturated_ << endl;
+    cout << "Empty subvoxel-scale void volume fraction = "
+         << subvoxelPoreVolumeFraction_ - subvoxelPoreVolumeFractionSaturated_
+         << endl;
+    cout << "Total pore volume fraction = " << pore_volfrac << endl;
     cout << "Total void volume fraction = " << volumeFraction_[VOIDID] << endl;
     cout << "Pore size saturation data:" << endl;
     cout << "Diameter (nm),Volume Fraction,Fraction Saturated" << endl;
-    cout << "Masterporevolume size = " << masterPoreVolume_.size() << endl;
+    cout << "Masterporevolume size = " << masterPoreSizeDist_.size() << endl;
     cout.flush();
   }
 
-  out << "Time = " << curtime << " h" << endl;
-  out << "Capillary pore volume fraction (> 100 nm) = "
-      << capillaryPoreVolumeFraction_ << endl;
-  out << "Capillary void volume fraction = " << volumeFraction_[VOIDID] << endl;
-  out << "Saturated capillary pore volume fraction = "
-      << capillaryPoreVolumeFraction_ - volumeFraction_[VOIDID] << endl;
+  out << "Time = " << curtime << " h,," << endl;
+  out << "Voxel-scale pore volume fraction (> 100 nm) = "
+      << voxelPoreVolumeFraction_ << ",," << endl;
+  out << "Voxel-scale void volume fraction = " << volumeFraction_[VOIDID]
+      << ",," << endl;
+  out << "Saturated voxel-scale pore volume fraction = "
+      << voxelPoreVolumeFraction_ - volumeFraction_[VOIDID] << ",," << endl;
   out << "Nanopore volume fraction (<= 100 nm) = "
-      << subvoxelPoreVolumeFraction_ << endl;
-  out << "Total pore volume fraction = " << pore_volfrac << endl;
-  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << endl;
-  out << "Pore size saturation data:" << endl;
+      << subvoxelPoreVolumeFraction_ << ",," << endl;
+  out << "Total pore volume fraction = " << pore_volfrac << ",," << endl;
+  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << ",,"
+      << endl;
+  out << "Pore size saturation data:,," << endl;
   out << "Diameter (nm),Volume Fraction,Fraction Saturated" << endl;
 
-  int masterPoreVolumeSize = masterPoreVolume_.size();
-  for (int i = 0; i < masterPoreVolumeSize; i++) {
-    if (masterPoreVolume_[i].volume > 0.0) {
-      out << masterPoreVolume_[i].diam << "," << masterPoreVolume_[i].volume
-          << "," << masterPoreVolume_[i].volfrac << endl;
+  int masterPoreSizeDistSize = masterPoreSizeDist_.size();
+  for (int i = 0; i < masterPoreSizeDistSize; i++) {
+    if (masterPoreSizeDist_[i].volfrac > 0.0) {
+      out << masterPoreSizeDist_[i].diam << ","
+          << masterPoreSizeDist_[i].volfrac << ","
+          << masterPoreSizeDist_[i].volfracsat << endl;
       out.flush();
     }
   }
 
-  // This is the volume fraction of capillary pore water,
+  // This is the volume fraction of voxel-scale pore water,
   // on a total microstructure volume basis, already
   // calculated and stored when altering the microstructure
 
@@ -4678,7 +4650,7 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   // capvoid_volfrac/capspace_volfrac: " << capvoid_volfrac << " / " <<
   // capspace_volfrac << endl;
 
-  out << ">" << masterPoreVolume_[masterPoreVolume_.size() - 1].diam << ","
+  out << ">" << masterPoreSizeDist_[masterPoreSizeDist_.size() - 1].diam << ","
       << capspace_volfrac << "," << (1.0 - volumeFraction_[VOIDID]) << endl;
   out.flush();
 
