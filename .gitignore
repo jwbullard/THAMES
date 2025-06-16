@@ -30,6 +30,8 @@ doc/latex/*
 *.fdb_latexmk
 *.fls
 *.synctex.gz
+*.bcf*
+*.xml
 
 
 # ignore compiled libraries
