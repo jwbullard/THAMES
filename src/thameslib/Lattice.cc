@@ -642,8 +642,8 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     // Initially assume that all free water and void space
     // is in voxels
 
-    voxelPoreVolumeFraction_ =
-        getVolumeFraction(ELECTROLYTEID) + getVolumeFraction(VOIDID);
+    // voxelPoreVolumeFraction_ =
+    //    getVolumeFraction(ELECTROLYTEID) + getVolumeFraction(VOIDID);
 
   } catch (FloatException flex) {
     throw flex;
@@ -3347,13 +3347,13 @@ int Lattice::changeMicrostructure(double time, const int simtype,
       cout << ", or " << (int)((double)(numSites_ * vfrac_next[i])) << " sites"
            << endl;
     }
-    cout << "Lattice::changeMicrostructure ****Volume fraction[voxel "
-         << "pores] in next state"
-         << " should be = " << voxelPoreVolumeFraction_ << endl;
-    cout << "Lattice::changeMicrostructure ****Volume fraction[subvoxel "
-            "pores] "
-            "in next state"
-         << " should be = " << subvoxelPoreVolumeFraction_ << endl;
+    // cout << "Lattice::changeMicrostructure ****Volume fraction[voxel "
+    //      << "pores] in next state"
+    //      << " should be = " << voxelPoreVolumeFraction_ << endl;
+    // cout << "Lattice::changeMicrostructure ****Volume fraction[subvoxel "
+    //         "pores] "
+    //         "in next state"
+    //      << " should be = " << subvoxelPoreVolumeFraction_ << endl;
     cout.flush();
   }
 
@@ -4259,21 +4259,19 @@ void Lattice::calculatePoreSizeDistribution(void) {
   vector<double> histogramDiameters = setPSDiameters();
   calcMasterPoreSizeDist(histogramDiameters, phasePoreSizeDist);
 
-  // GODZILLA OUTPUT HISTOGRAM DATA FOR EACH PHASE FROM HERE ...
-  cout << "Lattice::calculatePoreSizeDistribution  resolution_ = "
-       << resolution_ << " m" << endl;
-  cout << "Lattice::calculatePoreSizeDistribution  maxUpperDiameter = "
-       << maxUpperDiameter << " nm" << endl;
-  cout << "Lattice::calculatePoreSizeDistribution Histogram:" << endl;
-  for (i = 0; i < masterPoreSizeDist_.size(); ++i) {
-    cout << "diam = " << masterPoreSizeDist_[i].diam
-         << ", volfrac = " << masterPoreSizeDist_[i].volfrac
-         << ", volfracsat = " << masterPoreSizeDist_[i].volfracsat << endl;
-    cout.flush();
-  }
-  cout << endl;
-  cout.flush();
-  // ... TO HERE GODZILLA
+  // cout << "Lattice::calculatePoreSizeDistribution  resolution_ = "
+  //      << resolution_ << " m" << endl;
+  // cout << "Lattice::calculatePoreSizeDistribution  maxUpperDiameter = "
+  //      << maxUpperDiameter << " nm" << endl;
+  // cout << "Lattice::calculatePoreSizeDistribution Histogram:" << endl;
+  // for (i = 0; i < masterPoreSizeDist_.size(); ++i) {
+  //   cout << "diam = " << masterPoreSizeDist_[i].diam
+  //        << ", volfrac = " << masterPoreSizeDist_[i].volfrac
+  //        << ", volfracsat = " << masterPoreSizeDist_[i].volfracsat << endl;
+  //   cout.flush();
+  // }
+  // cout << endl;
+  // cout.flush();
 
   // At this point we have a complete pore volume distribution
   // for the microstructure.  We next need to determine
@@ -4349,23 +4347,30 @@ void Lattice::calculatePoreSizeDistribution(void) {
   double volfrac_avail;
   double volfrac_filled;
   int masterPoreSizeDistSize = masterPoreSizeDist_.size();
-  cout << "GODZILLA: water_volume = " << water_volume << endl;
-  cout << "GODZILLA: water_volfrac = " << water_volfrac << endl;
-  cout << "GODZILLA: subvoxelPoreVolumeFraction = "
-       << subvoxelPoreVolumeFraction_ << endl;
-  cout << "GODZILLA: voxelPoreVolumeFraction = " << voxelPoreVolumeFraction_
-       << endl;
-  cout.flush();
+
+  bool isSealed = false;
+  if (!(chemSys_->isSaturated()))
+    isSealed = true;
+  voxelPoreVolumeFractionSaturated_ = subvoxelPoreVolumeFractionSaturated_ =
+      0.0;
   for (i = 0; i < masterPoreSizeDistSize; ++i) {
     volfrac_avail = masterPoreSizeDist_[i].volfrac;
-    volfrac_filled = water_volfrac / volfrac_avail;
-    if (volfrac_filled > 1.0)
-      volfrac_filled = 1.0;
-    masterPoreSizeDist_[i].volfracsat = volfrac_filled;
-    if (!(chemSys_->isSaturated())) { // System is sealed
+    if (volfrac_avail > 0.0) {
+      volfrac_filled = water_volfrac / volfrac_avail;
+      if (volfrac_filled > 1.0)
+        volfrac_filled = 1.0;
+    } else {
+      volfrac_filled = 0.0;
+    }
+    if (isSealed) {
+      masterPoreSizeDist_[i].volfracsat = volfrac_filled;
       water_volfrac -= volfrac_avail;
       if (water_volfrac < 0.0)
         water_volfrac = 0.0;
+      cout << ", water_volfrac = " << water_volfrac << endl;
+    } else {
+      masterPoreSizeDist_[i].volfracsat = volfrac_filled;
+      cout << endl;
     }
     if (masterPoreSizeDist_[i].diam >= 1.0e9 * resolution_) {
       voxelPoreVolumeFractionSaturated_ +=
@@ -4535,14 +4540,7 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   // We do NOT yet know the fraction of subvoxel pores
   // that are saturated
 
-  double water_volfrac = waterVolume_ / initialMicrostructureVolume_;
-
-  // cout << endl << "--> waterVolume_         : " << waterVolume_ <<
-  // endl; cout << "--> microstructureVolume_: " <<
-  // microstructureVolume_ << endl; cout << "--> voxelPoreVolume_
-  // : " << voxelPoreVolume_ << endl; cout << "-->
-  // subvoxelPoreVolume_  : " << subvoxelPoreVolume_ << endl; cout <<
-  // "--> excesswater          : " << excesswater << endl;
+  // double water_volfrac = waterVolume_ / initialMicrostructureVolume_;
 
   // This is the total porosity including voxel-scale
   // pore volume fraction and subvoxel pore volume
@@ -4608,55 +4606,41 @@ void Lattice::writePoreSizeDistribution(const double curtime,
     cout.flush();
   }
 
-  out << "Time = " << curtime << " h" << endl;
+  out << "Time = " << curtime << " h,," << endl;
   out << "Voxel-scale pore volume fraction (>= " << 1.0e9 * resolution_
-      << " nm) = " << voxelPoreVolumeFraction_ << endl;
+      << " nm) = " << voxelPoreVolumeFraction_ << ",," << endl;
   out << "Saturated voxel-scale pore volume fraction = "
-      << voxelPoreVolumeFractionSaturated_ << endl;
+      << voxelPoreVolumeFractionSaturated_ << ",," << endl;
   out << "Empty voxel-scale void volume fraction = "
-      << voxelPoreVolumeFraction_ - voxelPoreVolumeFractionSaturated_ << endl;
+      << voxelPoreVolumeFraction_ - voxelPoreVolumeFractionSaturated_ << ",,"
+      << endl;
   out << "Subvoxel volume fraction (< " << 1.0e9 * resolution_
-      << " nm) = " << subvoxelPoreVolumeFraction_ << endl;
+      << " nm) = " << subvoxelPoreVolumeFraction_ << ",," << endl;
   out << "Saturated subvoxel volume fraction (< " << 1.0e9 * resolution_
-      << " nm) = " << subvoxelPoreVolumeFractionSaturated_ << endl;
+      << " nm) = " << subvoxelPoreVolumeFractionSaturated_ << ",," << endl;
   out << "Empty subvoxel-scale void volume fraction = "
       << subvoxelPoreVolumeFraction_ - subvoxelPoreVolumeFractionSaturated_
+      << ",," << endl;
+  out << "Total pore volume fraction = " << pore_volfrac << ",," << endl;
+  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << ",,"
       << endl;
-  out << "Total pore volume fraction = " << pore_volfrac << endl;
-  out << "Total void volume fraction = " << volumeFraction_[VOIDID] << endl;
-  out << "Pore size saturation data:" << endl;
+  out << "Pore size saturation data:" << ",," << endl;
+  out << "Masterporevolume size = " << masterPoreSizeDist_.size() << ",,"
+      << endl;
   out << "Diameter (nm),Volume Fraction,Fraction Saturated" << endl;
-  out << "Masterporevolume size = " << masterPoreSizeDist_.size() << endl;
 
   int masterPoreSizeDistSize = masterPoreSizeDist_.size();
-  for (int i = 0; i < masterPoreSizeDistSize; i++) {
+  for (int i = 0; i < masterPoreSizeDistSize - 1; i++) {
     if (masterPoreSizeDist_[i].volfrac > 0.0) {
       out << masterPoreSizeDist_[i].diam << ","
           << masterPoreSizeDist_[i].volfrac << ","
           << masterPoreSizeDist_[i].volfracsat << endl;
-      out.flush();
     }
   }
 
-  // This is the volume fraction of voxel-scale pore water,
-  // on a total microstructure volume basis, already
-  // calculated and stored when altering the microstructure
-
-  double capwater_volfrac = water_volfrac;
-  double capvoid_volfrac = volumeFraction_[VOIDID] +
-                           (volumeFraction_[ELECTROLYTEID] - water_volfrac);
-  double capspace_volfrac = capvoid_volfrac + capwater_volfrac;
-
-  // cout << endl << "--> water_volfrac           : " << water_volfrac
-  // << endl; cout << "--> volumeFraction_[VOIDID]         : " <<
-  // volumeFraction_[VOIDID]
-  // << endl; cout << "--> volumeFraction_[ELECTROLYTEID]  : " <<
-  // volumeFraction_[ELECTROLYTEID] << endl; cout << "-->
-  // capvoid_volfrac/capspace_volfrac: " << capvoid_volfrac << " / " <<
-  // capspace_volfrac << endl;
-
-  out << ">" << masterPoreSizeDist_[masterPoreSizeDist_.size() - 1].diam << ","
-      << capspace_volfrac << "," << (1.0 - volumeFraction_[VOIDID]) << endl;
+  out << ">=" << masterPoreSizeDist_[masterPoreSizeDistSize - 1].diam << ","
+      << masterPoreSizeDist_[masterPoreSizeDistSize - 1].volfrac << ","
+      << masterPoreSizeDist_[masterPoreSizeDistSize - 1].volfracsat << endl;
   out.flush();
 
   out.close();

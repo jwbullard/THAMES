@@ -357,7 +357,6 @@ public:
   @param z is the z-coordinate of the center element of the subvolume
   @param index is another variable that is not used
   */
-  // GODZILLA These two functions also need to be defined somewhere
   //  void localRelax(int boxsize, int x, int y, int z, int index);
 
   // void localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi, int

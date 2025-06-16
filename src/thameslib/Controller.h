@@ -142,13 +142,12 @@ protected:
       *kineticController_;    /**< Pointer to kinetic controller object */
   ThermalStrain *thermalstr_; /**< Pointer to the finite element model object */
 
-  double imgFreq_; /**< Frequency to output microstructure image (hours) */
   ChemicalSystem *chemSys_; /**< Pointer to `ChemicalSystem` object */
   vector<double> time_;     /**< List of simulation times for each iteration */
   vector<double>
       timeInitial_; /**< List of simulation times for each iteration */
-  vector<double> outputTime_; /**< List of times to output image */
-  // double statfreq_;            /**< Frequency to output statistics */
+  vector<double> outputImageTime_; /**< List of times to output image */
+  double outputImageTimeInterval_; /**< Frequency to output images */
 
   int simType_; /**< Hydration, leaching, or sulfate attack for now */
 

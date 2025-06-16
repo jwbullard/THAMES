@@ -1624,6 +1624,8 @@ public:
   @brief Get the integer id of a GEM phase associated with a microstructure
   phase id.
 
+  @todo What is the behavior of this function if we pass VOIDID?
+
   @param i is integer id of the microstructure phase
   @param idx is element position in the vector of associated GEM phases for that
           microstructure phase
@@ -2302,7 +2304,11 @@ public:
   */
   double getMicroPhasePorosity(const int idx) {
     // try {
-    return microPhasePorosity_[idx];
+    if (idx == VOIDID || idx == ELECTROLYTEID) {
+      return 1.0;
+    } else {
+      return microPhasePorosity_[idx];
+    }
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getMicroPhasePorosity",
     //                  "microPhasePorosity_", microPhasePorosity_.size(), idx);

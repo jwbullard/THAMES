@@ -41,8 +41,8 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// are set to very high values so that they usually won't happen
   ///
 
-  // imgFreq_ = 168.0; // hours = 7 days
-  imgFreq_ = -1;
+  outputImageTimeInterval_ = -1.0;
+  outputImageTime_.clear();
 
   leachTime_ = 1.0e10;
   sulfateAttackTime_ = 1.0e10;
@@ -299,7 +299,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   }
 
   int time_Size = time_.size();
-  int outputTime_Size = outputTime_.size();
+  int outputImageTime_Size = outputImageTime_.size();
 
   if (time_Size == 0) {
     cout << endl
@@ -354,19 +354,19 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   outfs << "    \"outtimes\": [" << endl;
 
   j = 0;
-  for (int i = 0; i < outputTime_Size; i++) {
+  for (int i = 0; i < outputImageTime_Size; i++) {
     j++;
-    if (i < (outputTime_Size - 1)) {
+    if (i < (outputImageTime_Size - 1)) {
       if (j == 1) {
-        outfs << "        " << outputTime_[i] << ", ";
+        outfs << "        " << outputImageTime_[i] << ", ";
       } else if (j < 7) {
-        outfs << outputTime_[i] << ", ";
+        outfs << outputImageTime_[i] << ", ";
       } else {
         j = 0;
-        outfs << outputTime_[i] << "," << endl;
+        outfs << outputImageTime_[i] << "," << endl;
       }
     } else {
-      outfs << outputTime_[i] << endl;
+      outfs << outputImageTime_[i] << endl;
     }
   }
 
@@ -388,8 +388,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
 
   outfs.close();
 
-  imgFreq_ *= 24.0; // !!!!!
-
   cout << endl
        << "   => new time values (calctime & outtime) have been used and "
           "writen as :"
@@ -410,11 +408,12 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     cout << endl << "   => attack = " << attack_ << endl;
     cout << "   parameters in hours:" << endl;
     cout << "     -> beginattacktime = " << setw(7) << right
-         << (int)beginAttackTime_ << endl;
+         << static_cast<int>(attackTimeInterval_) << beginAttackTime_ << endl;
     cout << "     -> endattacktime = " << setw(7) << right
-         << (int)endAttackTime_ << endl;
+         << static_cast<int>(attackTimeInterval_) << endAttackTime_ << endl;
     cout << "     -> attacktimeinterval = " << setw(7) << right
-         << (int)attackTimeInterval_ << endl;
+         << static_cast<int>(attackTimeInterval_) << attackTimeInterval_
+         << endl;
 
     // if (simType_ == SULFATE_ATTACK)
     lattice_->createGrowingVectSA();
@@ -1073,20 +1072,21 @@ void Controller::doCycle(double elemTimeInterval) {
       writeTxtOutputFiles_onlyICsDCs(time_[i]);
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
-    if ((time_index < (int)(outputTime_.size())) &&
-        ((time_[i] >= outputTime_[time_index]) ||
-         (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice))) {
+    if ((time_index < static_cast<int>(outputImageTime_.size())) &&
+        ((time_[i] >= outputImageTime_[time_index]) ||
+         (abs(time_[i] - outputImageTime_[time_index]) <
+          thrTimeToWriteLattice))) {
 
       double writeTime = time_[i];
-      if (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice)
-        writeTime = outputTime_[time_index];
+      if (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice)
+        writeTime = outputImageTime_[time_index];
 
       // if (verbose_)
       cout << endl
            << "Controller::doCycle - write microstructure files at time_[" << i
-           << "] = " << time_[i] << ", outputTime_[" << time_index
-           << "] = " << outputTime_[time_index] << ", writeTime = " << writeTime
-           << endl;
+           << "] = " << time_[i] << ", outputImageTime_[" << time_index
+           << "] = " << outputImageTime_[time_index]
+           << ", writeTime = " << writeTime << endl;
       //
 
       lattice_->writeLattice(time_[i], formattedTime);
@@ -1197,8 +1197,8 @@ void Controller::doCycle(double elemTimeInterval) {
           cout << "Controller::doCycle Sulfate attack module writing " << endl;
           cout << "Controller::doCycle lattice at time_[" << i
                << "] = " << time_[i] << ", " << endl;
-          cout << "controller::doCycle outputTime_[" << time_index
-               << "] = " << outputTime_[time_index] << endl;
+          cout << "controller::doCycle outputImageTime_[" << time_index
+               << "] = " << outputImageTime_[time_index] << endl;
           cout.flush();
         }
 
@@ -1928,15 +1928,43 @@ void Controller::parseDoc(const string &docName) {
     double finalTime = cdi.value();
     finalTime *= (H_PER_DAY);
 
-    // Input times are conventionally in days
+    /// Users may specify either individual output times
+    /// or a single output frequency for simplicity.
+    /// If both are specified the output times are ignored
+
+    // Output times are conventionally in days
     // Immediately convert to hours within model
-    cdi = it.value().find("outtimes");
+
+    outputImageTime_.clear();
+    outputImageTimeInterval_ = 0.0;
+
+    cdi = it.value().find("outfreq");
     double testTime = 0.0;
-    int outtimenum = cdi.value().size();
-    for (int i = 0; i < outtimenum; ++i) {
-      testTime = cdi.value()[i];
-      testTime *= (H_PER_DAY);
-      outputTime_.push_back(testTime);
+    if (cdi != it.value().end()) {
+      outputImageTimeInterval_ = cdi.value();
+      outputImageTimeInterval_ *= (H_PER_DAY);
+
+      // Knowing the time interval, construct the output
+      // times
+      if (outputImageTimeInterval_ > 0.01) {
+        while (testTime < finalTime) {
+          testTime += outputImageTimeInterval_;
+          if (testTime < finalTime) {
+            outputImageTime_.push_back(testTime);
+          } else {
+            outputImageTime_.push_back(finalTime);
+          }
+        }
+      }
+    } else {
+      cdi = it.value().find("outtimes");
+      double testTime = 0.0;
+      int outtimenum = cdi.value().size();
+      for (int i = 0; i < outtimenum; ++i) {
+        testTime = cdi.value()[i];
+        testTime *= (H_PER_DAY);
+        outputImageTime_.push_back(testTime);
+      }
     }
 
     // There may be times associated with chemical attack
@@ -2037,12 +2065,12 @@ void Controller::parseDoc(const string &docName) {
       int tempSize;
       int i, j;
 
-      tempSize = outputTime_.size() - 1;
+      tempSize = outputImageTime_.size() - 1;
       for (i = 0; i < tempSize; i++) {
-        if (outputTime_[i] > tp) {
+        if (outputImageTime_[i] > tp) {
           int last = tempSize;
-          outputTime_.erase(outputTime_.begin() + i,
-                            outputTime_.begin() + last);
+          outputImageTime_.erase(outputImageTime_.begin() + i,
+                                 outputImageTime_.begin() + last);
           break;
         }
       }
@@ -2058,25 +2086,25 @@ void Controller::parseDoc(const string &docName) {
 
       while (tp <= endAttackTime_) {
         // time_.push_back(tp);
-        outputTime_.push_back(tp);
+        outputImageTime_.push_back(tp);
         tp += attackTimeInterval_;
       }
 
-      int time_Size = outputTime_.size();
+      int time_Size = outputImageTime_.size();
       for (i = 0; i < time_Size - 1; i++) {
         for (j = i + 1; j < time_Size; j++) {
-          if (outputTime_[i] > outputTime_[j]) {
-            tp = outputTime_[i];
-            outputTime_[i] = outputTime_[j];
-            outputTime_[j] = tp;
+          if (outputImageTime_[i] > outputImageTime_[j]) {
+            tp = outputImageTime_[i];
+            outputImageTime_[i] = outputImageTime_[j];
+            outputImageTime_[j] = tp;
           }
         }
       }
 
-      time_Size = outputTime_.size() - 1;
+      time_Size = outputImageTime_.size() - 1;
       for (i = 0; i < time_Size; i++) {
-        if (abs(outputTime_[i] - outputTime_[i + 1]) <= 1.0e-9) {
-          outputTime_.erase(outputTime_.begin() + i);
+        if (abs(outputImageTime_[i] - outputImageTime_[i + 1]) <= 1.0e-9) {
+          outputImageTime_.erase(outputImageTime_.begin() + i);
         }
       }
 
@@ -2094,16 +2122,15 @@ void Controller::parseDoc(const string &docName) {
     testTime = 0.0;
     int j = 0;
     bool done = false;
-    int outputTimeSize = static_cast<int>(outputTime_.size());
-    // GODZILLA: Include time = 0.0
+    int outputImageTimeSize = static_cast<int>(outputImageTime_.size());
     time_.push_back(0.0);
     while (testTime < finalTime) {
       testTime += (0.1 * (testTime + 0.024));
       done = false;
-      if (j < outputTimeSize) {
-        while (j < outputTimeSize && !done) {
-          if (testTime >= outputTime_[j]) {
-            time_.push_back(outputTime_[j]);
+      if (j < outputImageTimeSize) {
+        while (j < outputImageTimeSize && !done) {
+          if (testTime >= outputImageTime_[j]) {
+            time_.push_back(outputImageTime_[j]);
             j++;
           } else if (testTime < finalTime) {
             time_.push_back(testTime);
@@ -2116,7 +2143,6 @@ void Controller::parseDoc(const string &docName) {
         time_.push_back(finalTime);
       }
     }
-
   } catch (FileException fex) {
     fex.printException();
     exit(1);
