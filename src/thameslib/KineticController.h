@@ -11,7 +11,8 @@ different kinetic models that govern the rate of hydration.
 #ifndef SRC_THAMESLIB_KINETICCONTROLLER_H_
 #define SRC_THAMESLIB_KINETICCONTROLLER_H_
 
-#include "../Resources/include/nlohmann/json.hpp"
+#include "global.h"
+// #include "../Resources/include/nlohmann/json.hpp"
 #include "ChemicalSystem.h"
 #include "KineticData.h"
 #include "KineticModel.h"
@@ -19,17 +20,9 @@ different kinetic models that govern the rate of hydration.
 #include "ParrotKillohModel.h"
 #include "PozzolanicModel.h"
 #include "StandardKineticModel.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
+#include "Exceptions.h"
 
-using namespace std;
-using json = nlohmann::json;
+// using json = nlohmann::json;
 
 /**
 @class KineticController
@@ -54,46 +47,65 @@ private:
                                 [hours] */
   double leachTime_; /**< Time at which leaching simulation starts [hours] */
 
-  vector<string> name_; /**< List of names of phases in the kinetic model */
-  vector<string> ICName_;
-  vector<string> DCName_;
-  vector<int> microPhaseId_;      /**< List of microstructure ids that are in
-                                     kinetic model */
-  vector<double> initScaledMass_; /**< List of initial scaled masses */
-  vector<double> scaledMass_;     /**< List of scaled masses */
-  vector<double> specificSurfaceArea_; /**< List of specific surface areas */
-  vector<double>
+  std::vector<std::string> name_; /**< List of names of phases in the kinetic model */
+  // std::vector<std::string> ICName_; /**< Names of ICs in the GEM CSD */
+  // std::vector<std::string> DCName_; /**< Names of DCs in the GEM CSD */
+  std::vector<int> microPhaseId_; /**< List of microstructure ids that are in kinetic
+                                model */
+  std::vector<double> initScaledMass_;      /**< List of initial scaled masses */
+  std::vector<double> scaledMass_;          /**< List of scaled masses */
+  std::vector<double> specificSurfaceArea_; /**< List of specific surface areas */
+  std::vector<double>
       refSpecificSurfaceArea_; /**< List of reference specific surface areas */
-  vector<bool> isKinetic_;
-  // int waterId_;     /**< DC index for liquid water */
-  int ICNum_;       /**< Number of ICs in chemical system */
+  std::vector<bool> isKinetic_; /** vector setting the isKinetic property of each
+                               microPhase in the system; true for a kinetic
+                               controlled microPhase */
+
   int DCNum_;       /**< Number of DCs in chemical system */
   int GEMPhaseNum_; /**< Number of GEM phases in chemical system */
   bool verbose_;    /**< Flag for verbose output */
   bool warning_;    /**< Flag for warnining output */
 
-  vector<double> ICMoles_;
-  vector<double> DCMoles_;
-  vector<double> DCMolesIni_;
-  vector<double> ICMolesTot_;
-  vector<double>
+  std::vector<double> DCMoles_;     /**< vector of all DC moles - after the dissolution
+                                    corresponding to the current time step - to be
+                                    sent to GEMS */
+  std::vector<double> DCMolesIni_;  /**< vector of all DC moles - before to start the
+                                    dissolution corresponding to the current time
+                                    step*/
+  std::vector<double>
       scaledMassIni_; /**< List of scaled masses before a given time step*/
 
-  vector<int> impurityDCID_;
-  vector<double> impurity_K2O_;
-  vector<double> impurity_Na2O_;
-  vector<double> impurity_Per_;
-  vector<double> impurity_SO3_;
+  std::vector<int> impurityDCID_; /**< vector of the DCIds of all impurities contained
+                                  and able to be eliberated by dissolution of each
+                                  kinetic controlled microPhases (in order, DCIds
+                                  of: K2O, Na2O, Per, SO3) */
+  std::vector<double> impurity_K2O_;  /**< the number of K2O moles corresponding to the
+                                      dissolved mass from each kinetic controlled
+                                      microPhase during a given time step */
+  std::vector<double> impurity_Na2O_; /**< the number of Na2O moles corresponding to the
+                                      dissolved mass from each kinetic controlled
+                                      microPhase during a given time step */
+  std::vector<double> impurity_Per_;  /**< the number of MgO moles corresponding to the
+                                      dissolved mass from each kinetic controlled
+                                      microPhase during a given time step */
+  std::vector<double> impurity_SO3_;  /**< the number of SO3 moles corresponding to the
+                                      dissolved mass from each kinetic controlled
+                                      microPhase during a given time step */
 
-  int pKMsize_;
+  int pKMsize_; /**< dimension of the phaseKineticModel_ vector */
 
-  double initScaledCementMass_;
-  double hydTimeIni_;
-  // double hyd_time_;
-  int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double beginAttackTime_;
+  double initScaledCementMass_;  /**< initial scaled cement mass i.e. the sum of all
+                                      scalled masses corresponding to the microPhases
+                                      controlled by the Parrot-Killoh model */
+  double hydTimeIni_;         /**< the time elapsed before the current time step */
+  int waterDCId_;             /**< the DCId coresp to DCName = "H2O@" */
+  double beginAttackTime_;    /**< Simulation time at which to begin the attack
+                                   (sulfate attack for now); hydration stops when
+                                   the current time equqls beginAttackTime_ */
 
-  vector<double> surfaceAreaIni_;
+  std::vector<double> surfaceAreaIni_; /**< vector of surface areas of each microPhase
+                                       before to start the dissolution for a given
+                                       time step */
 
 public:
   /**
@@ -285,7 +297,7 @@ public:
 
   @return the vector of specific surface areas [m2/kg]
   */
-  vector<double> getSpecificSurfaceArea() const { return specificSurfaceArea_; }
+  std::vector<double> getSpecificSurfaceArea() const { return specificSurfaceArea_; }
 
   /**
   @brief Get the specific surface area of one phase
@@ -294,9 +306,7 @@ public:
   @param midx is the microstructure id of the phase to query
   @return the specific surface area [m2/kg]
   */
-  double getSpecificSurfaceArea(const int midx) {
-    return specificSurfaceArea_[midx];
-  }
+  double getSpecificSurfaceArea(const int midx) { return specificSurfaceArea_[midx]; }
 
   /**
   @brief Get the list of reference specific surface areas
@@ -341,9 +351,9 @@ public:
 
   @param sattacktime is the simulation time to begin sulfate attack [hours]
   */
-  void setSulfateAttackTime(double sattacktime) {
-    sulfateAttackTime_ = sattacktime;
-  }
+  // void setSulfateAttackTime(double sattacktime) {
+  //   sulfateAttackTime_ = sattacktime;
+  // }
 
   /**
   @brief Get the simulation time at which to begin external sulfate attack.
@@ -352,14 +362,14 @@ public:
 
   @return the simulation time to begin sulfate attack [hours]
   */
-  double getSulfateAttackTime(void) const { return sulfateAttackTime_; }
+  // double getSulfateAttackTime(void) const { return sulfateAttackTime_; }
 
   /**
   @brief Set the simulation time at which to begin leaching.
 
   @param leachtime is the simulation time to begin leaching [hours]
   */
-  void setLeachTime(double leachtime) { leachTime_ = leachtime; }
+  // void setLeachTime(double leachtime) { leachTime_ = leachtime; }
 
   /**
   @brief Get the simulation time at which to begin leaching.
@@ -368,7 +378,7 @@ public:
 
   @return the simulation time to begin leaching [hours]
   */
-  double getLeachTime(void) const { return leachTime_; }
+  // double getLeachTime(void) const { return leachTime_; }
 
   /**
   @brief Get the list of phase names used by the kinetic model.
@@ -414,10 +424,6 @@ public:
   /**
   @brief Set the effect of pozzolans on Parrot-Killoh kinetics
 
-  @param timestep is the time interval to simulate [hours]
-  @param temperature is the absolute temperature during this step [K]
-  @param isFirst is true if this is the first time step of the simulation, false
-  otherwise
   */
   void setPozzEffectOnPK(void);
 
@@ -435,13 +441,27 @@ public:
   @todo Make the methods more general, less hardwiring of parameters
   @todo Make the local variable names more descriptive
 
+  @param time is the current time of the simulation [hours]
   @param timestep is the time interval to simulate [hours]
-  @param temperature is the absolute temperature during this step [K]
-  @param isFirst is true if this is the first time step of the simulation, false
-  otherwise
+  @param cyc is the iteration number in main iteration loop in
+  Controller::doCycle
   */
   void calculateKineticStep(double time, const double timestep, int cyc);
 
+  /**
+  @brief reset the dissolved number of moles for a kinetic controlled microPhase,
+  having microPhaseId = pId, when the lattice configuration cannot be changed
+  according to the kinetic models/GEMS previsions.
+
+
+  @param cyc is the iteration number in main iteration loop in
+  Controller::doCycle
+  @param pId is the microPhaseId of a kinetic controlled microPhase
+  @param scaledMass is the amount from the initial mass of this microPhase, mass
+  computed by the previuos call of calculateKineticStep, amount that cannot be
+  dissolved because of the current lattice configuration
+  @param timestep is the time interval to simulate [hours]
+  */
   void updateKineticStep(int cyc, int pId, double scaledMass, double timestep);
 
   /**
@@ -449,10 +469,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag
@@ -466,10 +483,7 @@ public:
 
   @param iswarning is true if verbose output should be produced
   */
-  void setWarning(const bool iswarning) {
-    warning_ = iswarning;
-    return;
-  }
+  void setWarning(const bool iswarning) { warning_ = iswarning; }
 
   /**
   @brief Get the warning flag
@@ -478,14 +492,29 @@ public:
   */
   bool getWarning() const { return warning_; }
 
-  vector<double> getICMoles(void) { return ICMoles_; }
+  /**
+  @brief Get the number of moles of every dependent component (DC) in the
+  system.
 
-  vector<double> getDCMoles(void) { return DCMoles_; }
+  @return a vector containing the number of moles of every dependent component
+  (DC) in the system.
+  */
+  std::vector<double> getDCMoles(void) { return DCMoles_; }
 
-  vector<bool> getIsKinetic(void) { return isKinetic_; }
+  /**
+  @brief Set the initial hydration time (hydTimeIni_) at its previous value
+  when the lattice configuration cannot be changed according to the
+  kinetic models/GEMS previsions.
 
+  @param val is the previos value of the initial hydration time (hydTimeIni_).
+  */
   void setHydTimeIni(double val) { hydTimeIni_ = val; }
 
+  /**
+  @brief Set the time at which to begin sulfate attack, in hours.
+
+  @param val is the time at which to begin sulfate attack, in hours.
+  */
   void setIniAttackTime(const double val) { beginAttackTime_ = val; }
 
 }; // End of KineticController class

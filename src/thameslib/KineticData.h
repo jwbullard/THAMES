@@ -50,19 +50,20 @@ component
     - `critDOR` is the critical degree of reaction used in the equation for
         calculating the influence of w/c ratio.
 */
-#include <string>
 
 using namespace std;
 
 #ifndef SRC_THAMESLIB_KINETICDATA_H_
 #define SRC_THAMESLIB_KINETICDATA_H_
 
+#include "global.h"
+
 struct KineticData {
-  string name;       /**< Name of the microstructure phase */
+  std::string name;       /**< Name of the microstructure phase */
   int microPhaseId;  /**< Integer id of the microstructure phase */
   int GEMPhaseId;    /**< Integer id of the phase in the GEM CSD */
   int DCId;          /**< Integer id of the DC making up the phase */
-  string type;       /**< Specifies kinetic or thermodynamic control */
+  std::string type;       /**< Specifies kinetic or thermodynamic control */
   double scaledMass; /**< Mass percent on a total solids basis */
   double surfaceAreaMultiplier; /**< How much to multiply the surface area to
                                    account  for internal structure, roughness,
@@ -89,7 +90,9 @@ struct KineticData {
   double sio2;           /**< Mole fraction SiO2 in material */
   double al2o3;          /**< Mole fraction Al2O3 in material */
   double cao;            /**< Mole fraction CaO in material */
-  double rh;
-  double rhFactor;
+  double rh_;            /**< relative humidity */
+  double rhFactor_;      /**< relative humidity factor, i.e. the correction
+                         of the hydration rate taking into account the
+                         ambient relative humidity */
 };
 #endif // SRC_THAMESLIB_KINETICDATA_H_

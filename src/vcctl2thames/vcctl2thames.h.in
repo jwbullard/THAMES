@@ -21,8 +21,7 @@
 #include <map>
 #include <string>
 #include <vector>
-
-using namespace std;
+#include <algorithm>
 
 bool Verbose;
 bool Debug;
@@ -30,22 +29,22 @@ bool Debug;
 /******************************************************
  * Define strings used in VCCTL header
  ******************************************************/
-const string VCCTL_Version_string = "Version:";
-const string VCCTL_Xsize_string = "X_Size:";
-const string VCCTL_Ysize_string = "Y_Size:";
-const string VCCTL_Zsize_string = "Z_Size:";
-const string VCCTL_ImgSize_string = "Image_Size:";
-const string VCCTL_ImgRes_string = "Image_Resolution:";
+const std::string VCCTL_Version_string = "Version:";
+const std::string VCCTL_Xsize_string = "X_Size:";
+const std::string VCCTL_Ysize_string = "Y_Size:";
+const std::string VCCTL_Zsize_string = "Z_Size:";
+const std::string VCCTL_ImgSize_string = "Image_Size:";
+const std::string VCCTL_ImgRes_string = "Image_Resolution:";
 
 /******************************************************
  * Define strings used in THAMES header
  ******************************************************/
-const string THAMES_Version_string = "#THAMES:Version:";
-const string THAMES_Xsize_string = "#THAMES:X_Size:";
-const string THAMES_Ysize_string = "#THAMES:Y_Size:";
-const string THAMES_Zsize_string = "#THAMES:Z_Size:";
-const string THAMES_ImgRes_string = "#THAMES:Image_Resolution:";
-const string THAMES_Version = "@THAMES_VERSION@";
+const std::string THAMES_Version_string = "#THAMES_Version:";
+const std::string THAMES_Xsize_string = "#X_Size:";
+const std::string THAMES_Ysize_string = "#Y_Size:";
+const std::string THAMES_Zsize_string = "#Z_Size:";
+const std::string THAMES_ImgRes_string = "#Image_Resolution:";
+const std::string THAMES_Version = "@THAMES_VERSION@";
 
 /******************************************************
  * Define phase identifier for all VCCTL species
@@ -200,63 +199,63 @@ const int FINEAGG02INCONCRETE = 64;
 
 const int NPHASES = 65;
 
-const vector<string> Vcctlnames{"Saturated porosity",
-                                "C3S (or generic phase)",
-                                "C2S",
-                                "C3A (cubic)",
-                                "C4AF",
-                                "K2SO4",
-                                "Na2SO4",
-                                "Gypsum",
-                                "Bassanite",
-                                "Anhydrite",
-                                "Silica fume",
-                                "Inert material",
-                                "Slag",
-                                "Aggregate",
-                                "Aluminosilicate glass",
-                                "Calcium aluminate glass",
-                                "Amorphous silica",
-                                "Fly ash C3A",
-                                "Fly ash",
-                                "Portlandite",
-                                "C-S-H",
-                                "C3AH6",
-                                "Ettringite",
-                                "C4AF Ettr",
-                                "Monosulfate",
-                                "Fe(OH)3",
-                                "Pozzolanic C-S-H",
-                                "Slag C-S-H",
-                                "CaCl2",
-                                "Friedel salt",
-                                "Stratlingite",
-                                "Secondary gypsum 1",
-                                "Secondary gypsum 2",
-                                "CaCO3",
-                                "Carboaluminate",
-                                "Brucite",
-                                "Magnesium silicate",
-                                "CaO",
-                                "C3A (ortho)",
-                                "DIFFCSH",
-                                "DIFFCH",
-                                "DIFFGYP",
-                                "DIFFC3A",
-                                "DIFFC4AF",
-                                "DIFFFH3",
-                                "DIFFEttr",
-                                "DIFFCaCO3",
-                                "DIFFASglass",
-                                "DIFFANH",
-                                "DIFFHEM",
-                                "DIFFCAS2",
-                                "DIFFCaCl2",
-                                "DIFFSO4",
-                                "Dried porosity",
-                                "Empty dried porosity",
-                                "Empty porosity",
-                                "Crack porosity"};
+const std::vector<std::string> Vcctlnames{"Saturated porosity",
+                                          "C3S (or generic phase)",
+                                          "C2S",
+                                          "C3A (cubic)",
+                                          "C4AF",
+                                          "K2SO4",
+                                          "Na2SO4",
+                                          "Gypsum",
+                                          "Bassanite",
+                                          "Anhydrite",
+                                          "Silica fume",
+                                          "Inert material",
+                                          "Slag",
+                                          "Aggregate",
+                                          "Aluminosilicate glass",
+                                          "Calcium aluminate glass",
+                                          "Amorphous silica",
+                                          "Fly ash C3A",
+                                          "Fly ash",
+                                          "Portlandite",
+                                          "C-S-H",
+                                          "C3AH6",
+                                          "Ettringite",
+                                          "C4AF Ettr",
+                                          "Monosulfate",
+                                          "Fe(OH)3",
+                                          "Pozzolanic C-S-H",
+                                          "Slag C-S-H",
+                                          "CaCl2",
+                                          "Friedel salt",
+                                          "Stratlingite",
+                                          "Secondary gypsum 1",
+                                          "Secondary gypsum 2",
+                                          "CaCO3",
+                                          "Carboaluminate",
+                                          "Brucite",
+                                          "Magnesium silicate",
+                                          "CaO",
+                                          "C3A (ortho)",
+                                          "DIFFCSH",
+                                          "DIFFCH",
+                                          "DIFFGYP",
+                                          "DIFFC3A",
+                                          "DIFFC4AF",
+                                          "DIFFFH3",
+                                          "DIFFEttr",
+                                          "DIFFCaCO3",
+                                          "DIFFASglass",
+                                          "DIFFANH",
+                                          "DIFFHEM",
+                                          "DIFFCAS2",
+                                          "DIFFCaCl2",
+                                          "DIFFSO4",
+                                          "Dried porosity",
+                                          "Empty dried porosity",
+                                          "Empty porosity",
+                                          "Crack porosity"};
 
 /* Function declarations */
 
@@ -266,21 +265,21 @@ void checkargs(int argc, char **argv);
 
 void printHelp(void);
 
-int readVCCTLImage(string &input_filename, int &xsize, int &ysize, int &zsize,
-                   float &res, vector<int> &mic, map<int, int> &idmap);
+int readVCCTLImage(std::string &input_filename, int &xsize, int &ysize, int &zsize,
+                   float &res, std::vector<int> &mic, std::map<int, int> &idmap);
 
-void openFile(string &input_filename, ifstream &fin);
+void openFile(std::string &input_filename, std::ifstream &fin);
 
-int readVCCTLHeader(ifstream &fin, int &xsize, int &ysize, int &zsize,
+int readVCCTLHeader(std::ifstream &fin, int &xsize, int &ysize, int &zsize,
                     float &res);
 
-int getCorrespondences(vector<int> vcctlid, map<int, int> &corr);
+int getCorrespondences(std::vector<int> vcctlid, std::map<int, int> &corr);
 
-bool isNaturalNumber(string &str);
+bool isNaturalNumber(std::string &str);
 
-int writeTHAMESImage(string input_filename, const int xsize, const int ysize,
-                     const int zsize, const float res, const vector<int> mic,
-                     map<int, int> corr);
+int writeTHAMESImage(std::string input_filename, const int xsize, const int ysize,
+                     const int zsize, const float res, const std::vector<int> mic,
+                     std::map<int, int> corr);
 
-int writeTHAMESHeader(ofstream &fout, const int xsize, const int ysize,
+int writeTHAMESHeader(std::ofstream &fout, const int xsize, const int ysize,
                       const int zsize, const float res);

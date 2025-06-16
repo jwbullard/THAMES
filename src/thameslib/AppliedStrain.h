@@ -8,12 +8,8 @@ Solves the linear elastic state of the finite element mesh.
 #ifndef SRC_THAMESLIB_APPLIEDSTRAIN_H_
 #define SRC_THAMESLIB_APPLIEDSTRAIN_H_
 
+#include "global.h"
 #include "ElasticModel.h"
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <string>
-#include <vector>
 
 /**
 @class AppliedStrain
@@ -83,8 +79,7 @@ protected:
   double eyz_; /**< yz off-diagonal component of applied strain */
   double exy_; /**< xy off-diagonal component of applied strain */
 
-  int kmax_; /**< number of relaxation steps for an elastic computation
-              */
+  int kmax_; /**< the number of relaxation steps for a given elastic computation */
 
 public:
   /**
@@ -181,7 +176,7 @@ public:
   @param eyz is the yz component of the applied strain
   @param exy is the xy component of the applied strain
   */
-  void calc(string fileName, double exx, double eyy, double ezz, double exz,
+  void calc(std::string fileName, double exx, double eyy, double ezz, double exz,
             double eyz, double exy);
 
   /**
@@ -190,7 +185,7 @@ public:
   @param fileName is the file name for the microstructure image
   @return the bulk modulus (GPa)
   */
-  double getBulkModulus(string fileName);
+  double getBulkModulus(std::string fileName);
 
 }; // End of AppliedStrain class
 

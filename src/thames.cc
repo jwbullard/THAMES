@@ -4,8 +4,9 @@
 */
 
 #include "thames.h"
-#include "version.h"
-#include <limits>
+
+using std::cout; using std::cin; using std::endl;
+using std::string;
 
 /**
 @brief The main block for running THAMES.
@@ -15,8 +16,6 @@
 int main(int argc, char **argv) {
 
   // Check command line arguments
-
-  using std::cout, std::cin, std::string, std::endl;
 
   string outputFolder;
   cout << scientific << setprecision(15);
@@ -213,6 +212,9 @@ int main(int argc, char **argv) {
     errorProgram = true;
   } catch (FloatException flex) {
     flex.printException();
+    errorProgram = true;
+  } catch (DataException dex) {
+    dex.printException();
     errorProgram = true;
   }
   if (errorProgram) {
@@ -435,9 +437,9 @@ void deleteDynAllocMem(ChemicalSystem *ChemSys, Lattice *Mic, RanGen *RNG,
                        AppliedStrain *AppliedStrainSolver,
                        KineticController *KController, Controller *Ctrl,
                        clock_t st_time, time_t lt, bool errorProgram,
-                       const std::string &outputFolder) {
+                       const string &outputFolder) {
 
-  std::string buff = "";
+  string buff = "";
   int resCallSystem;
 
   if (Ctrl) {
@@ -466,7 +468,7 @@ void deleteDynAllocMem(ChemicalSystem *ChemSys, Lattice *Mic, RanGen *RNG,
   // Move remaining output files to output folder
   //
 
-  std::string name = "ipmlog.txt";
+  string name = "ipmlog.txt";
   ifstream f(name.c_str());
   if (f.good()) {
     buff = "mv -f ipmlog.txt " + outputFolder + "/.";
@@ -512,7 +514,7 @@ void timeCount(clock_t time_, time_t lt_) {
   cout << endl << asctime(inittime1);
   clock_t endtime = clock();
 
-  double elapsedtime = (double)(endtime - time_) / CLOCKS_PER_SEC;
+  double elapsedtime = static_cast<double>(endtime - time_) / CLOCKS_PER_SEC;
   double ltD = difftime(lt1, lt_);
   cout << endl << "Total time = " << ltD << " seconds" << endl;
   cout << endl
@@ -536,7 +538,7 @@ void printHelp(void) {
   return;
 }
 
-int checkArgs(int argc, char **argv, std::string &outputFolder) {
+int checkArgs(int argc, char **argv, string &outputFolder) {
 
   // Many of the variables here are defined in the getopts.h system header file
   // Can define more options here if we want
@@ -549,7 +551,6 @@ int checkArgs(int argc, char **argv, std::string &outputFolder) {
                               {"help", no_argument, nullptr, 'h'},
                               {nullptr, no_argument, nullptr, 0}};
 
-  using std::cout, std::endl;
   VERBOSE = false;
   WARNING = true;
   XYZ = false;
@@ -597,21 +598,20 @@ int checkArgs(int argc, char **argv, std::string &outputFolder) {
   return (0);
 }
 
-void prepOutputFolder(const std::string &outputFolder, std::string &jobRoot,
-                      const std::string &gemInputName,
-                      std::string &statFileName, const std::string &initMicName,
-                      const std::string &simParamName) {
+void prepOutputFolder(const string &outputFolder, string &jobRoot,
+                      const string &gemInputName, string &statFileName,
+                      const string &initMicName, const string &simParamName) {
 
   int resCallSystem;
 
-  std::string buff = "mkdir -p " + outputFolder;
+  string buff = "mkdir -p " + outputFolder;
   resCallSystem = system(buff.c_str());
   if (resCallSystem == -1) {
     throw FileException("thames", "prepOutputFolder", buff, "FAILED");
   }
   jobRoot = outputFolder + "/" + jobRoot;
-  std::cout << "   - jobRoot           :  " << jobRoot << std::endl;
-  std::cout.flush();
+  cout << "   - jobRoot           :  " << jobRoot << endl;
+  cout.flush();
 
   statFileName = jobRoot + ".stats";
 
@@ -619,7 +619,7 @@ void prepOutputFolder(const std::string &outputFolder, std::string &jobRoot,
   // and copy them to the output folder
 
   ifstream in(gemInputName);
-  std::string buff1;
+  string buff1;
   in >> buff1; // discard flag
 
   // DCH file
@@ -678,18 +678,15 @@ void prepOutputFolder(const std::string &outputFolder, std::string &jobRoot,
     throw FileException("thames", "prepOutputFolder", buff, "FAILED");
   }
 
-  std::cout << "     => All input files have been copied into " << outputFolder
-            << " folder" << std::endl;
+  cout << "     => All input files have been copied into " << outputFolder
+       << " folder" << endl;
 
   return;
 }
 
-void writeReport(const std::string &jobRoot, struct tm *itime,
-                 const std::string &initMicName,
-                 const std::string &simParamName, const std::string &csdName,
-                 ChemicalSystem *csys) {
-
-  using std::string, std::cout, std::cin, std::endl;
+void writeReport(const string &jobRoot, struct tm *itime,
+                 const string &initMicName, const string &simParamName,
+                 const string &csdName, ChemicalSystem *csys) {
 
   string statName = jobRoot + ".stats";
   string jFileName = jobRoot + ".report";

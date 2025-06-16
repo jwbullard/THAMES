@@ -5,7 +5,7 @@
 */
 #include "KineticModel.h"
 
-using namespace std;
+using std::cout; using std::endl;
 
 KineticModel::KineticModel() {
   ///

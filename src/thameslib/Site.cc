@@ -5,7 +5,9 @@
 */
 
 #include "Site.h"
-#include "ChemicalSystem.h"
+
+using std::cout; using std::endl;
+using std::vector;
 
 Site::Site() {
   x_ = y_ = z_ = 0;
@@ -59,4 +61,68 @@ void Site::calcWmc(void) {
   for (int i = 0; i < NN_NNN; i++) {
     wmc_ += chemSys_->getMicroPhasePorosity(nb_[i]->getMicroPhaseId());
   }
+}
+
+vector<int> Site::getXYZ() {
+  vector<int> v(3, 0);
+  v[0] = x_;
+  v[1] = y_;
+  v[2] = z_;
+  return v;
+}
+
+void Site::setGrowthSite(int pid) {
+  vector<int>::iterator start = growth_.begin();
+  vector<int>::iterator end = growth_.end();
+  vector<int>::iterator p = find(start, end, pid);
+  if (p == growth_.end())
+    growth_.push_back(pid);
+}
+
+void Site::removeGrowthSite(int pid) {
+  bool found = false;
+  int size = growth_.size();
+  int i = -1;
+
+  for (i = 0; i < size; i++) {
+    if (growth_[i] == pid) {
+      growth_[i] = growth_[size - 1];
+      growth_.pop_back();
+      found = true;
+      break;
+    }
+  }
+  if (found == false) {
+    cout << endl << " stop - void removeGrowthSite(int pid) " << endl;
+    cout.flush();
+    cout << endl << "i size pid " << i << " " << size << " " << pid << endl;
+    exit(1);
+  }
+}
+
+void Site::setStressFreeVolume(double vol) {
+  if (vol < 0) {
+    cout
+        << "in the setStrfreevolume function...volume should not be negative."
+        << endl;
+    cerr
+        << "in the setStrfreevolume function...volume should not be negative."
+        << endl;
+    exit(1);
+  } else {
+    stressFreeVolume_ = vol;
+  }
+}
+
+void Site::setTrueVolume(double vol) {
+  if (vol < 0) {
+    cout << "in the setTrueVolume function...volume should not be negative."
+         << endl;
+    cerr << "in the setTrueVolume function...volume should not be negative."
+         << endl;
+    exit(1);
+  } else {
+    trueVolume_ = vol;
+  }
+  return;
 }

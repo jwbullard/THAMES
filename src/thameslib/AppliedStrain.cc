@@ -3,7 +3,9 @@
 @brief Method definitions for the AppliedStrain derived class.
 */
 #include "AppliedStrain.h"
-#include <iostream>
+
+using std::cout; using std::endl;
+using std::string;
 
 using namespace std;
 
@@ -101,7 +103,7 @@ void AppliedStrain::femat() {
           nm += 1;
         if (k == 1)
           nm += 1;
-        g[i][j][k] = pow((double)4, (double)nm);
+        g[i][j][k] = pow(4.0, static_cast<double>(nm));
       }
     }
   }
@@ -1218,9 +1220,9 @@ void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
     for (int j = 0; j < ny_; j++) {
       for (int i = 0; i < nx_; i++) {
         m = nxy_ * k + nx_ * j + i;
-        // double x = (double)i;
-        // double y = (double)j;
-        // double z = (double)k;
+        // double x = static_cast<double>(i);
+        // double y = static_cast<double>(j);
+        // double z = static_cast<double>(k);
         // u_[m][0] = x * exx + y * exy + z * exz;
         // u_[m][1] = x * exy + y * eyy + z * eyz;
         // u_[m][2] = x * exz + y * eyz + z * ezz;

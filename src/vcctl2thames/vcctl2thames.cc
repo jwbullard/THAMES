@@ -1,11 +1,6 @@
 #include "vcctl2thames.h"
-#include <algorithm>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
+
+using namespace std;
 
 int main(int argc, char **argv) {
   int xsize, ysize, zsize;
@@ -138,7 +133,7 @@ int readVCCTLImage(string &input_filename, int &xsize, int &ysize, int &zsize,
     // Search to see if this id has already been found
 
     found = false;
-    for (int j = 0; (j < vcctlid.size()) && (!found); ++j) {
+    for (int j = 0; (j < static_cast<int>(vcctlid.size())) && (!found); ++j) {
       if (ival == vcctlid.at(j))
         found = true;
     }
@@ -148,7 +143,7 @@ int readVCCTLImage(string &input_filename, int &xsize, int &ysize, int &zsize,
         cout << "Verbose: Found VCCTL " << ival
              << ". Recognized values so far:" << endl;
         cout << "    ";
-        for (int jj = 0; jj < vcctlid.size(); ++jj) {
+        for (int jj = 0; jj < static_cast<int>(vcctlid.size()); ++jj) {
           cout << vcctlid.at(jj) << " ";
         }
         cout << endl;
@@ -243,7 +238,7 @@ int getCorrespondences(vector<int> vcctlid, map<int, int> &corr) {
        << "*** to each of the following VCCTL phases:" << endl
        << endl;
 
-  while (i < vcctlid.size()) {
+  while (i < static_cast<int>(vcctlid.size())) {
     cout << "%% Found VCCTL phase \"" << Vcctlnames[vcctlid[i]] << "\"" << endl;
     validinput = false;
     do {
@@ -270,7 +265,7 @@ int getCorrespondences(vector<int> vcctlid, map<int, int> &corr) {
 
 bool isNaturalNumber(string &str) {
 
-  for (int i = 0; i < str.length(); ++i) {
+  for (int i = 0; i < static_cast<int>(str.length()); ++i) {
     if (isdigit(str[i]) == false) {
       return false;
     }
@@ -299,7 +294,7 @@ int writeTHAMESImage(string input_filename, const int xsize, const int ysize,
   }
 
   map<int, int>::iterator it;
-  for (int i = 0; i < mic.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(mic.size()); ++i) {
     it = idmap.find(mic.at(i));
     if (it != idmap.end()) {
       fout << it->second << endl;

@@ -17,17 +17,13 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #ifndef SRC_THAMESLIB_POZZOLANICMODEL_H_
 #define SRC_THAMESLIB_POZZOLANICMODEL_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "ChemicalSystem.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 using namespace std;
 
@@ -62,9 +58,11 @@ protected:
   double al2o3_;  /**< Mass fraction of Al2O3 (unitless) */
   double cao_;    /**< Mass fraction of CaO (unitless) */
 
-  double rh_;
-  double rhFactor_;
-  double arrhenius_;
+  double rh_;        /**< relative humidity */
+  double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
+                     hydration rate taking into account the ambient relative
+                     humidity */
+  double arrhenius_; /**< arrhenius factor */
 
 public:
   /**

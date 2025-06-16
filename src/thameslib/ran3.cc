@@ -7,7 +7,6 @@ W.T., Flannery, B.P., Numerical Recipes in C, 2nd Edition, University Press,
 London, 1997.
 */
 #include "ran3.h"
-#include "global.h"
 
 #define MBIG 1000000000
 #define MSEED 161803398

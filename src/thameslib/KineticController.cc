@@ -5,7 +5,8 @@
 */
 #include "KineticController.h"
 
-using namespace std;
+using std::cout; using std::endl;
+using std::string; using std::vector;
 
 KineticController::KineticController() {
   temperature_ = 293.15;
@@ -27,11 +28,9 @@ KineticController::KineticController() {
   specificSurfaceArea_.clear();
   refSpecificSurfaceArea_.clear();
   isKinetic_.clear();
-  // waterId_ = 1;
-  ICNum_ = 0;
-  ICName_.clear();
+  // ICName_.clear();
   DCNum_ = 0;
-  DCName_.clear();
+  // DCName_.clear();
   GEMPhaseNum_ = 0;
 
   ///
@@ -128,7 +127,7 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
 
   if (verbose_) {
     cout << "KineticController::KineticController Finished reading "
-            "chemistry.json "
+            "simparams.json "
          << endl;
     int size = microPhaseId_.size();
     for (int i = 0; i < size; ++i) {
@@ -145,15 +144,12 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
 
   // Assign the DC index for water
 
-  // waterId_ = chemSys_->getDCId(WaterDCName);
-  ICNum_ = chemSys_->getNumICs();
   DCNum_ = chemSys_->getNumDCs();
-  ICName_ = chemSys_->getICName();
-  DCName_ = chemSys_->getDCName();
+  // ICName_ = chemSys_->getICName();
+  // DCName_ = chemSys_->getDCName();
   GEMPhaseNum_ = chemSys_->getNumGEMPhases();
 
-  ICMoles_.resize(ICNum_, 0.0);
-  ICMolesTot_.resize(ICNum_, 0.0);
+  // ICMolesTot_.resize(ICNum_, 0.0);
   DCMoles_.resize(DCNum_, 0.0);
   DCMolesIni_.resize(DCNum_, 0.0);
 
@@ -292,7 +288,7 @@ void KineticController::parseMicroPhases(const json::iterator it, int &numEntry,
   json::iterator cdi = it.value().find("phases");
   json::iterator p = cdi.value().begin();
 
-  for (int i = 0; i < (int)(cdi.value().size()); ++i) {
+  for (int i = 0; i < static_cast<int>(cdi.value().size()); ++i) {
     initKineticData(kineticData);
     isKinetic_.push_back(false);
     p = cdi.value()[i].find("thamesname");
@@ -845,8 +841,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   // cout << endl << "impurityDCID : " << endl;
   // for(i = 0; i < chemSys_->getNumMicroImpurities(); i++){
-  //     cout << i << "\t" << impurityDCID[i] << endl;
-  //     cout.flush();
+  //     cout << i << "\t" << impurityDCID[i] << endl; cout.flush();
   // }
   // cout << endl ;
 
@@ -861,10 +856,6 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   double numDCMolesDissolved, scaledMass, massDissolved;
 
   double hyd_time = hydTimeIni_ + timestep;
-
-  for (i = 0; i < ICNum_; i++) {
-    ICMoles_[i] = 0.0;
-  }
 
   chemSys_->initDCLowerLimit(0); // check!
 
@@ -926,8 +917,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   if (hyd_time < beginAttackTime_) {
 
     try {
-      // cout << "  KineticController::calculateKineticStep     hyd_time =
-      // "
+      // cout << "  KineticController::calculateKineticStep     hyd_time = "
       //      << hyd_time << "\tcyc = " << cyc << endl;
 
       // if (!doTweak) {
@@ -978,8 +968,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
           cout << endl
                << "     KineticController::calculateKineticStep error - "
-                  "initScaledCementMass_ = 0 "
-                  "while numPKMphases = "
+                  "initScaledCementMass_ = 0  while numPKMphases = "
                << numPKMphases << " :" << endl;
           for (int midx = 0; midx < pKMsize_; ++midx) {
             phaseDissolvedId[midx] =
@@ -1002,8 +991,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       if (totalDOR < 0) {
         cout << endl
              << "     KineticController::calculateKineticStep error : totalDOR "
-                "< 0"
-             << endl;
+                "< 0" << endl;
         cout << endl
              << "        cyc/doTweak/timesGEMFailed : " << cyc << " / "
              << doTweak << " / " << chemSys_->getTimesGEMFailed() << endl;
@@ -1182,12 +1170,11 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   }
 
   for (i = 0; i < DCNum_; i++) {
-    // cout << " " << i << "\t" << DCName_[i] << ": " << DCMoles_[i] << "
-    // mol"
+    // cout << " " << i << "\t" << DCName_[i] << ": " << DCMoles_[i] << " mol"
     // << endl;
     chemSys_->setDCMoles(i, DCMoles_[i]);
-    // cout << "          " << DCName_[i] << ": " <<
-    // chemSys_->getDCMoles(i) << " mol" << endl;
+    // cout << "          " << DCName_[i] << ": " << chemSys_->getDCMoles(i) <<
+    // " mol" << endl;
   }
 
   return;
@@ -1202,10 +1189,6 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
   double numDCMolesDissolved, massDissolved;
 
   double hyd_time = hydTimeIni_ + timestep;
-
-  for (int i = 0; i < ICNum_; i++) {
-    ICMoles_[i] = 0.0;
-  }
 
   int midx;
   int DCId = -1;
@@ -1342,12 +1325,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
     }
 
     for (int i = 0; i < DCNum_; i++) {
-      // cout << " " << i << "\t" << DCName_[i] << ": " << DCMoles_[i] << "
-      // mol"
+      // cout << " " << i << "\t" << DCName_[i] << ": " << DCMoles_[i] << " mol"
       // << endl;
       chemSys_->setDCMoles(i, DCMoles_[i]);
-      // cout << "          " << DCName_[i] << ": " <<
-      // chemSys_->getDCMoles(i)
+      // cout << "          " << DCName_[i] << ": " << chemSys_->getDCMoles(i)
       // << " mol" << endl;
     }
   }

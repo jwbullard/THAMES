@@ -6,5 +6,5 @@ of alite at 298 K under sealed conditions.
 The system is 100 x 100 x 100 voxels, with each voxel being 1 micrometer in
 dimension.
 
-The user may edit the chemistry.json file to change the moisture conditions from sealed
+The user may edit the simparams.json file to change the moisture conditions from sealed
 to saturated.

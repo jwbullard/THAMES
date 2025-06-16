@@ -5,11 +5,12 @@
 */
 #include "ElasticModel.h"
 
-using namespace std;
+using std::cout; using std::cerr; using std::endl;
+using std::string; using std::vector;
 
 ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
-                           int npoints, const bool verbose, const bool warning)
-    : chemSys_(cs) {
+                           int npoints, const bool verbose,
+                           const bool warning) : chemSys_(cs) {
   ///
   /// Assign the dimensions of the finite element (FE) mesh
   ///
@@ -295,8 +296,7 @@ void ElasticModel::ElasModul(void) {
 
   // ifstream in(phasemod_fileName.c_str());
   // if (!in) {
-  //   cout << "ElasticModel::ElasModul can't open the file: " <<
-  //   phasemod_fileName
+  //   cout << "ElasticModel::ElasModul can't open the file: " << phasemod_fileName
   //        << endl;
   //  cout.flush();
   //  exit(1);
@@ -470,7 +470,7 @@ void ElasticModel::initStiffness(void) {
           nm += 1;
         if (k == 1)
           nm += 1;
-        g[i][j][k] = pow((double)4, (double)nm);
+        g[i][j][k] = pow(4.0, static_cast<double>(nm));
       }
     }
   }
@@ -486,9 +486,9 @@ void ElasticModel::initStiffness(void) {
     for (int k = 0; k < 3; k++) {
       for (int j = 0; j < 3; j++) {
         for (int i = 0; i < 3; i++) {
-          x = ((float)(i)) / 2.0;
-          y = ((float)(j)) / 2.0;
-          z = ((float)(k)) / 2.0;
+          x = i / 2.0;
+          y = j / 2.0;
+          z = k / 2.0;
 
           ///
           /// dndx means the negative derivative, with respect to x,
@@ -673,11 +673,9 @@ void ElasticModel::ppixel(string fileName) {
 
     // for (int m = 0; m < ns_; m++) {
     //   if (pix_[m] < 0) {
-    //     cout << "Phase label in pix < 0 --- error at " << m <<
-    //     endl;
+    //     cout << "Phase label in pix < 0 --- error at " << m << endl;
     //   } else if (pix_[m] >= nphase_) {
-    //     cout << "Phase label in pix >= nphase_ --- error at " << m <<
-    //     endl;
+    //     cout << "Phase label in pix >= nphase_ --- error at " << m << endl;
     //   }
     // }
   }
@@ -736,7 +734,7 @@ void ElasticModel::ppixel(vector<int> *p_vectPhId) {
   */
 
   for (int i = 0; i < ns_; i++) {
-    pix_[i] = (*p_vectPhId)[i];
+    pix_[i] = p_vectPhId->at(i);
   }
 
   // cout << endl << "ini ppixel vector:" << endl;
@@ -872,7 +870,7 @@ void ElasticModel::writeStress(string &root, double time, int index) {
     ///
 
     ostringstream ostr;
-    ostr << (int)(time * 60.0);
+    ostr << static_cast<int>(time * 60.0);
     string timestr(ostr.str());
     string ofileName(root);
     string ofpngname(root);
@@ -933,8 +931,8 @@ void ElasticModel::writeStress(string &root, double time, int index) {
     for (int k = 0; k < nz_; k++) {
       for (int j = 0; j < nz_; j++) {
         m = nxy_ * k + nx_ * j + slice;
-        color[1] = (int)(((elestress_[m][index] - min) / (max - min)) * 255);
-        color[2] = (int)(((elestress_[m][index] - min) / (max - min)) * 255);
+        color[1] = static_cast<int>(((elestress_[m][index] - min) / (max - min)) * 255);
+        color[2] = static_cast<int>(((elestress_[m][index] - min) / (max - min)) * 255);
         out << color[0] << " " << color[1] << " " << color[2] << endl;
       }
     }
@@ -951,11 +949,10 @@ void ElasticModel::writeStress(string &root, double time, int index) {
     int resCallSystem = system(buff.c_str());
     if (resCallSystem == -1) {
       // handle the error;
-      cout
-          << endl
-          << endl
-          << "    ElasticModel.cc - error in writeStress() : resCallSystem = -1"
-          << endl;
+      cout << endl
+           << endl
+           << "    ElasticModel.cc - error in writeStress() : resCallSystem = -1"
+           << endl;
       cout << endl << "    STOP program" << endl;
       // throw HandleException ("writeStress", "ElasticModel.cc",
       //                "system(buff.c_str())", "resCallSystem = -1");
@@ -990,7 +987,7 @@ void ElasticModel::writeStrain(string &root, double time, int index) {
     ///
 
     ostringstream ostr;
-    ostr << (int)(time * 60.0);
+    ostr << static_cast<int>(time * 60.0);
     string timestr(ostr.str());
     string ofileName(root);
     string ofpngname(root);
@@ -1042,8 +1039,8 @@ void ElasticModel::writeStrain(string &root, double time, int index) {
     for (int k = 0; k < nz_; k++) {
       for (int j = 0; j < nz_; j++) {
         m = nxy_ * k + nx_ * j + slice;
-        color[1] = (int)(((elestrain_[m][index] - min) / (max - min)) * 255);
-        color[2] = (int)(((elestrain_[m][index] - min) / (max - min)) * 255);
+        color[1] = static_cast<int>(((elestrain_[m][index] - min) / (max - min)) * 255);
+        color[2] = static_cast<int>(((elestrain_[m][index] - min) / (max - min)) * 255);
         out << color[0] << " " << color[1] << " " << color[2] << endl;
       }
     }
@@ -1060,12 +1057,11 @@ void ElasticModel::writeStrain(string &root, double time, int index) {
     int resCallSystem = system(buff.c_str());
     if (resCallSystem == -1) {
       // handle the error;
-      cout
-          << endl
-          << endl
-          << "    ElasticModel.cc - error in writeStrain() : resCallSystem = -1"
-          << endl;
-      cout << endl << "    STOP program" << endl;
+      cout << endl
+           << endl
+           << "    ElasticModel.cc - error in writeStrain() : resCallSystem = -1"
+           << endl;
+      cout << endl <<"    STOP program" << endl;
       // throw HandleException ("writeStrain", "ElasticModel.cc",
       //                "system(buff.c_str())", "resCallSystem = -1");
       exit(1);
@@ -1091,7 +1087,7 @@ void ElasticModel::writeDisp(string &root, string timeString) {
   ///
 
   // ostringstream ostr;
-  // ostr << (int)(time * 60.0);
+  // ostr << static_cast<int>(time * 60.0);
   // string timestr(ostr.str());
   string ofileName(root);
   // ofileName = ofileName + "." + "disp." + timestr + ".dat";
@@ -1108,8 +1104,7 @@ void ElasticModel::writeDisp(string &root, string timeString) {
   //   for (int j = 0; j < ny_; j++) {
   //     for (int i = 0; i < nx_; i++) {
   //       m = nxy_ * k + nx_ * j + i;
-  //       out << u_[m][0] << "    " << u_[m][1] << "    " << u_[m][2] <<
-  //       endl;
+  //       out << u_[m][0] << "    " << u_[m][1] << "    " << u_[m][2] << endl;
   //     }
   //   }
   // }
@@ -1145,7 +1140,7 @@ void ElasticModel::writeStrainEngy(string &root, double time) {
   ///
 
   ostringstream ostr;
-  ostr << (int)(time * 60.0);
+  ostr << static_cast<int>(time * 60.0);
   string timestr(ostr.str());
   string ofileName(root);
   string ofpngname(root);
@@ -1181,8 +1176,8 @@ void ElasticModel::writeStrainEngy(string &root, double time) {
   for (int k = 0; k < nz_; k++) {
     for (int j = 0; j < nz_; j++) {
       m = nxy_ * k + nx_ * j + slice;
-      color[1] = (int)(((strainengy_[m] - min) / (max - min)) * 255);
-      color[2] = (int)(((strainengy_[m] - min) / (max - min)) * 255);
+      color[1] = static_cast<int>(((strainengy_[m] - min) / (max - min)) * 255);
+      color[2] = static_cast<int>(((strainengy_[m] - min) / (max - min)) * 255);
       out << color[0] << " " << color[1] << " " << color[2] << endl;
     }
   }
@@ -1201,13 +1196,29 @@ void ElasticModel::writeStrainEngy(string &root, double time) {
     // handle the error;
     cout << endl
          << endl
-         << "    ElasticModel.cc - error in writeStrainEngy() : "
-            "resCallSystem = -1"
-         << endl;
+         << "    ElasticModel.cc - error in writeStrainEngy() : resCallSystem = "
+            "-1" << endl;
     cout << endl << "    STOP program" << endl;
     // throw HandleException ("writeStrainEngy", "ElasticModel.cc",
-    //                 "system(buff.c_str())", "resCallSystem = -1");
+    //                "system(buff.c_str())", "resCallSystem = -1");
     exit(1);
   }
+  return;
+}
+
+void ElasticModel::assig(void) {
+  for (int i = 0; i < nphase_; i++) {
+    prob_[i] = 0.0;
+  }
+
+  for (int m = 0; m < ns_; m++) {
+    prob_[pix_[m]] += 1;
+  }
+
+  double ns_dbl = ns_;
+  for (int i = 0; i < nphase_; i++) {
+    prob_[i] = prob_[i] / ns_dbl; // check!
+  }
+
   return;
 }

@@ -4,8 +4,8 @@
 
 */
 #include "Interface.h"
-#include "ChemicalSystem.h"
-#include "RanGen.h"
+
+using std::vector;
 
 using namespace std;
 
@@ -33,8 +33,8 @@ Interface::Interface(const bool verbose) {
 #endif
 }
 
-Interface::Interface(ChemicalSystem *csys, vector<Site *> gv, vector<Site *> dv,
-                     unsigned int pid, const bool verbose) {
+Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
+                     vector<Site *> dv, unsigned int pid, const bool verbose) {
   int j;
   int i;
   double afty;
@@ -117,24 +117,13 @@ void Interface::removeGrowthSite(int pos0, int pos1) {
   growthSites_.pop_back();
 }
 
-void Interface::removeEmptiedSite(int pos0, int pos1) {
-  // if (pos0 != pos1)
-  // try {
-  growthSites_[pos0] = growthSites_[pos1];
-  growthSites_.pop_back();
-  //} catch (out_of_range &oor) {
-  //  cout << endl << "EOB Interface::removeEmptiedSite pos0/pos1 = "
-  //  << pos0 <<" / " << pos1 << " => exit" << endl; exit(1);
-  //}
-}
-
 void Interface::removeDissolutionSite(int pos0, int pos1) {
   // if (pos0 != pos1)
   // try {
   dissolutionSites_[pos0] = dissolutionSites_[pos1];
   dissolutionSites_.pop_back();
   //} catch (out_of_range &oor) {
-  //  cout << endl << "EOB Interface::removeDissolutionSite pos0/pos1
-  //  = " << pos0 <<" / " << pos1 << " => exit" << endl; exit(1);
+  //  cout << endl << "EOB Interface::removeDissolutionSite pos0/pos1 = " << pos0 <<" / " << pos1 << " => exit" << endl;
+  //  exit(1);
   //}
 }

@@ -109,6 +109,8 @@ Department of Commerce, April, 2000.
 #ifndef SRC_THAMES_H_
 #define SRC_THAMES_H_
 
+#include "thameslib/global.h"
+#include "thameslib/Exceptions.h"
 #include "thameslib/AppliedStrain.h"
 #include "thameslib/ChemicalSystem.h"
 #include "thameslib/Controller.h"
@@ -119,13 +121,9 @@ Department of Commerce, April, 2000.
 #include "thameslib/Site.h"
 #include "thameslib/StrainEnergy.h"
 #include "thameslib/ThermalStrain.h"
-#include "thameslib/global.h"
-#include <ctime>
-#include <fstream>
+// #include "version.h"
+
 #include <getopt.h>
-#include <iostream>
-#include <string>
-#include <vector>
 
 /**
 @brief Flag for verbose output
@@ -141,6 +139,11 @@ bool WARNING;
 @brief Flag for creating an xyz file for 3D movie
 */
 bool XYZ;
+
+/**
+@brief Name of output folder for simulation results
+*/
+string outputFolder;
 
 /**
 @brief The vector of component elastic energies.

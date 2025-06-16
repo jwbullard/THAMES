@@ -5,7 +5,7 @@
 */
 #include "StandardKineticModel.h"
 
-using namespace std;
+using std::cout; using std::endl;
 
 StandardKineticModel::StandardKineticModel() {
 

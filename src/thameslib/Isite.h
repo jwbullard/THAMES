@@ -12,7 +12,8 @@ variable, similar in some ways to weighted mean curvature of an interface
 #ifndef SRC_THAMESLIB_ISITE_H_
 #define SRC_THAMESLIB_ISITE_H_
 
-#include "Site.h"
+#include "global.h"
+#include "Exceptions.h"
 
 /**
 @class Declaration of the Isite class.
@@ -24,8 +25,8 @@ private:
   int id_;          /**< The id of the corresponding Site */
   double affinity_; /**< The affinity for growth of a phase at the site */
   bool verbose_;    /**< Flag for whether to produce verbose output */
-  double prob_; /**< The growth probability of a phase at this site (computed
-                   according the affinity) */
+  double prob_;     /**< The growth probability of a phase at this site (computed
+                       according the affinity) */
 
 public:
   /**
@@ -55,37 +56,47 @@ public:
   Isite &operator=(const Isite &obj); // copy assignment operator
 
   /**
-  @brief Get the id number of the corresponding Site object.
+  @brief Get the id number of the this Isite object
+  (the id_ of the corresponding Site object).
 
-  @return the id number of the corresponding Site object
+  @return the id number of this Isite object
+  (the id_ of the corresponding Site object).
   */
   int getId(void) const { return id_; }
 
   /**
-  @brief Set the id number of the corresponding Site object.
+  @brief Set the id number of this Isite object
+  (the id_ of the corresponding Site object).
 
   @todo Maybe the argument should be declared const
 
-  @param idval is the id number of the corresponding Site object
+  @param idval is the id number of this Isite object
+  (the id_ of the corresponding Site object).
   */
   void setId(int idval) { id_ = idval; }
 
   /**
-  @brief Get the growth affinity of the corresponding Site object.
+  @brief Get the growth affinity of this Isite object.
 
-  @return the growth affinity of the corresponding Site object
+  @return the growth affinity of this Isite object
   */
   double getAffinity(void) const { return affinity_; }
 
   /**
-  @brief Set the growth affinity of the corresponding Site object.
+  @brief Set the growth affinity of this Isite object.
 
-  @todo Maybe the argument should be declared const
+  @note NOT USED.
 
-  @param num is the growth affinity of the corresponding Site object
+  @param num is the growth affinity of this Isite object
   */
   void setAffinity(double num) { affinity_ = num; }
 
+  /**
+  @brief Update the growth affinity of this Isite object.
+
+  @param afty is the value that must be added to the already growth
+  affinity value of this Isite object
+  */
   void updateAffinity(double afty) { affinity_ += afty; }
 
   /**
@@ -93,10 +104,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag

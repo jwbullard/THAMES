@@ -17,8 +17,15 @@ will take on more distinct details later.
 #ifndef SRC_THAMESLIB_EXCEPTIONS_H_
 #define SRC_THAMESLIB_EXCEPTIONS_H_
 
-#include <iostream>
-#include <string>
+#include "global.h"
+
+// class EOBException
+// class FileException
+// class FloatException
+// class HandleException
+// class GEMException
+// class MicrostructureException
+// class DataException
 
 using namespace std;
 
@@ -31,9 +38,9 @@ an out of bounds element of an array.
 class EOBException {
 
 private:
-  string arrayname_;    /**< Name of the array accessed */
-  string classname_;    /**< Name of the class that accessed the array */
-  string functionname_; /**< Name of the method that accessed the array */
+  std::string arrayname_;    /**< Name of the array accessed */
+  std::string classname_;    /**< Name of the class that accessed the array */
+  std::string functionname_; /**< Name of the method that accessed the array */
   int sizelimit_;       /**< Number of elements contained in the array */
   int indx_;            /**< Out-of-bounds element number that was queried */
 
@@ -43,13 +50,7 @@ public:
   values.
 
   */
-  EOBException() {
-    classname_ = "";
-    functionname_ = "";
-    arrayname_ = "";
-    sizelimit_ = 0;
-    indx_ = 0;
-  }
+  EOBException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -60,14 +61,8 @@ public:
   @param sl is the total number of array elements in that array
   @param id is the element number (out of bounds) that was queried erroneously
   */
-  EOBException(const string &cname, const string &fileName,
-               const string &arname, const int sl, const unsigned int id) {
-    classname_ = cname;
-    functionname_ = fileName;
-    arrayname_ = arname;
-    sizelimit_ = sl;
-    indx_ = id;
-  }
+  EOBException(const std::string &cname, const std::string &fileName,
+               const std::string &arname, const int sl, const unsigned int id);
 
   /**
   @brief Get the class name responsible for throwing the EOB exception.
@@ -109,26 +104,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "EOB Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << endl << "EOB Exception Thrown:" << endl;
-    cerr << "    Details: " << endl;
-    cerr << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    if (indx_ == 0) {
-      cout << "        Array: " << arrayname_ << endl;
-      cerr << "        Array: " << arrayname_ << endl;
-    } else {
-      cout << "        Array: " << arrayname_ << " contains " << sizelimit_;
-      cout << " elements, but tried to access element " << indx_ << endl;
-      cerr << "        Array: " << arrayname_ << " contains " << sizelimit_;
-      cerr << " elements, but tried to access element " << indx_ << endl;
-    }
-    return;
-  }
+  void printException();
 
 }; // End of the EOBException class
 
@@ -153,12 +129,7 @@ public:
   values.
 
   */
-  FileException() {
-    classname_ = "";
-    functionname_ = "";
-    filename_ = "";
-    extype_ = "";
-  }
+  FileException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -168,13 +139,8 @@ public:
   @param filename is the name of the offending file
   @param extype is the description of the exception type
   */
-  FileException(const string &cname, const string &fileName,
-                const string &filename, const string &extype) {
-    classname_ = cname;
-    functionname_ = fileName;
-    filename_ = filename;
-    extype_ = extype;
-  }
+  FileException(const std::string &cname, const std::string &fileName,
+                const std::string &filename, const std::string &extype);
 
   /**
   @brief Get the class name responsible for throwing the file exception.
@@ -208,19 +174,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "File Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        File: " << filename_ << ", Problem:" << extype_ << endl;
-    cout << endl << "File Exception Thrown:" << endl;
-    cerr << "    Details: " << endl;
-    cerr << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cerr << "        File: " << filename_ << ", Problem: " << extype_ << endl;
-    return;
-  }
+  void printException();
 
 }; // End of the FileException class
 
@@ -244,11 +198,7 @@ public:
   values.
 
   */
-  FloatException() {
-    classname_ = "";
-    functionname_ = "";
-    description_ = "";
-  }
+  FloatException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -257,12 +207,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  FloatException(const string &cname, const string &fileName,
-                 const string &strd) {
-    classname_ = cname;
-    functionname_ = fileName;
-    description_ = strd;
-  }
+  FloatException(const std::string &cname, const std::string &fileName,
+                 const std::string &strd);
 
   /**
   @brief Get the class name responsible for throwing the floating point
@@ -291,19 +237,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "Floating Point Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        Description: " << description_ << endl;
-    cerr << endl << "Floating Point Exception Thrown:" << endl;
-    cerr << "    Details: " << endl;
-    cerr << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cerr << "        Description: " << description_ << endl;
-    return;
-  }
+  void printException();
 
 }; // End of the FloatException class
 
@@ -317,10 +251,10 @@ with data handles.
 class HandleException {
 
 private:
-  string description_;  /**< Description of the handle exception */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
-  string handle_;       /**< Description of the handle causing the exception */
+  std::string description_;  /**< Description of the handle exception */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
+  std::string handle_;       /**< Description of the handle causing the exception */
 
 public:
   /**
@@ -328,12 +262,7 @@ public:
   values.
 
   */
-  HandleException() {
-    classname_ = "";
-    functionname_ = "";
-    handle_ = "";
-    description_ = "";
-  }
+  HandleException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -343,13 +272,8 @@ public:
   @param handle is the handle that caused the exception
   @param strd is the description of the exception
   */
-  HandleException(const string &cname, const string &fileName,
-                  const string &handle, const string &strd) {
-    classname_ = cname;
-    functionname_ = fileName;
-    handle_ = handle;
-    description_ = strd;
-  }
+  HandleException(const std::string &cname, const std::string &fileName,
+                  const std::string &handle, const std::string &strd);
 
   /**
   @brief Get the class name responsible for throwing the handle exception.
@@ -383,21 +307,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "Handle Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        Description: " << description_ << endl;
-    cout << "             Handle: " << handle_ << endl;
-    cout << endl << "Floating Point Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        Description: " << description_ << endl;
-    cout << "             Handle: " << handle_ << endl;
-    return;
-  }
+  void printException();
 
 }; // End of the HandleException class
 
@@ -421,11 +331,7 @@ public:
   values.
 
   */
-  GEMException() {
-    classname_ = "";
-    functionname_ = "";
-    description_ = "";
-  }
+  GEMException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -434,12 +340,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  GEMException(const string &cname, const string &fileName,
-               const string &strd) {
-    classname_ = cname;
-    functionname_ = fileName;
-    description_ = strd;
-  }
+  GEMException(const std::string &cname, const std::string &fileName,
+               const std::string &strd);
 
   /**
   @brief Get the class name responsible for throwing the handle exception.
@@ -466,19 +368,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "GEM Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        " << description_ << endl;
-    cout << endl << "GEM Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        " << description_ << endl;
-    return;
-  }
+  void printException();
 
 }; // End of GEMException class
 
@@ -501,12 +391,7 @@ public:
   @brief Default constructor initializes class members to default (blank)
   values.
 */
-  MicrostructureException() {
-    classname_ = "";
-    functionname_ = "";
-    description_ = "";
-    excp_ = true;
-  }
+  MicrostructureException();
 
   /**
     @brief Overloaded constructor that is typically invoked by THAMES.
@@ -515,12 +400,8 @@ public:
     @param fileName is the method name where the exception was thrown
     @param strd is the description of the exception
   */
-  MicrostructureException(const string &cname, const string &fileName,
-                          const string &strd) {
-    classname_ = cname;
-    functionname_ = fileName;
-    description_ = strd;
-  }
+  MicrostructureException(const std::string &cname, const std::string &fileName,
+                          const std::string &strd);
 
   /**
     @brief Overloaded constructor that is typically invoked by THAMES.
@@ -530,13 +411,8 @@ public:
     @param strd is the description of the exception
     @param excp is true <-> for exception / false <-> for normal exit
   */
-  MicrostructureException(const string &cname, const string &fileName,
-                          const string &strd, bool excp) {
-    classname_ = cname;
-    functionname_ = fileName;
-    description_ = strd;
-    excp_ = excp;
-  }
+  MicrostructureException(const std::string &cname, const std::string &fileName,
+                          const std::string &strd, bool excp);
 
   /**
   @brief Get the class name responsible for throwing the exception.
@@ -565,34 +441,7 @@ public:
 @brief Provide formatted output of the exception details.
 
 */
-  void printException() {
-    // bool excp1_ = true;
-    if (excp_) {
-      cout << endl << "Microstructure Exception Thrown:" << endl;
-      cout << "    Details: " << endl;
-      cout << "        Offending Function " << classname_
-           << "::" << functionname_ << endl;
-      cout << "        Problem: " << description_ << endl;
-      cout << endl << "Microstructure Exception Thrown:" << endl;
-      cout << "    Details: " << endl;
-      cout << "        Offending Function " << classname_
-           << "::" << functionname_ << endl;
-      cout << "        Problem: " << description_ << endl;
-    } else {
-      cout << endl << "Microstructure Exception Thrown:" << endl;
-      cout << "    Details: " << endl;
-      cout << "        From Function " << classname_ << "::" << functionname_
-           << endl;
-      cout << "        reason: " << description_ << endl;
-      cout << endl << "Microstructure Exception Thrown:" << endl;
-      cout << "    Details: " << endl;
-      cout << "        From Function " << classname_ << "::" << functionname_
-           << endl;
-      cout << "        reason: " << description_ << endl;
-    }
-
-    return;
-  }
+  void printException();
 }; // End of MicrostructureException class
 
 /**
@@ -615,11 +464,7 @@ public:
   values.
 
   */
-  DataException() {
-    classname_ = "";
-    functionname_ = "";
-    description_ = "";
-  }
+  DataException();
 
   /**
   @brief Overloaded constructor that is typically invoked by THAMES.
@@ -628,12 +473,8 @@ public:
   @param fileName is the method name where the exception was thrown
   @param strd is the description of the exception
   */
-  DataException(const string &cname, const string &functionName,
-                const string &strd) {
-    classname_ = cname;
-    functionname_ = functionName;
-    description_ = strd;
-  }
+  DataException(const std::string &cname, const std::string &functionName,
+                const std::string &strd);
 
   /**
   @brief Get the class name responsible for throwing the handle exception.
@@ -660,19 +501,7 @@ public:
   @brief Provide formatted output of the exception details.
 
   */
-  void printException() {
-    cout << endl << "Data Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        Problem:" << description_ << endl;
-    cout << endl << "Data Exception Thrown:" << endl;
-    cout << "    Details: " << endl;
-    cout << "        Offending Function " << classname_ << "::" << functionname_
-         << endl;
-    cout << "        Problem: " << description_ << endl;
-    return;
-  }
+  void printException();
 
 }; // End of DataException class
 

@@ -15,16 +15,11 @@ used.
 #ifndef SRC_THAMESLIB_KINETICMODEL_H_
 #define SRC_THAMESLIB_KINETICMODEL_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "ChemicalSystem.h"
 #include "KineticData.h"
 #include "Lattice.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <string>
-#include <vector>
 
 using namespace std;
 
@@ -38,8 +33,8 @@ THAMES allows some flexibility in defining different types of kinetic models.
 class KineticModel {
 
 protected:
-  string modelName_;
-  int numPhases_; /**< Total number of phases in the kinetic model */
+  std::string modelName_; /**< The kinetic model name in the kinetic model */
+  int numPhases_;    /**< Total number of phases in the kinetic model */
   ChemicalSystem *
       chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
   Lattice *
@@ -52,13 +47,13 @@ protected:
                                 [h] */
   double leachTime_; /**< Time at which leaching simulation starts [h] */
 
-  string name_;      /**< Name of phase controlled by this kinetic model */
+  std::string name_;      /**< Name of phase controlled by this kinetic model */
   int microPhaseId_; /**< Microstructure id controlled by this model */
   int DCId_;         /**< List of DC ids from the ChemicalSystem object */
   int GEMPhaseId_;   /**< List of phase ids from the ChemicalSystem object */
 
-  vector<string> ICName_;      /**< Names of ICs */
-  vector<string> DCName_;      /**< Names of DCs */
+  std::vector<std::string> ICName_;      /**< Names of ICs */
+  std::vector<std::string> DCName_;      /**< Names of DCs */
   double scaledMass_;          /**< Phase mass percent, total solids basis */
   double initScaledMass_;      /**< Initial phase scaled mass */
   double activationEnergy_;    /**< Apparent activation energy for the reaction
@@ -247,7 +242,6 @@ public:
 
   /**
   @brief Get the microstructure id in the KineticModel.
-
 
   @return the list of all microstructure ids.
   */
@@ -597,7 +591,12 @@ public:
   */
   // bool getWarning() const { return warning_; }
 
-  string getModelName(void) { return modelName_; }
+  /**
+  @brief Get the name of this kinetic model
+
+  @return the name of this kinetic model
+  */
+  std::string getModelName(void) { return modelName_; }
 }; // End of KineticModel class
 
 #endif // SRC_THAMESLIB_KINETICMODEL_H_

@@ -95,7 +95,13 @@ endif ()
 
 set (THAMES_INCLUDE_PATH "-I${CMAKE_SOURCE_DIR}/src -I/usr/local/include")
 
-#set (CMAKE_CXX_FLAGS "-O2 -std=c++17 -DIPMGEMPLUGIN ${THAMES_INCLUDE_PATH}")
+message ("c++ compiler is : ${CMAKE_CXX_COMPILER_ID}")
+
+# Set the list of compiler flags for GNU compiler
+if(${CMAKE_CXX_COMPILER_ID} MATCHES "GNU")
+  set (CMAKE_CXX_FLAGS "-O2 -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-misleading-indentation -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH}")
+  #set (CMAKE_CXX_FLAGS "-O2 -std=c++17 -DIPMGEMPLUGIN ${THAMES_INCLUDE_PATH}")
+endif()
 
 # Set the list of compiler flags for Clang compiler
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")

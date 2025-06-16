@@ -5,7 +5,7 @@
 */
 #include "ParrotKillohModel.h"
 
-using namespace std;
+using std::cout; using std::endl;
 
 ParrotKillohModel::ParrotKillohModel() {
   ///

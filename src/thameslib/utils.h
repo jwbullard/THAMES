@@ -4,9 +4,8 @@
 */
 #ifndef SRC_THAMESLIB_UTILS_H_
 #define SRC_THAMESLIB_UTILS_H_
+
 #include "global.h"
-#include <sstream>
-#include <string>
 
 using namespace std;
 
@@ -40,10 +39,11 @@ template <class T> string to_string(const T &t) {
 
 namespace utils {
 
-void replace(string &where, const string &what, const string &by);
+  void replace(std::string &where, const std::string &what,
+               const std::string &by);
 
-bool start_with(const string &str, const string &what);
-bool end_with(const string &str, const string &what);
+  bool start_with(const std::string &str, const std::string &what);
+  bool end_with(const std::string &str, const std::string &what);
 
 } // namespace utils
 

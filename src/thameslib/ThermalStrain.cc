@@ -4,7 +4,9 @@
 
 */
 #include "ThermalStrain.h"
-#include <iostream>
+
+using std::cout; using std::endl;
+using std::string; using std::vector; using std::map;
 
 using namespace std;
 
@@ -39,8 +41,8 @@ ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
   localgg_ = 0.0;
 
   boxsize_ = 27;
-  boxnum_ = static_cast<int>(
-      pow(static_cast<double>(static_cast<int>(boxsize_ / 2) * 2 + 1), 3.0));
+  boxnum_ = static_cast<int>
+      (pow(static_cast<double>(static_cast<int>(boxsize_ / 2) * 2 + 1), 3.0));
   localgtest_ = 1.0e-30 * boxnum_;
 
   if (verbose_) {
@@ -268,9 +270,9 @@ void ThermalStrain::femat(int iskip) {
       for (int k = 0; k < 3; k++) {
         for (int j = 0; j < 3; j++) {
           for (int i = 0; i < 3; i++) {
-            x = static_cast<float>(i) / 2.0;
-            y = static_cast<float>(j) / 2.0;
-            z = static_cast<float>(k) / 2.0;
+            x = i / 2.0;
+            y = j / 2.0;
+            z = k / 2.0;
 
             ///
             /// dndx means the negative derivative with respect to x, of the
@@ -3459,4 +3461,37 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
   }
 
   return Lstep;
+}
+
+double ThermalStrain::getEleStrain(int i, int j) {
+  if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
+    cout << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    cerr << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    exit(1);
+  } else {
+    return elestrain_[i][j];
+  }
+}
+
+double ThermalStrain::getEleStress(int i, int j) {
+  if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
+    cout << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    cerr << "i should be between 0 and ns_, "
+         << "and j should be between 0 and 6." << endl;
+    exit(1);
+  } else {
+    return elestress_[i][j];
+  }
+}
+
+void ThermalStrain::setExpansionCoord(int index, std::vector<int> cor) {
+  map<int, vector<int>>::iterator p = exp_.find(index);
+  if (p != exp_.end()) {
+    p->second = cor;
+  } else {
+    exp_.insert(make_pair(index, cor));
+  }
 }

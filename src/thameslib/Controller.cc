@@ -5,7 +5,8 @@
 
 #include "Controller.h"
 
-using namespace std;
+using std::cout; using std::endl;
+using std::string; using std::vector; using std::map;
 
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,
@@ -39,9 +40,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// All times are given in hours, and the leaching and sulfate attack times
   /// are set to very high values so that they usually won't happen
   ///
-
-  // imgFreq_ = 168.0; // hours = 7 days
-  imgFreq_ = -1;
 
   leachTime_ = 1.0e10;
   sulfateAttackTime_ = 1.0e10;
@@ -171,9 +169,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       throw FileException("Controller", "calculateState", outfilename,
                           "Could not append");
     }
-
     outfs << "Time(h),Ca/Si Ratio" << endl;
-
     outfs.close();
 
     outfilename = jobRoot_ + "_Microstructure.csv";
@@ -215,7 +211,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
 
   temperature_ = chemSys_->getTemperature();
   lattice_->setTemperature(temperature_);
-  presure_ = chemSys_->getP();
   waterDCId_ = chemSys_->getDCId("H2O@");
   waterMolarMass_ = chemSys_->getDCMolarMass("H2O@");
   numSites_ = lattice_->getNumSites();
@@ -275,12 +270,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     }
   } catch (FileException fex) {
     throw fex;
-  }
-
-  for (int i = 0; i < static_cast<int>(time_.size() - 1); i++) {
-    if (abs(time_[i] - time_[i + 1]) <= 1.0e-6) {
-      time_.erase(time_.begin() + i);
-    }
   }
 
   int time_Size = time_.size();
@@ -351,7 +340,11 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << outputTime_[i] << "," << endl;
       }
     } else {
-      outfs << outputTime_[i] << endl;
+      if (j == 1) {
+        outfs << "        " << outputTime_[i] << endl;
+      } else {
+        outfs << outputTime_[i] << endl;
+      }
     }
   }
 
@@ -370,13 +363,10 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     outfs << "  }" << endl;
     outfs << "}" << endl;
   }
-
   outfs.close();
 
-  imgFreq_ *= 24.0; // !!!!!
-
   cout << endl
-       << "   => new time values (calctime & outtime) have been used and "
+       << "   => time values (calctime & outtime in hours) have been used and "
           "writen as :"
        << endl;
   cout << "         " << outfilename << endl;
@@ -392,16 +382,16 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   kineticController_->setIniAttackTime(sulfateAttackTime_);
 
   if (simType_ == SULFATE_ATTACK) {
+    /*
     cout << endl << "   => attack = " << attack_ << endl;
     cout << "   parameters in hours:" << endl;
     cout << "     -> beginattacktime = " << setw(7) << right
-         << (int)beginAttackTime_ << endl;
+         << static_cast<int>(beginAttackTime_) << endl;
     cout << "     -> endattacktime = " << setw(7) << right
-         << (int)endAttackTime_ << endl;
+         << static_cast<int>(endAttackTime_) << endl;
     cout << "     -> attacktimeinterval = " << setw(7) << right
-         << (int)attackTimeInterval_ << endl;
-
-    // if (simType_ == SULFATE_ATTACK)
+         << static_cast<int>(attackTimeInterval_) << endl;
+    */
     lattice_->createGrowingVectSA();
   }
 }
@@ -428,7 +418,7 @@ void Controller::doCycle(double elemTimeInterval) {
   lattice_->findInterfaces();
 
   // lattice_->checkSite(8);
-  // cout <<endl << " exit controller" <<endl;// exit(0);
+  // cout << endl << " exit controller" << endl;// exit(0);
 
   cout << endl << "Controller::doCycle(...) Entering Main time loop" << endl;
 
@@ -443,7 +433,7 @@ void Controller::doCycle(double elemTimeInterval) {
   //      KineticController::calculateKineticStep and passedd to GEM together
   //      the other DC moles in the stystem (ChemicalSystem::calculateState)
   // int numMicPh = chemSys_->getNumMicroPhases();
-  // cout << "numMicPh : " << numMicPh <<endl;
+  // cout << "numMicPh : " << numMicPh << endl;
 
   int DCId;
   for (int i = FIRST_SOLID; i < numMicroPhases_; i++) {
@@ -463,8 +453,8 @@ void Controller::doCycle(double elemTimeInterval) {
        << endl;
 
   // cout << "Starting with a pore solution without dissolved DCs  => all
-  //  microPhaseSI_ = 0" <<endl; init to 0 all microPhaseSI_
-  //  chemSys_->setZeroMicroPhaseSI();
+  // microPhaseSI_ = 0" << endl; init to 0 all microPhaseSI_
+  // chemSys_->setZeroMicroPhaseSI();
 
   bool writeICsDCs = true;
   if (writeICsDCs)
@@ -626,8 +616,7 @@ void Controller::doCycle(double elemTimeInterval) {
                 "  "
                 "   : "
              << i << " / " << cyc << " / " << time_[i] << " / " << timestep
-             << "   =>   searching for a new dissolution time : WAIT..."
-             << endl;
+             << "   =>   searching for a new dissolution time : WAIT..." << endl;
         cout.flush();
 
         numTotGen = 0;
@@ -635,7 +624,7 @@ void Controller::doCycle(double elemTimeInterval) {
         fracNextTimeStep = nextTimeStep / fracNum;
 
         for (int indFracNum = 0; indFracNum < fracNum; indFracNum++) {
-          timeZero = time_[i] + (((double)indFracNum) * fracNextTimeStep);
+          timeZero = time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
           minTime = timeZero - deltaTime;
           numGen = 0;
           numIntervals = 0;
@@ -649,14 +638,14 @@ void Controller::doCycle(double elemTimeInterval) {
               }
               if (numIntervals == numMaxIntervals) {
                 // cout << "      for
-                //  cyc/indFracNum/delta2Time/numGen/timeZero/minTime : " << cyc
-                //       << " / " << indFracNum << " / " << delta2Time << " / "
-                //       << numGen << " / "
-                //       << timeZero << " / " << minTime <<endl;
+                // cyc/indFracNum/delta2Time/numGen/timeZero/minTime : " << cyc
+                //      << " / " << indFracNum << " / " << delta2Time << " / "
+                //      << numGen << " / "
+                //      << timeZero << " / " << minTime << endl;
                 // cout << "         =>   numIncreaseInterval = " <<
-                //  numMaxIntervals
-                //       << " (max val) => change indFracNum (next timeZero)!!!"
-                //       <<endl;
+                // numMaxIntervals
+                //      << " (max val) => change indFracNum (next timeZero)!!!"
+                //      << endl;
                 // cout.flush();
                 break;
               }
@@ -839,8 +828,6 @@ void Controller::doCycle(double elemTimeInterval) {
                       iniLattice.site[ij].inDissInterfacePos);
             }
             for (int ij = 0; ij < dimLatticeInterface; ij++) {
-              lattice_->setInterfaceMicroPhaseId(
-                  ij, iniLattice.interface[ij].microPhaseId); // same as before!
               lattice_->setGrowthSites(ij,
                                        iniLattice.interface[ij].growthSites);
               lattice_->setDissolutionSites(
@@ -871,7 +858,8 @@ void Controller::doCycle(double elemTimeInterval) {
               molarMassDiff = chemSys_->getDCMolarMass(DCId); // g/mol
 
               vfracDiff =
-                  ((double)numSitesNotAvailable[ij]) / ((double)numSites_);
+                  (static_cast<double>(numSitesNotAvailable[ij])) /
+                   (static_cast<double>(numSites_));
 
               microPhaseMassDiff =
                   vfracDiff * molarMassDiff / volMolDiff / 1.0e6; // g/cm3
@@ -1000,9 +988,8 @@ void Controller::doCycle(double elemTimeInterval) {
         kineticController_->setHydTimeIni(time_[i]);
 
         cout << endl
-             << "Controller::doCycle - hydration & lattice update => normal "
-                "end - cyc = "
-             << cyc << " (i = " << i << ")" << endl;
+             << "Controller::doCycle - hydration & lattice update - cyc = "
+             << cyc << " (i = " << i << ")   =>   normal end" << endl;
       }
 
     } catch (DataException dex) {
@@ -1063,7 +1050,7 @@ void Controller::doCycle(double elemTimeInterval) {
     }
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
-    if ((time_index < (int)(outputTime_.size())) &&
+    if ((time_index < static_cast<int>(outputTime_.size())) &&
         ((time_[i] >= outputTime_[time_index]) ||
          (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice))) {
 
@@ -1117,11 +1104,11 @@ void Controller::doCycle(double elemTimeInterval) {
 
     if (time_[i] >= sulfateAttackTime_) {
 
-      // cout <<endl
-      //       << " Controller::doCycle - for sulfate attack, check conditions
-      //       for "
-      //          "addDissolutionSites & coordination sphere "
-      //       <<endl;
+      // cout << endl
+      //      << " Controller::doCycle - for sulfate attack, check conditions
+      //      for "
+      //         "addDissolutionSites & coordination sphere "
+      //      << endl;
 
       if (verbose_) {
         cout << "Controller::doCycle Sulfate attack module" << endl;
@@ -1222,8 +1209,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
           expindex = it->first;
           expanval = it->second;
-          // vector<int> expcoordin =
-          // lattice_->getExpansionCoordin(expindex);
+          // vector<int> expcoordin = lattice_->getExpansionCoordin(expindex);
           expcoordin = lattice_->getSite(expindex)->getXYZ();
           thermalstr_->setEigen(expindex, expanval[0], expanval[1], expanval[2],
                                 0.0, 0.0, 0.0);
@@ -1277,9 +1263,8 @@ void Controller::doCycle(double elemTimeInterval) {
           if ((ste->IsDamage())) {
 
             oldDamageCount++;
-            // cout <<endl << "SA-test: oldDamageCount_ = " <<
-            // oldDamageCount_
-            //       << "  index = " << index << "  pid = " << pid <<endl;
+            // cout << endl << "SA-test: oldDamageCount_ = " << oldDamageCount_
+            //      << "  index = " << index << "  pid = " << pid << endl;
 
             // double strxx, stryy, strzz;
             // strxx = stryy = strzz = 0.0;
@@ -1440,9 +1425,8 @@ void Controller::doCycle(double elemTimeInterval) {
       }
 
       cout << endl
-           << "Controller::doCycle - sulfate attack module => normal end - cyc "
-              "= "
-           << cyc << " (i = " << i << ")" << endl;
+           << "Controller::doCycle - sulfate attack module - cyc = "
+           << cyc << " (i = " << i << ")   =>   normal end" << endl;
     }
   }
 
@@ -1792,7 +1776,7 @@ void Controller::writeTxtOutputFiles_onlyICsDCs(double time) {
   int mPhId;
   double massImpurity, totMassImpurity;
 
-  // cout <<endl << "getIsDCKinetic: " <<endl;
+  // cout << endl << "getIsDCKinetic: " << endl;
   for (j = 0; j < numDCs_; j++) {
     if (chemSys_->getIsDCKinetic(j)) {
       // molMass = chemSys_->getDCMolarMass(j);
@@ -1864,8 +1848,10 @@ void Controller::parseDoc(const string &docName) {
 
   ifstream f(docName.c_str());
   if (!f.is_open()) {
-    cout << "JSON output times file not found" << endl;
+    cout << endl << "JSON " << docName << " file not found" << endl;
     throw FileException("Controller", "parseDoc", docName, "File not found");
+  } else{
+    cout << endl << "JSON " << docName << " file found => start reading" << endl;
   }
 
   /// Parse the JSON file all at once
@@ -1901,12 +1887,40 @@ void Controller::parseDoc(const string &docName) {
       outputTime_.push_back(testTime);
     }
 
+    //
+    // Now populate the calculation times on a natural log scale
+    // and fold in the output times in order
+    time_.clear();
+    testTime = 0.0;
+    int j = 0;
+    bool done = false;
+    int outputTimeSize = static_cast<int>(outputTime_.size());
+    while (testTime < finalTime) {
+      testTime += (0.1 * (testTime + 0.024));
+      done = false;
+      if (j < outputTimeSize) {
+        while (j < outputTimeSize && !done) {
+          if (testTime >= outputTime_[j]) {
+            time_.push_back(outputTime_[j]);
+            j++;
+          } else if (testTime < finalTime) {
+            time_.push_back(testTime);
+            done = true;
+          }
+        }
+      } else if (testTime < finalTime) {
+        time_.push_back(testTime);
+      } else {
+        time_.push_back(finalTime);
+      }
+    }
+
     // There may be times associated with chemical attack
     // Next three blocks search for this
-    cdi = it.value().find("beginttacktime");
+    cdi = it.value().find("beginattacktime");
     if (cdi != it.value().end()) {
       beginAttackTime_ = cdi.value();
-      beginAttackTime_ *= (H_PER_DAY);
+      // beginAttackTime_ *= (H_PER_DAY);
     }
 
     // Input times are conventionally in days
@@ -1914,7 +1928,7 @@ void Controller::parseDoc(const string &docName) {
     cdi = it.value().find("endattacktime");
     if (cdi != it.value().end()) {
       endAttackTime_ = cdi.value();
-      endAttackTime_ *= (H_PER_DAY);
+      // endAttackTime_ *= (H_PER_DAY);
     }
 
     // Input times are conventionally in days
@@ -1922,7 +1936,7 @@ void Controller::parseDoc(const string &docName) {
     cdi = it.value().find("attacktimeinterval");
     if (cdi != it.value().end()) {
       attackTimeInterval_ = cdi.value();
-      attackTimeInterval_ *= (H_PER_DAY);
+      // attackTimeInterval_ *= (H_PER_DAY);
     }
 
     // Done searching for chemical attack times
@@ -1987,59 +2001,50 @@ void Controller::parseDoc(const string &docName) {
         cout << "sulfate attack ";
       }
 
-      cout << "using these time parameters (in days):" << endl;
-      cout << "     -> beginattacktime = " << setw(5) << right
-           << (int)beginAttackTime_ << endl;
-      cout << "     -> endattacktime = " << setw(5) << right
-           << (int)endAttackTime_ << endl;
+      cout << "using these time parameters (in days/hours):" << endl;
+      cout << "     -> beginattacktime    = " << setw(5) << right
+           << static_cast<int>(beginAttackTime_) << " / "
+           << static_cast<int>(beginAttackTime_ * H_PER_DAY) << endl;
+      cout << "     -> endattacktime      = " << setw(5) << right
+           << static_cast<int>(endAttackTime_) << " / "
+           << static_cast<int>(endAttackTime_ * H_PER_DAY) << endl;
       cout << "     -> attacktimeinterval = " << setw(5) << right
-           << (int)attackTimeInterval_ << endl;
+           << static_cast<int>(attackTimeInterval_) << " / "
+           << static_cast<int>(attackTimeInterval_ * H_PER_DAY) << endl;
+
+      // Input times for beginAttackTime_/endAttackTime_/attackTimeInterval_
+      // are conventionally in days => convert to hours within model
+      beginAttackTime_ *= (H_PER_DAY);
+      endAttackTime_ *= (H_PER_DAY);
+      attackTimeInterval_ *= (H_PER_DAY);
 
       double tp = beginAttackTime_;
       int tempSize;
-      int i, j;
 
-      tempSize = outputTime_.size() - 1;
-      for (i = 0; i < tempSize; i++) {
-        if (outputTime_[i] > tp) {
-          int last = tempSize;
+      tempSize = outputTime_.size();
+      for (int i = 0; i < tempSize; i++) {
+        if (outputTime_[i] > beginAttackTime_) {
           outputTime_.erase(outputTime_.begin() + i,
-                            outputTime_.begin() + last);
+                            outputTime_.begin() + tempSize);
           break;
         }
       }
 
-      tempSize = time_.size() - 1;
-      for (i = 0; i < tempSize; i++) {
-        if (time_[i] > tp) {
-          int last = tempSize;
-          time_.erase(time_.begin() + i, time_.begin() + last);
+      tempSize = time_.size();
+      for (int i = 0; i < tempSize; i++) {
+        if (time_[i] > beginAttackTime_) {
+          time_.erase(time_.begin() + i, time_.begin() + tempSize);
           break;
         }
       }
 
-      while (tp <= endAttackTime_) {
-        // time_.push_back(tp);
-        outputTime_.push_back(tp);
+      // tp = beginAttackTime_
+      while (tp < endAttackTime_) {
         tp += attackTimeInterval_;
-      }
-
-      int time_Size = outputTime_.size();
-      for (i = 0; i < time_Size - 1; i++) {
-        for (j = i + 1; j < time_Size; j++) {
-          if (outputTime_[i] > outputTime_[j]) {
-            tp = outputTime_[i];
-            outputTime_[i] = outputTime_[j];
-            outputTime_[j] = tp;
-          }
-        }
-      }
-
-      time_Size = outputTime_.size() - 1;
-      for (i = 0; i < time_Size; i++) {
-        if (abs(outputTime_[i] - outputTime_[i + 1]) <= 1.0e-9) {
-          outputTime_.erase(outputTime_.begin() + i);
-        }
+        if (tp > endAttackTime_)
+          tp = endAttackTime_;
+        outputTime_.push_back(tp);
+        time_.push_back(tp);
       }
 
     } else if (simType_ == HYDRATION) {
@@ -2047,40 +2052,65 @@ void Controller::parseDoc(const string &docName) {
       beginAttackTime_ = 1.e10;
       endAttackTime_ = 1.e10;
       attackTimeInterval_ = 1.e10;
-    }
 
-    //
-    // Now populate the calculation times on a natural log scale
-    // and fold in the output times in order
-    time_.clear();
-    testTime = 0.0;
-    int j = 0;
-    bool done = false;
-    int outputTimeSize = static_cast<int>(outputTime_.size());
-    while (testTime < finalTime) {
-      testTime += (0.1 * (testTime + 0.024));
-      done = false;
-      if (j < outputTimeSize) {
-        while (j < outputTimeSize && !done) {
-          if (testTime >= outputTime_[j]) {
-            time_.push_back(outputTime_[j]);
-            j++;
-          } else if (testTime < finalTime) {
-            time_.push_back(testTime);
-            done = true;
-          }
-        }
-      } else if (testTime < finalTime) {
-        time_.push_back(testTime);
-      } else {
-        time_.push_back(finalTime);
-      }
+      // cout << "        using these time parameters (in days):" << endl;
+      // cout << "             -> beginattacktime    = 1.e10" << endl;
+      // cout << "             -> endattacktime      = 1.e10" << endl;
+      // cout << "             -> attacktimeinterval = 1.e10" << endl;
     }
-
   } catch (FileException fex) {
     fex.printException();
     exit(1);
   }
 
   return;
+}
+
+TimeStruct Controller::getResolvedTime(const double curtime) {
+
+  int s_per_h = static_cast<int>(S_PER_H);
+  int s_per_year = static_cast<int>(S_PER_YEAR);
+  int s_per_day = static_cast<int>(S_PER_DAY);
+  int s_per_minute = static_cast<int>(S_PER_MINUTE);
+  int min_per_h = 60;
+  int h_per_day = 24;
+  int d_per_year = 365;
+
+  TimeStruct mytime;
+  mytime.years = mytime.days = mytime.hours = mytime.minutes = 0;
+
+  // Convert curtime (currently in h) into nearest second
+  double curtime_in_s_dbl = curtime * S_PER_H;
+  int curtime_s = static_cast<int>(curtime_in_s_dbl + 0.5);
+
+  // How many years is this?
+  mytime.years = curtime_s / s_per_year;
+  curtime_s -= (mytime.years * s_per_year);
+  // Convert remaining time into days
+  mytime.days = curtime_s / s_per_day;
+  curtime_s -= (mytime.days * s_per_day);
+  // Convert remaining time into hours
+  mytime.hours = curtime_s / s_per_h;
+  curtime_s -= (mytime.hours * s_per_h);
+  // Convert remaining time into minutes
+  mytime.minutes = curtime_s / s_per_minute;
+  curtime_s -= (mytime.minutes * s_per_minute);
+   // Round up minutes if curtime_in_s >= 30
+  if (curtime_s >= 30) {
+    mytime.minutes += 1;
+    // Propagate this rounding to other time units
+    if (mytime.minutes > min_per_h) {
+      mytime.hours += 1;
+      mytime.minutes -= min_per_h;
+      if (mytime.hours > h_per_day) {
+        mytime.days += 1;
+        mytime.hours -= h_per_day;
+        if (mytime.days > d_per_year) {
+          mytime.years += 1;
+          mytime.days -= d_per_year;
+        }
+      }
+    }
+  }
+  return mytime;
 }

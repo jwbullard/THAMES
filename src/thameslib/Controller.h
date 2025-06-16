@@ -6,27 +6,21 @@
 #ifndef SRC_THAMESLIB_CONTROLLER_H_
 #define SRC_THAMESLIB_CONTROLLER_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "KineticController.h"
 #include "Lattice.h"
 #include "Site.h"
 #include "ThermalStrain.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <map>
-#include <string>
-#include <vector>
 
 using namespace std;
 
 struct RestoreSite {
   // for each site in site_:
   int microPhaseId;               // The microstructure phase assignment
-  vector<int> growth;             // vector of phases that can grow at this site
-  vector<int> inGrowInterfacePos; // vector of the site position in each
-                                  // growth interface
+  std::vector<int> growth;             // vector of phases that can grow at this site
+  std::vector<int> inGrowInterfacePos; // vector of the site position in each growth
+                                  //   interface
   int inDissInterfacePos; // site position in the corresponding dissolution
                           // interface
   double wmc;             // total porosity ("surface curvature") at this site
@@ -81,8 +75,8 @@ struct RestoreSystem {
 //   vector<Site> site_;     /**< 1D list of Site objects (site = voxel) */
 //   for each site in site_:
 //     unsigned int microPhaseId_;   // The microstructure phase assignment
-//     vector<unsigned int> growth_; // Vector of phases that can grow at
-//     this site
+//     std::vector<unsigned int> growth_; // Vector of phases that can grow at this
+//     site
 //    double wmc_;                  // total porosity ("surface curvature") at
 //    this site double wmc0_;                 // this site internal porosity
 //    (its own contribution at wmc_ value)
@@ -90,9 +84,9 @@ struct RestoreSystem {
 // vector<Interface> interface_;     //
 //   from Interface
 //     microPhaseId_; /**< The phase id of the voxels at this interface */
-//     vector<Isite> growthSites_; /**< The list of all sites eligible
-//     foradjacent growth */ vector<Isite> dissolutionSites_; /**< The list
-//     of sites eligible for self-dissolution */ for each Isite:
+//     std::vector<Isite> growthSites_; /**< The list of all sites eligible
+//     foradjacent growth */ std::vector<Isite> dissolutionSites_; /**< The list of
+//     sites eligible for self-dissolution */ for each Isite:
 //       unsigned int id_; /**< The id of the corresponding Site */
 //       int affinity_;    /**< The affinity for growth of a phase at the site
 //       */
@@ -136,16 +130,15 @@ time step.
 class Controller {
 
 protected:
-  string jobRoot_;   /**< Root name for all output files */
+  std::string jobRoot_;   /**< Root name for all output files */
   Lattice *lattice_; /**< Pointer to microstructure lattice object */
   KineticController
       *kineticController_;    /**< Pointer to kinetic controller object */
   ThermalStrain *thermalstr_; /**< Pointer to the finite element model object */
 
-  double imgFreq_; /**< Frequency to output microstructure image (hours) */
   ChemicalSystem *chemSys_; /**< Pointer to `ChemicalSystem` object */
-  vector<double> time_;     /**< List of simulation times for each iteration */
-  vector<double>
+  std::vector<double> time_;     /**< List of simulation times for each iteration */
+  std::vector<double>
       timeInitial_; /**< List of simulation times for each iteration */
   vector<double> outputTime_; /**< List of times to output image */
   // double statfreq_;            /**< Frequency to output statistics */
@@ -153,35 +146,39 @@ protected:
   int simType_; /**< Hydration, leaching, or sulfate attack for now */
 
   bool attack_; /**< for sulfate attack */
-  double beginAttackTime_;
-  double endAttackTime_;
-  double attackTimeInterval_;
-  vector<int> isParrotKilloh_;
-  int sizePK_;
-  bool notPKPhase = true;
+  double beginAttackTime_;      /**< Simulation time at which to begin the
+                                     attack (leach/sulfate attack) */
+  double endAttackTime_;        /**< Simulation time at which to stop the
+                                    attack (leach/sulfate attack) */
+  double attackTimeInterval_;   /**< Simulation time interval to do the
+                                     attack (leach/sulfate attack) */
+  std::vector<int> isParrotKilloh_;  /**< all microPhaseIds for microPhases
+                                     controlled by Parrot-Killoh model */
+  int sizePK_;                  /**< size of isParrotKilloh_ vector */
+  bool notPKPhase = true;       /**< flag saying if a microPhases is or not
+                                     controlled by Parrot-Killoh model */
 
 private:
   double sulfateAttackTime_; /**< Simulation time at which to begin sulfate
                                 attack, in hours */
   double leachTime_;         /**< Simulation time at which to begin leaching,
                                       in hours */
-  int oldDamageCount_; /**< Number of pixels in the lattice that are damaged */
-  int allDamageCount_;
+  int oldDamageCount_; /**< Number of pixels in the lattice that were already damaged */
+  int allDamageCount_; /**< Total number of pixels in the lattice that are damaged */
 
   bool verbose_; /**< Flag for verbose output */
   bool warning_; /**< Flag for warning output */
   bool xyz_;     /**< Flag for 3D movie data output */
 
-  int numMicroPhases_;
-  int numGEMPhases_;
-  int numICs_;
-  int numDCs_;
-  double temperature_; /**< Temperature */
-  double presure_;
-  int waterDCId_; /**< coresp to DCName = "H2O@" */
-  double waterMolarMass_;
-  int numSites_;
-  double initMicroVolume_; /**< Initial absolute volume of the microstructure */
+  int numMicroPhases_;     /**< Number of microPhases */
+  int numGEMPhases_;       /**< Number of GEM phases in the CSD */
+  int numICs_;             /**< Number of independent components (IC) */
+  int numDCs_;             /**< Number of dependent components (DC) */
+  double temperature_;     /**< Temperature [K]*/
+  int waterDCId_;          /**< the DCId coresp to DCName = "H2O@" */
+  double waterMolarMass_;  /**< the water molar mass corresp. to waterDCId_ */
+  int numSites_;           /**< Total number of microStructure voxels */
+  double initMicroVolume_; /**< Initial absolute volume of the microStructure */
 
 public:
   /**
@@ -223,9 +220,8 @@ public:
   states
       - Updating the lattice to reflect the new microstructure
 
-  @param statfilename is the name of the file to store phase statistics
-  @param choice is an int flag to specify whether simulating hydration,
-  leaching, or sulfate attack
+  @param elemTimeInterval is used by the time advance algorithm in case of GEMS
+  failure
   */
   // void doCycle(const string &statfilename, int choice, double
   // elemTimeInterval);
@@ -250,9 +246,11 @@ public:
   @param dt is the change in simulation time used by the kinetic model [hours]
   @param isFirst is true if this is the first state calculation
   (initialization)
+  @param cyc is the cycle number for the main controller loop (iteration over
+  time)
+  @return the node status handle (from ChemicalSystem::calculateState)
   */
   // void calculateState(double time, double dt, bool isFirst, int cyc);
-
   int calculateState(double time, double dt, bool isFirst, int cyc);
 
   /**
@@ -305,10 +303,7 @@ public:
 
   @param isverbose is true if verbose output should be produced
   */
-  void setVerbose(const bool isverbose) {
-    verbose_ = isverbose;
-    return;
-  }
+  void setVerbose(const bool isverbose) { verbose_ = isverbose; }
 
   /**
   @brief Get the verbose flag
@@ -322,10 +317,7 @@ public:
 
   @param iswarning is true if warning output should be produced
   */
-  void setWarning(const bool iswarning) {
-    warning_ = iswarning;
-    return;
-  }
+  void setWarning(const bool iswarning) { warning_ = iswarning; }
 
   /**
   @brief Get the warning flag
@@ -339,10 +331,7 @@ public:
 
   @param isxyz is true if 3D visualization data output should be produced
   */
-  void setXyz(const bool isxyz) {
-    xyz_ = isxyz;
-    return;
-  }
+  void setXyz(const bool isxyz) { xyz_ = isxyz; }
 
   /**
   @brief Get the xyz flag
@@ -371,55 +360,7 @@ public:
   @param time is the simulation time in h
   @return TimeStruct data structure
   */
-  TimeStruct getFormattedTime(const double curtime) {
-
-    int s_per_h = static_cast<int>(S_PER_H);
-    int s_per_year = static_cast<int>(S_PER_YEAR);
-    int s_per_day = static_cast<int>(S_PER_DAY);
-    int s_per_minute = static_cast<int>(S_PER_MINUTE);
-    int min_per_h = 60;
-    int h_per_day = 24;
-    int d_per_year = 365;
-
-    TimeStruct mytime;
-    mytime.years = mytime.days = mytime.hours = mytime.minutes = 0;
-
-    // Convert curtime (currently in h) into nearest second
-    double curtime_in_s_dbl = curtime * S_PER_H;
-    int curtime_s = static_cast<int>(curtime_in_s_dbl + 0.5);
-
-    // How many years is this?
-    mytime.years = curtime_s / s_per_year;
-    curtime_s -= (mytime.years * s_per_year);
-    // Convert remaining time into days
-    mytime.days = curtime_s / s_per_day;
-    curtime_s -= (mytime.days * s_per_day);
-    // Convert remaining time into hours
-    mytime.hours = curtime_s / s_per_h;
-    curtime_s -= (mytime.hours * s_per_h);
-    // Convert remaining time into minutes
-    mytime.minutes = curtime_s / s_per_minute;
-    curtime_s -= (mytime.minutes * s_per_minute);
-
-    // Round up minutes if curtime_in_s >= 30
-    if (curtime_s >= 30) {
-      mytime.minutes += 1;
-      // Propagate this rounding to other time units
-      if (mytime.minutes > min_per_h) {
-        mytime.hours += 1;
-        mytime.minutes -= min_per_h;
-        if (mytime.hours > h_per_day) {
-          mytime.days += 1;
-          mytime.hours -= h_per_day;
-          if (mytime.days > d_per_year) {
-            mytime.years += 1;
-            mytime.days -= d_per_year;
-          }
-        }
-      }
-    }
-    return mytime;
-  }
+  TimeStruct getResolvedTime(const double curtime);
 
 }; // End of Controller class
 

@@ -80,17 +80,13 @@ of portland cement, Cement and Concrete Research 36 (2006) 209--226.
 #ifndef SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 #define SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 
+#include "global.h"
+#include "Exceptions.h"
 #include "ChemicalSystem.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
-#include "global.h"
-#include <ctime>
-#include <fstream>
-#include <iomanip>
-#include <iostream>
-#include <string>
 
 using namespace std;
 
@@ -127,9 +123,11 @@ protected:
                                    effect in the Parrot and Killoh model */
   double pfk_;     /**< Multiplicative factor for k's to account for
                         effects of pozzolanic additions */
-  double rh_;
-  double rhFactor_;
-  double arrhenius_;
+  double rh_;        /**< relative humidity */
+  double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
+                     hydration rate taking into account the ambient relative
+                     humidity */
+  double arrhenius_; /**< arrhenius factor */
 
 public:
   /**
