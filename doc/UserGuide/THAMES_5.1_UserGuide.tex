@@ -1,37 +1,15 @@
 \documentclass{article}
-\usepackage{amsmath,amstext,amssymb}
-\usepackage[ttscale=0.7]{libertine}
-\usepackage[libertine]{newtxmath}
-\usepackage{siunitx}
-\usepackage{inconsolata}
-\usepackage{wrapfig}
 
-\usepackage{sectsty}
-\allsectionsfont{\sffamily}
+\input{Packages.tex}
+\input{Commands.tex}
 
-\usepackage{xcolor}
-\usepackage[colorlinks=true,
-            linkcolor=blue,
-            urlcolor=blue,
-            breaklinks,
-            pdftex,
-            allbordercolors=white]{hyperref}
-\usepackage{graphicx}
-\usepackage{booktabs}
-\usepackage{chemformula}
-\usepackage{parskip}
-
-\usepackage{listings}
-
-\usepackage{datetime2}
-\renewcommand{\DTMdisplaydate}[4]{#1-#2-#3}
-
+\newcommand{\us}{\underline{\phantom{X}}}
 \begin{document}
 
-\lstset{language=XML,stringstyle=\ttfamily}
+\lstset{basicstyle=\fontfamily{pcr}\scriptsize}
 
 \begin{center}
-	\Large{\textbf{\sffamily{Setting Up THAMES v5.0 Input}}}
+	\Large{\textbf{\sffamily{THAMES 5.1 User Guide}}}
 \end{center}
 \begin{center}
 	\large{Jeffrey W. Bullard}
@@ -40,24 +18,221 @@
 	\large{\DTMnow}
 \end{center}
 
-\vspace{0.25truein}
+\dparspace
 \tableofcontents
 
-\vspace{0.25truein}
-This document provides guidance on how to prepare input files for THAMES v5.0. Special
-attention is given to common pitfalls to avoid and some troubleshooting recommendations
-for fixing improper input files.
+\dparspace
 
 \section{\label{sec:requirements} Software Requirements}
 The following software must be installed and running properly on your computer:
 \begin{itemize}
 	\item GEMS3K standalone library 3.4.1: \href{http://gems.web.psi.ch/GEMS3K/downloads/index.html}{http://gems.web.psi.ch/GEMS3K/downloads/index.html}
-	\item THAMES v5.0: \href{https://github.tamu.edu/jwbullard/THAMES.git}{https://github.tamu.edu/jwbullard/THAMES.git}
+	\item THAMES v5.1: \href{https://github.tamu.edu/jwbullard/THAMES.git}{https://github.tamu.edu/jwbullard/THAMES.git}
 	\item (Optional) GEM-Selektor 3.6.0 or 3.7.0: \href{http://gems.web.psi.ch/GEMS3/downloads/index.html}{http://gems.web.psi.ch/GEMS3/downloads/index.html}
 	\item (Optional) ImageMagick 7 or later (for creating image files in PNG format): \href{https://imagemagick.org/}{https://imagemagick.org/}
 \end{itemize}
 
-\section{\label{sec:categories} Categories of THAMES Input}
+\subsection{\label{sec:path} Putting THAMES in your path}
+It will be convenient to add the folder where you install THAMES into your
+path. Usually the THAMES binary will be located in the \texttt{bin} subfolder
+of your local copy of the git repository that you cloned from GitHub.
+
+\parspace
+\begin{example}
+	Suppose the THAMES repository is located at \verb|$HOME/thames|. Open
+	your \verb|$HOME/.bashrc| or your \verb|$HOME/.zshrc| file, depending
+	on whether you use the Bash shell or the Z shell. Somewhere near the bottom
+	of that file, add these two lines:
+	\small{
+		\begin{verbatim}
+    PATH="$PATH:$HOME/thames/bin"
+    export PATH
+  \end{verbatim}
+	} \normalsize
+	Save and close this file and then run the command
+	\small{
+		\begin{verbatim}
+      source $HOME/.bashrc
+  \end{verbatim}
+	} \normalsize
+	or
+	\small{
+		\begin{verbatim}
+      source $HOME/.zshrc
+  \end{verbatim}
+	} \normalsize
+	You can now test if the system can find the THAMES executable by switching to
+	any other directory and run the command \verb|which thames|. This should output
+	the location of your THAMES file.
+\end{example}
+
+\subsection*{Setting up a sandbox to run THAMES simulations}
+It may be convenient to play around with THAMES by using the test cases
+provided, but you don't want to pollute your local copy of the repository. Therefore,
+it is helpful to make copies of all the test cases in a ``sandbox''. You can
+run two commands like these to make a sandbox in your home folder:
+\small{
+	\begin{verbatim}
+    mkdir $HOME/THAMES-Sandbox
+    cp -R $HOME/thames/tests/* $HOME/THAMES-Sandbox/.
+    \end{verbatim}
+} \normalsize
+Now let's test whether this setup has worked the way we want by running these
+commands:
+\small{
+	\begin{verbatim}
+cd $HOME/THAMES-Sandbox/portcem-298K-sat-wc45
+thames
+\end{verbatim}
+} \normalsize
+This command should produce this:
+\small{
+	\begin{verbatim}
+Enter simulation type:
+  1) Exit program
+  2) Hydration
+  3) Leaching
+  4) Sulfate attack
+\end{verbatim}
+} \normalsize
+If you see this output, everything is working correctly and you can
+\verb|Ctrl-C| to stop.
+
+\section{\label{sec:cmdline} THAMES command line options}
+Let's stay in that same \verb|portcem-298K-sat-wc45| folder and run this command:
+\small{
+	\begin{verbatim}
+thames --help 
+\end{verbatim}
+} \normalsize
+This should show the following output:
+\small{
+	\begin{verbatim}
+Usage: "thames [--verbose|-v] [--suppress|-s] [--xyz|-x] [--outfolder|-o] folder
+[--help|-h]"
+        --verbose [-v]      Produce verbose output
+        --suppress [-s]     Suppress warning messages
+        --xyz [-x]          Create 3D visualization movie
+        --outfolder [-o]    Name of folder for output data (default is Result)
+
+Note: thames --help [-h] will print this help message
+\end{verbatim}
+} \normalsize
+
+This help message is giving a terse description of the different options you can
+include when running THAMES. The options can be added in any order. Each one is
+explained a little more fully here.
+\begin{itemize}
+	\item \verb|--verbose [-v]|: THAMES already produces significant output to your
+	      terminal. This output directly to your screen is called the \verb|stdout|
+	      stream, which stands for ``standard output''.
+	      THAMES writes a lot of information to \verb|stdout| while it runs,
+	      including a lot of diagnostic messages (in the future much of
+	      this will be removed from normal operation but it is helpful while we
+	      are still in development mode.) Issuing this option will create even
+	      \textit{more} detailed output. You will usually not need or want this
+	      output.
+	\item \verb|--suppress [-s]|: This will stop any warning messages from being
+	      written to \verb|stdout|. There are not many warning messages, and they can
+	      be helpful later to figure out what may have happened if you do not get
+	      the results you were expecting. Therefore, it is recommended that you
+	      not suppress the warning messages.
+	\item \verb|--xyz [-x]|: This option will cause THAMES to create a file with a
+	      \verb|.xyz| extension that can be read directly by a 3D visualization
+	      application such as Ovito (available for free download at \url{https://ovito.org}).
+	      Using this option can cause THAMES to run a little slower because a lot
+	      of output is written to this \verb|.xyz| file.
+	\item \verb|--outfolder [-o]|: In addition to the stream of output written
+	      to \verb|stdout|, THAMES also creates a large number of new output files,
+	      and these are all collected in an output folder. This option allows
+	      you to specify the name and location of this output folder.
+	      \begin{itemize}
+		      \item \verb|--outfolder MyFiles| will name the folder \verb|MyFiles| and
+		            will put it in the directory where you are running the \verb|thames|
+		            command.
+		      \item \verb|--outfolder |$\sim$\verb|/SimFiles| will name the folder \verb|SimFiles| but
+		            it will be put in your home folder instead of the current folder
+		      \item Omitting this option will name the folder \verb|Results| and it will
+		            be put in the directory where you are running \verb|thames|.
+	      \end{itemize}
+\end{itemize}
+
+\subsection{\label{sec:running} Running THAMES non-interactively}
+\subsubsection{\label{sec:redirectinginput} Redirecting input}
+Running \verb|thames|, with or without any of these options, will enter you into
+``interactive'' mode by default, prompting you with menu options on the command
+line. When you enter text from your keyboard, you are creating a stream of text
+called \verb|stdin|, or the ``standard input'' stream.
+
+In normal operation, THAMES will prompt you for six pieces of information in
+this order:
+\begin{enumerate}
+	\item The type of simulation to run:
+	      \small{
+		      \begin{verbatim}
+      1) Exit program
+      2) Hydration
+      3) Leaching
+      4) Sulfate attack
+    \end{verbatim}
+	      } \normalsize
+	      At the moment options 3 and 4 do not work properly, so you will almost always
+	      want to choose ``2''
+	\item The name of the master file with thermodynamic information for GEMS.
+	\item The name of the file containing the definition of all the microstructure
+	      phases that THAMES will recognize for your simulation (JSON format)
+	\item The name of the file containing the initial 3D microstructure data
+	\item The name of the file containing the list of times at which to calculate
+	      a thermodynamic state or to output microstructure data.
+	\item The root name that all the output files will have
+\end{enumerate}
+
+You can avoid the interactive behavior of THAMES and run a simulation in
+non-interactive mode by putting all six of your responses in a text file, each
+on a separate line, and then
+\textit{redirecting} the input to come from the file instead of fro
+\verb|stdin|. Each of the test cases in your sandbox have such a text file
+pre-made for you, called \verb|input.in|.
+
+To run THAMES in non-interactive mode, you just need to issue the \verb|thames|
+command together with any options, type a space character after the last option,
+and then type $<$\verb|input.in &|, and then type \verb|Return| (on Linux or
+Windows) or \verb|Enter| on a Mac. So a command that redirects input could be:
+
+\parspace
+\small{
+	\verb|thames --outfolder MySim| $<$ \verb|input.in| \verb|&|
+} \normalsize
+
+Incidentally, the $<$ character in a Unix or Linux command always means ``redirect input
+from the file that follows this character''.  Also that last \verb|&| character at the
+end of the command is the Unix way of telling the computer to run the command in the
+background so you will get your command line prompt back while it is running.
+
+\subsubsection{\label{sec:redirectingoutput} Redirecting output}
+If you run the previous command, even in background mode, THAMES will still
+write all of its \verb|stdout| stream to your screen, effectively making that
+terminal unusable until it finishes. To avoid this behavior, you should always
+redirect \verb|stdout| away from your screen and into a text file to be saved
+for later. Whereas the symbol for redirecting input is $<$, the symbol for
+redirecting all \verb|stdout| is $>$.  However, if something goes wrong and
+THAMES issues some kind of error while it is running, that error message will
+still go to your terminal. You can direct both normal standard output
+(\verb|stdout|) and errors
+(called \verb|stderr|) to the same text file by using $>$\verb|&| (with no space
+between the two characters) instead of just $>$.
+
+So finally, a full THAMES command that runs in the background non-interactively
+would be
+
+\parspace
+\small{
+	\verb|thames --outfolder MySim| $<$ \verb|input.in| $>$\verb|& output.txt &|
+} \normalsize
+
+
+\section{\label{sec:inputguide} THAMES Input Files}
+\subsection{\label{sec:inputcategories} Categories of THAMES Input}
 Throughout this document, it will be assumed that your THAMES simulation will happen
 in a working directory called \verb!$WORKDIR!.
 
@@ -71,17 +246,18 @@ THAMES requires three categories of input files:
 \end{enumerate}
 Each of these will be detailed in the following sections.
 
-\subsection{Microstructure initial 3D arrangement}
-The microstructure representation is a digitized 3D image with \verb!X_Size! voxels
-in the $x$ direction, \verb!Y_Size! in the $y$ direction, and \verb!Z_Size!
+\subsection{\label{sec:microstructureinput} Microstructure initial 3D arrangement}
+The microstructure representation is a digitized 3D image with \texttt{X{\us}Size} voxels
+in the $x$ direction, \texttt{Y{\us}Size} in the $y$ direction, and
+\texttt{Z{\us}Size}
 in the $z$ direction.  Each voxel is a physical dimension of
-\verb!Image_Resolution! in micrometer units.
+\texttt{Image{\us}Resolution} in micrometer units.
 This is a normal ASCII text file.  The first few lines of an example microstructure
 are given below.
 
 \scriptsize{
 	\begin{lstlisting}
-#THAMES:Version: 5.0
+#THAMES:Version: 5.1
 #THAMES:X_Size: 100
 #THAMES:Y_Size: 100
 #THAMES:Z_Size: 100
@@ -105,10 +281,10 @@ The meaning of the five lines of header information follows:
 	\item \verb!#THAMES:Version! is the THAMES version with which these data
 	      should be compatible. It is not currently used in the code but is only for
 	      informational purposes;
-	\item \verb!#THAMES:X_Size!, \verb!#THAMES:Y_Size!, and \verb!#THAMES:Z_Size!
+	\item \verb!#!\texttt{THAMES:X{\us}Size}, \verb!#!\texttt{THAMES:Y{\us}Size}, and \verb!#!\texttt{THAMES:Z{\us}Size}
 	      are the system dimensions, in voxel units, in all three Cartesian
 	      directions;
-	\item \verb!#THAMES:Image_Resolution! is the linear dimension of each cubic
+	\item \verb!#!\texttt{THAMES:Image{\us}Resolution} is the linear dimension of each cubic
 	      voxel, in \unit{\micro\meter} units.
 \end{itemize}
 
@@ -147,7 +323,7 @@ definition file described later in this document.
 }
 
 \subsection{\label{sec:thermodata} Thermodynamic data input}
-THAMES 5.0 comes with the thermodynamic data files you will need to run most
+THAMES 5.1 comes with the thermodynamic data files you will need to run most
 of the simulations you want. This includes systems with temperatures ranging
 from \qty{283}{\kelvin} to \qty{333}{\kelvin} and including most of the
 important components of portland cement, portland limestone cement, and oil well
@@ -158,7 +334,7 @@ glassy and crystalline phases found in fly ashes. A full list of all the phases
 included can be found in the appendix.
 
 The thermodynamic data files can be found in any of the various test cases
-provided with THAMES 5.0, located in subfolders of the \verb!tests! folder:
+provided with THAMES 5.1, located in subfolders of the \verb!tests! folder:
 \begin{itemize}
 	\item \verb!alite-298K-sealed-wc35!
 	\item \verb!highvolume-silicafume!
@@ -276,7 +452,7 @@ extra annotations that are not included in the actual JSON file
 
 \normalsize{ }
 The \verb!temperature!, \verb!reftemperature!, and \verb!saturated! lines
-are required for every simulation. The \verb!electrolyte_conditions! section
+are required for every simulation. The \texttt{electrolyte{\us}conditions} section
 is techincally optional, but it is a good idea to have it. The GEMS library
 used by THAMES is more likely to properly converge if there is at least a little
 bit of each independent component in the electrolyte at the beginning. As shown,
@@ -377,14 +553,14 @@ The meaning of each entry is
 	      of all other microstructure phases. Just remember that the phase
 	      identificatino numbers in the 3D microstructure image file must
 	      correspond to the correct microstructure phase \verb!id! here.
-	\item \verb!cement_component! is 1 for any phase that is solid and
+	\item \texttt{cement{\us}component} is 1 for any phase that is solid and
 	      that belongs to the cementitious material, such as cement clinker phases, gypsum,
 	      alkali sulfates, free lime, \textit{etc}, and is 0 for other
 	      phases such as void, electrolyte, silica fume, fly ash phases, and
 	      any solid hydration products such as \ch{C-S-H} gel. This distinction
 	      is needed for internal calculations of water/cement ratio and
 	      water/solids ratio.
-	\item \verb!display_data! is a set of red/green/blue/gray values
+	\item \texttt{display{\us}data} is a set of red/green/blue/gray values
 	      that specify the color of the phase in THAMES visualizations. Many
 	      microstructure phases, though not all, have default colors assigned
 	      already according to predefined \verb!thamesname! names, so this entry
@@ -425,7 +601,7 @@ The meaning of each entry is
 This phase definition starts just like the void phase, with a
 \verb!thamesname!, a unique \verb!id!, and the designation
 that it is \textbf{not} to be considered a cement component.
-After these three, there is a section called \verb!gemphase_data!
+After these three, there is a section called \texttt{gemphase{\us}data}
 that tells THAMES how
 to relate this microstructure phase to one or more phases in
 the thermodynamic system definition (\verb!-dch.dat! file).
@@ -469,9 +645,9 @@ In the figure, there are \textit{nine} phases listed in the \verb!<PHNL>! field 
 relate the two.  Notice that there are \textit{nine} numbers in \verb!<nDCinPH>!, one
 for each phase. The ordering of the numbers is the same as the ordering of phase
 names in the \verb!<PHNL>! field.  So there are 13 DCs in the first phase, which
-is \verb!aq_gen!.  In addition, those 13 DCs are the \textit{first} 13 DCs in the
+is \texttt{aq{\us}gen}.  In addition, those 13 DCs are the \textit{first} 13 DCs in the
 \verb!<DCNL>! list.  Moving on, we see that there are three DCs in the next phase, which
-is \verb!gas_gen!, and those three DCs are the next three after the first 13 in the
+is \texttt{gas{\us}gen}, and those three DCs are the next three after the first 13 in the
 \verb!<DCNL>! list, namely \verb!'H2'!, \verb!'O2'!, and \verb!'H2O'! (the last being
 the water vapor molecule, not liquid water which is \verb!H2O@!\footnote{In GEMS, the
 	\makeatletter\texttt{`@'}\makeatother\ symbol is reserved to designate
@@ -530,7 +706,7 @@ This entry indicates three more features of a solid phase, namely
 data about its interface with other phases, its impurity content,
 and its kinetic behavior:
 \begin{itemize}
-	\item \verb!interface_data! in the above entry for alite
+	\item \texttt{interface{\us}data} in the above entry for alite
 	      is empty, but can have information about the affinity the
 	      phase has for growing on one or more other substrate phases, using
 	      the name of the substrate phase and the thermodynamic contact
@@ -544,14 +720,14 @@ and its kinetic behavior:
 		            where \qty{0}{\degree} is perfect wetting and
 		            \qty{180}{\degree} is complete nonwetting.
 	      \end{itemize}
-	\item \verb!impurity_data! contains data on the amounts
+	\item \texttt{impurity{\us}data} contains data on the amounts
 	      of four different possible impurities, namely
 	      potassium, sodium, magnesium, and sulfur, in terms
 	      of the \textit{mole fractions} of their equivalent oxides,
 	      namely \ch{K2O}, \ch{Na2O}, \ch{MgO}, and \ch{SO3}.
 	      Currently these are the only four impurities that
 	      are recognized by THAMES.
-	\item \verb!kinetic_data! is optional and will be described
+	\item \texttt{kinetic{\us}data} is optional and will be described
 	      in detail in a later section. For now, the presence of this
 	      section indicates that the rates of reaction of this phase
 	      will be controlled by a kinetic rate equation. If this
@@ -676,16 +852,27 @@ be drawn from the surrounding electrolyte if available:
 \end{itemize}
 
 \subsubsection{\label{sec:timeparams} Calculation and output times}
-The final section of this file is called \verb!time_parameters! and defines
+The final section of this file is called \texttt{time{\us}parameters} and defines
 both the final age of the material to simulate and the simulation times at
 which THAMES should write data for visualization and for assessing the
-pore size distribution and saturation state. This section is fairly simple:
+pore size distribution and saturation state.
 
 \scriptsize{
 	\begin{lstlisting}
   "time_parameters": {
     "finaltime": 56.0,
     "outtimes": [0.01, 0.1,0.5,1.0,3.0,7.0,14.0,28.0]
+  }
+\end{lstlisting}
+}
+
+Or, alternatively,
+
+\scriptsize{
+	\begin{lstlisting}
+  "time_parameters": {
+    "finaltime": 56.0,
+    "outfreq": 4.0,
   }
 \end{lstlisting}
 }
@@ -705,8 +892,323 @@ The meaning of the parameters are as follows:
 		      \item the full 3D microstructure image (an \verb!.img! file),
 		      \item a 2D image of a slice of the microstructure (both \verb!.ppm!
 		            and \verb!.png! files), and
+		      \item An entry in the \verb!.xyz! file used for 3D
+		            visualizations.\footnote{The 3D visualization option is
+			            discussed more in Section~\ref{sec:3Drendering}.}
 		      \item the current pore size distribution and saturation state.
 	      \end{itemize}
+	\item \verb!outfreq! is an alternative to \verb!outtimes! offered for
+	      convenience. It allows one to specify a time interval, in days, at the end
+	      of which the output images and pore size distributions will be output.
+	      This enables one to avoid entering many equally spaced times for output.
+	      Note: If both \verb!outfreq! and \verb!outtimes! are present, the
+	      \verb!outtimes! entry will be ignored.
 \end{itemize}
+
+\section{\label{sec:outputguide} THAMES Output Files}
+This section provides guidance on the information contained in the various output files
+produced by THAMES v5.1. For simplicity, the guide will be structured entirely
+in the form of an example simulation based on the test case named
+\verb!portcem-296K-sealed-alk-wc45! that is provided.
+
+\section{\label{sec:assumption} Assumptions}
+This guide assumes
+\begin{enumerate}
+	\item that you have been through the previous sections of this document,
+	\item that your THAMES 5.1 distribution located in a directory
+	      with the absolute path specified in this guide by \verb!$THAMES!. For example
+	      if your distribution is located at the absolute path
+	      \verb!/home/odehwah/models/THAMES!, then \verb!$THAMES! is equivalent to that
+	      full path in this guide; and
+	\item that you have already built \verb!thames! and that it is in
+	      your \verb!$PATH! environment variable so that the operating system can discover it
+	      when you run it from the command line. If you are unsure whether this has been
+	      done, you can run the command \verb!which thames! from the command line. If that
+	      command returns something like \verb!thames not found!, then you must first
+	      augment your \verb!$PATH! environment variable. If you are unsure how to
+	      change the environment variable a tutorial for Linux can be found
+	      here: \url{https://www.digitalocean.com/community/tutorials/how-to-view-and-update-the-linux-path-environment-variable}
+\end{enumerate}
+
+\section{\label{sec:runtestcase} Run the Test Case}
+A good idea is to keep the working directory as clean as possible so that it
+doesn't get accidentally corrupted or more confusing. So it is a good practice
+to copy the test case to another location before using it there. For this
+example, create a temporary directory and then copy the test case there:
+\scriptsize{
+	\begin{lstlisting}
+  mkdir $HOME/scratch
+  cp -R $THAMES/test/portcem-296K-sealed-alk-wc45 $HOME/scratch
+\end{lstlisting}
+}
+
+\normalsize{ }
+Next, go to that new directory:
+\scriptsize{
+	\begin{lstlisting}
+  cd $HOME/scratch/portcem-296K-sealed-alk-wc45
+\end{lstlisting}
+}
+
+\normalsize{ }
+Before running the simulation, open the \verb!input.in! file. The file contents
+are:
+\scriptsize{
+	\begin{lstlisting}
+2
+thames-dat.lst
+simparams.json
+ccr140-w45-thames.img
+cem140-sealed-alk-01
+\end{lstlisting}
+}
+
+\normalsize{ }
+Each line of this file is now explained:
+\begin{itemize}
+	\item \textbf{Line 1}: Determines the type of simulation to be run:
+	      \begin{enumerate}
+		      \item A value of 1 exits the simulation with no further action
+		      \item A value of 2 will run a normal hydration simulation
+	      \end{enumerate}
+	\item \textbf{Line 2}: The root name of the thermodynamic data. This file is
+	      read and automatically prompts the input of the other thermodynamic data
+	      files.
+	\item \textbf{Line 3}: The JSON formatted input file specifying the simulation
+	      environment, the microstructure phase definitions, and the simulation time
+	      and output frequency.
+	\item \textbf{Line 4}: The name of the file containing the initial 3D microstructure
+	\item \textbf{Line 5}: The root name for all output files produced by THAMES.
+	      This can be anything you want, although it is recommended not to use periods
+	      within it. Feel free to shorten it to \verb!cem140! or some other string if
+	      you wish.
+\end{itemize}
+Close the file, making sure to save it first if you made changes to the fifth
+line, and then run the THAMES simulation with these options:
+\scriptsize{
+	\begin{lstlisting}
+  thames --xyz --outfolder MyResult < input.in >& output.out &
+\end{lstlisting}
+}
+
+\normalsize{ }
+The simulation should create an \verb!output.txt! file and a folder named
+\verb!MyResults!, as shown in Figure~\ref{fig:one}, while it continues
+to run for about five minutes to ten minutes.
+
+\begin{figure}
+	\centering\includegraphics[width=0.7\textwidth]{../Figures/ListingAfterRun.png}
+	\caption{\label{fig:one} Contents of the test directory running a simulation.}
+\end{figure}
+
+A message similar to the following
+appear in the terminal when the simulation finishes:
+\scriptsize{
+	\begin{lstlisting}
+  [1]  + 56549 exit 1     ~/Software/THAMES/bin/thames --xyz --outfolder MyResult < input.in >&
+\end{lstlisting}
+}
+
+\normalsize{ }
+The \verb!MyResults! folder
+holds all of the output files created by the simulation, while the
+\verb!output.txt! file holds all the standard output that would otherwise
+be written to the screen. Under ordinary circumstances there is no need to
+examine the \verb!output.txt! file, but it can be useful to have it if
+the program crashes for some reason or otherwise behaves oddly.
+
+\section{\label{sec:outputfiles} Output File Content}
+When the simulation exits, navigate to the \verb!MyResults! folder and
+run the \verb!ls! command to see the directory contents, which should
+appear like that shown in Fig.~\ref{fig:two}.
+
+\begin{figure}
+	\centering\includegraphics[width=0.7\textwidth]{../Figures/OutputFileTypes.png}
+	\caption{\label{fig:two} Contents of the \texttt{MyResult} folder at the
+		conclusion of THAMES simulation. Color blocks superimposed on the files
+		indicate spreadsheet-like CSV data (green), pore size distribution data
+		(yellow), microstructure data and images for viewing (pink), a 3D
+		\texttt{xyz}
+		format file for viewing in Ovito or similar application (orange, optional),
+		and original input data files (blue) copied from the parent directory for
+		record-keeping.}
+\end{figure}
+
+\subsection{Input data files}
+The files highlighted in blue in Fig.~\ref{fig:two} are input files
+copied directly from the parent directory and are present only as
+metadata to recall the conditions under which the simulation was
+performed. The contents of most of these files are described in detail
+in the companion document on preparing input files and will therefore
+not be revisited here.
+
+\subsection{CSV files}
+Eleven comma separated value CSV files are written by THAMES to
+recored time-dependent simulation data. These are highlighted in green in
+Fig.~\ref{fig:two} and are described in the following paragraphs:
+
+\paragraph{{\us}CSH.csv} Records the composition of the calcium silicate
+hydrate (\ch{C-S-H}) phase as a function of time. The first column is the time (in hours).
+The rest of the columns up until the final column are the concentrations
+of each element in the \ch{C-S-H} phase. The final column displays the
+molar Ca/Si ratio of the \ch{C-S-H}.
+
+\paragraph{{\us}CSratio{\us}solid.csv} Provides the overall molar Ca/Si ratio of all
+solid components in the microstructure. Time (in hours) is in the first column
+and the only other column is the averaged Ca/Si ratio. This file may be
+removed in future versions of THAMES.
+
+\paragraph{{\us}dcmoles.csv} Catalogs the number of moles (per \qty{100}{\gram}
+of initial solid) of each dependent component (DC)\footnote{Note that DCs are
+	not identical with phases. Some phases, such as gypsum, have only one
+	DC, which for gypsum is named \texttt{Gp}, while phases such as \ch{C-S-H}
+	are solid solutions of multiple DCs.}
+in the system, again with
+simulation time (in hours) occupying the first column.
+
+\paragraph{{\us}DCVolumes.csv} Provides the volume (in \unit{\meter\cubed} per
+\qty{100}{\gram} of initial solid) of each dependent component (DC) in the
+system, again with simulation time (in hours) occupying the first column.
+
+\paragraph{{\us}Enthalpy.csv} Displays in the second column the predicted cumulative heat release
+by the system (in \unit{\joule} per \qty{100}{\gram} of initial solid) at each
+corresponding time (in hours) in the first column.
+
+\paragraph{{\us}icmoles.csv} Gives the calculated moles, per \qty{100}{\gram}
+of initial solid, of each independent
+component (IC, essentially chemical elements and electric charge) in the system
+for each corresponding time (in hours) in the first column. This file may be
+removed in future versions of THAMES because it duplicates information that
+can be easily obtained from the \texttt{{\us}dcmoles.csv} file.
+
+\paragraph{{\us}Microstructure.csv} Records the \textit{volume fraction}
+(dimensionless) of each defined microstructure phase in the system
+at the corresponding time (in hours) displayed in the first column.
+The very last column gives the predicted chemical shrinkage value at the
+corresponding time, in units of \unit{\meter\cubed} per \qty{100}{\gram}
+of initial solid material.
+
+\paragraph{{\us}SI.csv} Contains the saturation index of the pore solution
+(dimensionless) with respect to each defined microstructure phase
+at each corresponding time (in hours) in the first column. Here the saturation
+index, $\Omega$, is defined as the ratio of the activity product to the equilibrium
+constant, so for any given solid phase $p$, $\Omega_p = 1$ if the solution is at
+equilibrium with that solid phase, $\Omega_p < 1$ if the solution is
+undersaturated so that the phase $p$ is thermodynamically driven to dissolve,
+and $\Omega_p >$ if the solution is
+supersaturated so that the phase $p$ is thermodynamically driven to precipitate.
+
+\paragraph{{\us}Solution.csv} Displays the composition of the electyrolyte
+(\textit{i.e.}, pore solution) at each calculated time (in hours) given in
+the first column. The composition consists of the concentration of each
+dependent component dissolved in the water, given in units of
+\unit{\mole\per\kilo\gram} water.
+
+\paragraph{{\us}SurfaceAreas.csv} Displays the solid-water surface
+area of each defined microstructure phase at each calculation time (in hours)
+displayed in the first column. The surface areas in this file are given
+in units of \unit{\meter\squared} per \qty{100}{\gram} of initial solid
+material. In particular, they are not equivalent to the specific surface
+area of each phase individually, but come closer to reflecting each phase's
+contribution to the specific surface area.
+
+\subsection{Pore size distribution data files}
+One of these files is created for each output time the user specifies in the
+input JSON file, which is described in more detail in the companion guide
+for preparing input files. Each file has a name that contains the
+simulation temperature in kelving units and the time in year-day-hour-minute format.
+For example, a file with the name
+\scriptsize{
+	\begin{lstlisting}
+myfile_PoreSizeDistribution.001y.056d.14h.30m.296K.csv
+\end{lstlisting}
+}
+\normalsize{ }
+corresponds to a temperature of \qty{296}{\kelvin} and
+a simulation time of 1 year, 56 days, 14 hours, and 30 minutes.
+Times are always rounded to the nearest minute.
+
+The contents of a pore size distribution file are structured
+as shown below:
+\scriptsize{
+	\begin{lstlisting}
+Time = 672 h,,
+Voxel-scale pore volume fraction (>= 1000 nm) = 0.049738,,
+Saturated voxel-scale pore volume fraction = 0,,
+Empty voxel-scale void volume fraction = 0.049738,,
+Subvoxel volume fraction (< 1000 nm) = 0.173083,,
+Saturated subvoxel volume fraction (< 1000 nm) = 0.13513,,
+Empty subvoxel-scale void volume fraction = 0.0379536,,
+Total pore volume fraction = 0.222821,,
+Total void volume fraction = 0.049738,,
+Pore size saturation data:,,
+Masterporevolume size = 56,,
+Diameter (nm),Volume Fraction,Fraction Saturated
+1.99526,0.0426508,1
+2.23872,0.00530618,1
+2.51189,0.00477843,1
+2.81838,0.00436585,1
+    .
+    .
+    .
+63.0957,0.00507889,1
+70.7946,0.00853574,0.345385
+79.4328,0.00906405,0
+89.1251,0.00953302,0
+100,0.0115934,0
+223.872,0.0021721,0
+501.187,3.43993e-06,0
+>=1000,0.049738,0
+\end{lstlisting}
+}
+
+\normalsize{ }
+The first eleven lines provide overall data on the volume fraction of different
+ranges of saturated pores and empty pores. Following this is the more detailed
+analysis of pore volume fractions. The first column is the effective
+pore diameter in  \unit{\nano\meter} units, the second column is the
+volume fraction (dimensionless) of the microstructure occupied by pores of that size,
+and the third column is the fraction of that pore volume occupied by the
+pore solution. The data are provided up to a maximum pore diameter of
+\qty{99}{\nano\meter}, and all larger pores are lumped into a final category
+on the final row.
+
+\subsection{Microstructure state files}
+For each specified output time in the JSON input file, two or three files
+will be created:
+\begin{itemize}
+	\item \verb!.img! files contain the full 3D microstructure image data
+	      in exactly the same format as the input microstructure image, which
+	      is discussed in detail in the companion guide for preparing input
+	      files.
+	\item \verb!.ppm! is a 2D $xy$-slice through the microstructure at the
+	      midpoint of the $z$ dimension. The format is a color portable pixel
+	      map (PPM) that can be displayed by a range of image rendering applications
+	      such as Gimp (any platform, most flexible), \verb!eog! or \verb!feh! (linux),
+	      Preview (Mac OS), Honeyview or i{\us}view (Windows).
+	\item \verb!.png! is a PNG version of the corresponding \verb!.ppm! file
+	      that THAMES will generate automatically only if ImageMagick 7 or later
+	      \url{https://imagemagick.org/} is
+	      installed on the computer and if the \verb!magick! command is in the
+	      path.
+\end{itemize}
+
+The \verb!.ppm! and \verb!.png! files are created with some sense of
+depth by making the pore space slightly transparent. These two files
+also render each microstructure phase with a unique color. The
+\verb!rgb! triplet of values for the color of each phase is given
+in the \texttt{{\us}Colors.csv} file for easier reference.
+
+\subsection{\label{sec:3Drendering} 3D rendering file}
+This file tends to be quite large and so it is only created if the user gives
+the \verb!--xyz! option on the command line when starting a THAMES simulation.
+It contains a full 3D data structure for each output time specified in the JSON
+input file, and so can be rendered into individual states or produced into
+an animation of the microstructure's time evolution. The file is written
+in the industry-standard \verb!.xyz! format that can be read by multiple
+3D rendering software applications. Among these,
+Ovito (\url{https://ovito.org})\footnote{Mention of commercial products is
+	for information only, and does not imply recommendation or endorsement by Texas A\&M University.}
+is a freely available application that runs on any platform and is relatively easy to use.
 
 \end{document}

@@ -1,0 +1,144 @@
+%---------------------------------------------------------------------------
+%  Packages needed by nearly every document
+%---------------------------------------------------------------------------
+
+% No need to worry about possibility of packages being loaded multiple
+% times.  LaTeX has built-in ability to detect this and load only once
+
+% Title and section formatting
+\usepackage[small,sf,bf]{titlesec}
+%\titleformat*{\section}{\Large\bfseries\sffamily}
+%\titleformat*{\subsection}{\large\bfseries\sffamily}
+
+% Math tools
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{bigints}
+
+% Better access of bold math symbols
+\usepackage{bm}
+% Allows the striking of terms in algebraic expressions
+\usepackage{cancel}
+
+\DeclarePairedDelimiter\set\{\}
+
+% Libertine fonts
+\usepackage[ttscale=0.75]{libertine}
+\usepackage[libertine]{newtxmath}
+
+% Including figures
+\usepackage{graphicx}
+\graphicspath{{Figures}}
+
+% Enhanced formatting of dates and times
+\usepackage{datetime2}
+\renewcommand{\DTMdisplaydate}[4]{#1-#2-#3}
+
+% Automatic adjustment of table column widths to achieve
+% an overall table width
+\usepackage{tabularx}
+% Better formatting of tables (\toprule, \midrule and \bottomrule)
+\usepackage{booktabs}
+
+% Sideways oriented tables and figures
+\usepackage{rotating}
+
+% TeX commands for drawing graphics
+\usepackage{tikz}
+
+% Enhanced handling of figure and table captions
+\usepackage{caption}
+
+% Specify the counter format easily for enumerate environments
+\usepackage{enumerate}
+
+% Enables bold math Greek symbols
+\usepackage{bm}
+
+% Next lines set up the system for formatting units
+\usepackage{siunitx}
+\sisetup{detect-weight=true, detect-family=true}
+\sisetup{range-phrase={ to },%
+	range-units =brackets,%
+	table-number-alignment =center,%
+	table-figures-exponent=1%
+}
+
+\DeclareSIUnit\atm{atm}
+\DeclareSIUnit\bar{bar}
+\DeclareSIUnit\atom{atom}
+
+% Next lines setup hyperlink formatting
+\usepackage[colorlinks=true,
+	linkcolor=blue,
+	urlcolor=blue,
+	breaklinks,
+	pdftex,
+	allbordercolors=white]{hyperref}
+
+% Can convert all text in environment to upper case or lower case
+\usepackage{textcase}
+
+% Chemical symbols, formulas, and reactions
+\usepackage{chemformula}
+
+%Fancy lists
+\usepackage{listings}
+
+% Enhanced color commands
+\usepackage{xcolor}
+
+% Definition of some useful colors
+\definecolor[named]{darkblue}{rgb}{0,0,0.7}
+\definecolor[named]{darkgreen}{rgb}{0,0.5,0}
+\definecolor[named]{aggiemaroon}{rgb}{0.3137,0,0}
+\definecolor[named]{aggiegray}{rgb}{0.2,0.1725,0.1725}
+
+% Format for program blocks
+%\lstset{frame=tb,
+%  language=C,
+%  aboveskip=3mm,
+%  belowskip=3mm,
+%  showstringspaces=false,
+%  columns=flexible,
+%  basicstyle={\small\ttfamily},
+%  numbers=none,
+%  numberstyle=\tiny\color{gray},
+%  keywordstyle=\color{blue},
+%  commentstyle=\color{dkgreen},
+%  stringstyle=\color{mauve},
+%  breaklines=true,
+%  breakatwhitespace=true,
+%  tabsize=3
+%}
+
+% Small vertical space between paragraphs, no indentation of first line
+\usepackage{parskip}
+
+% Number equations by section
+\numberwithin{equation}{subsection}
+
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd{\@startsection}% <cmd>
+{\if@noskipsec}% <search>
+{\csgdef{theequation}{\csname the#1\endcsname.\arabic{equation}}\if@noskipsec}% <replace>
+{}{}% <success><failure>
+\makeatother
+
+\usepackage[backend=biber,
+	sorting=none,%
+	sortcites,%
+	maxnames=4,%
+	citestyle=authoryear,%
+	uniquename=init,%
+	giveninits=true,%
+	bibstyle=authoryear,%
+	terseinits=true,%
+	casechanger=expl3,%
+]{biblatex}
+\addbibresource{/Users/bullard/Library/texmf/bibtex/bib/master.bib}
+
+\DeclareFieldFormat
+[article,inbook,incollection,inproceedings,patent,thesis,unpublished]
+{titlecase}{\MakeSentenceCase*{#1}}
+

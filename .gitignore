@@ -22,15 +22,15 @@ build/*
 doc/html/*
 doc/latex/*
 
-doc/InputGuide/*.fdb_latexmk
-doc/InputGuide/*.fls
-doc/InputGuide/*.synctex.gz
-
 #ignore LaTeX intermediate files
 *.aux
 *.log
 *.toc
 *.out
+*.fdb_latexmk
+*.fls
+*.synctex.gz
+
 
 # ignore compiled libraries
 *.a

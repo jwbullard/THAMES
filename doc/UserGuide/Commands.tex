@@ -1,0 +1,368 @@
+% The package xparse helps handle complex optional arguments to new commands
+\usepackage{xparse}
+\usepackage{ifmtarg}
+\usepackage{textcase}
+\usepackage{bm}
+\usepackage{chemformula}
+
+% These commands use the xparse package
+
+% Symbols for useful constants
+\NewDocumentCommand{\gasconst}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\num{8.314}}} {\ensuremath{R}}%
+}
+\NewDocumentCommand{\boltz}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\num{1.38e-23}}} {\ensuremath{k_B}}%
+}
+\NewDocumentCommand{\planck}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\num{6.63e-34}}} {\ensuremath{h}}%
+}
+\NewDocumentCommand{\avogadro}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\num{6.022e23}}} {\ensuremath{N_{A}}}%
+}
+
+% Declaration of non-standard units
+\DeclareSIUnit\bar{bar}
+\DeclareSIUnit\year{y}
+
+\NewDocumentCommand{\RT}{}{\ensuremath{\gasconst T}}
+\NewDocumentCommand{\kT}{}{\ensuremath{\boltz T}}
+
+% Common decorations
+\NewDocumentCommand{\cmp}{}{\ensuremath{*}}
+\NewDocumentCommand{\cmplx}{}{\ensuremath{*}}
+\NewDocumentCommand{\std}{}{\ensuremath{\circ}}
+\NewDocumentCommand{\pmolar}{m}{\ensuremath{\overline{#1}}}
+
+% Thermodynamic potentials
+% Upper case is molar, lower case is volumetric
+
+\NewDocumentCommand{\Gibbs}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{G}}} {\ensuremath{\text{G}}}%
+}
+\NewDocumentCommand{\gibbs}{}{\ensuremath{\text{g}}}
+
+\NewDocumentCommand{\Helmholtz}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{A}}} {\ensuremath{\text{A}}}%
+}
+\NewDocumentCommand{\helmholtz}{}{\ensuremath{\text{a}}}
+
+\NewDocumentCommand{\Entropy}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{S}}} {\ensuremath{\text{S}}}%
+}
+\NewDocumentCommand{\entropy}{}{\ensuremath{\text{s}}}
+
+\NewDocumentCommand{\Energy}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{U}}} {\ensuremath{\text{U}}}%
+}
+\NewDocumentCommand{\energy}{}{\ensuremath{\text{u}}}
+
+\NewDocumentCommand{\Work}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{W}}} {\ensuremath{\text{W}}}%
+}
+\NewDocumentCommand{\Enthalpy}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{H}}} {\ensuremath{\text{H}}}%
+}
+
+\NewDocumentCommand{\Vol}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{V}}} {\ensuremath{V}}%
+}
+\NewDocumentCommand{\Volume}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{V}}} {\ensuremath{V}}%
+}
+
+\NewDocumentCommand{\area}{s}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\mathbb{A}}} {\ensuremath{A}}%
+}
+
+\NewDocumentCommand{\molecvol}{}{\ensuremath{\Omega}}
+
+\NewDocumentCommand{\enthalpy}{}{\ensuremath{\text{h}}}
+\NewDocumentCommand{\heat}{}{\ensuremath{q}}
+\NewDocumentCommand{\Heat}{}{\ensuremath{Q}}
+
+\NewDocumentCommand{\chempot}{}{\ensuremath{\mu}}
+\NewDocumentCommand{\Press}{}{\ensuremath{P}}
+\NewDocumentCommand{\ppress}{}{\ensuremath{p}}
+
+\NewDocumentCommand{\Eact}{}{\ensuremath{E_{a}}}
+\NewDocumentCommand{\acoeff}{}{\ensuremath{\gamma}}
+\NewDocumentCommand{\actprod}{}{\ensuremath{Q}}
+\NewDocumentCommand{\eqconst}{}{\ensuremath{K}}
+\NewDocumentCommand{\fug}{}{\ensuremath{f}}
+\NewDocumentCommand{\molfrac}{}{\ensuremath{X}}
+\NewDocumentCommand{\moles}{}{\ensuremath{n}}
+\NewDocumentCommand{\molecules}{}{\ensuremath{N}}
+\NewDocumentCommand{\nsites}{}{\ensuremath{N}}
+\NewDocumentCommand{\nvac}{}{\ensuremath{N_{\text{v}}}}
+
+% Concentration
+% If optional star token is given, puts brackets around optional string
+% If optional star token is missing, ignores optional string and just types c
+% Subscripts and superscripts are handled with the dec command below
+\NewDocumentCommand{\conc}{sO{\cdots}}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\left[#2\right]}} {\ensuremath{c}}%
+}
+
+% Activity
+% If optional star token is given, puts curly braces around optional string
+% If optional star token is missing, ignores optional string and just types a
+% Subscripts and superscripts are handled with the dec command below
+\NewDocumentCommand{\act}{sO{\cdots}}{%
+	\IfBooleanTF{#1}%
+	{\ensuremath{\set{#2}}} {\ensuremath{a}}%
+}
+
+\NewDocumentCommand{\oderivh}{O{}mm}{\ensuremath{\text{d}^{#1}#2/\text{d}{#3}^{#1}}}
+\NewDocumentCommand{\oderivv}{O{}mm}{\ensuremath{\frac{\text{d}^{#1}#2}{\text{d}{#3}^{#1}}}}
+\NewDocumentCommand{\pderivv}{O{}mm}{\ensuremath{\frac{\partial^{#1} #2}{\partial #3^{#1}}}}
+\NewDocumentCommand{\pderivh}{O{}mm}{\ensuremath{\partial^{#1} #2/\partial #3^{#1}}}
+\NewDocumentCommand{\rateconst}{}{\ensuremath{k}}
+\NewDocumentCommand{\Energ}{}{\ensuremath{E}}
+\NewDocumentCommand{\energ}{}{\ensuremath{\epsilon}}
+\NewDocumentCommand{\DOS}{}{\ensuremath{\omega}}
+\NewDocumentCommand{\exval}{m}{\ensuremath{\langle #1 \rangle}}
+\NewDocumentCommand{\volfrac}{}{\ensuremath{\phi}}
+\NewDocumentCommand{\mass}{}{\ensuremath{m}}
+\NewDocumentCommand{\molarmass}{}{\ensuremath{M}}
+\NewDocumentCommand{\flux}{}{\ensuremath{J}}
+\NewDocumentCommand{\fluxp}{}{\ensuremath{\flux^{\prime}}}
+\NewDocumentCommand{\diffus}{}{\ensuremath{D}}
+\NewDocumentCommand{\dens}{}{\ensuremath{\rho}}
+
+% Symbol for nucleation rate
+\NewDocumentCommand{\nucrate}{}{\ensuremath{\Theta}}
+
+% Notation for vectors
+% The * token will make a unit vector
+% The + token will indicate the magnitude of the vector
+% Both tokens can be used together, but * must come before +
+
+\NewDocumentCommand{\vect}{st+m}{%
+	\IfBooleanTF{#1} {%
+		\IfBooleanTF{#2} {%
+			\ensuremath{\lvert \mathbf{\hat{#3}} \rvert}%
+		}{%
+			\ensuremath{\mathbf{\hat{#3}}}%
+		}%
+	}{%
+		\IfBooleanTF{#2} {%
+			\ensuremath{\lvert \mathbf{#3} \rvert}%
+		}{%
+			\ensuremath{\mathbf{#3}}%
+		}%
+	}%
+}
+
+% Shorthand partial derivatives
+% The * token produces shorthand notation
+%{ \ensuremath{#3_{\myrepeat{#2}{#4}}} }
+% Both tokens can be used together, but * must come before +
+
+\ExplSyntaxOn
+\NewExpandableDocumentCommand{\myrepeat}{mm}
+{
+	\int_compare:nT { #1 > 0 }
+	{
+		#2 \prg_replicate:nn { #1 - 1 } { #2 }
+	}
+}
+\ExplSyntaxOff
+
+\NewDocumentCommand{\pderiv}{somm}{%
+	\IfBooleanTF{#1} {%
+		\IfNoValueTF{#2}
+		{ \ensuremath{#3_{#4}} }
+		{ \ensuremath{#3_{\myrepeat{#2}{#4}}} }
+	}{%
+		\IfNoValueTF{#2}
+		{ \ensuremath{\frac{\partial #3}{\partial #4}} }
+		{ \ensuremath{\frac{\partial^{#2} #3}{\partial #4^{#2}}} }
+	}%
+}
+
+\NewDocumentCommand{\oderiv}{somm}{%
+	\IfBooleanTF{#1} {%
+		\IfNoValueTF{#2}
+		{ \ensuremath{#3^{\prime}} }
+		{ \ensuremath{#3^{\myrepeat{#2}{\prime}}} }
+	}{%
+		\IfNoValueTF{#2}
+		{ \ensuremath{\frac{\text{d} #3}{\text{d}#4}} }
+		{ \ensuremath{\frac{\text{d}^{#2} #3}{\text{d}#4^{#2}}} }
+	}%
+}
+
+% Shorthand for divergence and gradient operators
+\NewDocumentCommand{\diverg}{s}{%
+	\IfBooleanTF{#1} {%
+		\ensuremath{\text{div}\,}%
+	}{%
+		\ensuremath{\vect{\nabla} \cdot }%
+	}%
+}
+
+\NewDocumentCommand{\grad}{s}{%
+	\IfBooleanTF{#1} {%
+		\ensuremath{\text{grad}\,}%
+	}{%
+		\ensuremath{\vect{\nabla} }%
+	}%
+}
+
+\NewDocumentCommand{\curl}{s}{%
+	\IfBooleanTF{#1} {%
+		\ensuremath{\text{curl}\,}%
+	}{%
+		\ensuremath{\vect{\nabla} \times }%
+	}%
+}
+
+\NewDocumentCommand{\mylaplac}{s}{%
+	\IfBooleanTF{#1} {%
+		\ensuremath{\div \grad\,}%
+	}{%
+		\ensuremath{\grad^2 }%
+	}%
+}
+
+
+\NewDocumentCommand{\surfnrg}{}{\ensuremath{\gamma}}
+\NewDocumentCommand{\Grate}{}{\ensuremath{G}}
+\NewDocumentCommand{\freq}{}{\ensuremath{\nu}}
+
+% Viscosity
+\NewDocumentCommand{\visc}{}{\ensuremath{\mu}}
+\NewDocumentCommand{\stress}{}{\ensuremath{\sigma}}
+\NewDocumentCommand{\strain}{}{\ensuremath{\epsilon}}
+\NewDocumentCommand{\sstress}{}{\ensuremath{\tau}}
+\NewDocumentCommand{\sstrain}{}{\ensuremath{\gamma}}
+\NewDocumentCommand{\sstrainrate}{}{\ensuremath{\dot{\gamma}}}
+\NewDocumentCommand{\shearmod}{}{\ensuremath{G}}
+\NewDocumentCommand{\bulkmod}{}{\ensuremath{K}}
+\NewDocumentCommand{\freevol}{}{\ensuremath{V}}
+\NewDocumentCommand{\tecoeff}{}{\ensuremath{\alpha}}
+
+% Heat capacity
+\NewDocumentCommand{\heatcap}{}{\ensuremath{C}}
+
+% Mathematical spaces
+\NewDocumentCommand{\Space}{sO{}}{%
+	\IfBooleanTF{#1}{%
+		\ensuremath{\mathbb{Z}^{#2}}
+	}{%
+		\ensuremath{\mathbb{R}^{#2}}
+	}%
+}
+
+% Bold notation for gradient
+\NewDocumentCommand{\bgrad}{}{\ensuremath{\pmb{\nabla}}}
+
+% Function notation
+\NewDocumentCommand{\fnc}{sO{}m}{%
+	\IfBooleanTF{#1}{%
+		\ensuremath{\widetilde{#3}_{#2}}
+	}{%
+		\ensuremath{\tilde{#3}_{#2}}
+	}%
+}
+
+\theoremstyle{definition}
+
+% Theorem-like environments
+\newtheorem{example}{Example}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+
+% Simulates filled in text for annotations I might want to keep invisible
+% The * token will make the text invisible
+% The + token will underline the text
+% The default color will be aggiemaroon
+% Both tokens can be used together, but * must come before +
+
+\NewDocumentCommand{\fillin}{st+O{aggiemaroon}m}{%
+\IfBooleanTF{#1} {%
+	\IfBooleanTF{#2}%
+	{\underline{\phantom{#4} \hspace{0.25in}}} {\phantom{#4} \hspace{0.25in}}
+}{%
+	\IfBooleanTF{#2}%
+	{\underline{\textcolor{#3}{#4}}} {\textcolor{#3}{#4}}
+}%
+}
+
+\NewDocumentCommand{\parspace}{}{\vspace{0.125truein}}
+\NewDocumentCommand{\dparspace}{}{\vspace{0.25truein}}
+
+% Operators
+\NewDocumentCommand{\diff}{}{\ensuremath{\text{d}}}
+\NewDocumentCommand{\idiff}{}{\ensuremath{\delta}}
+
+\NewDocumentCommand{\xfact}{O{}}{%
+	\IfValueTF{#1}{%
+		\ensuremath{\num{#1}\times}%
+	}{%
+		\ensuremath{\times}%
+	}%
+}
+\NewDocumentCommand{\dotp}{}{\ensuremath{\cdot}}
+\NewDocumentCommand{\crossp}{}{\ensuremath{\times}}
+
+% One-stop shop for different decorations for symbols
+% Optional argument within < > brackets adds a superscript
+% Optional argument within [ ] brackets adds a subscript
+% Add a + if you want Delta, or add a * if you want differential
+%
+% Example 1:  \dec{\Gibbs} --> G
+% Example 2:  \dec+{\Gibbs} --> Delta G
+% Example 3:  \dec*{\Gibbs} --> d G
+% Example 4:  \dec*[i]{\Gibbs} --> d G_i
+% Example 5:  \dec*<\std>{\Gibbs} --> d G^o
+% Example 5:  \dec+<\std>[i]{\Gibbs} --> Delta G^o_i
+
+\NewDocumentCommand{\dec}{st+d<>d[]m}{%
+\IfValueTF{#3}{%
+	\IfValueTF{#4}{%
+		\IfBooleanTF{#2}
+		{\ensuremath{\Delta #5_{#4}^{#3}}} {%
+			\IfBooleanTF{#1}
+			{\ensuremath{\diff #5_{#4}^{#3}}} {\ensuremath{#5_{#4}^{#3}}}%
+		}%
+	}{%
+		\IfBooleanTF{#2}
+		{\ensuremath{\Delta #5^{#3}}} {%
+			\IfBooleanTF{#1}
+			{\ensuremath{\diff #5_{#4}^{#3}}} {\ensuremath{#5_{#4}^{#3}}}%
+		}%
+	}%
+}{%
+	\IfValueTF{#4}{%
+		\IfBooleanTF{#2}
+		{\ensuremath{\Delta #5_{#4}}} {%
+			\IfBooleanTF{#1}
+			{\ensuremath{\diff #5_{#4}}} {\ensuremath{#5_{#4}}}%
+		}%
+	}{%
+		\IfBooleanTF{#2}
+		{\ensuremath{\Delta #5}} {%
+			\IfBooleanTF{#1}
+			{\ensuremath{\diff #5}} {\ensuremath{#5}}%
+		}%
+	}%
+}%
+}
+
+%----------------------------------------------------------------------------------
