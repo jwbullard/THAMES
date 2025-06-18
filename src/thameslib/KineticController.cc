@@ -5,7 +5,7 @@
 */
 #include "KineticController.h"
 
-using namespace std;
+// using namespace std;
 
 KineticController::KineticController() {
   temperature_ = 293.15;

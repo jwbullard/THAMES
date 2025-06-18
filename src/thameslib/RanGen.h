@@ -7,6 +7,7 @@
 #define SRC_THAMESLIB_RANGEN_H_
 
 #include "Exceptions.h"
+#include "global.h"
 #include "ran2.h"
 #include "ran3.h"
 #include <stdexcept>

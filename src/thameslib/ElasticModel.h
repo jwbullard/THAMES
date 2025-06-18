@@ -71,7 +71,7 @@ http://ciks.cbt.nist.gov/~garbocz/manual/man.html
 #include "StrainEnergy.h"
 #include "global.h"
 
-using namespace std;
+// using namespace std;
 
 /**
 @class Declare the ElasticModel base class for finite element calculations

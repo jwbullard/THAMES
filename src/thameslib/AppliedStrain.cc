@@ -5,7 +5,7 @@
 #include "AppliedStrain.h"
 #include <iostream>
 
-using namespace std;
+// using namespace std;
 
 // AppliedStrain::AppliedStrain(int nx, int ny, int nz, int dim, int nphase,
 //                              int npoints, const bool verbose,

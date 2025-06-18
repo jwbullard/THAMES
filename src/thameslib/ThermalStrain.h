@@ -12,6 +12,7 @@ implemented in the AppliedStrain class.
 #define SRC_THAMESLIB_THERMALSTRAIN_H_
 
 #include "ElasticModel.h"
+#include "global.h"
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -19,7 +20,7 @@ implemented in the AppliedStrain class.
 #include <string>
 #include <vector>
 
-using namespace std;
+// using namespace std;
 
 /**
 @class ThermalStrain

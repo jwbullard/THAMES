@@ -6,7 +6,7 @@
 #include "ThermalStrain.h"
 #include <iostream>
 
-using namespace std;
+// using namespace std;
 
 ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
                              ChemicalSystem *cs, int npoints,

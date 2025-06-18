@@ -34,7 +34,7 @@ exists, hydrates, and possibly deteriorates.
 #include "global.h"
 #include "utils.h"
 
-using namespace std;
+// using namespace std;
 
 /**
 @struct Sitesize
@@ -717,11 +717,11 @@ public:
   fraction of void space in the microstructure, either adding
   or subtracting electrolyte as necessary
 
-  @param volFracVoidChange is the target change in void volume
+  @param voidFracToAdd is the target change in void volume
   fraction, on a total microstructure volume basis
   @param cyc is the current computational iteration
   */
-  double changeSaturationState(double volFracVoidChange, const int cyc);
+  double changeSaturationState(double voidFracToAdd, const int cyc);
 
   /**
   @brief Remove a prescribed volume fraction of water from the system

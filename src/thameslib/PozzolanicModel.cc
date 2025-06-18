@@ -5,7 +5,7 @@
 */
 #include "PozzolanicModel.h"
 
-using namespace std;
+// using namespace std;
 
 PozzolanicModel::PozzolanicModel() {
 

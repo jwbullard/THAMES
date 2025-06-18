@@ -7,7 +7,7 @@
 #include "ChemicalSystem.h"
 #include "RanGen.h"
 
-using namespace std;
+// using namespace std;
 
 bool cmp(const Site *s1, const Site *s2) { return s1->getWmc() < s2->getWmc(); }
 
@@ -129,12 +129,17 @@ void Interface::removeEmptiedSite(int pos0, int pos1) {
 }
 
 void Interface::removeDissolutionSite(int pos0, int pos1) {
-  // if (pos0 != pos1)
-  // try {
+  // if (pos0 != pos1) {
+  //   try {
+  //    cout << "IRMDS pos0 = " << pos0 << ", pos1 = " << pos1 << endl;
+  //     cout.flush();
   dissolutionSites_[pos0] = dissolutionSites_[pos1];
   dissolutionSites_.pop_back();
-  //} catch (out_of_range &oor) {
-  //  cout << endl << "EOB Interface::removeDissolutionSite pos0/pos1
-  //  = " << pos0 <<" / " << pos1 << " => exit" << endl; exit(1);
+  //  } catch (out_of_range &oor) {
+  //    cout << endl
+  //         << "EOB Interface::removeDissolutionSite pos0/pos1 = " << pos0
+  //         << " / " << pos1 << " => exit" << endl;
+  //    exit(1);
+  //  }
   //}
 }

@@ -50,9 +50,10 @@ component
     - `critDOR` is the critical degree of reaction used in the equation for
         calculating the influence of w/c ratio.
 */
+#include "global.h"
 #include <string>
 
-using namespace std;
+// using namespace std;
 
 #ifndef SRC_THAMESLIB_KINETICDATA_H_
 #define SRC_THAMESLIB_KINETICDATA_H_

@@ -4,11 +4,12 @@
 */
 #ifndef SRC_THAMESLIB_UTILS_H_
 #define SRC_THAMESLIB_UTILS_H_
+
 #include "global.h"
 #include <sstream>
 #include <string>
 
-using namespace std;
+// using namespace std;
 
 /**
 @brief Convert an STL string into a given data type.

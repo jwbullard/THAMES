@@ -99,8 +99,8 @@ set (THAMES_INCLUDE_PATH "-I${CMAKE_SOURCE_DIR}/src -I/usr/local/include")
 
 # Set the list of compiler flags for Clang compiler
 if(${CMAKE_CXX_COMPILER_ID} MATCHES "Clang")
-  add_compile_options(-O2 -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH})
-  # add_compile_options(-g -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH})
+  # add_compile_options(-O2 -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH})
+  add_compile_options(-g -std=c++17 -DIPMGEMPLUGIN -Wall -Wno-ignored-attributes -Wno-pedantic -Wno-variadic-macros -Wno-deprecated ${THAMES_INCLUDE_PATH})
 endif()
 
 message ("Top level CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})

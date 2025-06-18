@@ -19,8 +19,6 @@
 #include <string>
 #include <vector>
 
-using namespace std;
-
 struct RestoreSite {
   // for each site in site_:
   int microPhaseId;               // The microstructure phase assignment

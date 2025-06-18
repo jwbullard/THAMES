@@ -31,7 +31,7 @@ especially for sorting operations and removing or adding elements to vectors.
 #include "Site.h"
 #include "global.h"
 
-using namespace std;
+// using namespace std;
 
 ///
 /// The ChemicalSystem class needs to be declared explicitly because

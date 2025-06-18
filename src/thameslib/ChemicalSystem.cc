@@ -4,7 +4,7 @@
 */
 
 #include "ChemicalSystem.h"
-using namespace std;
+// using namespace std;
 
 ChemicalSystem::ChemicalSystem(const string &GEMfilename,
                                const string &jsonFileName, const bool verbose,
@@ -755,8 +755,6 @@ void ChemicalSystem::parseDoc(const string &docName) {
   // Need to open the docName and scan it somehow for
   // phase names and id numbers
 
-  using json = nlohmann::json;
-
   PhaseData phaseData;
 
   /// Test for JSON existence and non-emptiness
@@ -849,7 +847,7 @@ void ChemicalSystem::parseDoc(const string &docName) {
   return;
 }
 
-void ChemicalSystem::parseSolutionComp(const nlohmann::json::iterator cdi) {
+void ChemicalSystem::parseSolutionComp(const json::iterator cdi) {
 
   // Clear the associative map to initialize it
   fixedSolutionComposition_.clear();
@@ -860,7 +858,7 @@ void ChemicalSystem::parseSolutionComp(const nlohmann::json::iterator cdi) {
   double testConc;
   int testDCId;
 
-  nlohmann::json::iterator p = cdi.value()[0].find("DCName");
+  json::iterator p = cdi.value()[0].find("DCName");
   // cout << "JSON iterator okay so far" << endl;
   // cout.flush();
   for (int i = 0; i < static_cast<int>(cdi.value().size()); ++i) {
@@ -931,7 +929,7 @@ void ChemicalSystem::parseSolutionComp(const nlohmann::json::iterator cdi) {
   return;
 }
 
-void ChemicalSystem::parseGasComp(const nlohmann::json::iterator cdi) {
+void ChemicalSystem::parseGasComp(const json::iterator cdi) {
   // Clear the associative map to initialize it
 
   fixedGasComposition_.clear();
@@ -942,7 +940,7 @@ void ChemicalSystem::parseGasComp(const nlohmann::json::iterator cdi) {
   double DCMoles;
   int DCId;
 
-  nlohmann::json::iterator p = cdi.value().begin();
+  json::iterator p = cdi.value().begin();
   for (int i = 0; i < static_cast<int>(cdi.value().size()); ++i) {
     p = cdi.value()[i].find("name");
     DCName = p.value();
@@ -1011,10 +1009,10 @@ void ChemicalSystem::parseGasComp(const nlohmann::json::iterator cdi) {
   return;
 }
 
-void ChemicalSystem::parseMicroPhaseNames(const nlohmann::json::iterator cdi,
+void ChemicalSystem::parseMicroPhaseNames(const json::iterator cdi,
                                           map<string, int> &phaseids) {
 
-  nlohmann::json::iterator cii = cdi.value()[0].find("thamesname");
+  json::iterator cii = cdi.value()[0].find("thamesname");
   string pname;
   int pid, cemcompval;
   bool cemComp;
@@ -1037,11 +1035,11 @@ void ChemicalSystem::parseMicroPhaseNames(const nlohmann::json::iterator cdi,
   return;
 }
 
-void ChemicalSystem::parseMicroPhases(const nlohmann::json::iterator cdi,
-                                      int numEntries, map<string, int> phaseids,
+void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
+                                      map<string, int> phaseids,
                                       PhaseData &phaseData) {
 
-  nlohmann::json::iterator p;
+  json::iterator p;
   for (int i = 0; i < static_cast<int>(cdi.value().size()); ++i) {
 
     phaseData.growthTemplate.clear();
@@ -1273,7 +1271,7 @@ void ChemicalSystem::parseMicroPhases(const nlohmann::json::iterator cdi,
   return;
 }
 
-void ChemicalSystem::parsePoreSizeDistribution(const nlohmann::json::iterator p,
+void ChemicalSystem::parsePoreSizeDistribution(const json::iterator p,
                                                PhaseData &phaseData) {
 
   if (verbose_) {
@@ -1283,7 +1281,7 @@ void ChemicalSystem::parsePoreSizeDistribution(const nlohmann::json::iterator p,
 
   double sum;
   struct PoreSizeData datarow;
-  nlohmann::json::iterator pp;
+  json::iterator pp;
 
   phaseData.poreSizeDist.clear();
 
@@ -1328,7 +1326,7 @@ void ChemicalSystem::parsePoreSizeDistribution(const nlohmann::json::iterator p,
   return;
 }
 
-void ChemicalSystem::parseGEMPhaseData(const nlohmann::json::iterator p,
+void ChemicalSystem::parseGEMPhaseData(const json::iterator p,
                                        PhaseData &phaseData) {
   int GEMPhaseId = 0;
   string mypstr;
@@ -1336,7 +1334,7 @@ void ChemicalSystem::parseGEMPhaseData(const nlohmann::json::iterator p,
   phaseData.microPhaseDCPorosities.clear();
   // bool scrapeWaterDCs = false;
 
-  nlohmann::json::iterator pp;
+  json::iterator pp;
 
   for (int i = 0; i < static_cast<int>(p.value().size()); ++i) {
     pp = p.value()[i].find("gemphasename");
@@ -1394,7 +1392,7 @@ void ChemicalSystem::parseGEMPhaseData(const nlohmann::json::iterator p,
   return;
 }
 
-void ChemicalSystem::parseGEMPhaseDCData(const nlohmann::json::iterator pp,
+void ChemicalSystem::parseGEMPhaseDCData(const json::iterator pp,
                                          PhaseData &phaseData) {
   string mydcstr;
   // char *mydchar = const_cast<char *>(str.c_str());
@@ -1404,7 +1402,7 @@ void ChemicalSystem::parseGEMPhaseDCData(const nlohmann::json::iterator pp,
   bool scrapeWaterDCs = false;
   phaseData.GEMPhaseDCMembers.clear();
 
-  nlohmann::json::iterator ppp = pp.value().begin();
+  json::iterator ppp = pp.value().begin();
   for (int i = 0; i < static_cast<int>(pp.value().size()); ++i) {
     ppp = pp.value()[i].find("gemdcname");
     if (ppp != pp.value()[i].end()) {
@@ -1454,7 +1452,7 @@ void ChemicalSystem::parseGEMPhaseDCData(const nlohmann::json::iterator pp,
   return;
 }
 
-void ChemicalSystem::parseDisplayData(const nlohmann::json::iterator p,
+void ChemicalSystem::parseDisplayData(const json::iterator p,
                                       PhaseData &phaseData) {
 
   int red, green, blue, gray;
@@ -1462,7 +1460,7 @@ void ChemicalSystem::parseDisplayData(const nlohmann::json::iterator p,
   red = green = blue = gray = 0;
   bool rgbBool = false;
 
-  nlohmann::json::iterator pp = p.value().find("red");
+  json::iterator pp = p.value().find("red");
   if (pp != p.value().end()) {
     red = pp.value();
     rgbBool = true;
@@ -1541,10 +1539,10 @@ void ChemicalSystem::parseDisplayData(const nlohmann::json::iterator p,
   return;
 }
 
-void ChemicalSystem::parseImpurityData(const nlohmann::json::iterator p,
+void ChemicalSystem::parseImpurityData(const json::iterator p,
                                        PhaseData &phaseData) {
 
-  nlohmann::json::iterator pp = p.value().begin();
+  json::iterator pp = p.value().begin();
   while (pp != p.value().end()) {
     if (pp.key() == "k2ocoeff") {
       phaseData.k2o = pp.value();
@@ -1563,11 +1561,11 @@ void ChemicalSystem::parseImpurityData(const nlohmann::json::iterator p,
   return;
 }
 
-void ChemicalSystem::parseInterfaceData(const nlohmann::json::iterator p,
+void ChemicalSystem::parseInterfaceData(const json::iterator p,
                                         map<string, int> &phaseids,
                                         PhaseData &phaseData) {
 
-  nlohmann::json::iterator pp = p.value().find("affinity");
+  json::iterator pp = p.value().find("affinity");
   if (pp != p.value().end()) {
     try {
       parseAffinityData(pp, phaseids, phaseData);
@@ -1578,7 +1576,7 @@ void ChemicalSystem::parseInterfaceData(const nlohmann::json::iterator p,
   return;
 }
 
-void ChemicalSystem::parseAffinityData(const nlohmann::json::iterator pp,
+void ChemicalSystem::parseAffinityData(const json::iterator pp,
                                        map<string, int> &phaseids,
                                        PhaseData &phaseData) {
   int testaftyid;
@@ -1586,7 +1584,7 @@ void ChemicalSystem::parseAffinityData(const nlohmann::json::iterator pp,
   // map<string, int>::iterator it = phaseids.begin();
   string mystr("Null");
 
-  nlohmann::json::iterator ppp;
+  json::iterator ppp;
   for (int i = 0; i < static_cast<int>(pp.value().size()); ++i) {
     ppp = pp.value()[i].find("affinityphase");
     if (ppp != pp.value()[i].end()) {
@@ -1609,12 +1607,12 @@ void ChemicalSystem::parseAffinityData(const nlohmann::json::iterator pp,
   return;
 }
 
-// void ChemicalSystem::parseRdData(const nlohmann::json::iterator p,
+// void ChemicalSystem::parseRdData(const json::iterator p,
 //                                  struct PhaseData &phaseData) {
 //   int RdId;
 //   double RdVal;
 //
-//   nlohmann::json::iterator pp = p.value().begin();
+//   json::iterator pp = p.value().begin();
 //   while (pp != p.value().end()) {
 //     if (pp.key() == "Rdelement") {
 //       string st(pp.value());

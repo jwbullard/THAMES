@@ -11,7 +11,6 @@ different kinetic models that govern the rate of hydration.
 #ifndef SRC_THAMESLIB_KINETICCONTROLLER_H_
 #define SRC_THAMESLIB_KINETICCONTROLLER_H_
 
-#include "../Resources/include/nlohmann/json.hpp"
 #include "ChemicalSystem.h"
 #include "KineticData.h"
 #include "KineticModel.h"
@@ -28,8 +27,8 @@ different kinetic models that govern the rate of hydration.
 #include <string>
 #include <vector>
 
-using namespace std;
-using json = nlohmann::json;
+// using namespace std;
+// using json = nlohmann::json;
 
 /**
 @class KineticController

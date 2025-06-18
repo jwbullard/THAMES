@@ -5,7 +5,7 @@
 */
 #include "ElasticModel.h"
 
-using namespace std;
+// using namespace std;
 
 ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
                            int npoints, const bool verbose, const bool warning)

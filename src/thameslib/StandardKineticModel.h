@@ -30,7 +30,7 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #include <map>
 #include <string>
 
-using namespace std;
+// using namespace std;
 
 /**
 @class StandardKineticModel

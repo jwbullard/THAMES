@@ -10,12 +10,14 @@
 // #define DEBUG
 // #endif
 
+#include "../Resources/include/nlohmann/json.hpp"
 #include "Exceptions.h"
 #include <iomanip>
 #include <iostream>
 #include <stdexcept>
 
 using namespace std;
+using json = nlohmann::json;
 
 // String indicating THAMES version in the input microstructure file
 inline const char VERSIONSTRING[] = "#THAMES:Version:";

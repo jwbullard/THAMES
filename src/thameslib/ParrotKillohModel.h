@@ -92,7 +92,7 @@ of portland cement, Cement and Concrete Research 36 (2006) 209--226.
 #include <iostream>
 #include <string>
 
-using namespace std;
+// using namespace std;
 
 // Ref specific surface area adjusted downward from
 // 385.0 m2/kg (the published value) to 372.0 m2/kg to

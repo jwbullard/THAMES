@@ -24,7 +24,7 @@ as possible.
 #define SRC_THAMESLIB_CHEMICALSYSTEM_H_
 
 #include "../GEMS3K-standalone/GEMS3K/node.h"
-#include "../Resources/include/nlohmann/json.hpp"
+// #include "../Resources/include/nlohmann/json.hpp"
 #include "global.h"
 #include "utils.h"
 #include <cstring>
@@ -36,7 +36,7 @@ as possible.
 #include <typeinfo>
 #include <vector>
 
-using namespace std;
+// using namespace std;
 
 #ifndef CHEMSYSDATASTRUCT
 #define CHEMSYSDATASTRUCT
@@ -660,7 +660,7 @@ public:
 
   @param cdi is an iterator over the JSON data
   */
-  void parseSolutionComp(const nlohmann::json::iterator cdi);
+  void parseSolutionComp(const json::iterator cdi);
 
   /**
   @brief Parse input about the gas phase composition from a JSON document.
@@ -675,7 +675,7 @@ public:
   @param cdi is a JSON iterator pointing to the current location in json data
   object
   */
-  void parseGasComp(const nlohmann::json::iterator cdi);
+  void parseGasComp(const json::iterator cdi);
 
   /**
   @brief Scan a JSON object
@@ -683,7 +683,7 @@ public:
   @param cdi is an iterator over the JSON data
   @param phaseids is a map associating phase names with id numbers
   */
-  void parseMicroPhaseNames(const nlohmann::json::iterator cdi,
+  void parseMicroPhaseNames(const json::iterator cdi,
                             map<string, int> &phaseids);
 
   /**
@@ -694,7 +694,7 @@ public:
   @param phaseids is a map associating phase names with id numbers
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseMicroPhases(const nlohmann::json::iterator cdi, int numEntries,
+  void parseMicroPhases(const json::iterator cdi, int numEntries,
                         map<string, int> phaseids, PhaseData &phaseData);
 
   /**
@@ -703,8 +703,7 @@ public:
   @param p is an iterator over the JSON data
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseGEMPhaseData(const nlohmann::json::iterator p,
-                         PhaseData &phaseData);
+  void parseGEMPhaseData(const json::iterator p, PhaseData &phaseData);
 
   /**
   @brief Parse input about a GEM DC associated with a CSD phase from a JSON
@@ -713,8 +712,7 @@ public:
   @param pp is an iterator over the JSON data
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseGEMPhaseDCData(const nlohmann::json::iterator pp,
-                           PhaseData &phaseData);
+  void parseGEMPhaseDCData(const json::iterator pp, PhaseData &phaseData);
 
   /**
   @brief Parse a phase's sub-voxel pore size distribution
@@ -727,8 +725,7 @@ public:
   @param p is an iterator over the JSON data array
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parsePoreSizeDistribution(const nlohmann::json::iterator p,
-                                 PhaseData &phaseData);
+  void parsePoreSizeDistribution(const json::iterator p, PhaseData &phaseData);
 
   /**
   @brief Parse the Rd data (impurity partitioning) for one phase in the JSON
@@ -738,7 +735,7 @@ public:
   @param phaseData is a reference to the PhaseData structure for temporarily
   storing the input parameters
   */
-  //  void parseRdData(const nlohmann::json::iterator p, struct PhaseData
+  //  void parseRdData(const json::iterator p, struct PhaseData
   //  &phaseData);
 
   /**
@@ -747,7 +744,7 @@ public:
   @param p is an iterator over the JSON data object
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseDisplayData(const nlohmann::json::iterator p, PhaseData &phaseData);
+  void parseDisplayData(const json::iterator p, PhaseData &phaseData);
 
   /**
   @brief Parse input about dissolved impurities within a phase.
@@ -755,8 +752,7 @@ public:
   @param p is an iterator over the JSON data object
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseImpurityData(const nlohmann::json::iterator p,
-                         PhaseData &phaseData);
+  void parseImpurityData(const json::iterator p, PhaseData &phaseData);
 
   /**
   @brief Parse input about interfaces associated with a phase.
@@ -765,8 +761,8 @@ public:
   @param phaseids is a map associating phase names with id numbers
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseInterfaceData(const nlohmann::json::iterator p,
-                          map<string, int> &phaseids, PhaseData &phaseData);
+  void parseInterfaceData(const json::iterator p, map<string, int> &phaseids,
+                          PhaseData &phaseData);
 
   /**
   @brief Parse input about affinity for one phase to grow on another.
@@ -775,8 +771,8 @@ public:
   @param phaseids is a map associating phase names with id numbers
   @param phaseData holds the structure of collected phase data from the document
   */
-  void parseAffinityData(const nlohmann::json::iterator pp,
-                         map<string, int> &phaseids, PhaseData &phaseData);
+  void parseAffinityData(const json::iterator pp, map<string, int> &phaseids,
+                         PhaseData &phaseData);
 
   /**
   @brief Set the total number of possible microstructure phases in the system.

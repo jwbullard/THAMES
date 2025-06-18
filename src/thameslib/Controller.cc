@@ -6,7 +6,7 @@
 #include "Controller.h"
 #include "global.h"
 
-using namespace std;
+// using namespace std;
 
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,

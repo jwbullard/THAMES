@@ -13,6 +13,7 @@ variable, similar in some ways to weighted mean curvature of an interface
 #define SRC_THAMESLIB_ISITE_H_
 
 #include "Site.h"
+#include "global.h"
 
 /**
 @class Declaration of the Isite class.
