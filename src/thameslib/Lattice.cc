@@ -1887,7 +1887,8 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
           }
         }
       } else if ((stenbWmc == 0.0) &&
-                 (stenb->getMicroPhaseId() > ELECTROLYTEID)) {
+                 (stenb->getMicroPhaseId() > ELECTROLYTEID) &&
+                 (stenb->getInDissInterfacePos() > -1)) {
 
         // cout << "(C04)" << endl;
         // cout.flush();
