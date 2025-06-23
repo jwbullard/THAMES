@@ -21,8 +21,6 @@ used.
 #include "KineticData.h"
 #include "Lattice.h"
 
-using namespace std;
-
 /**
 @class KineticModel
 @brief Base class for all kinetic models
@@ -34,40 +32,40 @@ class KineticModel {
 
 protected:
   std::string modelName_; /**< The kinetic model name in the kinetic model */
-  int numPhases_;    /**< Total number of phases in the kinetic model */
-  ChemicalSystem *
-      chemSys_; /**< Pointer to the ChemicalSystem object for this simulation */
-  Lattice *
-      lattice_; /**< Pointer to the lattice object holding the microstructure */
-  double initSolidMass_; /**< initial total mass of solids controlled by this
-                            model [g] */
-  double temperature_;   /**< Temperature [K] */
-  double refT_;          /**< Reference temperature for PK model [K] */
-  double sulfateAttackTime_; /**< Time at which sulfate attack simulation starts
-                                [h] */
-  double leachTime_; /**< Time at which leaching simulation starts [h] */
+  int numPhases_;         /**< Total number of phases in the kinetic model */
+  ChemicalSystem *chemSys_;  /**< Pointer to the ChemicalSystem object for
+                                  this simulation */
+  Lattice *lattice_;         /**< Pointer to the lattice object holding the 
+                                  microstructure */
+  double initSolidMass_;     /**< initial total mass of solids controlled by
+                                  this model [g] */
+  double temperature_;       /**< Temperature [K] */
+  double refT_;              /**< Reference temperature for PK model [K] */
+  double sulfateAttackTime_; /**< Time at which sulfate attack simulation
+                                  starts [h] */
+  double leachTime_;         /**< Time at which leaching simulation starts
+                                  [h] */
 
   std::string name_;      /**< Name of phase controlled by this kinetic model */
-  int microPhaseId_; /**< Microstructure id controlled by this model */
-  int DCId_;         /**< List of DC ids from the ChemicalSystem object */
-  int GEMPhaseId_;   /**< List of phase ids from the ChemicalSystem object */
+  int microPhaseId_;      /**< Microstructure id controlled by this model */
+  int DCId_;              /**< List of DC ids from the ChemicalSystem object */
+  int GEMPhaseId_;        /**< List of phase ids from the ChemicalSystem object */
 
   std::vector<std::string> ICName_;      /**< Names of ICs */
   std::vector<std::string> DCName_;      /**< Names of DCs */
-  double scaledMass_;          /**< Phase mass percent, total solids basis */
-  double initScaledMass_;      /**< Initial phase scaled mass */
-  double activationEnergy_;    /**< Apparent activation energy for the reaction
-                                  [J/mol/K] */
-  double specificSurfaceArea_; /**< Specific surface area (m2/kg) */
-  double
-      refSpecificSurfaceArea_; /**< Reference specific surface area (m2/kg) */
-  double ssaFactor_;           /**< Reference specific surface area (m2/kg) */
-  double degreeOfReaction_;    /**< Degree of reaction of this component (mass
-basis) */
-  double lossOnIgnition_;      /**< Loss on ignition of this component (ignited
-mass basis) */
-  bool verbose_;               /**< Flag for verbose output */
-  bool warning_;               /**< Flag for warnining output */
+  double scaledMass_;             /**< Phase mass percent, total solids basis */
+  double initScaledMass_;         /**< Initial phase scaled mass */
+  double activationEnergy_;       /**< Apparent activation energy for the reaction
+                                       [J/mol/K] */
+  double specificSurfaceArea_;    /**< Specific surface area (m2/kg) */
+  double refSpecificSurfaceArea_; /**< Reference specific surface area (m2/kg) */
+  double ssaFactor_;              /**< Reference specific surface area (m2/kg) */
+  double degreeOfReaction_;       /**< Degree of reaction of this component (mass
+                                       basis) */
+  double lossOnIgnition_;         /**< Loss on ignition of this component (ignited
+                                       mass basis) */
+  bool verbose_;                  /**< Flag for verbose output */
+  bool warning_;                  /**< Flag for warnining output */
 
 public:
   /**
@@ -111,7 +109,7 @@ public:
 
   @return a string indicating the model type
   */
-  virtual string getType() const { return (GenericType); }
+  virtual std::string getType() const { return (GenericType); }
 
   /**
   @brief Set the specific surface area
@@ -320,14 +318,14 @@ public:
 
   @param icname is the list of IC names
   */
-  // void setICName(vector<string> icname) { ICName_ = icname; }
+  // void setICName(std::vector<std::string> icname) { ICName_ = icname; }
 
   /**
   @brief Get the IC names
 
   @return the list of IC names
   */
-  // vector<string> getICName() const { return ICName_; }
+  // std::vector<std::string> getICName() const { return ICName_; }
 
   /**
   @brief Set the DC names
@@ -336,14 +334,14 @@ public:
 
   @param dcname is the list of DC names
   */
-  // void setDCName(vector<string> dcname) { DCName_ = dcname; }
+  // void setDCName(std::vector<std::string> dcname) { DCName_ = dcname; }
 
   /**
   @brief Get the DC names
 
   @return the list of DC names
   */
-  // vector<string> getDCName() const { return DCName_; }
+  // std::vector<std::string> getDCName() const { return DCName_; }
 
   /**
   @brief Set the total number of phases in the kinetic model.
@@ -403,7 +401,7 @@ public:
 
   @return the vector of names of phases in the kinetic model
   */
-  string getName() const { return name_; }
+  std::string getName() const { return name_; }
 
   /**
   @brief Get the list of activation energies for the phases in the kinetic

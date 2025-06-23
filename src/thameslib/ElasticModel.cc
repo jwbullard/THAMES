@@ -1061,7 +1061,7 @@ void ElasticModel::writeStrain(string &root, double time, int index) {
            << endl
            << "    ElasticModel.cc - error in writeStrain() : resCallSystem = -1"
            << endl;
-      cout << endl <<"    STOP program" << endl;
+      cout << endl << "    STOP program" << endl;
       // throw HandleException ("writeStrain", "ElasticModel.cc",
       //                "system(buff.c_str())", "resCallSystem = -1");
       exit(1);

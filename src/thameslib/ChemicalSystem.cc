@@ -4,7 +4,6 @@
 */
 
 #include "ChemicalSystem.h"
-using namespace std;
 
 using std::cout; using std::cerr; using std::endl;
 using std::string; using std::vector; using std::map;
@@ -1015,8 +1014,8 @@ void ChemicalSystem::parseGasComp(const json::iterator cdi) {
   return;
 }
 
-void ChemicalSystem::parseMicroPhaseNames(
-    const json::iterator cdi, map<string, int> &phaseids) {
+void ChemicalSystem::parseMicroPhaseNames(const json::iterator cdi,
+                                          map<string, int> &phaseids) {
 
   json::iterator cii = cdi.value()[0].find("thamesname");
   string pname;
@@ -1041,8 +1040,7 @@ void ChemicalSystem::parseMicroPhaseNames(
   return;
 }
 
-void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
-                                      int numEntries,
+void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
                                       map<string, int> phaseids,
                                       PhaseData &phaseData) {
 
@@ -1121,10 +1119,34 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi,
     } else if (phaseData.id != VOIDID) {
       throw DataException("ChemicalSystem", "parseMicroPhases",
                           "No GEM phase data for a microstructure phase");
+    } else {
+      // This is a void phase, which hase porosity 1
+      phaseData.microPhaseDCPorosities.push_back(1.0);
     }
+
     p = cdi.value()[i].find("poresize_distribution");
     if (p != cdi.value()[i].end()) {
       parsePoreSizeDistribution(p, phaseData);
+    } else {
+      double porositySum = 0.0;
+      for (int i = 0;
+           i < static_cast<int>(phaseData.microPhaseDCPorosities.size());
+           ++i) {
+        porositySum += phaseData.microPhaseDCPorosities[i];
+      }
+      // If the porosity of this phase is greater than zero but we have NOT
+      // been given a pore size distribution, we will assume that the phase
+      // is either ELECTROLYTE or VOID voxel phase
+
+      if (porositySum > 0.0) {
+        struct PoreSizeData datarow;
+        phaseData.poreSizeDist.clear();
+        datarow.diam = 1000.0; // in nanometers assuming default voxel of 1
+                               // micrometer
+        datarow.volfrac = 1.0;
+        datarow.volfracsat = 1.0;
+        phaseData.poreSizeDist.push_back(datarow);
+      }
     }
     p = cdi.value()[i].find("stresscalc");
     if (p != cdi.value()[i].end()) {
@@ -1297,7 +1319,7 @@ void ChemicalSystem::parsePoreSizeDistribution(const json::iterator p,
   }
 
   double sum;
-  struct PoreSizeVolume datarow;
+  struct PoreSizeData datarow;
   json::iterator pp;
 
   phaseData.poreSizeDist.clear();
@@ -1310,6 +1332,7 @@ void ChemicalSystem::parsePoreSizeDistribution(const json::iterator p,
       pp = p.value()[i].find("volumefraction");
       if (pp != p.value()[i].end()) {
         datarow.volfrac = pp.value();
+        datarow.volfracsat = 1.0;
       } else {
         cout << "      WARNING: Malformed data row for pore size distribution "
              << "(no volume fraction)... assuming zero" << endl;
@@ -1358,7 +1381,7 @@ void ChemicalSystem::parseGEMPhaseData(const json::iterator p,
       phaseData.GEMPhaseName.push_back(const_cast<char *>(mypstr.c_str()));
       // mypstr = pp.value();
       // phaseData.GEMPhaseName.push_back(mypstr);
-      // if (mypstr == WaterGEMName) {
+      // if (mypstr == ElectrolyteGEMName) {
       //   scrapeWaterDCs = true;
       // } else {
       //   scrapeWaterDCs = false;
@@ -2064,7 +2087,7 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
   // subvoxel porosity.  Create a volume weighted average
   // of porosities
 
-  /// @todo Will this work for capillary porosity?  Conc will be molal
+  /// @todo Will this work for voxel-scale porosity?  Conc will be molal
 
   double conc = 0.0; // Temporary variable for holding concentrations
                      // For solid phases this will be mole fraction
@@ -2517,7 +2540,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
         /// Here is where the subvoxel porosity is included
         /// @todo Need a more disciplined approach to making sure
-        /// these are solid phases and not capillary porosity
+        /// these are solid phases and not voxel-scale porosity
 
         if (i == ELECTROLYTEID) {
           microPhaseVolume_[i] += GEMPhaseVolume_[microPhaseMembers_[i][j]];
@@ -3884,7 +3907,7 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
     double pl = 0.101;
 
     ///
-    /// The assumed largest radius of capillary pores offering entrance
+    /// The assumed largest radius of voxel-scale pores offering entrance
     /// into gel porosity of C-S-H or other nanoporous component.
     /// 500 nm is chosen because it is half the size of a typical lattice
     /// site in THAMES (although the lattice resolution can be varied in

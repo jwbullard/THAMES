@@ -25,8 +25,6 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #include "KineticModel.h"
 #include "Lattice.h"
 
-using namespace std;
-
 /**
 @class StandardKineticModel
 @brief Handles the kinetic model of pozzolanic materials
@@ -38,10 +36,9 @@ class StandardKineticModel : public KineticModel {
 protected:
   double
       surfaceAreaMultiplier_;   /**< Dimensionless factor to multiply the
-                                  calculated surface area to account for
-                                  unresolved internal porosity, roughness, etc. */
-  double dissolutionRateConst_; /**< Rate constant for dissolution
-                                   (mol/m2/h) */
+                                     calculated surface area to account for
+                                     unresolved internal porosity, roughness, etc. */
+  double dissolutionRateConst_; /**< Rate constant for dissolution (mol/m2/h) */
   /**
   @brief Number of dissolved DC units per unit dissolution reaction
   */
@@ -51,8 +48,8 @@ protected:
 
   double rh_;        /**< relative humidity */
   double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
-                     hydration rate taking into account the ambient relative
-                     humidity */
+                          hydration rate taking into account the ambient relative
+                          humidity */
   double arrhenius_; /**< arrhenius factor */
 
 public:
@@ -87,7 +84,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (StandardType); }
+  std::string getType() const { return (StandardType); }
 
   /**
   @brief Set the surface area multiplier

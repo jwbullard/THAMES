@@ -7,8 +7,6 @@
 
 #include "global.h"
 
-using namespace std;
-
 /**
 @brief Convert an STL string into a given data type.
 
@@ -16,8 +14,8 @@ using namespace std;
 @param s is the string to convert
 @return true if the conversion was successful, false otherwise
 */
-template <class T> bool from_string(T &t, const string &s) {
-  istringstream iss(s, istringstream::in);
+template <class T> bool from_string(T &t, const std::string &s) {
+  std::istringstream iss(s, std::istringstream::in);
   return !(iss >> t).fail();
 }
 
@@ -27,8 +25,8 @@ template <class T> bool from_string(T &t, const string &s) {
 @param t is the input data
 @return the string that was created to hold the data
 */
-template <class T> string to_string(const T &t) {
-  ostringstream oss;
+template <class T> std::string to_string(const T &t) {
+  std::ostringstream oss;
   oss << t;
   return oss.str();
 }

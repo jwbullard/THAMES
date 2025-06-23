@@ -88,8 +88,6 @@ of portland cement, Cement and Concrete Research 36 (2006) 209--226.
 #include "KineticModel.h"
 #include "Lattice.h"
 
-using namespace std;
-
 // Ref specific surface area adjusted downward from
 // 385.0 m2/kg (the published value) to 372.0 m2/kg to
 // better agree with kinetics when calculating actual
@@ -119,14 +117,14 @@ protected:
   double n1_; /**< List of Parrot and Killoh <i>N</i><sub>1</sub> values */
   double n3_; /**< List of Parrot and Killoh <i>N</i><sub>3</sub> values */
   double dorHcoeff_;
-  double critDOR_; /**< List of critical degrees of hydration for w/c
-                                   effect in the Parrot and Killoh model */
-  double pfk_;     /**< Multiplicative factor for k's to account for
-                        effects of pozzolanic additions */
+  double critDOR_;   /**< List of critical degrees of hydration for w/c
+                          effect in the Parrot and Killoh model */
+  double pfk_;       /**< Multiplicative factor for k's to account for
+                          effects of pozzolanic additions */
   double rh_;        /**< relative humidity */
-  double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
-                     hydration rate taking into account the ambient relative
-                     humidity */
+  double rhFactor_;  /**< relative humidity factor, i.e. the correction
+                          of the hydration rate taking into account the
+                          ambient relative humidity */
   double arrhenius_; /**< arrhenius factor */
 
 public:
@@ -161,7 +159,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (ParrotKillohType); }
+  std::string getType() const { return (ParrotKillohType); }
 
   /**
   @brief Set the w/s mass ratio of the system for the kinetic model equations.

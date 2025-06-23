@@ -10,9 +10,6 @@ London, 1997.
 #ifndef SRC_THAMESLIB_RAN3_H_
 #define SRC_THAMESLIB_RAN3_H_
 
-#include "global.h"
-#include "Exceptions.h"
-
 double ran3(int *idum);
 
 #endif // SRC_THAMESLIB_RAN3_H_

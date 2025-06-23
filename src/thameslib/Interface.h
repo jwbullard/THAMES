@@ -25,18 +25,8 @@ especially for sorting operations and removing or adding elements to vectors.
 
 #include "global.h"
 #include "Exceptions.h"
-#include "ChemicalSystem.h" //not necessary
 #include "Isite.h"
 #include "Site.h"
-
-using namespace std;
-
-///
-/// The ChemicalSystem class needs to be declared explicitly because
-/// it is used as a member in the Interface class.
-///
-
-// class ChemicalSystem;
 
 /**
 @class Declare the Interface class for handling and sorting interface voxels.
@@ -48,18 +38,16 @@ potential for dissolution.
 class Interface {
 
 private:
-  int microPhaseId_; /**< The phase id of the voxels at this interface */
+  int microPhaseId_;               /**< The phase id of the voxels at this
+                                        interface */
+  ChemicalSystem *chemSys_;        /**< The `ChemicalSystem` object for the
+                                        simulation */
+  std::vector<Isite> growthSites_; /**< The list of all sites eligible for
+                                        adjacent growth */
 
-  ChemicalSystem
-      *chemSys_; /**< The `ChemicalSystem` object for the simulation */
-
-  vector<Isite> growthSites_; /**< The list of all sites eligible for
-                                       adjacent growth */
-
-  vector<Isite>
-      dissolutionSites_; /**< The list of sites eligible for self-dissolution */
-
-  bool verbose_;         /**< Flag for verbose output */
+  std::vector<Isite> dissolutionSites_; /**< The list of sites eligible for
+                                             self-dissolution */
+  bool verbose_;                        /**< Flag for verbose output */
 
 public:
   /**
@@ -86,12 +74,11 @@ public:
   @param gv is the list of pointers to growth sites adjacent to the interface
   for this phase
   @param dv is the list of pointers to dissolution sites of this interface
-  phase
   @param pid is the integer id of the phase associated with this interface
   @param verbose is true if verbose output should be produced
   */
-  Interface(ChemicalSystem *csys, vector<Site *> gv, vector<Site *> dv,
-            unsigned int pid, const bool verbose);
+  Interface(ChemicalSystem *csys, std::vector<Site *> gv,
+            std::vector<Site *> dv, unsigned int pid, const bool verbose);
 
   /**
   @brief Destructor for the Interface class.
@@ -116,12 +103,20 @@ public:
 
   @return the vector of Isite objects where growth can occur
   */
-  vector<Isite> getGrowthSites(void) { return growthSites_; }
+  std::vector<Isite> getGrowthSites(void) { return growthSites_; }
 
   /**
   @brief Gets the size of the growthSites_ vector
 
+  @return the size of growthSites_
+  */
   // int getGrowthSize(void) { return growthSites_.size(); }
+
+  /**
+  @brief Gets the size of the dissolutionSites_ vector
+
+  @return the size of dissolutionSites_
+  */
   // int getDissolutionSize(void) { return dissolutionSites_.size(); }
 
   /**
@@ -159,7 +154,7 @@ public:
   @return the vector of Isite objects corresponding to the sites where dissolution
   can occur for this microPhase
   */
-  vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
+  std::vector<Isite> getDissolutionSites(void) { return dissolutionSites_; }
 
   /**
   @brief Set the dissolution interface of this microPhase to the one corresponding
@@ -196,7 +191,7 @@ public:
   @param pid is the phase that could grow at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortGrowthSites(vector<Site> &ste, unsigned int pid);
+  // bool sortGrowthSites(std::vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Sort the list of dissolution sites in descending order of potential for
@@ -206,7 +201,7 @@ public:
   @param pid is the phase that could dissolve at these sites
   @return true if the list was sorted successfully, false otherwise
   */
-  bool sortDissolutionSites(vector<Site> &ste, unsigned int pid);
+  // bool sortDissolutionSites(std::vector<Site> &ste, unsigned int pid);
 
   /**
   @brief Remove an isite from the growth interface of this microPhase

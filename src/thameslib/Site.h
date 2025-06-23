@@ -10,8 +10,6 @@
 #include "Exceptions.h"
 #include "ChemicalSystem.h"
 
-using namespace std;
-
 /**
 @class Site
 @brief Handle behavior of individual lattice sites.
@@ -31,13 +29,12 @@ protected:
   int z_ = 0;            /**< y-coordinate in mesh coordinate frame */
   int id_ = 0;           /**< Unique id in the 1D array of all sites */
   int microPhaseId_ = 0; /**< The microstructure phase assignment */
-  ChemicalSystem
-      *chemSys_;       /**< Pointer to simulation's ChemicalSystem object */
+  ChemicalSystem *chemSys_; /**< Pointer to simulation's ChemicalSystem object */
   std::vector<int> growth_; /**< Vector of phases that can grow at this site */
   double stressFreeVolume_; /**< Stress-free volume of the site */
   double trueVolume_;       /**< Actual volume of site, accounting for stress */
   bool damage_ = false;     /**< True if site is damaged, false otherwise */
-  std::vector<Site *> nb_; /**< List of site ids that are neighbors to this site */
+  std::vector<Site *> nb_;  /**< List of site ids that are neighbors to this site */
 
   /**
   @brief Ranking of potential for dissolution if the site is an interface site.
@@ -66,30 +63,30 @@ protected:
   */
   double wmc_;       /**< total porosity ("surface curvature") at this site */
   double wmc0_;      /**< this site internal porosity
-                             (its own contribution at wmc_ value) */
+                          (its own contribution at wmc_ value) */
   double expstrain_; /**< Assigned expansion strain by phase
-                             constrained transformation or an
-                             applied load */
+                          constrained transformation or an applied load */
 
   bool verbose_;     /**< Flag to determine verbose output */
 
   std::vector<int> inGrowInterfacePos_; /**< vector of the site position in each
-                                        growth interface (-1 if the site doesn't
-                                        belong to a growth interface) */
-  int inDissInterfacePos_;         /**< site position in the corresponding
-                                        dissolution interface (-1 if the site
-                                        doesn't belong to the dissolution
-                                        interface) */
+                                             growth interface (-1 if the site doesn't
+                                             belong to a growth interface) */
+  int inDissInterfacePos_;              /**< site position in the corresponding
+                                             dissolution interface (-1 if the site
+                                             doesn't belong to the dissolution
+                                             interface) */
 
   std::vector<int> inGrowthVectorPos_;  /**< vector of the site position in the
-                                        growth vector (-1 if the site doesn't
-                                        belong to the growth vector) */
-  int inDissolutionVectorPos_;     /**< vector of the site position in the
-                                        dissolution vector (-1 if the site doesn't
-                                        belong to the growth vector) */
+                                             growth vector (-1 if the site doesn't
+                                             belong to the growth vector) */
+  int inDissolutionVectorPos_;          /**< vector of the site position in the
+                                             dissolution vector (-1 if the site doesn't
+                                             belong to the growth vector) */
 
-  int visit_; /**< flag used to avoid acting twice or more on the site
-                   (or its neighborhood) during a current action */
+  int visit_;                           /**< flag used to avoid acting twice or more 
+                                             on the site (or its neighborhood) during 
+                                             a current action */
 
 public:
   /**
@@ -177,7 +174,6 @@ public:
   */
   std::vector<int> getInGrowInterfacePosVector() { return inGrowInterfacePos_; }
 
-
   /**
   @brief Set the site position (pos) on the dissolution interface corresponding to
   the microPhase occupying this site
@@ -195,7 +191,6 @@ public:
   corresponding to the microPhase occupying this site
   */
   int getInDissInterfacePos(void) { return inDissInterfacePos_; }
-
 
   /**
   @brief Set the site position (pos) corresponding to a given microPhase
@@ -220,7 +215,6 @@ public:
   for the given phId, to the current growth vector)
   */
   int getInGrowthVectorPos(int phId) { return inGrowthVectorPos_[phId]; }
-
 
   /**
   @brief Set the site position (pos) on the dissolution vector
@@ -315,6 +309,15 @@ public:
   int getMicroPhaseId() const { return microPhaseId_; }
 
   /**
+  @brief Get the microstructure phase name assigned to the site.
+
+  @return the microstructure phase name
+  */
+  // string getMicroPhaseName() const {
+  //   return chemSys_->getMicroPhaseName(microPhaseId_);
+  // }
+
+  /**
   @brief Set the microstructure phase id number assigned to the site.
 
   @param pid is the microstructure phase id number to assign
@@ -384,7 +387,6 @@ public:
   */
   double getWmc(void) const { return wmc_; }
 
-
   /**
   @brief get the internal porosity, wmc0_, of this site i.e. its contribution to
   the "weighted mean curvature", wmc_, of the site
@@ -392,6 +394,20 @@ public:
   @return the value of wmc0_ corresponding to the microPhase occupying this site
   */
   double getWmc0(void) const { return wmc0_; }
+
+  /**
+  @brief Determine if a site is occupied by a porous solid
+
+  A porous solid is any phase that is not pure electrolyte but which
+  has some internal porosity (<i>i.e.<i>, 0 < porosity < 1 )
+
+  @return true if the phase occupying this site is a porous solid
+  */
+  bool isPorousSolid(void) {
+    if (wmc0_ > 1.0e-9 && wmc0_ < 9.9999e-1)
+      return (true);
+    return (false);
+  }
 
   /**
   @brief Set the "weighted mean curvature" of the site.
@@ -485,7 +501,7 @@ public:
 
   @return the list of ids of all microPhases that can grow at the site
   */
-  vector<int> getGrowthPhases() const { return growth_; }
+  std::vector<int> getGrowthPhases() const { return growth_; }
 
 
   /**

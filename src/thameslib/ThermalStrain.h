@@ -14,8 +14,6 @@ implemented in the AppliedStrain class.
 #include "global.h"
 #include "ElasticModel.h"
 
-using namespace std;
-
 /**
 @class ThermalStrain
 @brief Solves the linear elastic state for systems that are thermally strained.
@@ -144,29 +142,29 @@ protected:
   std::vector<std::vector<double>> b0_;    /**< xx component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b1_;    /**< yy component of linear b vector
+  std::vector<std::vector<double>> b1_;    /**< yy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b2_;    /**< zz component of linear b vector
+  std::vector<std::vector<double>> b2_;    /**< zz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b3_;    /**< xz component of linear b vector
+  std::vector<std::vector<double>> b3_;    /**< xz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b4_;    /**< yz component of linear b vector
+  std::vector<std::vector<double>> b4_;    /**< yz component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  vector<vector<double>> b5_;    /**< xy component of linear b vector
+  std::vector<std::vector<double>> b5_;    /**< xy component of linear b vector
                                      three terms for each phase, so
                                      b0_[nphase][3] */
-  map<int, vector<int>> exp_;    /**< @todo Find out what this is :
+  std::map<int, std::vector<int>> exp_;    /**< @todo Find out what this is :
                                       list of sites ids and their
                                      coordinates where local expansion
                                      occurs */
   std::vector<std::vector<double>> eigen_; /**< Six components of the eigenstrain
                                    tensor for each mesh element, so
                                    eigen_[ns][6] */
-  vector<vector<double>> T_;     /**< Linear (in displacement) thermal
+  std::vector<std::vector<double>> T_;     /**< Linear (in displacement) thermal
                                  energy term, one for each phase,
                                  so T_[nphase][3] */
   std::vector<std::vector<std::vector<std::vector<double>>>>
@@ -353,8 +351,8 @@ public:
   */
   void localRelax(int boxsize, int x, int y, int z, int index);
 
-  void localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
-                  int x, int y, int z, int index);
+  void localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi, int x,
+                  int y, int z, int index);
 
   /**
   @brief Master function for executing the finite element calculation.

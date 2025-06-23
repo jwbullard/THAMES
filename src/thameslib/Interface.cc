@@ -7,8 +7,6 @@
 
 using std::vector;
 
-using namespace std;
-
 bool cmp(const Site *s1, const Site *s2) { return s1->getWmc() < s2->getWmc(); }
 
 bool affinitySort(const Isite s1, const Isite s2) {

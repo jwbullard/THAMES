@@ -41,6 +41,9 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   /// are set to very high values so that they usually won't happen
   ///
 
+  outputImageTimeInterval_ = -1.0;
+  outputImageTime_.clear();
+
   leachTime_ = 1.0e10;
   sulfateAttackTime_ = 1.0e10;
 
@@ -109,6 +112,21 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
         outfs << "," << chemSys_->getDCName(i) << "(m3/100g)";
       }
     }
+    outfs << endl;
+    outfs.close();
+
+    outfilename = jobRoot_ + "_PhaseVolumes.csv";
+    outfs.open(outfilename.c_str());
+    if (!outfs) {
+      throw FileException("Controller", "Controller", outfilename,
+                          "Could not append");
+    }
+
+    outfs << "Time(h)";
+    for (int i = 0; i < numGEMPhases_; i++) {
+      outfs << "," << chemSys_->getGEMPhaseName(i) << "(m3/100g)";
+    }
+    outfs << ",Total Volume (m3/100g),Chemical Shrinkage Strain";
     outfs << endl;
     outfs.close();
 
@@ -183,7 +201,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     for (int i = 0; i < chemSys_->getNumMicroPhases(); i++) {
       outfs << "," << chemSys_->getMicroPhaseName(i);
     }
-    outfs << ",Total Volume (m3/100g),Chemical Shrinkage (m3/100g)";
     outfs << endl;
     outfs.close();
 
@@ -272,8 +289,14 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
     throw fex;
   }
 
+  for (int i = 0; i < static_cast<int>(time_.size() - 1); i++) {
+    if (abs(time_[i] - time_[i + 1]) <= 1.0e-6) {
+      time_.erase(time_.begin() + i);
+    }
+  }
+
   int time_Size = time_.size();
-  int outputTime_Size = outputTime_.size();
+  int outputImageTime_Size = outputImageTime_.size();
 
   if (time_Size == 0) {
     cout << endl
@@ -328,22 +351,22 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   outfs << "    \"outtimes\": [" << endl;
 
   j = 0;
-  for (int i = 0; i < outputTime_Size; i++) {
+  for (int i = 0; i < outputImageTime_Size; i++) {
     j++;
-    if (i < (outputTime_Size - 1)) {
+    if (i < (outputImageTime_Size - 1)) {
       if (j == 1) {
-        outfs << "        " << outputTime_[i] << ", ";
+        outfs << "        " << outputImageTime_[i] << ", ";
       } else if (j < 7) {
-        outfs << outputTime_[i] << ", ";
+        outfs << outputImageTime_[i] << ", ";
       } else {
         j = 0;
-        outfs << outputTime_[i] << "," << endl;
+        outfs << outputImageTime_[i] << "," << endl;
       }
     } else {
       if (j == 1) {
-        outfs << "        " << outputTime_[i] << endl;
+        outfs << "        " << outputImageTime_[i] << endl;
       } else {
-        outfs << outputTime_[i] << endl;
+        outfs << outputImageTime_[i] << endl;
       }
     }
   }
@@ -400,6 +423,8 @@ void Controller::doCycle(double elemTimeInterval) {
   int i;
   int time_index;
   RestoreSystem iniLattice;
+  RestoreSite site_l;           // only one declaration
+  RestoreInterface interface_l; // only one declaration
 
   ///
   /// This block arbitrarily sets the leaching initiation time to 100 days if
@@ -423,7 +448,7 @@ void Controller::doCycle(double elemTimeInterval) {
   cout << endl << "Controller::doCycle(...) Entering Main time loop" << endl;
 
   static double timestep = 0.0;
-  bool capwater = true; // True if some capillary water is available
+  // bool voxwater = true; // True if some voxel-scale water is available
   time_index = 0;
 
   int timesGEMFailed_loc = 0;
@@ -496,7 +521,9 @@ void Controller::doCycle(double elemTimeInterval) {
   double thrTimeToWriteLattice = 0.0167; // threshold ~ 1 minute
 
   // Main computation cycle
-  for (i = 0; (i < timeSize) && (capwater); ++i) {
+  for (i = 0; (i < timeSize) &&
+              (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0.0);
+       ++i) {
 
     TimeStruct formattedTime = getFormattedTime(time_[i]);
     ///
@@ -575,7 +602,7 @@ void Controller::doCycle(double elemTimeInterval) {
       }
     }
 
-    /// Assume that only capillary pore water is chemically reactive,
+    /// Assume that only voxel-scale pore water is chemically reactive,
     /// while water in nanopores is chemically inert.
     ///
     ///
@@ -725,6 +752,7 @@ void Controller::doCycle(double elemTimeInterval) {
     ///
 
     try {
+
       // set iniLattice i.e. a copy of initial lattice/system configuration
       // (including RNG state and all DCs values)
       // from ChemicalSystem:
@@ -732,11 +760,17 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // from Lattice:
       iniLattice.count = lattice_->getCount();
+
       iniLattice.growthInterfaceSize = lattice_->getGrowthInterfaceSize();
+
       iniLattice.dissolutionInterfaceSize =
           lattice_->getDissolutionInterfaceSize();
+
       iniLattice.site.clear();
-      RestoreSite site_l; // only one declaration
+      iniLattice.site.shrink_to_fit();
+
+      // RestoreSite site_l; // only one declaration
+
       for (int ij = 0; ij < numSites_; ij++) {
         site_l.microPhaseId = (lattice_->getSite(ij))->getMicroPhaseId();
         site_l.growth = (lattice_->getSite(ij))->getGrowthPhases();
@@ -749,10 +783,14 @@ void Controller::doCycle(double elemTimeInterval) {
             (lattice_->getSite(ij))->getInDissInterfacePos();
         iniLattice.site.push_back(site_l);
       }
+
       iniLattice.interface.clear();
-      RestoreInterface interface_l; // only one declaration
+      iniLattice.interface.shrink_to_fit();
+
+      // RestoreInterface interface_l; // only one declaration
       int dimLatticeInterface =
           lattice_->getInterfaceSize(); // only one declaration
+
       for (int ij = 0; ij < dimLatticeInterface; ij++) {
         interface_l.microPhaseId = lattice_->getInterface(ij).getMicroPhaseId();
         interface_l.growthSites = lattice_->getInterface(ij).getGrowthSites();
@@ -760,6 +798,7 @@ void Controller::doCycle(double elemTimeInterval) {
             lattice_->getInterface(ij).getDissolutionSites();
         iniLattice.interface.push_back(interface_l);
       }
+
       iniLattice.numRNGcall_0 = lattice_->getNumRNGcall_0();
       iniLattice.numRNGcallLONGMAX = lattice_->getNumRNGcallLONGMAX();
       iniLattice.lastRNG = lattice_->getLastRNG();
@@ -776,7 +815,7 @@ void Controller::doCycle(double elemTimeInterval) {
       vectPhNameDiff.clear();
 
       changeLattice = lattice_->changeMicrostructure(
-          time_[i], simType_, capwater, numSitesNotAvailable, vectPhIdDiff,
+          time_[i], simType_, numSitesNotAvailable, vectPhIdDiff,
           vectPhNameDiff, whileCount, cyc);
 
       // if not all the voxels requested by KM/GEM for a certain microphase
@@ -957,8 +996,8 @@ void Controller::doCycle(double elemTimeInterval) {
             vectPhIdDiff.clear();
             vectPhNameDiff.clear();
             changeLattice = lattice_->changeMicrostructure(
-                time_[i], simType_, capwater, numSitesNotAvailable,
-                vectPhIdDiff, vectPhNameDiff, whileCount, cyc);
+                time_[i], simType_, numSitesNotAvailable, vectPhIdDiff,
+                vectPhNameDiff, whileCount, cyc);
             cout << endl
                  << "  Controller::doCycle - cyc = " << cyc
                  << "  &  whileCount = " << whileCount
@@ -985,6 +1024,7 @@ void Controller::doCycle(double elemTimeInterval) {
                << cyc << " (i = " << i << ")" << endl;
         }
       } else {
+
         kineticController_->setHydTimeIni(time_[i]);
 
         cout << endl
@@ -1025,6 +1065,12 @@ void Controller::doCycle(double elemTimeInterval) {
       throw mex;
     }
 
+    /// After one cycle we have removed artificial phase information
+    /// introduced by the GEMS data files, so we can now calculate
+    /// the initial system volume according to GEMS
+    if (isFirst)
+      chemSys_->setInitGEMVolume();
+
     // write output .txt files
     writeTxtOutputFiles(time_[i]);
     if (writeICsDCs)
@@ -1036,34 +1082,22 @@ void Controller::doCycle(double elemTimeInterval) {
 
     lattice_->calculatePoreSizeDistribution();
 
-    ///
-    /// Check if there is any capillary pore water remaining.  If not then
-    /// we ASSUME hydration has stopped.
-    ///
-    /// @todo Generalize this idea to allow nanopore water to react by taking
-    /// into account its lower chemical potential.
-
-    if (verbose_) {
-      cout << "Controller::doCycle Returned from Lattice::changeMicrostructure"
-           << endl;
-      cout.flush();
-    }
-
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
-    if ((time_index < static_cast<int>(outputTime_.size())) &&
-        ((time_[i] >= outputTime_[time_index]) ||
-         (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice))) {
+    if ((time_index < static_cast<int>(outputImageTime_.size())) &&
+        ((time_[i] >= outputImageTime_[time_index]) ||
+         (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice))
+       ) {
 
       double writeTime = time_[i];
-      if (abs(time_[i] - outputTime_[time_index]) < thrTimeToWriteLattice)
-        writeTime = outputTime_[time_index];
+      if (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice)
+        writeTime = outputImageTime_[time_index];
 
       // if (verbose_)
       cout << endl
            << "Controller::doCycle - write microstructure files at time_[" << i
-           << "] = " << time_[i] << ", outputTime_[" << time_index
-           << "] = " << outputTime_[time_index] << ", writeTime = " << writeTime
-           << endl;
+           << "] = " << time_[i] << ", outputImageTime_[" << time_index
+           << "] = " << outputImageTime_[time_index]
+           << ", writeTime = " << writeTime << endl;
       //
 
       lattice_->writeLattice(time_[i], formattedTime);
@@ -1077,26 +1111,36 @@ void Controller::doCycle(double elemTimeInterval) {
       time_index++;
     }
 
-    double watervolume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
+    ///
+    /// Check if there is any voxel-scale pore water remaining.  If not then
+    /// we ASSUME hydration has stopped.
+    ///
+    /// @todo Generalize this idea to allow nanopore water to react by taking
+    /// into account its lower chemical potential.
 
-    if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
-      // we will stop hydration
-      if (warning_) {
-        cout << "Controller::doCycle WARNING: System is out of capillary pore "
-                "water."
-             << endl;
-        cout << "Controller::doCycle          This version of code assumes "
-                "that only capillary"
-             << endl;
-        cout << "Controller::doCycle          water is chemically reactive, so "
-                "the system is"
-             << endl;
-        cout << "Controller::doCycle          is assumed to be incapable of "
-                "further hydration."
-             << endl;
-        cout.flush();
-      }
-    }
+    // double watervolume = chemSys_->getMicroPhaseVolume(ELECTROLYTEID);
+
+    // if (watervolume < 2.0e-18) { // Units in m3, so this is about two voxels,
+    //   // we will stop hydration
+    //   if (warning_) {
+    //     cout << "Controller::doCycle WARNING: System is out of voxel-scale
+    //     pore
+    //     "
+    //             "water."
+    //          << endl;
+    //     cout << "Controller::doCycle          This version of code assumes "
+    //             "that only voxel-scale"
+    //          << endl;
+    //     cout << "Controller::doCycle          water is chemically reactive,
+    //     so "
+    //             "the system is"
+    //          << endl;
+    //     cout << "Controller::doCycle          is assumed to be incapable of "
+    //             "further hydration."
+    //          << endl;
+    //     cout.flush();
+    //   }
+    // }
 
     ///
     /// The following block executes only for sulfate attack simulations
@@ -1164,8 +1208,8 @@ void Controller::doCycle(double elemTimeInterval) {
           cout << "Controller::doCycle Sulfate attack module writing " << endl;
           cout << "Controller::doCycle lattice at time_[" << i
                << "] = " << time_[i] << ", " << endl;
-          cout << "controller::doCycle outputTime_[" << time_index
-               << "] = " << outputTime_[time_index] << endl;
+          cout << "controller::doCycle outputImageTime_[" << time_index
+               << "] = " << outputImageTime_[time_index] << endl;
           cout.flush();
         }
 
@@ -1585,6 +1629,27 @@ void Controller::writeTxtOutputFiles(double time) {
   outfs << endl;
   outfs.close();
 
+  outfilename = jobRoot_ + "_PhaseVolumes.csv";
+  outfs.open(outfilename.c_str(), ios::app);
+  if (!outfs) {
+    throw FileException("Controller", "calculateState", outfilename,
+                        "Could not append");
+  }
+
+  outfs << setprecision(5) << time;
+  for (i = 0; i < numGEMPhases_; i++) {
+    outfs << "," << chemSys_->getGEMPhaseVolume(i);
+  }
+  if (time >= time_[1]) {
+    double sysvol = chemSys_->getGEMVolume();
+    double initsysvol = chemSys_->getInitGEMVolume();
+    outfs << "," << sysvol << "," << ((initsysvol - sysvol) / initsysvol);
+  } else {
+    outfs << ", ,0.0";
+  }
+  outfs << endl;
+  outfs.close();
+
   outfilename = jobRoot_ + "_SurfaceAreas.csv";
   outfs.open(outfilename.c_str(), ios::app);
   if (!outfs) {
@@ -1627,9 +1692,6 @@ void Controller::writeTxtOutputFiles(double time) {
   for (i = 0; i < numMicroPhases_; i++) {
     outfs << "," << (lattice_->getVolumeFraction(i));
   }
-  double micvol = lattice_->getMicrostructureVolume();
-  double initmicvol = lattice_->getInitialMicrostructureVolume();
-  outfs << "," << micvol << "," << (initmicvol - micvol);
   outfs << endl;
   outfs.close();
 
@@ -1876,15 +1938,44 @@ void Controller::parseDoc(const string &docName) {
     double finalTime = cdi.value();
     finalTime *= (H_PER_DAY);
 
-    // Input times are conventionally in days
+    /// Users may specify either individual output times
+    /// or a single output frequency for simplicity.
+    /// If both are specified the output times are ignored
+
+    // Output times are conventionally in days
     // Immediately convert to hours within model
-    cdi = it.value().find("outtimes");
+
+    outputImageTime_.clear();
+    outputImageTimeInterval_ = 0.0;
+
+    cdi = it.value().find("outfreq");
     double testTime = 0.0;
-    int outtimenum = cdi.value().size();
-    for (int i = 0; i < outtimenum; ++i) {
-      testTime = cdi.value()[i];
-      testTime *= (H_PER_DAY);
-      outputTime_.push_back(testTime);
+    if (cdi != it.value().end()) {
+      outputImageTimeInterval_ = cdi.value();
+      outputImageTimeInterval_ *= (H_PER_DAY);
+
+      // Knowing the time interval, construct the output
+      // times
+      if (outputImageTimeInterval_ > 0.01) {
+
+        while (testTime < finalTime) {
+          testTime += outputImageTimeInterval_;
+          if (testTime < finalTime) {
+            outputImageTime_.push_back(testTime);
+          } else {
+            outputImageTime_.push_back(finalTime);
+          }
+        }
+      }
+    } else {
+      cdi = it.value().find("outtimes");
+      // double testTime = 0.0;
+      int outtimenum = cdi.value().size();
+      for (int i = 0; i < outtimenum; ++i) {
+        testTime = cdi.value()[i];
+        testTime *= (H_PER_DAY);
+        outputImageTime_.push_back(testTime);
+      }
     }
 
     //
@@ -1892,26 +1983,29 @@ void Controller::parseDoc(const string &docName) {
     // and fold in the output times in order
     time_.clear();
     testTime = 0.0;
-    int j = 0;
-    bool done = false;
-    int outputTimeSize = static_cast<int>(outputTime_.size());
-    while (testTime < finalTime) {
+    time_.push_back(testTime);
+    while (testTime <= finalTime) {
       testTime += (0.1 * (testTime + 0.024));
-      done = false;
-      if (j < outputTimeSize) {
-        while (j < outputTimeSize && !done) {
-          if (testTime >= outputTime_[j]) {
-            time_.push_back(outputTime_[j]);
-            j++;
-          } else if (testTime < finalTime) {
-            time_.push_back(testTime);
-            done = true;
-          }
-        }
-      } else if (testTime < finalTime) {
-        time_.push_back(testTime);
-      } else {
+      if (testTime >= finalTime) {
         time_.push_back(finalTime);
+        break;
+      }
+      time_.push_back(testTime);
+    }
+
+    int outputImageTimeSize = static_cast<int>(outputImageTime_.size());
+    int i_j = 0;
+    for (int i = 0; i < outputImageTimeSize; i++) {
+      for (int j = i_j; j < static_cast<int>(time_.size()); j++) {
+        if (time_[j] >= outputImageTime_[i]) {
+          if (abs(outputImageTime_[i] - time_[j]) >= 1.0e-3) {
+            time_.insert(time_.begin() + j, outputImageTime_[i]);
+          } else {
+            time_[j] = outputImageTime_[i];
+          }
+          i_j = j;
+          break;
+        }
       }
     }
 
@@ -2021,11 +2115,11 @@ void Controller::parseDoc(const string &docName) {
       double tp = beginAttackTime_;
       int tempSize;
 
-      tempSize = outputTime_.size();
+      tempSize = outputImageTime_.size();
       for (int i = 0; i < tempSize; i++) {
-        if (outputTime_[i] > beginAttackTime_) {
-          outputTime_.erase(outputTime_.begin() + i,
-                            outputTime_.begin() + tempSize);
+        if (outputImageTime_[i] > beginAttackTime_) {
+          outputImageTime_.erase(outputImageTime_.begin() + i,
+                            outputImageTime_.begin() + tempSize);
           break;
         }
       }
@@ -2043,7 +2137,7 @@ void Controller::parseDoc(const string &docName) {
         tp += attackTimeInterval_;
         if (tp > endAttackTime_)
           tp = endAttackTime_;
-        outputTime_.push_back(tp);
+        outputImageTime_.push_back(tp);
         time_.push_back(tp);
       }
 
@@ -2066,7 +2160,7 @@ void Controller::parseDoc(const string &docName) {
   return;
 }
 
-TimeStruct Controller::getResolvedTime(const double curtime) {
+TimeStruct Controller::getFormattedTime(const double curtime) {
 
   int s_per_h = static_cast<int>(S_PER_H);
   int s_per_year = static_cast<int>(S_PER_YEAR);
@@ -2095,7 +2189,8 @@ TimeStruct Controller::getResolvedTime(const double curtime) {
   // Convert remaining time into minutes
   mytime.minutes = curtime_s / s_per_minute;
   curtime_s -= (mytime.minutes * s_per_minute);
-   // Round up minutes if curtime_in_s >= 30
+
+  // Round up minutes if curtime_in_s >= 30
   if (curtime_s >= 30) {
     mytime.minutes += 1;
     // Propagate this rounding to other time units

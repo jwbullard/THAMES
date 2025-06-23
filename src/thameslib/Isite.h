@@ -26,7 +26,7 @@ private:
   double affinity_; /**< The affinity for growth of a phase at the site */
   bool verbose_;    /**< Flag for whether to produce verbose output */
   double prob_;     /**< The growth probability of a phase at this site (computed
-                       according the affinity) */
+                         according the affinity) */
 
 public:
   /**

@@ -25,8 +25,6 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #include "KineticModel.h"
 #include "Lattice.h"
 
-using namespace std;
-
 /**
 @class PozzolanicModel
 @brief Handles the kinetic model of pozzolanic materials
@@ -38,30 +36,31 @@ class PozzolanicModel : public KineticModel {
 protected:
   double
       surfaceAreaMultiplier_;      /**< Dimensionless factor to multiply the
-                                     calculated surface area to account for
-                                     unresolved internal porosity, roughness, etc. */
+                                        calculated surface area to account for
+                                        unresolved internal porosity, roughness,
+                                        etc. */
   double dissolutionRateConst_;    /**< Rate constand for dissolution
-                                      (mol/m2/h) */
+                                        (mol/m2/h) */
   double diffusionRateConstEarly_; /**< Rate constant for early-age diffusion
-                                      (mol/m2/h) */
+                                        (mol/m2/h) */
   double diffusionRateConstLate_;  /**< Rate constant for later-age diffusion
-                                      (mol/m2/h) */
+                                        (mol/m2/h) */
   /**
   @brief Number of dissolved DC units per unit dissolution reaction
   */
   double dissolvedUnits_;
-  double siexp_;  /**< Exponent on saturation index (unitless) */
-  double dfexp_;  /**< Exponent on driving force (unitless) */
-  double dorexp_; /**< Exponent on degree of reaction (unitless) */
-  double ohexp_;  /**< Exponent on OH ion activity (unitless) */
-  double sio2_;   /**< Mass fraction of SiO2 (unitless) */
-  double al2o3_;  /**< Mass fraction of Al2O3 (unitless) */
-  double cao_;    /**< Mass fraction of CaO (unitless) */
+  double siexp_;     /**< Exponent on saturation index (unitless) */
+  double dfexp_;     /**< Exponent on driving force (unitless) */
+  double dorexp_;    /**< Exponent on degree of reaction (unitless) */
+  double ohexp_;     /**< Exponent on OH ion activity (unitless) */
+  double sio2_;      /**< Mass fraction of SiO2 (unitless) */
+  double al2o3_;     /**< Mass fraction of Al2O3 (unitless) */
+  double cao_;       /**< Mass fraction of CaO (unitless) */
 
   double rh_;        /**< relative humidity */
-  double rhFactor_;  /**< relative humidity factor, i.e. the correction of the
-                     hydration rate taking into account the ambient relative
-                     humidity */
+  double rhFactor_;  /**< relative humidity factor, i.e. the correction of
+                          the hydration rate taking into account the ambient
+                          relative humidity */
   double arrhenius_; /**< arrhenius factor */
 
 public:
@@ -96,7 +95,7 @@ public:
 
   @return a string indicating the model type
   */
-  string getType() const { return (PozzolanicType); }
+  std::string getType() const { return (PozzolanicType); }
 
   /**
   @brief Set the surface area multiplier

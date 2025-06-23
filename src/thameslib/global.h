@@ -25,8 +25,6 @@
 
 using json = nlohmann::json;
 
-using namespace std;
-
 // String indicating THAMES version in the input microstructure file
 inline const char VERSIONSTRING[] = "#THAMES:Version:";
 
@@ -62,7 +60,7 @@ inline const char FerriteDCName[] = "C4AF";
 
 // String indicating the liquid solution GEM Phase name
 // @todo Make this general somehow
-inline const char WaterGEMName[] = "aq_gen";
+inline const char ElectrolyteGEMName[] = "aq_gen";
 
 // String indicating the liquid water DC name
 // @todo Make this general somehow
@@ -112,7 +110,7 @@ inline const char StandardType[] = "Standard";
 inline const char PozzolanicType[] = "Pozzolanic";
 
 // String for the command to convert between image files (Imagemagick)
-inline const string ConvertCommand = "magick";
+inline const std::string ConvertCommand = "magick";
 
 // Flag to indicate exiting the program
 inline const int QUIT_PROGRAM = 1;

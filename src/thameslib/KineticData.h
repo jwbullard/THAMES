@@ -51,8 +51,6 @@ component
         calculating the influence of w/c ratio.
 */
 
-using namespace std;
-
 #ifndef SRC_THAMESLIB_KINETICDATA_H_
 #define SRC_THAMESLIB_KINETICDATA_H_
 
@@ -60,9 +58,9 @@ using namespace std;
 
 struct KineticData {
   std::string name;       /**< Name of the microstructure phase */
-  int microPhaseId;  /**< Integer id of the microstructure phase */
-  int GEMPhaseId;    /**< Integer id of the phase in the GEM CSD */
-  int DCId;          /**< Integer id of the DC making up the phase */
+  int microPhaseId;       /**< Integer id of the microstructure phase */
+  int GEMPhaseId;         /**< Integer id of the phase in the GEM CSD */
+  int DCId;               /**< Integer id of the DC making up the phase */
   std::string type;       /**< Specifies kinetic or thermodynamic control */
   double scaledMass; /**< Mass percent on a total solids basis */
   double surfaceAreaMultiplier; /**< How much to multiply the surface area to
@@ -77,7 +75,7 @@ struct KineticData {
   double n1;        /**< Parrot and Killoh <i>N</i><sub>1</sub> parameter */
   double n3;        /**< Parrot and Killoh <i>N</i><sub>3</sub> parameter */
   double dorHcoeff; /**< Lothenbach-Kulik H coefficient to compute critDOR */
-  double critDOR; /**< Critical degree of reaction (hydration) for w/c effect */
+  double critDOR;   /**< Critical degree of reaction (hydration) for w/c effect */
   double dissolutionRateConst;    /**< Generic rate constant [mol/m2/s] */
   double diffusionRateConstEarly; /**< Generic rate constant [mol/m2/s] */
   double diffusionRateConstLate;  /**< Generic rate constant [mol/m2/s] */
@@ -92,7 +90,7 @@ struct KineticData {
   double cao;            /**< Mole fraction CaO in material */
   double rh_;            /**< relative humidity */
   double rhFactor_;      /**< relative humidity factor, i.e. the correction
-                         of the hydration rate taking into account the
-                         ambient relative humidity */
+                              of the hydration rate taking into account the
+                              ambient relative humidity */
 };
 #endif // SRC_THAMESLIB_KINETICDATA_H_

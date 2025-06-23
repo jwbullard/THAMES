@@ -27,8 +27,6 @@ will take on more distinct details later.
 // class MicrostructureException
 // class DataException
 
-using namespace std;
-
 /**
 @class Declare the EOBException class
 
@@ -69,21 +67,21 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the EOB exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the array name that was queried when the EOB exception was thrown.
 
   @return the array name
   */
-  string &getArrayname() const { return (string &)arrayname_; }
+  std::string &getArrayname() const { return (std::string &)arrayname_; }
 
   /**
   @brief Get the number of elements of the array queried when the EOB exception
@@ -118,10 +116,10 @@ close, write to, or read from a file.
 class FileException {
 
 private:
-  string filename_;     /**< Name of the offending file */
-  string extype_;       /**< Name of the exception description */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
+  std::string filename_;     /**< Name of the offending file */
+  std::string extype_;       /**< Name of the exception description */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -147,28 +145,28 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the file exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the file name that was queried when the file exception was thrown.
 
   @return the file name
   */
-  string &getFilename() const { return (string &)filename_; }
+  std::string &getFilename() const { return (std::string &)filename_; }
 
   /**
   @brief Get the file exception type description.
 
   @return the exception type description
   */
-  string &getExtype() const { return (string &)extype_; }
+  std::string &getExtype() const { return (std::string &)extype_; }
 
   /**
   @brief Provide formatted output of the exception details.
@@ -188,9 +186,9 @@ operations, especially divide-by-zero exceptions.
 class FloatException {
 
 private:
-  string description_;  /**< Description of the floating point exception */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
+  std::string description_;  /**< Description of the floating point exception */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -216,7 +214,7 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the floating point
@@ -224,14 +222,14 @@ public:
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the description of the floating point exception.
 
   @return the file name
   */
-  string &getDescription() const { return (string &)description_; }
+  std::string &getDescription() const { return (std::string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
@@ -280,28 +278,28 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the handle causing the exception.
 
   @return the handle
   */
-  string &getHandle() const { return (string &)handle_; }
+  std::string &getHandle() const { return (std::string &)handle_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  string &getDescription() const { return (string &)description_; }
+  std::string &getDescription() const { return (std::string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
@@ -321,9 +319,9 @@ in the GEM3K library.
 class GEMException {
 
 private:
-  string description_;  /**< Description of the GEM exception */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
+  std::string description_;  /**< Description of the GEM exception */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -348,21 +346,21 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  string &getDescription() const { return (string &)description_; }
+  std::string &getDescription() const { return (std::string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.
@@ -381,9 +379,9 @@ microstructure modifications.
 */
 class MicrostructureException {
 private:
-  string description_;  /**< Description of the GEM exception */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
+  std::string description_;  /**< Description of the GEM exception */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
   bool excp_; /**< true <-> for exception / false <-> for normal exit */
 
 public:
@@ -419,21 +417,21 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the description of the exception.
 
   @return the file name
   */
-  string &getDescription() const { return (string &)description_; }
+  std::string &getDescription() const { return (std::string &)description_; }
 
   bool getExcp() { return excp_; }
 
@@ -454,9 +452,9 @@ data errors.
 class DataException {
 
 private:
-  string description_;  /**< Description of the GEM exception */
-  string classname_;    /**< Name of the class that threw the exception */
-  string functionname_; /**< Number of function that threw the exception */
+  std::string description_;  /**< Description of the GEM exception */
+  std::string classname_;    /**< Name of the class that threw the exception */
+  std::string functionname_; /**< Number of function that threw the exception */
 
 public:
   /**
@@ -481,21 +479,21 @@ public:
 
   @return the class name
   */
-  string &getClassname() const { return (string &)classname_; }
+  std::string &getClassname() const { return (std::string &)classname_; }
 
   /**
   @brief Get the function name responsible for throwing the handle exception.
 
   @return the function name
   */
-  string &getFunctionname() const { return (string &)functionname_; }
+  std::string &getFunctionname() const { return (std::string &)functionname_; }
 
   /**
   @brief Get the description of the handle exception.
 
   @return the file name
   */
-  string &getDescription() const { return (string &)description_; }
+  std::string &getDescription() const { return (std::string &)description_; }
 
   /**
   @brief Provide formatted output of the exception details.

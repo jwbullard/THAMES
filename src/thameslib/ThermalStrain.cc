@@ -8,8 +8,6 @@
 using std::cout; using std::endl;
 using std::string; using std::vector; using std::map;
 
-using namespace std;
-
 ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
                              ChemicalSystem *cs, int npoints,
                              const bool verbose, const bool warning)

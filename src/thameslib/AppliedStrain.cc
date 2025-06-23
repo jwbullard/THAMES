@@ -7,8 +7,6 @@
 using std::cout; using std::endl;
 using std::string;
 
-using namespace std;
-
 // AppliedStrain::AppliedStrain(int nx, int ny, int nz, int dim, int nphase,
 //                              int npoints, const bool verbose,
 //                              const bool warning)
