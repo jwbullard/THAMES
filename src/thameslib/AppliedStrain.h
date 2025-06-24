@@ -80,6 +80,7 @@ protected:
   double exy_; /**< xy off-diagonal component of applied strain */
 
   int kmax_; /**< the number of relaxation steps for a given elastic computation */
+  int is_[8];
 
 public:
   /**
@@ -176,8 +177,10 @@ public:
   @param eyz is the yz component of the applied strain
   @param exy is the xy component of the applied strain
   */
-  void calc(std::string fileName, double exx, double eyy, double ezz, double exz,
-            double eyz, double exy);
+  // void calc(std::string fileName, double exx, double eyy, double ezz, double exz,
+  //           double eyz, double exy);
+  void calc(std::vector<int> *p_vectPhId, double exx, double eyy, double ezz,
+            double exz, double eyz, double exy);
 
   /**
   @brief Calculates the effective bulk modulus of the relaxed mesh.
@@ -185,7 +188,8 @@ public:
   @param fileName is the file name for the microstructure image
   @return the bulk modulus (GPa)
   */
-  double getBulkModulus(std::string fileName);
+  // double getBulkModulus(std::string fileName);
+  double getBulkModulus(std::vector<int> *p_vectPhId);
 
 }; // End of AppliedStrain class
 

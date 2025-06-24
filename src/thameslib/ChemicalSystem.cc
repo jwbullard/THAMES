@@ -2669,20 +2669,19 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     cout.flush();
   }
 
-  setMicroPhaseSI();
-
-  // bool testSA = false;
-  // if (time >= beginAttackTime_)
-  //   testSA = true;
-  // setMicroPhaseSI(testSA);
+  // setMicroPhaseSI();
+   bool testSA = false;
+   if (time >= beginAttackTime_)
+     testSA = true;
+   setMicroPhaseSI(testSA);
 
   // setMicroPhaseSI(time);
 
   return timesGEMFailed_;
 }
 
-void ChemicalSystem::setMicroPhaseSI() {
-// void ChemicalSystem::setMicroPhaseSI(bool sa) {
+// void ChemicalSystem::setMicroPhaseSI() {
+ void ChemicalSystem::setMicroPhaseSI(bool sa) {
 
   microPhaseSI_.clear();
   microPhaseSI_.resize(numMicroPhases_, 0.0);
@@ -2706,16 +2705,16 @@ void ChemicalSystem::setMicroPhaseSI() {
       aveSI = moles = 0.0;
       microPhaseDCMembers = getMicroPhaseDCMembers(i);
       sizeMicroPhaseDCMembers = microPhaseDCMembers.size();
-      // if (sa && (i == 15)) {
-      //   for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
-      //     newDCId = microPhaseDCMembers.at(ii);
-      //     tmoles = DCMoles_[newDCId];
-      //     cout << "           ii/newDCId/tmoles/DC_a/newDCName = " << ii
-      //          << " / " << newDCId << " / " << tmoles << " / "
-      //          << node_->DC_a(newDCId) << " / "
-      //          << " / " << DCName_[newDCId] << endl;
-      //   }
-      // }
+       if (sa && (i == 15)) {
+         for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
+           newDCId = microPhaseDCMembers.at(ii);
+           tmoles = DCMoles_[newDCId];
+           cout << "           ii/newDCId/tmoles/DC_a/newDCName = " << ii
+                << " / " << newDCId << " / " << tmoles << " / "
+                << node_->DC_a(newDCId) << " / "
+                << " / " << DCName_[newDCId] << endl;
+         }
+       }
       for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
         newDCId = microPhaseDCMembers.at(ii);
         tmoles = DCMoles_[newDCId];
@@ -2726,6 +2725,8 @@ void ChemicalSystem::setMicroPhaseSI() {
       if (moles > 0.0) {
         aveSI = aveSI / moles;
       }
+      if (sa && (i == 15))
+        cout << "         aveSI[15] = " << aveSI << endl;
       microPhaseSI_.at(i) = aveSI;
     }
     // if (sa)
@@ -3655,6 +3656,7 @@ void ChemicalSystem::checkChemSys(void) {
   }
 }
 
+// void ChemicalSystem::writeSatElectrolyteGasConditions(void) { // see lastV5_with-is
 void ChemicalSystem::writeSatElectrolyteGasConditions(void) {
   int DCId;
   double DCconc;  // mol/kgw units
@@ -3790,6 +3792,8 @@ void ChemicalSystem::writeSatElectrolyteGasConditions(void) {
   return;
 }
 
+// void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
+//                                                bool doAttack, int cyc) { // see lastV5_with-is
 void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
                                                bool doAttack) {
   int DCId;
@@ -3844,6 +3848,7 @@ void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
   return;
 }
 
+// void ChemicalSystem::setGasComposition(const bool isFirst, bool doAttack) { // see lastV5_with-is
 void ChemicalSystem::setGasComposition(const bool isFirst, bool doAttack) {
   int DCId;
   double DCmoles; // mole units
@@ -3897,7 +3902,7 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
   /// which means that \f$\beta > 1\f$.
   ///
 
-  if (microPhaseSI_[growPhId] > 1.0) {
+  if (microPhaseSI_[growPhId] > 0.6) { //check! if (microPhaseSI_[growPhId] > 1.0) {
 
     ///
     /// Estimate the hydrostatic pressure in the pore solution as 1 atmosphere

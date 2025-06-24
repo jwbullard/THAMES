@@ -423,8 +423,8 @@ void Controller::doCycle(double elemTimeInterval) {
   int i;
   int time_index;
   RestoreSystem iniLattice;
-  RestoreSite site_l;           // only one declaration
-  RestoreInterface interface_l; // only one declaration
+  RestoreSite site_l;
+  RestoreInterface interface_l;
 
   ///
   /// This block arbitrarily sets the leaching initiation time to 100 days if
@@ -770,7 +770,6 @@ void Controller::doCycle(double elemTimeInterval) {
       iniLattice.site.shrink_to_fit();
 
       // RestoreSite site_l; // only one declaration
-
       for (int ij = 0; ij < numSites_; ij++) {
         site_l.microPhaseId = (lattice_->getSite(ij))->getMicroPhaseId();
         site_l.growth = (lattice_->getSite(ij))->getGrowthPhases();
@@ -789,7 +788,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // RestoreInterface interface_l; // only one declaration
       int dimLatticeInterface =
-          lattice_->getInterfaceSize(); // only one declaration
+          lattice_->getInterfaceSize();
 
       for (int ij = 0; ij < dimLatticeInterface; ij++) {
         interface_l.microPhaseId = lattice_->getInterface(ij).getMicroPhaseId();
@@ -1248,6 +1247,9 @@ void Controller::doCycle(double elemTimeInterval) {
         int expindex;
         vector<double> expanval;
         vector<int> expcoordin;
+
+        cout << endl << "<<<<< 0 expansion.size() = " << expansion.size() << endl;
+
         for (map<int, vector<double>>::iterator it = expansion.begin();
              it != expansion.end(); it++) {
 
@@ -1259,19 +1261,27 @@ void Controller::doCycle(double elemTimeInterval) {
                                 0.0, 0.0, 0.0);
           thermalstr_->setExpansionCoord(expindex, expcoordin);
         }
+        cout << endl << "<<<<< 1 expansion.size() = " << expansion.size() << endl;
 
         ///
         /// Calculate the stress-free strain (thermal strain) state in the
         /// microstructure, and then write the displacement field
         ///
 
-        thermalstr_->Calc(time_[i], ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        // thermalstr_->Calc(time_[i], ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        vector<int> sitePhIdVect = lattice_->getAllSitesPhId();
+        vector<int> * p_sitePhIdVect = &sitePhIdVect;
+        
+        thermalstr_->Calc(time_[i], p_sitePhIdVect, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        cout << endl << "<<<<< 2 expansion.size() = " << expansion.size() << endl;
 
         // thermalstr_ -> writeStress(jobRoot_,time_[i],0); //write strxx
         // thermalstr_ -> writeStrainEngy(jobRoot_,time_[i]);
 
         // thermalstr_->writeDisp(jobRoot_, time_[i]);
         thermalstr_->writeDisp(jobRoot_, timeString);
+        cout << endl << "<<<<< 3 expansion.size() = " << expansion.size() << endl;
 
         ///
         /// Get the true volume of each voxel after FEM calculation
@@ -1377,6 +1387,8 @@ void Controller::doCycle(double elemTimeInterval) {
                 break;
               }
             }
+            cout << endl << "<<<<< 4 expansion.size() = " << expansion.size() << endl;
+
             if ((pid > ELECTROLYTEID) && notPKPhase &&
                 (chemSys_->isPorous(pid) || chemSys_->isWeak(pid))) {
               // double strxx, stryy, strzz;

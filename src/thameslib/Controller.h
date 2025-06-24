@@ -35,7 +35,7 @@ struct RestoreInterface {
                                             interface */
   std::vector<Isite> growthSites;      /**< The list of all sites eligible for
                                             adjacent growth */
-  std::vector<Isite> dissolutionSites; /**< The list of sites eligible for 
+  std::vector<Isite> dissolutionSites; /**< The list of sites eligible for
                                             self-dissolution */
 };
 

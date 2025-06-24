@@ -85,7 +85,7 @@ protected:
   std::vector<std::vector<double>> gb_; /**< Energy gradient */
   std::vector<std::vector<double>> b_;  /**< Coefficient of linear
                                              displacement in energy */
-  std::vector<std::vector<double>> h_;  /**< Auxiliary conjugate 
+  std::vector<std::vector<double>> h_;  /**< Auxiliary conjugate
                                              gradient variable */
   std::vector<std::vector<double>> Ah_; /**< Local stiffness matrix */
 
@@ -197,6 +197,11 @@ protected:
 
   double gg_; /**< The square of the gradient, `gb_`<sup>2</sup> */
 
+  int numDCs_;
+  std::vector<double> convFactDCs_;
+  int waterDCId_;
+  std::vector<std::vector<int>> mPhDCcomp_;
+
 public:
   /**
   @brief The only constructor provided with the base class.
@@ -253,10 +258,7 @@ public:
   modulus)
   @param val is the value to set for the component [GPa or dimensionless]
   */
-  void setPhasemod(int phaseid, int i, double val) {
-    phasemod_[phaseid][i] = val;
-    return;
-  }
+  void setPhasemod(int phaseid, int i, double val) { phasemod_[phaseid][i] = val; }
 
   /**
   @brief Get one of the elastic moduli components of a phase.

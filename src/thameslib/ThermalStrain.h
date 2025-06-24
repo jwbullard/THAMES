@@ -174,6 +174,7 @@ protected:
                                          components, one at every element, so the
                                          dimensions are ss_[ns][3][3] */
   int kmax_; /**< the number of relaxation steps for a given elastic computation */
+
 public:
   /**
   @brief Constructor.
@@ -286,7 +287,9 @@ public:
   @param kkk is zero if this is the first call, causing `h` to be built up.
   @return the number of conjugate gradient steps used in this call
   */
-  int localDembx(int boxsize, int x, int y, int z, int localldemb, int kkk);
+  // int localDembx(int boxsize, int x, int y, int z, int localldemb, int kkk);
+  int localDembx(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
+                 int localldemb, int kkk);
 
   /**
   @brief Compute the total elastic energy and the gradient in the energy.
@@ -379,7 +382,10 @@ public:
   @param eyz is the yz component of the macrostrain
   @param exy is the xy component of the macrostrain
   */
-  void Calc(double time, std::string fileName, double exx, double eyy, double ezz,
+  // void Calc(double time, std::string fileName, double exx, double eyy, double ezz,
+  //           double exz, double eyz, double exy);
+  void Calc(double time, std::vector<int> *p_vectPhId,
+            double exx, double eyy, double ezz,
             double exz, double eyz, double exy);
 
   /**

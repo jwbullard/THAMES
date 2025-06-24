@@ -35,6 +35,7 @@ protected:
   double trueVolume_;       /**< Actual volume of site, accounting for stress */
   bool damage_ = false;     /**< True if site is damaged, false otherwise */
   std::vector<Site *> nb_;  /**< List of site ids that are neighbors to this site */
+  std::vector<int> nbSA_;   /**< List of site ids that are neighbors to this site */
 
   /**
   @brief Ranking of potential for dissolution if the site is an interface site.
@@ -84,8 +85,8 @@ protected:
                                              dissolution vector (-1 if the site doesn't
                                              belong to the growth vector) */
 
-  int visit_;                           /**< flag used to avoid acting twice or more 
-                                             on the site (or its neighborhood) during 
+  int visit_;                           /**< flag used to avoid acting twice or more
+                                             on the site (or its neighborhood) during
                                              a current action */
 
 public:
@@ -293,6 +294,10 @@ public:
   @return the neighbor vector (pointers) of this site
   */
   std::vector<Site *> getNb() { return nb_; }
+
+  void setNbSA(int ind) { nbSA_.push_back(ind); }
+
+  std::vector<int> getNbSA() { return nbSA_; }
 
   /**
   @brief Get the index number of the site (position in the 1D Lattice vector).
@@ -502,7 +507,6 @@ public:
   @return the list of ids of all microPhases that can grow at the site
   */
   std::vector<int> getGrowthPhases() const { return growth_; }
-
 
   /**
   @brief Set the entire list of all microPhases that can grow at the site.

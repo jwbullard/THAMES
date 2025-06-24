@@ -37,7 +37,7 @@ private:
   int numPhases_;            /**< Total number of phases in the kinetic model */
   ChemicalSystem *chemSys_;  /**< Pointer to the ChemicalSystem object for this
                                   simulation */
-  Lattice *lattice_;         /**< Pointer to the lattice object holding the 
+  Lattice *lattice_;         /**< Pointer to the lattice object holding the
                                   microstructure */
   std::vector<KineticModel *> phaseKineticModel_; /***< Kinetic model for each phase */
   double temperature_;       /**< Temperature [K] */
@@ -72,9 +72,9 @@ private:
   std::vector<double> scaledMassIni_; /**< List of scaled masses before a given time
                                            step*/
 
-  std::vector<int> impurityDCID_;     /**< vector of the DCIds of all impurities 
-                                           contained and able to be eliberated by 
-                                           dissolution of each kinetic controlled 
+  std::vector<int> impurityDCID_;     /**< vector of the DCIds of all impurities
+                                           contained and able to be eliberated by
+                                           dissolution of each kinetic controlled
                                            microPhases (in order, DCIds of: K2O, Na2O,
                                            Per, SO3) */
   std::vector<double> impurity_K2O_;  /**< the number of K2O moles corresponding to the
@@ -450,7 +450,6 @@ public:
   @brief reset the dissolved number of moles for a kinetic controlled microPhase,
   having microPhaseId = pId, when the lattice configuration cannot be changed
   according to the kinetic models/GEMS previsions.
-
 
   @param cyc is the iteration number in main iteration loop in
   Controller::doCycle

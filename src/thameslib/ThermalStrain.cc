@@ -176,10 +176,10 @@ ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
 //                           int iskip) {
 void ThermalStrain::femat(int iskip) {
   double dndx[8], dndy[8], dndz[8];
-  double g[3][3][3];
+  // double g[3][3][3];
   double es[6][8][3], delta[8][3];
   int is[8];
-  double x, y, z;
+  // double x, y, z;
   int nx1 = nx_ - 1;
   int ny1 = ny_ - 1;
   int nz1 = nz_ - 1;
@@ -190,6 +190,7 @@ void ThermalStrain::femat(int iskip) {
   double sum = 0;
   double exx, eyy, ezz, exz, eyz, exy;
 
+  /*
   ///
   /// Generate dk, zcon, T and Y on first pass. After that they are constant,
   /// since they are independent of the macrostrains. Only b gets upgraded
@@ -348,6 +349,22 @@ void ThermalStrain::femat(int iskip) {
                 }
               }
             }
+          }
+        }
+      }
+    }
+    */
+
+  if (iskip == 0) {
+    ///
+    /// Initialize zcon matrix (gives C term for arbitrary macrostrains)
+    ///
+
+    for (int i = 0; i < 2; i++) {
+      for (int j = 0; j < 2; j++) {
+        for (int mi = 0; mi < 3; mi++) {
+          for (int mj = 0; mj < 3; mj++) {
+            zcon_[i][mi][j][mj] = 0.0;
           }
         }
       }
@@ -2328,6 +2345,7 @@ void ThermalStrain::relax(int kmax) {
   out << u_[ns_+1][2] << endl;
   */
 
+  cout << endl << "       relax_ 0 kmax = " << kmax << endl;
   for (int kkk = 0; kkk < kmax; kkk++) {
     ///
     /// Call dembx to implement conjugate gradient routine.
@@ -2336,6 +2354,8 @@ void ThermalStrain::relax(int kmax) {
     // Lstep = dembx(ns_, gg_, ldemb, kkk);
     Lstep = dembx(ldemb, kkk);
     ltot += Lstep;
+
+    cout << endl << "          relax_ 01 kkk = " << kkk << endl;
 
     ///
     /// Call energy to compute energy after dembx call. If gg_ < gtest_,
@@ -2351,8 +2371,12 @@ void ThermalStrain::relax(int kmax) {
     // femat(nx_, ny_, nz_, ns_, nphase_, iskip);
     femat(1);
 
+    cout << endl << "          relax_ 02 kkk = " << kkk << endl;
+
     // utot = energy(nx_, ny_, nz_, ns_);
     utot = energy();
+
+    cout << endl << "          relax_ 03 kkk = " << kkk << endl;
 
     if (verbose_) {
       cout << "ThermalStrain::relax energy = " << utot << " gg_ = " << gg_
@@ -2370,8 +2394,10 @@ void ThermalStrain::relax(int kmax) {
       /// judging how well the relaxation process is proceeding.
       ///
 
+      cout << endl << "       relax_ 1 kmax = " << kmax << endl;
       // stress(nx_, ny_, nz_, ns_);
       stress();
+      cout << endl << "       relax_ 2 kmax = " << kmax << endl;
 
       if (verbose_) {
         cout << "ThermalStrain::relax stresses: xx, "
@@ -2396,9 +2422,10 @@ void ThermalStrain::relax(int kmax) {
       break;
     }
   }
-
+  cout << endl << "       relax_ 3 kmax = " << kmax << endl;
   // stress(nx_, ny_, nz_, ns_);
   stress();
+  cout << endl << "       relax_ 4 kmax = " << kmax << endl;
 
   if (verbose_) {
     cout << "ThermalStrain::relax stresses: xx, "
@@ -2524,10 +2551,29 @@ void ThermalStrain::stress() {
   stryz_ = 0.0;
   strxy_ = 0.0;
 
-  for (int k = 0; k < nz_; k++) {
-    for (int j = 0; j < ny_; j++) {
-      for (int i = 0; i < nx_; i++) {
-        m = nxy_ * k + nx_ * j + i;
+  double exx_nx_dbl = exx * nx_dbl;
+  double exy_nx_dbl = exy * nx_dbl;
+  double exz_nx_dbl = exz * nx_dbl;
+
+  double exy_ny_dbl = exy * ny_dbl;
+  double eyy_ny_dbl = eyy * ny_dbl;
+  double eyz_ny_dbl = eyz * ny_dbl;
+
+  double exz_nz_dbl = exz * nz_dbl;
+  double eyz_nz_dbl = eyz * nz_dbl;
+  double ezz_nz_dbl = ezz * nz_dbl;
+
+
+  int i, j, k, nxy_k, nx_j;
+  for (k = 0; k < nz_; k++) {
+    nxy_k = nxy_ * k;
+    for (j = 0; j < ny_; j++) {
+      nx_j = nxy_k + nx_ * j;
+      for (i = 0; i < nx_; i++) {
+        // m = nxy_ * k + nx_ * j + i;
+        m = nx_j + i;
+
+        cout << endl << "           stress_ 1-0 m = " << m << endl;
 
         ///
         /// Load in elements of 8-vector using periodic boundary conditions.
@@ -2552,48 +2598,48 @@ void ThermalStrain::stress() {
 
         // nx1 = nx - 1
         if (i == nx1) {
-          uu[1][0] += exx * nx_dbl;
-          uu[1][1] += exy * nx_dbl;
-          uu[1][2] += exz * nx_dbl;
-          uu[2][0] += exx * nx_dbl;
-          uu[2][1] += exy * nx_dbl;
-          uu[2][2] += exz * nx_dbl;
-          uu[5][0] += exx * nx_dbl;
-          uu[5][1] += exy * nx_dbl;
-          uu[5][2] += exz * nx_dbl;
-          uu[6][0] += exx * nx_dbl;
-          uu[6][1] += exy * nx_dbl;
-          uu[6][2] += exz * nx_dbl;
+          uu[1][0] += exx_nx_dbl; // exx_nx_dbl = exx * nx_dbl;
+          uu[1][1] += exy_nx_dbl;
+          uu[1][2] += exz_nx_dbl;
+          uu[2][0] += exx_nx_dbl;
+          uu[2][1] += exy_nx_dbl;
+          uu[2][2] += exz_nx_dbl;
+          uu[5][0] += exx_nx_dbl;
+          uu[5][1] += exy_nx_dbl;
+          uu[5][2] += exz_nx_dbl;
+          uu[6][0] += exx_nx_dbl;
+          uu[6][1] += exy_nx_dbl;
+          uu[6][2] += exz_nx_dbl;
         }
         // ny1 = ny - 1
         if (j == ny1) {
-          uu[2][0] += exy * ny_dbl;
-          uu[2][1] += eyy * ny_dbl;
-          uu[2][2] += eyz * ny_dbl;
-          uu[3][0] += exy * ny_dbl;
-          uu[3][1] += eyy * ny_dbl;
-          uu[3][2] += eyz * ny_dbl;
-          uu[6][0] += exy * ny_dbl;
-          uu[6][1] += eyy * ny_dbl;
-          uu[6][2] += eyz * ny_dbl;
-          uu[7][0] += exy * ny_dbl;
-          uu[7][1] += eyy * ny_dbl;
-          uu[7][2] += eyz * ny_dbl;
+          uu[2][0] += exy_ny_dbl; // exy_ny_dbl = exy * ny_dbl;
+          uu[2][1] += eyy_ny_dbl;
+          uu[2][2] += eyz_ny_dbl;
+          uu[3][0] += exy_ny_dbl;
+          uu[3][1] += eyy_ny_dbl;
+          uu[3][2] += eyz_ny_dbl;
+          uu[6][0] += exy_ny_dbl;
+          uu[6][1] += eyy_ny_dbl;
+          uu[6][2] += eyz_ny_dbl;
+          uu[7][0] += exy_ny_dbl;
+          uu[7][1] += eyy_ny_dbl;
+          uu[7][2] += eyz_ny_dbl;
         }
         // nz1 = nz - 1
         if (k == nz1) {
-          uu[4][0] += exz * nz_dbl;
-          uu[4][1] += eyz * nz_dbl;
-          uu[4][2] += ezz * nz_dbl;
-          uu[5][0] += exz * nz_dbl;
-          uu[5][1] += eyz * nz_dbl;
-          uu[5][2] += ezz * nz_dbl;
-          uu[6][0] += exz * nz_dbl;
-          uu[6][1] += eyz * nz_dbl;
-          uu[6][2] += ezz * nz_dbl;
-          uu[7][0] += exz * nz_dbl;
-          uu[7][1] += eyz * nz_dbl;
-          uu[7][2] += ezz * nz_dbl;
+          uu[4][0] += exz_nz_dbl; // exz_nz_dbl = exz * nz_dbl;
+          uu[4][1] += eyz_nz_dbl;
+          uu[4][2] += ezz_nz_dbl;
+          uu[5][0] += exz_nz_dbl;
+          uu[5][1] += eyz_nz_dbl;
+          uu[5][2] += ezz_nz_dbl;
+          uu[6][0] += exz_nz_dbl;
+          uu[6][1] += eyz_nz_dbl;
+          uu[6][2] += ezz_nz_dbl;
+          uu[7][0] += exz_nz_dbl;
+          uu[7][1] += eyz_nz_dbl;
+          uu[7][2] += ezz_nz_dbl;
         }
 
         ///
@@ -2618,6 +2664,7 @@ void ThermalStrain::stress() {
         /// First put thermal strain-induced stresses into stress tensor
         ///
 
+        cout << endl << "             stress_ 1-1 m = " << m << endl;
         for (int n = 0; n < 6; n++) {
           str11 -= cmod_[pix_[m]][0][n] * eigen_[m][n];
           str22 -= cmod_[pix_[m]][1][n] * eigen_[m][n];
@@ -2662,15 +2709,16 @@ void ThermalStrain::stress() {
         elestrain_[m][3] = s13;
         elestrain_[m][4] = s23;
         elestrain_[m][5] = s12;
+        cout << endl << "             stress_ 1-2 m = " << m << endl;
 
         ///
         /// Compute the strain energy for each element.
         ///
 
-        for (int i = 0; i < 6; i++) {
-          for (int j = 0; j < 6; j++) {
-            strainengy_[m] = 0.5 * elestrain_[m][i] * cmod_[pix_[m]][i][j] *
-                             elestrain_[m][j];
+        for (int ii = 0; ii < 6; ii++) {
+          for (int jj = 0; jj < 6; jj++) {
+            strainengy_[m] = 0.5 * elestrain_[m][ii] * cmod_[pix_[m]][ii][jj] *
+                             elestrain_[m][jj];
           }
         }
 
@@ -2678,8 +2726,9 @@ void ThermalStrain::stress() {
         /// Calculate the strain energy for each GEM dependent component,
         /// which will be called in GEMS.
         ///
-
+        cout << endl << "             stress_ 1-3 m = " << m << endl;
         getAvgStrainengy();
+        cout << endl << "             stress_ 1-4 m = " << m << endl;
 
         ///
         /// Sum local stresses and strains into global stresses and strains.
@@ -2723,10 +2772,14 @@ void ThermalStrain::stress() {
   return;
 }
 
-void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
-                         double ezz, double exz, double eyz, double exy) {
+// void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
+//                          double ezz, double exz, double eyz, double exy) {
+void ThermalStrain::Calc(double time, vector<int> *p_vectPhId,
+                         double exx, double eyy, double ezz,
+                         double exz, double eyz, double exy) {
   int kmax = kmax_; // 60;
-  int iskip;
+  // int iskip;
+  // double utot;
   int m;
 
   ///
@@ -2734,13 +2787,18 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   /// the appropriate phase assignments.
   ///
 
-  ppixel(fileName);
+  cout << endl << "   ThermalStrain::Calc_ 0" << endl;
 
+  // ppixel(fileName);
+  ppixel(p_vectPhId);
+
+  cout << endl << "   ThermalStrain::Calc_ 1" << endl;
   ///
   /// Count and output the volume fractions of the different phases.
   ///
 
   assig();
+  cout << endl << "   ThermalStrain::Calc_ 2" << endl;
 
 #ifdef DEBUG
   for (int i = 0; i < nphase_; i++) {
@@ -2753,11 +2811,13 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
          << prob_[i] << endl;
   }
   cout.flush();
+#endif
 
   ///
   /// Output thermal strains for each phase.
   ///
 
+  /*
   cout << "Thermal Strains" << endl;
   for (int i = 0; i < ns_; i++) {
     bool flag = false;
@@ -2767,11 +2827,12 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
     }
     if (flag)
       cout << "eigen of site[" << i << "]: " << eigen_[i][0] << "   "
-           << eigen_[i][1] << "   " << eigen_[i][2] << "   " << eigen_[i][3]
-           << "   " << eigen_[i][4] << "   " << eigen_[i][5] << "   "
-           << "phase is: " << pix_[i] << endl;
+           << eigen_[i][1] << "   " << eigen_[i][2] << "   "
+           << eigen_[i][3] << "   " << eigen_[i][4] << "   "
+           << eigen_[i][5] << "   " << "phase is: "
+           << pix_[i] << endl;
   }
-#endif
+  */
 
   if (isFirst_) {
 #ifdef DEBUG
@@ -2808,10 +2869,14 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
     /// to displacement variables.
     ///
 
-    for (int k = 0; k < nz_; k++) {
-      for (int j = 0; j < ny_; j++) {
-        for (int i = 0; i < nx_; i++) {
-          m = nxy_ * k + nx_ * j + i;
+    int i, j, k, nxy_k, nx_j;
+    for (k = 0; k < nz_; k++) {
+      nxy_k = nxy_ * k;
+      for (j = 0; j < ny_; j++) {
+        nx_j = nxy_k + nx_ * j;
+        for (i = 0; i < nx_; i++) {
+          // m = nxy_ * k + nx_ * j + i;
+          m = nx_j + i;
           // double x = static_cast<double>(i);
           // double y = static_cast<double>(j);
           // double z = static_cast<double>(k);
@@ -2841,18 +2906,26 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
 #endif
       } else {
         double buff;
-        for (int k = 0; k < nz_; k++) {
-          for (int j = 0; j < ny_; j++) {
-            for (int i = 0; i < nx_; i++) {
-              int m = nx_ * ny_ * k + nx_ * j + i;
-              in >> buff;
-              u_[m][0] = buff;
-              in >> buff;
-              u_[m][1] = buff;
-              in >> buff;
-              u_[m][2] = buff;
-            }
-          }
+        // for (int k = 0; k < nz_; k++) {
+        //   for (int j = 0; j < ny_; j++) {
+        //     for (int i = 0; i < nx_; i++) {
+        //       int m = nx_ * ny_ * k + nx_ * j + i;
+        //       in >> buff;
+        //       u_[m][0] = buff;
+        //       in >> buff;
+        //       u_[m][1] = buff;
+        //       in >> buff;
+        //       u_[m][2] = buff;
+        //     }
+        //   }
+        // }
+        for (int m = 0; m < ns_; m++) {
+          in >> buff;
+          u_[m][0] = buff;
+          in >> buff;
+          u_[m][1] = buff;
+          in >> buff;
+          u_[m][2] = buff;
         }
         in >> buff;
         u_[ns_][0] = buff;
@@ -2872,6 +2945,8 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
     isFirst_ = false;
   }
 
+  cout << endl << "   ThermalStrain::Calc_ 3" << endl;
+
   ///
   /// Set up the finite element stiffness matrices, the constant, `C_`,
   /// the vector, `b_`, required for the energy. `b_` and `C_` depend on the
@@ -2883,8 +2958,7 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   /// gradient `gb_` and `gg_ = gb_ * gb_`.
   ///
 
-  iskip = 0;
-  femat(iskip);
+  femat(0);
   /// Note: We need to call the energy function to calculate
   /// the global gradient `gb_`, but we don't need the return
   /// value from the function so we can just call it without assigning
@@ -2920,9 +2994,9 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   /// `bgrad` is only needed to be called for 6 times to get the values of them.
   ///
 
+  double e11, e22, e33;
+  double e13, e23, e12;
   for (int ii = 0; ii < 6; ii++) {
-    double e11, e22, e33;
-    double e13, e23, e12;
     e11 = e22 = e33 = 0.0;
     e13 = e23 = e12 = 0.0;
     if (ii == 0) {
@@ -2950,7 +3024,7 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
       bgrad(e11, e22, e33, e13, e23, e12);
     }
   }
-
+  cout << endl << "   ThermalStrain::Calc_ 4" << endl;
   ///
   /// This is the main relaxation loop.
   /// @note `kmax` is the maximum number of times dembx will be called, with
@@ -2959,7 +3033,13 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   /// is `kmax * ldemb`.
   ///
 
-  for (int count = 0; count < 0; count++) { // check!
+  int xlo, xhi, ylo, yhi, zlo, zhi;
+  int halfbox = boxsize_ / 2;
+  int expindex;
+  vector<int> expcor;
+  int x, y, z;
+
+  for (int count = 0; count < 0; count++) { //check!
 #ifdef DEBUG
     cout << "ThermalStrain::Calc boxsize_ is: " << boxsize_ << endl;
     cout.flush();
@@ -2968,15 +3048,14 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
     for (map<int, vector<int>>::iterator it = exp_.begin(); it != exp_.end();
          it++) {
       localgg_ = 0.0;
-      int halfbox = boxsize_ / 2;
-      int expindex = it->first;
-      vector<int> expcor = it->second;
-      int xlo = expcor[0] - halfbox;
-      int xhi = expcor[0] + halfbox;
-      int ylo = expcor[1] - halfbox;
-      int yhi = expcor[1] + halfbox;
-      int zlo = expcor[2] - halfbox;
-      int zhi = expcor[2] + halfbox;
+      expindex = it->first;
+      expcor = it->second;
+      xlo = expcor[0] - halfbox;
+      xhi = expcor[0] + halfbox;
+      ylo = expcor[1] - halfbox;
+      yhi = expcor[1] + halfbox;
+      zlo = expcor[2] - halfbox;
+      zhi = expcor[2] + halfbox;
 
       femat(1);
 
@@ -2991,7 +3070,6 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
         for (int k = zlo; k <= zhi; k++) {
           for (int j = ylo; j <= yhi; j++) {
             for (int i = xlo; i <= xhi; i++) {
-              int x, y, z;
               x = i;
               y = j;
               z = k;
@@ -3007,7 +3085,7 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
                 z += nz_;
               if (z >= nz_)
                 z -= nz_;
-              int m = nx_ * ny_ * z + nx_ * y + x;
+              m = nxy_ * z + nx_ * y + x;
               localgg_ += gb_[m][m3] * gb_[m][m3];
             }
           }
@@ -3018,20 +3096,29 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
       cout.flush();
 #endif
 
-      localRelax(boxsize_, expcor[0], expcor[1], expcor[2], expindex);
+      // localRelax(boxsize_, expcor[0], expcor[1], expcor[2], expindex);
+      localRelax(xlo, xhi, ylo, yhi, zlo, zhi,
+                 expcor[0], expcor[1], expcor[2], expindex);
     }
   }
+
+  cout << endl << "   ThermalStrain::Calc_ 5" << endl;
   relax(kmax);
+
+  cout << endl << "   ThermalStrain::Calc_ 6" << endl;
 
   string outfilename = "displacement.dat";
   ofstream out(outfilename.c_str());
-  for (int k = 0; k < nz_; k++) {
-    for (int j = 0; j < ny_; j++) {
-      for (int i = 0; i < nx_; i++) {
-        int m = nx_ * ny_ * k + nx_ * j + i;
-        out << u_[m][0] << " " << u_[m][1] << " " << u_[m][2] << endl;
-      }
-    }
+  // for (int k = 0; k < nz_; k++) {
+  //   for (int j = 0; j < ny_; j++) {
+  //     for (int i = 0; i < nx_; i++) {
+  //       m = nxy_ * k + nx_ * j + i;
+  //       out << u_[m][0] << " " << u_[m][1] << " " << u_[m][2] << endl;
+  //     }
+  //   }
+  // }
+  for (int m = 0; m < ns_; m++) {
+    out << u_[m][0] << " " << u_[m][1] << " " << u_[m][2] << endl;
   }
   out << u_[ns_][0] << " " << u_[ns_][1] << " " << u_[ns_][2] << endl;
   out << u_[ns_ + 1][0] << " " << u_[ns_ + 1][1] << " " << u_[ns_ + 1][2]
@@ -3041,30 +3128,33 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   return;
 }
 
-int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
-                              int kkk) {
+// int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
+//                               int kkk) {
+int ThermalStrain::localDembx(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
+                              int localldemb, int kkk) {
   int nss = ns_ + 2;
   double lambda, gamma;
   double hAh, gglast;
   int Lstep;
-  int halfbox = static_cast<int>(boxsize / 2);
+  // int halfbox = static_cast<int>(boxsize / 2);
   bool flag =
       false; // determines whether bgrad function needs to be called or not
 
-  int xlo, xhi, ylo, yhi, zlo, zhi;
-  xlo = x - halfbox;
-  xhi = x + halfbox;
-  ylo = y - halfbox;
-  yhi = y + halfbox;
-  zlo = z - halfbox;
-  zhi = z + halfbox;
+  // int xlo, xhi, ylo, yhi, zlo, zhi;
+  // xlo = x - halfbox;
+  // xhi = x + halfbox;
+  // ylo = y - halfbox;
+  // yhi = y + halfbox;
+  // zlo = z - halfbox;
+  // zhi = z + halfbox;
+  int x, y, z;
+  int m;
 
   if (kkk == 0) {
     for (int k = zlo; k <= zhi; k++) {
       for (int j = ylo; j <= yhi; j++) {
         for (int i = xlo; i <= xhi; i++) {
           for (int m3 = 0; m3 < 3; m3++) {
-            int x, y, z;
             x = i;
             y = j;
             z = k;
@@ -3092,7 +3182,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
               z -= nz_;
               flag = true;
             }
-            int m = nx_ * ny_ * z + nx_ * y + x;
+            m = nxy_ * z + nx_ * y + x;
             h_[m][m3] = gb_[m][m3];
           }
         }
@@ -3127,7 +3217,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
         for (int kk = zlo; kk <= zhi; kk++) {
           for (int jj = ylo; jj <= yhi; jj++) {
             for (int ii = xlo; ii <= xhi; ii++) {
-              int x, y, z;
               x = ii;
               y = jj;
               z = kk;
@@ -3143,7 +3232,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
                 z += nz_;
               if (z >= nz_)
                 z -= nz_;
-              int m = nx_ * ny_ * z + nx_ * y + x;
+              m = nxy_ * z + nx_ * y + x;
               Ah_[m][j] +=
                   h_[ib_[m][0]][n] * (dk_[pix_[ib_[m][26]]][0][j][3][n] +
                                       dk_[pix_[ib_[m][6]]][1][j][2][n] +
@@ -3235,7 +3324,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
           for (int k = zlo; k <= zhi; k++) {
             for (int j = ylo; j <= yhi; j++) {
               for (int i = xlo; i <= xhi; i++) {
-                int x, y, z;
                 x = i;
                 y = j;
                 z = k;
@@ -3251,7 +3339,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
                   z += nz_;
                 if (z >= nz_)
                   z -= nz_;
-                int m = nx_ * ny_ * z + nx_ * y + x;
+                m = nxy_ * z + nx_ * y + x;
                 if (ii == 0)
                   Ah_[m][m1] += b0_[m][m1] * h_[ns_][0];
                 if (ii == 1)
@@ -3272,7 +3360,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
         for (int k = zlo; k <= zhi; k++) {
           for (int j = ylo; j <= yhi; j++) {
             for (int i = xlo; i <= xhi; i++) {
-              int x, y, z;
               x = i;
               y = j;
               z = k;
@@ -3288,7 +3375,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
                 z += nz_;
               if (z >= nz_)
                 z -= nz_;
-              int m = nx_ * ny_ * z + nx_ * y + x;
+              m = nxy_ * z + nx_ * y + x;
               if (ii == 0)
                 Ah_[ns_][0] += b0_[m][0] * h_[m][0] + b0_[m][1] * h_[m][1] +
                                b0_[m][2] * h_[m][2];
@@ -3335,7 +3422,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
       for (int k = zlo; k <= zhi; k++) {
         for (int j = ylo; j <= yhi; j++) {
           for (int i = xlo; i <= xhi; i++) {
-            int x, y, z;
             x = i;
             y = j;
             z = k;
@@ -3351,7 +3437,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
               z += nz_;
             if (z >= nz_)
               z -= nz_;
-            int m = nx_ * ny_ * z + nx_ * y + x;
+            m = nxy_ * z + nx_ * y + x;
             hAh += h_[m][m3] * Ah_[m][m3];
           }
         }
@@ -3363,7 +3449,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
       for (int k = zlo; k <= zhi; k++) {
         for (int j = ylo; j <= yhi; j++) {
           for (int i = xlo; i <= xhi; i++) {
-            int x, y, z;
             x = i;
             y = j;
             z = k;
@@ -3379,7 +3464,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
               z += nz_;
             if (z >= nz_)
               z -= nz_;
-            int m = nx_ * ny_ * z + nx_ * y + x;
+            m = nxy_ * z + nx_ * y + x;
             u_[m][m3] -= lambda * h_[m][m3];
             gb_[m][m3] -= lambda * Ah_[m][m3];
           }
@@ -3393,7 +3478,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
       for (int k = zlo; k <= zhi; k++) {
         for (int j = ylo; j <= yhi; j++) {
           for (int i = xlo; i <= xhi; i++) {
-            int x, y, z;
             x = i;
             y = j;
             z = k;
@@ -3409,7 +3493,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
               z += nz_;
             if (z >= nz_)
               z -= nz_;
-            int m = nx_ * ny_ * z + nx_ * y + x;
+            m = nxy_ * z + nx_ * y + x;
             localgg_ += gb_[m][m3] * gb_[m][m3];
           }
         }
@@ -3433,7 +3517,6 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
         for (int k = zlo; k <= zhi; k++) {
           for (int j = ylo; j <= yhi; j++) {
             for (int i = xlo; i <= xhi; i++) {
-              int x, y, z;
               x = i;
               y = j;
               z = k;
@@ -3449,7 +3532,7 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
                 z += nz_;
               if (z >= nz_)
                 z -= nz_;
-              int m = nx_ * ny_ * z + nx_ * y + x;
+              m = nxy_ * z + nx_ * y + x;
               h_[m][m3] = gb_[m][m3] + gamma * h_[m][m3];
             }
           }
@@ -3461,6 +3544,41 @@ int ThermalStrain::localDembx(int boxsize, int x, int y, int z, int localldemb,
   return Lstep;
 }
 
+// void ThermalStrain::localRelax(int boxsize, int x, int y, int z, int index) {
+void ThermalStrain::localRelax(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
+                               int x, int y, int z, int index) {
+
+#ifdef DEBUG
+  cout << "ThermalStrain::localRelax " << endl;
+  cout << "ThermalStrain::localRelax x, y, z and index are: " << x << " " << y
+       << " " << z << " " << index << endl;
+  cout.flush();
+#endif
+
+  int localldemb = 60; //, ltot = 0;
+  // int iskip;
+  // double utot;
+  // int Lstep;
+
+  // int halfbox = (int)(boxsize / 2);
+
+  // Lstep = localDembx(boxsize, x, y, z, localldemb, 0);
+
+  // ltot += Lstep;
+
+  // ltot = localDembx(xlo, xhi, ylo, yhi, zlo, zhi, localldemb, 0);
+  localDembx(xlo, xhi, ylo, yhi, zlo, zhi, localldemb, 0);
+
+#ifdef DEBUG
+  cout << "ThermalStrain::localRelax localgg_ = " << localgg_
+       << " local relaxation steps ltot = " << ltot << endl;
+  cout.flush();
+#endif
+
+  return;
+}
+
+// not used...
 double ThermalStrain::getEleStrain(int i, int j) {
   if ((i >= ns_) || (i < 0) || (j < 0) || (j >= 6)) {
     cout << "i should be between 0 and ns_, "
