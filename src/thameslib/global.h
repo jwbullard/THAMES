@@ -17,6 +17,7 @@
 #include <vector>
 #include <map>
 #include <fstream>
+#include <sstream>
 #include <ctime>
 #include "../version.h"
 
