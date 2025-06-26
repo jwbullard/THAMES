@@ -4,6 +4,7 @@
 
 | Date                     | Description                         |
 |:-------------------------|:-------------------------------------|
+| Jun 26 11:01 2025 | Desaturating nanoporosity merged with chemical "attack" |
 | Jun 2 13:46 2025 | Microstructure-based calculation of pozzolanic surface area |
 | Jun 2 12:59 2025 | Fixed a few discrepancies between commit 6fd2fd4 and HEAD |
 | May 31 14:57 2025 | Updated cmake directives to allow for Apple Clang |

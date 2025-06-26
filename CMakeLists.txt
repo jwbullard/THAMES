@@ -2,9 +2,9 @@ cmake_minimum_required(VERSION 3.30)
 
 project (THAMES)
 
-set (THAMES_VERSION 5.0)
+set (THAMES_VERSION 5.1)
 set (THAMES_VERSION_MAJOR 5)
-set (THAMES_VERSION_MINOR 0)
+set (THAMES_VERSION_MINOR 1)
 
 # configure a header file to pass some CMake settings to source code
 
