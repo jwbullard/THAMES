@@ -5,8 +5,11 @@
 
 #include "Controller.h"
 
-using std::cout; using std::endl;
-using std::string; using std::vector; using std::map;
+using std::cout;
+using std::endl;
+using std::map;
+using std::string;
+using std::vector;
 
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,
@@ -643,7 +646,8 @@ void Controller::doCycle(double elemTimeInterval) {
                 "  "
                 "   : "
              << i << " / " << cyc << " / " << time_[i] << " / " << timestep
-             << "   =>   searching for a new dissolution time : WAIT..." << endl;
+             << "   =>   searching for a new dissolution time : WAIT..."
+             << endl;
         cout.flush();
 
         numTotGen = 0;
@@ -651,7 +655,8 @@ void Controller::doCycle(double elemTimeInterval) {
         fracNextTimeStep = nextTimeStep / fracNum;
 
         for (int indFracNum = 0; indFracNum < fracNum; indFracNum++) {
-          timeZero = time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
+          timeZero =
+              time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
           minTime = timeZero - deltaTime;
           numGen = 0;
           numIntervals = 0;
@@ -821,8 +826,8 @@ void Controller::doCycle(double elemTimeInterval) {
       // if not all the voxels requested by KM/GEM for a certain microphase
       //  phDiff (DCId)can be dissolved because of the system configuration
       //  (lattice):
-      //   - comeback to the initial system configuration : iniLattice
-      //   - re-run GEM with restrictions impossed by the system configuration
+      //   - come back to the initial system configuration : iniLattice
+      //   - re-run GEM with restrictions imposed by the system configuration
       //       (DC distribution on the lattice sites) i.e. the primal solution
       //        must contain a number of moles corresponding to
       //        numSitesNotAvailable ("numDiff" in
@@ -896,9 +901,8 @@ void Controller::doCycle(double elemTimeInterval) {
               volMolDiff = chemSys_->getDCMolarVolume(DCId);  // m3/mol
               molarMassDiff = chemSys_->getDCMolarMass(DCId); // g/mol
 
-              vfracDiff =
-                  (static_cast<double>(numSitesNotAvailable[ij])) /
-                   (static_cast<double>(numSites_));
+              vfracDiff = (static_cast<double>(numSitesNotAvailable[ij])) /
+                          (static_cast<double>(numSites_));
 
               microPhaseMassDiff =
                   vfracDiff * molarMassDiff / volMolDiff / 1.0e6; // g/cm3
@@ -1085,8 +1089,8 @@ void Controller::doCycle(double elemTimeInterval) {
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
     if ((time_index < static_cast<int>(outputImageTime_.size())) &&
         ((time_[i] >= outputImageTime_[time_index]) ||
-         (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice))
-       ) {
+         (abs(time_[i] - outputImageTime_[time_index]) <
+          thrTimeToWriteLattice))) {
 
       double writeTime = time_[i];
       if (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice)
@@ -1469,8 +1473,8 @@ void Controller::doCycle(double elemTimeInterval) {
       }
 
       cout << endl
-           << "Controller::doCycle - sulfate attack module - cyc = "
-           << cyc << " (i = " << i << ")   =>   normal end" << endl;
+           << "Controller::doCycle - sulfate attack module - cyc = " << cyc
+           << " (i = " << i << ")   =>   normal end" << endl;
     }
   }
 
@@ -1508,7 +1512,7 @@ int Controller::calculateState(double time, double dt, bool isFirst, int cyc) {
     // impurityrelease.resize(chemSys_->getNumMicroImpurities(), 0.0);
 
     ///
-    /// Get the number of moles of each IC dissolved from kinetically controlled
+    /// Get the number of moles of each IC changed from kinetically controlled
     /// phases
     ///
 
@@ -1912,8 +1916,9 @@ void Controller::parseDoc(const string &docName) {
   if (!f.is_open()) {
     cout << endl << "JSON " << docName << " file not found" << endl;
     throw FileException("Controller", "parseDoc", docName, "File not found");
-  } else{
-    cout << endl << "JSON " << docName << " file found => start reading" << endl;
+  } else {
+    cout << endl
+         << "JSON " << docName << " file found => start reading" << endl;
   }
 
   /// Parse the JSON file all at once
@@ -2119,7 +2124,7 @@ void Controller::parseDoc(const string &docName) {
       for (int i = 0; i < tempSize; i++) {
         if (outputImageTime_[i] > beginAttackTime_) {
           outputImageTime_.erase(outputImageTime_.begin() + i,
-                            outputImageTime_.begin() + tempSize);
+                                 outputImageTime_.begin() + tempSize);
           break;
         }
       }

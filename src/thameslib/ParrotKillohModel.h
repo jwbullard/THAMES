@@ -80,13 +80,13 @@ of portland cement, Cement and Concrete Research 36 (2006) 209--226.
 #ifndef SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 #define SRC_THAMESLIB_PARROTKILLOHMODEL_H_
 
-#include "global.h"
-#include "Exceptions.h"
 #include "ChemicalSystem.h"
+#include "Exceptions.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
+#include "global.h"
 
 // Ref specific surface area adjusted downward from
 // 385.0 m2/kg (the published value) to 372.0 m2/kg to
@@ -272,13 +272,13 @@ public:
   @param rh is the internal relative humidity
   @param scaledMass is C-style array of the normalized mass of each
   microstructure phase [g/100 g]
-  @param massDissolved is the C-style array of dissolved mass of each
+  @param massChange is the C-style array of mass change of each
   microstructure phase [g/100g]
   @param cyc is the cycle number (iteration of main loop)
   @param totalDOR is the total degree of reaction [dimensionless]
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
-                                    double &massDissolved, int cyc,
+                                    double &massChange, int cyc,
                                     double totalDOR);
 
 }; // End of ParrotKillohModel class

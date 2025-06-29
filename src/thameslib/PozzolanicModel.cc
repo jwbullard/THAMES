@@ -5,7 +5,8 @@
 */
 #include "PozzolanicModel.h"
 
-using std::cout; using std::endl;
+using std::cout;
+using std::endl;
 
 PozzolanicModel::PozzolanicModel() {
 
@@ -146,19 +147,17 @@ PozzolanicModel::PozzolanicModel(ChemicalSystem *cs, Lattice *lattice,
 
 void PozzolanicModel::calculateKineticStep(const double timestep,
                                            double &scaledMass,
-                                           double &massDissolved, int cyc,
+                                           double &massChange, int cyc,
                                            double totalDOR) {
 
   ///
   /// Initialize local variables
   ///
 
-  double dissrate = 1.0e9; // Nucleation and growth rate
-  double diffrate = 1.0e9; // Diffusion rate
+  double surfacePrecipRate = 1.0e9; // Precipitation rate (positive for growth)
+  double diffrate = 1.0e9;          // Diffusion rate
 
   double rate = 1.0e-10; // Selected rate
-
-  // double massDissolved = 0.0;
 
   double DOR;
 
@@ -169,25 +168,14 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
   try {
 
-    // Each component now has its own kinetic model and we
-    // just want to know the *change* in IC moles caused by
+    // Each component has its own kinetic model
+    // We want to know the *change* in DC moles caused by
     // this component's dissolution or growth.
 
-    // if (timestep < leachTime_ && timestep < sulfateAttackTime_) {
-
-    // @todo BULLARD PLACEHOLDER
-    // Still need to implement constant gas phase composition
-    // Will involve equilibrating gas with aqueous solution
-    //
-    // First step each iteration is to equilibrate gas phase
-    // with the electrolyte, while forbidding anything new
-    // from precipitating.
-
     // RH factor is the same for all clinker phases
-    // double vfvoid = lattice_->getVolumeFraction(VOIDID);
-    // double vfh2o = lattice_->getVolumeFraction(ELECTROLYTEID);
-
     /// This is a big kluge for internal relative humidity
+    /// @note This whole comment block is out of place here.
+    /// @todo Move this comment block to somewhere more appropriate
     /// @note Using new gel and interhydrate pore size distribution model
     ///       which is currently contained in the Lattice object.
     ///
@@ -200,7 +188,9 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     ///    temperature
 
     /// Assume a zero contact angle for now.
-    /// @todo revisit the contact angle issue
+    /// @todo Revisit the contact angle issue once we account
+    /// for the chemical potential difference of confined water
+    /// in small pores
 
     scaledMass_ = scaledMass;
 
@@ -268,18 +258,14 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
     // baserateconst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
-    // Therefore dissrate has units of mol of phase per 100 g of all solid
-    // per h
-    if (saturationIndex < 1.0) {
-      dissrate = baserateconst * rhFactor_ * pow(ohActivity, ohexp_) * area *
-                 pow(waterActivity, 2.0) * (1.0 - (lossOnIgnition_ / 100.0)) *
-                 (sio2_)*pow((1.0 - pow(saturationIndex, siexp_)), dfexp_);
-    } else {
-      dissrate = -baserateconst * rhFactor_ * pow(ohActivity, ohexp_) * area *
-                 pow(waterActivity, 2.0) * (1.0 - (lossOnIgnition_ / 100.0)) *
-                 (sio2_)*pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
-    }
+    // Therefore surfacePrecipRate has units of mol of phase per 100 g of all
+    // solid per h
+    surfacePrecipRate =
+        baserateconst * rhFactor_ * pow(ohActivity, ohexp_) * area *
+        pow(waterActivity, 2.0) * (1.0 - (lossOnIgnition_ / 100.0)) *
+        (sio2_)*pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
 
+    /// Check for diffusion as possible rate-controlling step
     /// Assume steady-state diffusion, with the surface being
     /// at equilibrium and the bulk being at the current
     /// saturation index.
@@ -289,55 +275,54 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
     double boundaryLayer = 1.0;
 
-    double average_cdiff = 1.0e9;
+    double average_cgrad = 1.0e9;
+    double sgnof = 1.0;
     if (DOR > 0.0) {
-      // diffrate = (diffusionRateConstEarly_ * ssaFactor_ * (1.0 - DOR));
-      diffrate = diffusionRateConstEarly_;
       /// Below is very rough approximation to chemical potential gradient
       /// Would be better if we knew the equilibrium constant of
       /// the dissociation reaction.  We would need to raise
       /// it to the power 1/dissolvedUnits and then multiply
-      /// it by average_cdiff.
-      if (saturationIndex < 1.0) {
-        average_cdiff = (1.0 - pow(saturationIndex, (1.0 / dissolvedUnits_)));
-        diffrate *= (average_cdiff) / boundaryLayer;
-        if (abs(diffrate) < 1.0e-10)
-          diffrate = 1.0e-10;
-      } else {
-        average_cdiff = -(pow(saturationIndex, (1.0 / dissolvedUnits_)) - 1.0);
-        diffrate *= (average_cdiff) / boundaryLayer;
-        if (abs(diffrate) < 1.0e-10)
-          diffrate = -1.0e-10;
-      }
-    } else if (saturationIndex < 1.0) {
-      diffrate = 1.0e9;
+      /// it by average_cgrad.
+      // Gradient uses vector pointing AWAY from surfae as positive
+      // Electrolyte assumed to be at equilibrium at the surface and
+      // to have the bulk concentration at the boundary layer thickness
+      average_cgrad =
+          (pow(saturationIndex, (1.0 / dissolvedUnits_)) - 1.0) / boundaryLayer;
+      // Estimate diffusion rate TO the surface using the negative
+      // of Fick's first law
+      diffrate = diffusionRateConstEarly_ * (average_cgrad) / boundaryLayer;
+      if (abs(diffrate) < 1.0e-10)
+        sgnof = (std::signbit(diffrate)) ? -1.0 : 1.0;
+      diffrate = sgnof * 1.0e-10;
     } else {
-      diffrate = -1.0e9;
+      sgnof = (std::signbit(saturationIndex - 1.0)) ? -1.0 : 1.0;
+      diffrate = sgnof * 1.0e9;
     }
 
-    // dissrate has units of mol of phase per 100 g of all solid
+    // surfacePrecipRate has units of mol of phase per 100 g of all solid
     // per h
-    /// @todo JWB Check to make sure that diffrate has same units as dissrate
+    /// @todo JWB Check to make sure that diffrate has same units as
+    /// surfacePrecipRate
 
-    rate = dissrate;
+    rate = surfacePrecipRate;
     if (abs(diffrate) < abs(rate))
       rate = diffrate;
 
     rate *= arrhenius_;
 
     // Mass dissolved has units of g of phase per 100 g of all initial solid
-    massDissolved = rate * timestep * chemSys_->getDCMolarMass(DCId_); //
+    massChange = rate * timestep * chemSys_->getDCMolarMass(DCId_); //
 
     if (verbose_) {
-      cout << "    PozzolanicModel::calculateKineticStep rate/massDissolved : "
-           << rate << " / " << massDissolved << endl;
+      cout << "    PozzolanicModel::calculateKineticStep rate/massChange : "
+           << rate << " / " << massChange << endl;
     }
 
-    scaledMass = scaledMass_ - massDissolved;
+    scaledMass = scaledMass_ + massChange;
 
     if (scaledMass < 0) {
-      massDissolved = scaledMass_;
-      scaledMass = 0;
+      massChange = -1.0 * scaledMass_;
+      scaledMass = 0.0;
     }
     scaledMass_ = scaledMass;
 
@@ -351,11 +336,11 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
            << "\tarrhenius_: " << arrhenius_
            << "\tsaturationIndex: " << saturationIndex
            << "\twaterActivity: " << waterActivity << endl;
-      cout << "   PZM_hT   " << "dissrate: " << dissrate
+      cout << "   PZM_hT   " << "surfacePrecipRate: " << surfacePrecipRate
            << "\tdiffrate: " << diffrate << "\trate: " << rate << endl;
       cout << "   PZM_hT   " << "initScaledMass_: " << initScaledMass_
-           << "\tscaledMass_: " << scaledMass_
-           << "\tmassDissolved: " << massDissolved << endl;
+           << "\tscaledMass_: " << scaledMass_ << "\tmassChange: " << massChange
+           << endl;
       cout.flush();
     }
 

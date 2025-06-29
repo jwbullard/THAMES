@@ -17,13 +17,13 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #ifndef SRC_THAMESLIB_STANDARDKINETICMODEL_H_
 #define SRC_THAMESLIB_STANDARDKINETICMODEL_H_
 
-#include "global.h"
-#include "Exceptions.h"
 #include "ChemicalSystem.h"
+#include "Exceptions.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
+#include "global.h"
 
 /**
 @class StandardKineticModel
@@ -34,11 +34,15 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 class StandardKineticModel : public KineticModel {
 
 protected:
-  double
-      surfaceAreaMultiplier_;   /**< Dimensionless factor to multiply the
-                                     calculated surface area to account for
-                                     unresolved internal porosity, roughness, etc. */
+  double surfaceAreaMultiplier_; /**< Dimensionless factor to multiply the
+                                      calculated surface area to account for
+                                      unresolved internal porosity, roughness,
+                                    etc. */
   double dissolutionRateConst_; /**< Rate constant for dissolution (mol/m2/h) */
+  double diffusionRateConstEarly_; /**< Rate constant for early-age diffusion
+                                        (mol/m2/h) */
+  double diffusionRateConstLate_;  /**< Rate constant for later-age diffusion
+                                        (mol/m2/h) */
   /**
   @brief Number of dissolved DC units per unit dissolution reaction
   */
@@ -117,6 +121,46 @@ public:
   double getDissolutionRateConst() const { return dissolutionRateConst_; }
 
   /**
+  @brief Set the early-age diffusion rate constant
+
+  @note NOT USED.
+
+  @param rc is the early-age diffusion rate constant value to use
+  */
+  void setDiffusionRateConstEarly(const double rc) {
+    diffusionRateConstEarly_ = max(rc, 0.0);
+  }
+
+  /**
+  @brief Get the dissolution rate constant
+
+  @note NOT USED.
+
+  @return the early-age diffusion rate constant
+  */
+  double getDiffusionRateConstEarly() const { return diffusionRateConstEarly_; }
+
+  /**
+  @brief Set the later-age diffusion rate constant
+
+  @note NOT USED.
+
+  @param rc is the later-age diffusion rate constant value to use
+  */
+  void setDiffusionRateConstLate(const double rc) {
+    diffusionRateConstLate_ = max(rc, 0.0);
+  }
+
+  /**
+  @brief Get the later-age diffusion rate constant
+
+  @note NOT USED.
+
+  @return the later-age diffusion rate constant
+  */
+  double getDiffusionRateConstLate() const { return diffusionRateConstLate_; }
+
+  /**
   @brief Set the number of dissolved DC units per unit dissolution
 
   @note NOT USED.
@@ -186,13 +230,13 @@ public:
   @param rh is the internal relative humidity
   @param scaledMass is C-style array of the normalized mass of each
   microstructure phase [g/100 g]
-  @param massDissolved is the C-style array of dissolved mass of each
+  @param massChange is the C-style array of mass change of each
   microstructure phase [g/100g]
   @param cyc is the cycle number (iteration of main loop)
   @param totalDOR is the total degree of reaction [dimensionless]
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
-                                    double &massDissolved, int cyc,
+                                    double &massChange, int cyc,
                                     double totalDOR);
 
 }; // End of StandardKineticModel class

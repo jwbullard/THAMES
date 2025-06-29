@@ -5,8 +5,10 @@
 */
 #include "KineticController.h"
 
-using std::cout; using std::endl;
-using std::string; using std::vector;
+using std::cout;
+using std::endl;
+using std::string;
+using std::vector;
 
 KineticController::KineticController() {
   temperature_ = 293.15;
@@ -823,37 +825,21 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   ///
   ///
 
-  int i;
-
-  // double massDissolved = 0.0;
   cout << scientific << setprecision(15);
   ///
   /// Determine if this is a normal step or a necessary
   /// tweak from a failed GEM_run call
   ///
 
-  // vector<int> impurityDCID;
-  // impurityDCID.clear();
-  // impurityDCID.push_back(chemSys_->getDCId("K2O"));
-  // impurityDCID.push_back(chemSys_->getDCId("Na2O"));
-  // impurityDCID.push_back(chemSys_->getDCId("Per")); // 170
-  // impurityDCID.push_back(chemSys_->getDCId("SO3"));
+  double totMassImpurityChange, massImpurityChange;
 
-  // cout << endl << "impurityDCID : " << endl;
-  // for(i = 0; i < chemSys_->getNumMicroImpurities(); i++){
-  //     cout << i << "\t" << impurityDCID[i] << endl; cout.flush();
-  // }
-  // cout << endl ;
-
-  double totMassImpurity, massImpurity;
-
-  int DCId;
+  int DCId, i;
   // int pKMsize = phaseKineticModel_.size();
   // static vector<double> scaledMassIni;
-  double keepNumDCMoles;
-  vector<int> phaseDissolvedId;
-  phaseDissolvedId.resize(pKMsize_, 0);
-  double numDCMolesDissolved, scaledMass, massDissolved;
+  double newDCMoles;
+  vector<int> phaseChangedId;
+  phaseChangedId.resize(pKMsize_, 0);
+  double DCMoleChange, scaledMass, massChange;
 
   double hyd_time = hydTimeIni_ + timestep;
 
@@ -862,7 +848,6 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   bool doTweak = (chemSys_->getTimesGEMFailed() > 0) ? true : false;
 
   if (doTweak) {
-    // hyd_time = hydTimeIni_ + timestep;
     if (verbose_) {
       cout << endl
            << "  KineticController::calculateKineticStep - tweak cyc = " << cyc
@@ -871,8 +856,8 @@ void KineticController::calculateKineticStep(double time, const double timestep,
            << endl;
     }
     for (int midx = 0; midx < pKMsize_; ++midx) {
-      phaseDissolvedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
-      chemSys_->setMicroPhaseMass(phaseDissolvedId[midx], scaledMassIni_[midx]);
+      phaseChangedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
+      chemSys_->setMicroPhaseMass(phaseChangedId[midx], scaledMassIni_[midx]);
       if (verbose_) {
         cout << "     midx = " << midx
              << "     scaledMassIni[midx] = " << scaledMassIni_[midx]
@@ -889,16 +874,14 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   } else {
 
-    // hyd_time = hydTimeIni_ + timestep;
     cout << endl
          << "  KineticController::calculateKineticStep - cyc = " << cyc
          << " :  hyd_time = " << hyd_time << "   hydTimeIni_ = " << hydTimeIni_
          << "   timestep = " << timestep << endl;
 
     for (int midx = 0; midx < pKMsize_; ++midx) {
-      phaseDissolvedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
-      scaledMassIni_[midx] =
-          chemSys_->getMicroPhaseMass(phaseDissolvedId[midx]);
+      phaseChangedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
+      scaledMassIni_[midx] = chemSys_->getMicroPhaseMass(phaseChangedId[midx]);
       if (verbose_) {
         cout << "    midx = " << midx
              << "     scaledMassIni[midx] = " << scaledMassIni_[midx]
@@ -917,19 +900,9 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   if (hyd_time < beginAttackTime_) {
 
     try {
-      // cout << "  KineticController::calculateKineticStep     hyd_time = "
-      //      << hyd_time << "\tcyc = " << cyc << endl;
 
-      // if (!doTweak) {
-      //  @todo BULLARD PLACEHOLDER
-      //  Still need to implement constant gas phase composition
-      //  Will involve equilibrating gas with aqueous solution
-      //
-      //  First step each iteration is to equilibrate gas phase
-      //  with the electrolyte, while forbidding anything new
-      //  from precipitating.
-
-      /// This is a big kluge for internal relative humidity
+      /// @note This comment is out of place. Move it somewhere more meaningful
+      /// @note This is a big kluge for internal relative humidity
       /// @note Using new gel and interhydrate pore size distribution model
       ///       which is currently contained in the Lattice object.
       ///
@@ -942,7 +915,8 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       ///    temperature
 
       /// Assume a zero contact angle for now.
-      /// @todo revisit the contact angle issue
+      /// @todo revisit the contact angle issue once we account for
+      /// confined water chemical potential in GEMS
 
       /// Loop over all kinetic models
 
@@ -971,10 +945,9 @@ void KineticController::calculateKineticStep(double time, const double timestep,
                   "initScaledCementMass_ = 0  while numPKMphases = "
                << numPKMphases << " :" << endl;
           for (int midx = 0; midx < pKMsize_; ++midx) {
-            phaseDissolvedId[midx] =
-                phaseKineticModel_[midx]->getMicroPhaseId();
+            phaseChangedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
             scaledMassIni_[midx] =
-                chemSys_->getMicroPhaseMass(phaseDissolvedId[midx]);
+                chemSys_->getMicroPhaseMass(phaseChangedId[midx]);
             cout << "     midx = " << midx
                  << "     scaledMassIni[midx] = " << scaledMassIni_[midx]
                  << "     microPhaseName = "
@@ -991,7 +964,8 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       if (totalDOR < 0) {
         cout << endl
              << "     KineticController::calculateKineticStep error : totalDOR "
-                "< 0" << endl;
+                "< 0"
+             << endl;
         cout << endl
              << "        cyc/doTweak/timesGEMFailed : " << cyc << " / "
              << doTweak << " / " << chemSys_->getTimesGEMFailed() << endl;
@@ -1027,23 +1001,22 @@ void KineticController::calculateKineticStep(double time, const double timestep,
           // ONLY HERE IS WHERE WE CALCULATE THE SURFACE AREA EACH CYCLE
           // THIS WAY WE ONLY CALCULATE THE ONES WE NEED
           /// @todo Maybe we can do this more efficiently, like just updating
-          /// the
-          ///         local changes instead of recalculating each time.
+          /// the local changes instead of recalculating each time.
 
           // We calculate surface area even for PK model phases although
           // they currently don't use this information but instead rely
           // on the user-prescribed Blaine fineness of the starting powder only.
           // We do this in anticipation of eventually discarding the PK model
 
-          lattice_->calcSurfaceArea(phaseDissolvedId[midx]);
-          massDissolved = 0.0;
+          lattice_->calcSurfaceArea(phaseChangedId[midx]);
+          massChange = 0.0;
 
           /// @note The totalDOR that is passed to the kinetic model is
           /// based SOLELY on the combined degree of reaction of
           /// "cement" components. It is intended for the Parrot-Killoh
           /// model usage.
           phaseKineticModel_[midx]->calculateKineticStep(
-              timestep, scaledMass, massDissolved, cyc, totalDOR);
+              timestep, scaledMass, massChange, cyc, totalDOR);
 
           /// @note may want to change the condition of next block
           /// because it is possible for the scaled mass of a kinetic phase to
@@ -1054,7 +1027,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
             cout << endl
                  << "KineticController::calculateKineticStep error for cyc = "
                  << cyc << " - scaledMass = " << scaledMass
-                 << "   massDissolved = " << massDissolved << endl;
+                 << "   massChange = " << massChange << endl;
             cout << "   midx/phName/scaledMassIni_[midx] : " << midx << " / "
                  << phaseKineticModel_[midx]->getName() << " / "
                  << scaledMassIni_[midx] << endl;
@@ -1062,67 +1035,64 @@ void KineticController::calculateKineticStep(double time, const double timestep,
             exit(0);
           }
 
-          chemSys_->updateMicroPhaseMasses(phaseDissolvedId[midx], scaledMass,
-                                           0);
+          chemSys_->updateMicroPhaseMasses(phaseChangedId[midx], scaledMass, 0);
 
           if (verbose_) {
             cout << "New scaled mass = "
-                 << chemSys_->getMicroPhaseMass(phaseDissolvedId[midx])
+                 << chemSys_->getMicroPhaseMass(phaseChangedId[midx])
                  << " and new volume = "
-                 << chemSys_->getMicroPhaseVolume(phaseDissolvedId[midx])
-                 << endl;
+                 << chemSys_->getMicroPhaseVolume(phaseChangedId[midx]) << endl;
             cout.flush();
           }
 
           /// @todo Allow any other component to be an impurity, not just the
           /// ones prescribed here
-          totMassImpurity = 0;
-          keepNumDCMoles = 0;
-          numDCMolesDissolved = 0;
+          totMassImpurityChange = newDCMoles = DCMoleChange = 0.0;
 
-          massImpurity =
-              massDissolved * chemSys_->getK2o(phaseDissolvedId[midx]);
-          totMassImpurity += massImpurity;
-          dcmoles = massImpurity / chemSys_->getDCMolarMass("K2O");
+          massImpurityChange =
+              massChange * chemSys_->getK2o(phaseChangedId[midx]);
+          totMassImpurityChange += massImpurityChange;
+          dcmoles = massImpurityChange / chemSys_->getDCMolarMass("K2O");
           DCMoles_[impurityDCID_[0]] += dcmoles;
           impurity_K2O_[midx] = dcmoles;
 
-          massImpurity =
-              massDissolved * chemSys_->getNa2o(phaseDissolvedId[midx]);
-          totMassImpurity += massImpurity;
-          dcmoles = massImpurity / chemSys_->getDCMolarMass("Na2O");
+          massImpurityChange =
+              massChange * chemSys_->getNa2o(phaseChangedId[midx]);
+          totMassImpurityChange += massImpurityChange;
+          dcmoles = massImpurityChange / chemSys_->getDCMolarMass("Na2O");
           DCMoles_[impurityDCID_[1]] += dcmoles;
           impurity_Na2O_[midx] = dcmoles;
 
-          massImpurity =
-              massDissolved * chemSys_->getMgo(phaseDissolvedId[midx]);
-          totMassImpurity += massImpurity;
-          dcmoles = massImpurity / chemSys_->getDCMolarMass("Per");
+          massImpurityChange =
+              massChange * chemSys_->getMgo(phaseChangedId[midx]);
+          totMassImpurityChange += massImpurityChange;
+          dcmoles = massImpurityChange / chemSys_->getDCMolarMass("Per");
           DCMoles_[impurityDCID_[2]] += dcmoles;
           impurity_Per_[midx] = dcmoles;
 
-          massImpurity =
-              massDissolved * chemSys_->getSo3(phaseDissolvedId[midx]);
-          totMassImpurity += massImpurity;
-          dcmoles = massImpurity / chemSys_->getDCMolarMass("SO3");
+          massImpurityChange =
+              massChange * chemSys_->getSo3(phaseChangedId[midx]);
+          totMassImpurityChange += massImpurityChange;
+          dcmoles = massImpurityChange / chemSys_->getDCMolarMass("SO3");
           DCMoles_[impurityDCID_[3]] += dcmoles;
           impurity_SO3_[midx] = dcmoles;
 
-          numDCMolesDissolved = (massDissolved - totMassImpurity) /
-                                chemSys_->getDCMolarMass(DCId);
-          keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+          DCMoleChange = (massChange - totMassImpurityChange) /
+                         chemSys_->getDCMolarMass(DCId);
+          newDCMoles = DCMoles_[DCId] + DCMoleChange;
 
-          chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
+          chemSys_->setDCLowerLimit(DCId, newDCMoles);
           if (verbose_) {
             cout << "    calculateKineticStep - "
-                    "midx/DCId/DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
+                    "midx/DCId/DCMoles_/DCMoleChange/newDCMoles : "
                  << midx << " / " << DCId << " / " << DCMoles_[DCId] << " / "
-                 << numDCMolesDissolved << " / " << keepNumDCMoles << endl;
-            cout << "    calculateKineticStep - scaledMass/massDissolved/"
-                    "totMassImpurity/massDissolved - totMassImpurity : "
-                 << scaledMass << " / " << massDissolved << " / "
-                 << totMassImpurity << " / " << massDissolved - totMassImpurity
-                 << endl;
+                 << DCMoleChange << " / " << newDCMoles << endl;
+            cout
+                << "    calculateKineticStep - scaledMass/massChange/"
+                   "totMassImpurityChange/massChange - totMassImpurityChange : "
+                << scaledMass << " / " << massChange << " / "
+                << totMassImpurityChange << " / "
+                << massChange - totMassImpurityChange << endl;
           }
         }
       }
@@ -1183,23 +1153,20 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
                                           double timestep) {
   string modelName;
-  double totMassImpurity, massImpurity;
-  double keepNumDCMoles;
-  // int phaseDissolvedId;
-  double numDCMolesDissolved, massDissolved;
+  double totMassImpurityChange, massImpurityChange, massChange;
+  double newDCMoles, DCMoleChange;
 
   double hyd_time = hydTimeIni_ + timestep;
 
   int midx;
   int DCId = -1;
   for (midx = 0; midx < pKMsize_; ++midx) {
-    // phaseDissolvedId = phaseKineticModel_[midx]->getMicroPhaseId();
-    // if (pId == phaseDissolvedId) {
     if (pId == phaseKineticModel_[midx]->getMicroPhaseId()) {
       DCId = phaseKineticModel_[midx]->getDCId();
-      break;
+      break; // Leave the for loop immediately
     }
   }
+
   if (DCId == -1) {
     cout << endl
          << "  KineticController::updateKineticStep - error for cyc = " << cyc
@@ -1212,7 +1179,7 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
     chemSys_->setMicroPhaseMass(pId, scaledMassIni_[midx]);
     modelName = phaseKineticModel_[midx]
                     ->getModelName(); // updateKineticStep(scaledMass
-                                      // , massDissolved, timestep);
+                                      // , massChange, timestep);
     cout << "  KineticController::updateKineticStep - for cyc = " << cyc
          << " & phaseId = " << pId << " ["
          << phaseKineticModel_[midx]->getName()
@@ -1222,7 +1189,6 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
          << "   scaledMassIni[midx] = " << scaledMassIni_[midx]
          << "   scaledMass = " << scaledMass << endl;
 
-    // DCMoles_[DCId] = DCMolesIni_[DCId];
     DCMoles_[impurityDCID_[0]] -= impurity_K2O_[midx];
     DCMoles_[impurityDCID_[1]] -= impurity_Na2O_[midx];
     DCMoles_[impurityDCID_[2]] -= impurity_Per_[midx];
@@ -1230,61 +1196,58 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
 
     /// for this kinetic model
 
-    massDissolved = scaledMassIni_[midx] - scaledMass;
+    massChange = scaledMassIni_[midx] - scaledMass;
 
-    // chemSys_->setMicroPhaseMass(phaseDissolvedId, scaledMass);
-    // chemSys_->setMicroPhaseMassDissolved(phaseDissolvedId, massDissolved);
+    // chemSys_->setMicroPhaseMass(phaseChangedId, scaledMass);
+    // chemSys_->setMicroPhaseMassDissolved(phaseChangedId, massChange);
     chemSys_->updateMicroPhaseMasses(pId, scaledMass, 1);
 
-    totMassImpurity = 0;
-    keepNumDCMoles = 0;
-    numDCMolesDissolved = 0;
+    totMassImpurityChange = newDCMoles = DCMoleChange = 0.0;
 
     double dcmoles;
-    massImpurity = massDissolved * chemSys_->getK2o(pId);
-    totMassImpurity += massImpurity;
-    dcmoles = massImpurity / chemSys_->getDCMolarMass("K2O");
+    massImpurityChange = massChange * chemSys_->getK2o(pId);
+    totMassImpurityChange += massImpurityChange;
+    dcmoles = massImpurityChange / chemSys_->getDCMolarMass("K2O");
     DCMoles_[impurityDCID_[0]] += dcmoles;
     impurity_K2O_[midx] = dcmoles;
 
-    massImpurity = massDissolved * chemSys_->getNa2o(pId);
-    totMassImpurity += massImpurity;
-    dcmoles = massImpurity / chemSys_->getDCMolarMass("Na2O");
+    massImpurityChange = massChange * chemSys_->getNa2o(pId);
+    totMassImpurityChange += massImpurityChange;
+    dcmoles = massImpurityChange / chemSys_->getDCMolarMass("Na2O");
     DCMoles_[impurityDCID_[1]] += dcmoles;
     impurity_Na2O_[midx] = dcmoles;
 
-    massImpurity = massDissolved * chemSys_->getMgo(pId);
-    totMassImpurity += massImpurity;
-    dcmoles = massImpurity / chemSys_->getDCMolarMass("Per");
+    massImpurityChange = massChange * chemSys_->getMgo(pId);
+    totMassImpurityChange += massImpurityChange;
+    dcmoles = massImpurityChange / chemSys_->getDCMolarMass("Per");
     DCMoles_[impurityDCID_[2]] += dcmoles;
     impurity_Per_[midx] = dcmoles;
 
-    massImpurity = massDissolved * chemSys_->getSo3(pId);
-    totMassImpurity += massImpurity;
-    dcmoles = massImpurity / chemSys_->getDCMolarMass("SO3");
+    massImpurityChange = massChange * chemSys_->getSo3(pId);
+    totMassImpurityChange += massImpurityChange;
+    dcmoles = massImpurityChange / chemSys_->getDCMolarMass("SO3");
     DCMoles_[impurityDCID_[3]] += dcmoles;
     impurity_SO3_[midx] = dcmoles;
 
-    numDCMolesDissolved =
-        (massDissolved - totMassImpurity) / chemSys_->getDCMolarMass(DCId);
-    keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
-    chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
-    cout << "      massDissolved/totMassImpurity/massDissolved - "
-            "totMassImpurity "
+    DCMoleChange =
+        (massChange - totMassImpurityChange) / chemSys_->getDCMolarMass(DCId);
+    newDCMoles = DCMoles_[DCId] + DCMoleChange;
+    chemSys_->setDCLowerLimit(DCId, newDCMoles);
+    cout << "      massChange/totMassImpurityChange/massChange - "
+            "totMassImpurityChange "
             ": "
-         << massDissolved << " / " << totMassImpurity << " / "
-         << massDissolved - totMassImpurity << endl;
-    cout << "      DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
-         << DCMoles_[DCId] << " / " << numDCMolesDissolved << " / "
-         << keepNumDCMoles << endl;
+         << massChange << " / " << totMassImpurityChange << " / "
+         << massChange - totMassImpurityChange << endl;
+    cout << "      DCMoles_/DCMoleChange/newDCMoles : " << DCMoles_[DCId]
+         << " / " << DCMoleChange << " / " << newDCMoles << endl;
     // *****************
 
     if (hyd_time >= beginAttackTime_) {
       cout << endl
-           << "     KineticController::calculateKineticStep : time >= "
+           << "     KineticController::updateKineticStep : time >= "
               "beginAttackTime_ -> "
            << hyd_time << " >= " << beginAttackTime_ << " (hyd_time)" << endl;
-      cout << "     KineticController::calculateKineticStep 0 : count_[VOIDID] "
+      cout << "     KineticController::updateKineticStep 0 : count_[VOIDID] "
               "= "
            << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
            << lattice_->getCount()[ELECTROLYTEID]
@@ -1294,10 +1257,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
       DCMoles_[waterDCId_] += waterAddMoles;
 
       if (waterAddMoles > 0)
-        cout << "     KineticController::calculateKineticStep : check if OK!"
+        cout << "     KineticController::updateKineticStep : check if OK!"
              << endl;
 
-      cout << "     KineticController::calculateKineticStep 1 : count_[VOIDID] "
+      cout << "     KineticController::updateKineticStep 1 : count_[VOIDID] "
               "= "
            << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
            << lattice_->getCount()[ELECTROLYTEID]

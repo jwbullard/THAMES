@@ -17,13 +17,13 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 #ifndef SRC_THAMESLIB_POZZOLANICMODEL_H_
 #define SRC_THAMESLIB_POZZOLANICMODEL_H_
 
-#include "global.h"
-#include "Exceptions.h"
 #include "ChemicalSystem.h"
+#include "Exceptions.h"
 #include "KineticController.h"
 #include "KineticData.h"
 #include "KineticModel.h"
 #include "Lattice.h"
+#include "global.h"
 
 /**
 @class PozzolanicModel
@@ -34,8 +34,7 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 class PozzolanicModel : public KineticModel {
 
 protected:
-  double
-      surfaceAreaMultiplier_;      /**< Dimensionless factor to multiply the
+  double surfaceAreaMultiplier_;   /**< Dimensionless factor to multiply the
                                         calculated surface area to account for
                                         unresolved internal porosity, roughness,
                                         etc. */
@@ -49,13 +48,13 @@ protected:
   @brief Number of dissolved DC units per unit dissolution reaction
   */
   double dissolvedUnits_;
-  double siexp_;     /**< Exponent on saturation index (unitless) */
-  double dfexp_;     /**< Exponent on driving force (unitless) */
-  double dorexp_;    /**< Exponent on degree of reaction (unitless) */
-  double ohexp_;     /**< Exponent on OH ion activity (unitless) */
-  double sio2_;      /**< Mass fraction of SiO2 (unitless) */
-  double al2o3_;     /**< Mass fraction of Al2O3 (unitless) */
-  double cao_;       /**< Mass fraction of CaO (unitless) */
+  double siexp_;  /**< Exponent on saturation index (unitless) */
+  double dfexp_;  /**< Exponent on driving force (unitless) */
+  double dorexp_; /**< Exponent on degree of reaction (unitless) */
+  double ohexp_;  /**< Exponent on OH ion activity (unitless) */
+  double sio2_;   /**< Mass fraction of SiO2 (unitless) */
+  double al2o3_;  /**< Mass fraction of Al2O3 (unitless) */
+  double cao_;    /**< Mass fraction of CaO (unitless) */
 
   double rh_;        /**< relative humidity */
   double rhFactor_;  /**< relative humidity factor, i.e. the correction of
@@ -341,13 +340,13 @@ public:
   @param rh is the internal relative humidity
   @param scaledMass is C-style array of the normalized mass of each
   microstructure phase [g/100 g]
-  @param massDissolved is the C-style array of dissolved mass of each
+  @param massChange is the C-style array of mass change of each
   microstructure phase [g/100g]
   @param cyc is the cycle number (iteration of main loop)
   @param totalDOR is the total degree of reaction [dimensionless]
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
-                                    double &massDissolved, int cyc,
+                                    double &massChange, int cyc,
                                     double totalDOR);
 
 }; // End of PozzolanicModel class

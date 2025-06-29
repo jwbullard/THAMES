@@ -5,11 +5,15 @@
 
 #include "ChemicalSystem.h"
 
-using std::cout; using std::cerr; using std::endl;
-using std::string; using std::vector; using std::map;
+using std::cerr;
+using std::cout;
+using std::endl;
+using std::map;
+using std::string;
+using std::vector;
 
-ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
-                               &jsonFileName, const bool verbose,
+ChemicalSystem::ChemicalSystem(const string &GEMfilename,
+                               const string &jsonFileName, const bool verbose,
                                const bool warning) {
 
   int i, j;
@@ -100,7 +104,7 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   microPhaseVolume_.clear();
   microPhaseMass_.clear();
   microPhasePorosity_.clear();
-  microPhaseMassDissolved_.clear();
+  microPhaseMassChanged_.clear();
   initialSolutionComposition_.clear();
   fixedSolutionComposition_.clear();
   gasSolidRatio_ = 0.0;
@@ -580,7 +584,7 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
         cout << " Setting microPhaseMass size to " << numMicroPhases_ << endl;
         cout.flush();
       }
-      microPhaseMassDissolved_.resize(numMicroPhases_, 0.0);
+      microPhaseMassChanged_.resize(numMicroPhases_, 0.0);
     } else {
       msg = "Not a JSON file";
       throw FileException("ChemicalSystem", "ChemicalSystem", jsonFileName,
@@ -790,7 +794,7 @@ void ChemicalSystem::parseDoc(const string &docName) {
   /// The file contains information about each microstructure
   /// phase that is defined, including the list of GEM CSD phases that
   /// are to be associated with that phase, the phase's internal porosity,
-  /// dissolved impurities, and visualization properties.
+  /// impurities, and visualization properties.
   ///
 
   if (verbose_) {
@@ -1130,8 +1134,7 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
     } else {
       double porositySum = 0.0;
       for (int i = 0;
-           i < static_cast<int>(phaseData.microPhaseDCPorosities.size());
-           ++i) {
+           i < static_cast<int>(phaseData.microPhaseDCPorosities.size()); ++i) {
         porositySum += phaseData.microPhaseDCPorosities[i];
       }
       // If the porosity of this phase is greater than zero but we have NOT
@@ -1286,7 +1289,7 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
       int size = growingVectSA_.size();
       bool inVector = false;
       for (int i = 0; i < size; i++) {
-        if(phaseData.growingSA == growingVectSA_[i]) {
+        if (phaseData.growingSA == growingVectSA_[i]) {
           inVector = true;
           break;
         }
@@ -1773,7 +1776,7 @@ ChemicalSystem::ChemicalSystem(const ChemicalSystem &obj) {
   microVolume_ = obj.getMicroVolume();
   initMicroVolume_ = obj.getInitMicroVolume();
   microPhaseMass_ = obj.getMicroPhaseMass();
-  microPhaseMassDissolved_ = obj.getMicroPhaseMassDissolved();
+  microPhaseMassChanged_ = obj.getMicroPhaseMassChanged();
   microVoidVolume_ = obj.getMicroVoidVolume();
   verbose_ = obj.getVerbose();
   warning_ = obj.getWarning();
@@ -1807,7 +1810,7 @@ ChemicalSystem::~ChemicalSystem(void) {
   microPhaseMembers_.clear();
   microPhaseMemberVolumeFraction_.clear();
   microPhaseMass_.clear();
-  microPhaseMassDissolved_.clear();
+  microPhaseMassChanged_.clear();
   microPhaseDCMembers_.clear();
   microPhasePorosity_.clear();
   poreSizeDistribution_.clear();
@@ -2001,8 +2004,8 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
     int DCId = getMicroPhaseDCMembers(i, 0);
     int indDBR = node_->DCtoPh_DBR(DCId);
 
-    out << endl << "   " << i << "\tmicroPhaseName_[i]: "
-        << microPhaseName_[i] << endl;
+    out << endl
+        << "   " << i << "\tmicroPhaseName_[i]: " << microPhaseName_[i] << endl;
     out << "          GEMPhaseId: " << indDBR
         << "\tGEMPhaseName_: " << GEMPhaseName_[indDBR] << endl;
     out << "          DCId      : " << DCId << "\tDCName_: " << DCName_[DCId]
@@ -2179,7 +2182,8 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
   bool doAttack = (time >= beginAttackTime_) ? true : false;
   if (doAttack)
-    cout << endl << "  ChemicalSystem::calculateState - cyc = " << cyc
+    cout << endl
+         << "  ChemicalSystem::calculateState - cyc = " << cyc
          << " : doAttack = " << doAttack << endl;
 
   // Check and set chemical conditions on electrolyte and gas phase
@@ -2401,8 +2405,8 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     //          << microPhaseName_[i]
     //          << " => updated scaledMass (microPhaseMass_[i]) = " <<
     //          microPhaseMass_[i]
-    //          << " , microPhaseMassDissolved_[i] = " <<
-    //          microPhaseMassDissolved_[i]
+    //          << " , microPhaseMassChanged_[i] = " <<
+    //          microPhaseMassChanged_[i]
     //          << " and volume = " << microPhaseVolume_[i] << endl;
     //   }
     // }
@@ -2635,8 +2639,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       if (verbose_) {
         cout << "System is saturated: wDCId = " << waterDCId_ << endl;
         cout << "    water_molarv = " << waterMolarVol_ << endl;
-        cout << "    volume increase of water is: " << water_volincr
-             << endl;
+        cout << "    volume increase of water is: " << water_volincr << endl;
         cout << "    water_molesincr = " << water_molesincr << endl;
       }
       DCMoles_[waterDCId_] += water_molesincr;
@@ -2682,7 +2685,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 }
 
 void ChemicalSystem::setMicroPhaseSI() {
-// void ChemicalSystem::setMicroPhaseSI(bool sa) {
+  // void ChemicalSystem::setMicroPhaseSI(bool sa) {
 
   microPhaseSI_.clear();
   microPhaseSI_.resize(numMicroPhases_, 0.0);
@@ -3479,9 +3482,12 @@ void ChemicalSystem::initColorMap(void) {
   while (it != colorN_.end()) {
     // cout << "   " << it->first << " red = " << (it->second).rgb[0] << endl;
     // cout.flush();
-    (it->second).rgbf.push_back(static_cast<float>((it->second).rgb[0]) / 255.0);
-    (it->second).rgbf.push_back(static_cast<float>((it->second).rgb[1]) / 255.0);
-    (it->second).rgbf.push_back(static_cast<float>((it->second).rgb[2]) / 255.0);
+    (it->second)
+        .rgbf.push_back(static_cast<float>((it->second).rgb[0]) / 255.0);
+    (it->second)
+        .rgbf.push_back(static_cast<float>((it->second).rgb[1]) / 255.0);
+    (it->second)
+        .rgbf.push_back(static_cast<float>((it->second).rgb[2]) / 255.0);
     (it->second).grayf = static_cast<float>((it->second).gray) / 255.0;
     ++it;
   }
@@ -3812,8 +3818,8 @@ void ChemicalSystem::setElectrolyteComposition(const bool isFirst,
         }
         cout << "      ChemicalSystem::setElectrolyteComposition attack - "
                 "waterMass/DCconc/DCMoles_/DCId/DCName : "
-             << waterMass << " / " << DCconc << " / "
-             << DCMoles_[DCId] << " / " << DCId << " / " << DCName_[DCId] << endl;
+             << waterMass << " / " << DCconc << " / " << DCMoles_[DCId] << " / "
+             << DCId << " / " << DCName_[DCId] << endl;
         it++;
       }
     }
@@ -3997,7 +4003,7 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
 void ChemicalSystem::updateMicroPhaseMasses(int pid, double val, int called) {
   int DCId = 0;
   if (pid > ELECTROLYTEID) {
-    microPhaseMassDissolved_[pid] = microPhaseMass_[pid] - val;
+    microPhaseMassChanged_[pid] = microPhaseMass_[pid] - val;
     microPhaseMass_[pid] = val;
 
     DCId = getMicroPhaseDCMembers(pid, 0);
@@ -4029,8 +4035,8 @@ void ChemicalSystem::updateMicroPhaseMasses(int pid, double val, int called) {
     }
   } else {
     cout << endl
-         << "   error in ChemicalSystem::setKCMicroPhaseMasses : pid = "
-         << pid << endl;
+         << "   error in ChemicalSystem::setKCMicroPhaseMasses : pid = " << pid
+         << endl;
     cout << endl << "   exit" << endl;
     exit(1);
   }
@@ -4224,8 +4230,7 @@ int ChemicalSystem::getMicroPhaseDCMembers(const int idx, const int jdx) {
     // return microPhaseDCMembers_[idx][jdx];
     return microPhaseDCMembers_.at(idx).at(jdx);
   } catch (out_of_range &oor) {
-    cout << endl
-         << "   ChemicalSystem::getMicroPhaseDCMembers error :" << endl;
+    cout << endl << "   ChemicalSystem::getMicroPhaseDCMembers error :" << endl;
     cout << "     Could not find microPhaseDCMembers_ match to indexes "
             "provided"
          << endl;
@@ -4243,4 +4248,3 @@ int ChemicalSystem::getMicroPhaseDCMembers(const int idx, const int jdx) {
     exit(1);
   }
 }
-

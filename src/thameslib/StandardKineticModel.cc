@@ -5,7 +5,8 @@
 */
 #include "StandardKineticModel.h"
 
-using std::cout; using std::endl;
+using std::cout;
+using std::endl;
 
 StandardKineticModel::StandardKineticModel() {
 
@@ -21,6 +22,7 @@ StandardKineticModel::StandardKineticModel() {
   ///
 
   dissolutionRateConst_ = 0.0;
+  diffusionRateConstEarly_ = diffusionRateConstLate_ = 5.0e-7;
 
   ///
   /// Default value for the exponents in the rate equation
@@ -128,13 +130,16 @@ StandardKineticModel::StandardKineticModel(ChemicalSystem *cs, Lattice *lattice,
 
 void StandardKineticModel::calculateKineticStep(const double timestep,
                                                 double &scaledMass,
-                                                double &massDissolved, int cyc,
+                                                double &massChange, int cyc,
                                                 double totalDOR) {
   ///
   /// Initialize local variables
   ///
 
-  double dissrate = 1.0e9; // Nucleation and growth rate
+  double surfacePrecipRate = 1.0e9; // Precipitation rate (positive for growth)
+  double diffrate = 1.0e9;          // Diffusion rate
+
+  double rate = 1.0e-10; // Selected rate
 
   ///
   /// Determine if this is a normal step or a necessary
@@ -143,15 +148,14 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
 
   try {
 
-    // First step each iteration is to equilibrate gas phase
-    // with the electrolyte, while forbidding anything new
-    // from precipitating.
+    // Each component has its own kinetic model
+    // We want to know the *change* in DC moles caused by
+    // this component's dissolution or growth.
 
     // RH factor is the same for all clinker phases
-    // double vfvoid = lattice_->getVolumeFraction(VOIDID);
-    // double vfh2o = lattice_->getVolumeFraction(ELECTROLYTEID);
-
     /// This is a big kluge for internal relative humidity
+    /// @note This whole comment block is out of place here.
+    /// @todo Move this comment block to somewhere more appropriate
     /// @note Using new gel and interhydrate pore size distribution model
     ///       which is currently contained in the Lattice object.
     ///
@@ -189,40 +193,79 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
 
     // dissolutionRateConst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
-    // Therefore dissrate has units of mol of phase per 100 g of all solid
-    // per h
+    // Therefore surfacePrecipRate has units of mol of phase per 100 g of all
+    // solid per h
 
     // This equation basically implements the Dove and Crerar rate
     // equation for quartz.  Needs to be calibrated for silica fume, but
     // hopefully the BET area and LOI will help do that.
 
-    if (saturationIndex < 1.0) {
-      dissrate = dissolutionRateConst_ * rhFactor_ * area *
-                 pow((1.0 - pow(saturationIndex, siexp_)), dfexp_);
+    double baserateconst = dissolutionRateConst_;
+    surfacePrecipRate = baserateconst * rhFactor_ * area *
+                        pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
+
+    /// Check for diffusion as possible rate-controlling step
+    /// Assume steady-state diffusion, with the surface being
+    /// at equilibrium and the bulk being at the current
+    /// saturation index.
+    ///
+    /// Also assume a particular, fixed boundary layer thickness
+    /// through which diffusion occurs, like one micrometer
+
+    double boundaryLayer = 1.0;
+
+    double average_cgrad = 1.0e9;
+    double sgnof = 1.0;
+    if (abs(initScaledMass_ - scaledMass_) > 1.0e-6) {
+      /// Below is very rough approximation to chemical potential gradient
+      /// Would be better if we knew the equilibrium constant of
+      /// the dissociation reaction.  We would need to raise
+      /// it to the power 1/dissolvedUnits and then multiply
+      /// it by average_cgrad.
+      // Gradient uses vector pointing AWAY from surfae as positive
+      // Electrolyte assumed to be at equilibrium at the surface and
+      // to have the bulk concentration at the boundary layer thickness
+      average_cgrad =
+          (pow(saturationIndex, (1.0 / dissolvedUnits_)) - 1.0) / boundaryLayer;
+      // Estimate diffusion rate TO the surface using the negative
+      // of Fick's first law
+      diffrate = diffusionRateConstEarly_ * (average_cgrad) / boundaryLayer;
+      if (abs(diffrate) < 1.0e-10)
+        sgnof = (std::signbit(diffrate)) ? -1.0 : 1.0;
+      diffrate = sgnof * 1.0e-10;
     } else {
-      dissrate = -dissolutionRateConst_ * rhFactor_ * area *
-                 pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
+      sgnof = (std::signbit(saturationIndex - 1.0)) ? -1.0 : 1.0;
+      diffrate = sgnof * 1.0e9;
     }
 
-    dissrate *= arrhenius_;
-
-    // dissrate has units of mol of phase per 100 g of solid per hour
+    // surfacePrecipRate has units of mol of phase per 100 g of solid per hour
     // timestep has units of hours
     // molar mass has units of grams per mole
-    // Therefore, massDissolved has units of grams of phase per 100 g of all
+    // Therefore, massChange has units of grams of phase per 100 g of all
     // solid
-    massDissolved = dissrate * timestep * chemSys_->getDCMolarMass(DCId_);
+
+    /// @todo JWB Check to make sure that diffrate has same units as
+    /// surfacePrecipRate
+
+    rate = surfacePrecipRate;
+    if (abs(diffrate) < abs(rate))
+      rate = diffrate;
+
+    rate *= arrhenius_;
+
+    // Mass dissolved has units of g of phase per 100 g of all initial solid
+    massChange = rate * timestep * chemSys_->getDCMolarMass(DCId_);
 
     if (verbose_) {
       cout << "    StandardKineticModel::calculateKineticStep "
-              "dissrate/massDissolved : "
-           << dissrate << " / " << massDissolved << endl;
+              "surfacePrecipRate/massChange : "
+           << surfacePrecipRate << " / " << massChange << endl;
     }
 
-    scaledMass = scaledMass_ - massDissolved;
+    scaledMass = scaledMass_ + massChange;
 
     if (scaledMass < 0.0) {
-      massDissolved = scaledMass_;
+      massChange = -1.0 * scaledMass_;
       scaledMass = 0.0;
     }
     scaledMass_ = scaledMass;
@@ -237,10 +280,11 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
            << "\tarrhenius_: " << arrhenius_
            << "\tsaturationIndex: " << saturationIndex << "\tarea: " << area
            << endl;
-      cout << "   SKM_hT   " << "dissrate: " << dissrate << endl;
+      cout << "   SKM_hT   " << "surfacePrecipRate: " << surfacePrecipRate
+           << endl;
       cout << "   SKM_hT   " << "initScaledMass_: " << initScaledMass_
-           << "\tscaledMass_: " << scaledMass_
-           << "\tmassDissolved: " << massDissolved << endl;
+           << "\tscaledMass_: " << scaledMass_ << "\tmassChange: " << massChange
+           << endl;
       cout << "   cyc = " << cyc << "    microPhaseId_ = " << microPhaseId_
            << "    microPhaseName = " << name_
            << "    saturationIndex = " << saturationIndex

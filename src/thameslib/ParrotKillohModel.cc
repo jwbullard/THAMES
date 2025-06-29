@@ -5,7 +5,8 @@
 */
 #include "ParrotKillohModel.h"
 
-using std::cout; using std::endl;
+using std::cout;
+using std::endl;
 
 ParrotKillohModel::ParrotKillohModel() {
   ///
@@ -170,7 +171,7 @@ ParrotKillohModel::ParrotKillohModel(ChemicalSystem *cs, Lattice *lattice,
 
 void ParrotKillohModel::calculateKineticStep(const double timestep,
                                              double &scaledMass,
-                                             double &massDissolved, int cyc,
+                                             double &massChange, int cyc,
                                              double totalDOR) {
 
   ///
@@ -192,14 +193,6 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
 
   try {
 
-    // @todo BULLARD PLACEHOLDER
-    // Still need to implement constant gas phase composition
-    // Will involve equilibrating gas with aqueous solution
-    //
-    // First step each iteration is to equilibrate gas phase
-    // with the electrolyte, while forbidding anything new
-    // from precipitating.
-
     if (verbose_) {
       cout << "ParrotKillohModel::calculateKineticStep for " << name_ << endl;
       cout.flush();
@@ -208,6 +201,8 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
     // RH factor is the same for all clinker phases
 
     /// This is a big kluge for internal relative humidity
+    /// @note This comment block is out of place.
+    /// @todo Move this comment block to a more appropriate location
     /// @note Using new gel and interhydrate pore size distribution model
     ///       which is currently contained in the Lattice object.
     ///
@@ -272,6 +267,9 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
 
       // double rate_ini = rate;
 
+      // The rate below is a rate of DISSOLUTION
+      // It is positive if mass is DECREASING, which
+      // is always the case for Parrot-Killoh
       rate *= (pfk_ * rhFactor_ * arrhenius_ / H_PER_DAY); // rate is R @ t-1
 
       double prod = rate * timestep;
@@ -288,7 +286,11 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
 
       if (newDOR >= 1.0) {
 
-        massDissolved = scaledMass_;
+        // In our new way of making dissolution and precipitation
+        // treated symetrically, massChange has the opposite
+        // sign of mass dissolved.
+
+        massChange = -1.0 * scaledMass_;
 
         scaledMass_ = 0.0;
 
@@ -296,16 +298,16 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
 
         scaledMass_ = initScaledMass_ * (1.0 - newDOR);
 
-        // massDissolved = (newDOR - DOR) * initScaledMass_;
-        massDissolved = initScaledMass_ * prod;
+        // Mass changed is the negative of mass dissolved
+        massChange = -1.0 * initScaledMass_ * prod;
       }
 
       scaledMass = scaledMass_;
 
       if (verbose_) {
         cout << "    ParrotKillohModel::calculateKineticStep "
-                "rate/wcFactor/massDissolved : "
-             << rate << " / " << wcFactor << " / " << massDissolved << endl;
+                "rate/wcFactor/massChange : "
+             << rate << " / " << wcFactor << " / " << massChange << endl;
         cout << "  ****************** PKM_hT = " << timestep
              << "    cyc = " << cyc << "    microPhaseId_ = " << microPhaseId_
              << "    microPhase = " << name_
@@ -331,7 +333,7 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
              << "\ttotalDOR: " << totalDOR
              << "\tinitScaledMass_: " << initScaledMass_
              << "\tscaledMass_: " << scaledMass_
-             << "\tmassDissolved: " << massDissolved << endl;
+             << "\tmassChange: " << massChange << endl;
         cout.flush();
       }
 
