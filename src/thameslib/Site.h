@@ -84,8 +84,8 @@ protected:
                                              dissolution vector (-1 if the site doesn't
                                              belong to the growth vector) */
 
-  int visit_;                           /**< flag used to avoid acting twice or more 
-                                             on the site (or its neighborhood) during 
+  int visit_;                           /**< flag used to avoid acting twice or more
+                                             on the site (or its neighborhood) during
                                              a current action */
 
 public:
@@ -502,7 +502,6 @@ public:
   @return the list of ids of all microPhases that can grow at the site
   */
   std::vector<int> getGrowthPhases() const { return growth_; }
-
 
   /**
   @brief Set the entire list of all microPhases that can grow at the site.

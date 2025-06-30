@@ -302,7 +302,6 @@ void ElasticModel::ElasModul(void) {
   //  exit(1);
   // } else {
   string mPhName;
-  double elModComp = 0.0;
   for (int i = 0; i < nphase_; i++) {
     // in >> phaseid;
     // in >> buff;
@@ -311,10 +310,10 @@ void ElasticModel::ElasModul(void) {
     // in >> elsmodul;
     // phasemod_[phaseid][1] = elsmodul;
     mPhName = chemSys_->getMicroPhaseName(i);
-    elModComp = chemSys_->getElasticModuliComp(mPhName).K; // bulk modulus
-    phasemod_[i][0] = elModComp;
-    elModComp = chemSys_->getElasticModuliComp(mPhName).G; // shear modulus
-    phasemod_[i][0] = elModComp;
+    // bulk modulus K
+    phasemod_[i][0] = chemSys_->getElasticModuliComp(mPhName).K;
+    // shear modulus G
+    phasemod_[i][1] = chemSys_->getElasticModuliComp(mPhName).G;
   }
   // }
 
@@ -717,32 +716,9 @@ void ElasticModel::ppixel(vector<int> *p_vectPhId) {
   /// the same order as the finite elements are populated
   ///
 
-  /*
-  int m;
-  int kji = -1;
-  // ns_ = nx_ * ny_ * nz_;
-  int nxy = nx_ * ny_;
-  for (int k = 0; k < nz_; k++) {
-    for (int j = 0; j < ny_; j++) {
-      for (int i = 0; i < nx_; i++) {
-        m = nxy * k + nx_ * j + i;
-        kji++;
-        pix_[m] = (*p_vectPhId)[kji];
-      }
-    }
-  }
-  */
-
   for (int i = 0; i < ns_; i++) {
     pix_[i] = p_vectPhId->at(i);
   }
-
-  // cout << endl << "ini ppixel vector:" << endl;
-  // for (int i = 0; i < ns_; i++) {
-  //   cout << pix_[i] << endl;
-  // }
-  // cout << "end ppixel vector:" << endl;
-  // exit(0);
 
   return;
 }
@@ -769,7 +745,7 @@ void ElasticModel::getAvgStrainengy() {
   ///
 
   for (int i = 0; i < nphase_; i++) {
-    avgStrainengy_[i] = avgStrainengy_[i] / (prob_[i] * ns_); // check!
+    avgStrainengy_[i] = avgStrainengy_[i] / (prob_[i] * ns_);
   }
 
   ///
@@ -1217,7 +1193,7 @@ void ElasticModel::assig(void) {
 
   double ns_dbl = ns_;
   for (int i = 0; i < nphase_; i++) {
-    prob_[i] = prob_[i] / ns_dbl; // check!
+    prob_[i] = prob_[i] / ns_dbl;
   }
 
   return;

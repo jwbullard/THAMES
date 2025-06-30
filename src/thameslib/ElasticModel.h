@@ -85,7 +85,7 @@ protected:
   std::vector<std::vector<double>> gb_; /**< Energy gradient */
   std::vector<std::vector<double>> b_;  /**< Coefficient of linear
                                              displacement in energy */
-  std::vector<std::vector<double>> h_;  /**< Auxiliary conjugate 
+  std::vector<std::vector<double>> h_;  /**< Auxiliary conjugate
                                              gradient variable */
   std::vector<std::vector<double>> Ah_; /**< Local stiffness matrix */
 
@@ -253,10 +253,7 @@ public:
   modulus)
   @param val is the value to set for the component [GPa or dimensionless]
   */
-  void setPhasemod(int phaseid, int i, double val) {
-    phasemod_[phaseid][i] = val;
-    return;
-  }
+  void setPhasemod(int phaseid, int i, double val) { phasemod_[phaseid][i] = val; }
 
   /**
   @brief Get one of the elastic moduli components of a phase.

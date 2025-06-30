@@ -2192,7 +2192,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
     DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
 
-    /* check!
+    /*
     cout << endl
          << "  ----> ChemicalSystem::calculateState -  ICMoles_ : " << endl;
     for (int i = 0; i < numICs_; i++) {
@@ -2463,13 +2463,12 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   // writePhasemoles();
 
   microVolume_ = 0.0;
-  setPGEMPhaseStoich(); // call getPGEMPhaseStoich() => pGEMPhaseStoich_[i] //
-                        // check! number of moles all ICs in all GEM CSD phases.
-  setGEMPhaseStoich();  // call getGEMPhaseStoich() => GEMPhaseStoich_[i][j]  //
-                        // check!
+  setPGEMPhaseStoich(); // call getPGEMPhaseStoich() => pGEMPhaseStoich_[i]
+                        // number of moles all ICs in all GEM CSD phases.
+  setGEMPhaseStoich();  // call getGEMPhaseStoich() => GEMPhaseStoich_[i][j]
   setGEMPhaseMass();    // => GEMPhaseMass_[i]
   setGEMPhaseVolume();  // => GEMPhaseVolume_[i]
-  setGEMPhaseMolarMass(); // =>GEMPhaseMolarMass_[pidx]  // check!
+  setGEMPhaseMolarMass(); // =>GEMPhaseMolarMass_[pidx]
 
   if (verbose_) {
     cout << endl
@@ -2670,19 +2669,18 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   }
 
   setMicroPhaseSI();
-
-  // bool testSA = false;
+  // bool testSA = false; // for tests
   // if (time >= beginAttackTime_)
   //   testSA = true;
   // setMicroPhaseSI(testSA);
 
-  // setMicroPhaseSI(time);
+  // setMicroPhaseSI(time); // for tests
 
   return timesGEMFailed_;
 }
 
 void ChemicalSystem::setMicroPhaseSI() {
-// void ChemicalSystem::setMicroPhaseSI(bool sa) {
+// void ChemicalSystem::setMicroPhaseSI(bool sa) { // for tests
 
   microPhaseSI_.clear();
   microPhaseSI_.resize(numMicroPhases_, 0.0);
@@ -2696,7 +2694,7 @@ void ChemicalSystem::setMicroPhaseSI() {
     string pname;
     int newDCId;
 
-    // if (sa)
+    // if (sa) // for tests - only AFt for now
     //   cout << endl
     //        << "          SI calc from DCs for mPhId = 15 - mPhName = "
     //        << microPhaseName_[15] << " : " << endl;
@@ -2706,16 +2704,16 @@ void ChemicalSystem::setMicroPhaseSI() {
       aveSI = moles = 0.0;
       microPhaseDCMembers = getMicroPhaseDCMembers(i);
       sizeMicroPhaseDCMembers = microPhaseDCMembers.size();
-      // if (sa && (i == 15)) {
-      //   for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
-      //     newDCId = microPhaseDCMembers.at(ii);
-      //     tmoles = DCMoles_[newDCId];
-      //     cout << "           ii/newDCId/tmoles/DC_a/newDCName = " << ii
-      //          << " / " << newDCId << " / " << tmoles << " / "
-      //          << node_->DC_a(newDCId) << " / "
-      //          << " / " << DCName_[newDCId] << endl;
-      //   }
-      // }
+       // if (sa && (i == 15)) { // for tests - only AFt for now
+       //   for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
+       //     newDCId = microPhaseDCMembers.at(ii);
+       //     tmoles = DCMoles_[newDCId];
+       //     cout << "           ii/newDCId/tmoles/DC_a/newDCName = " << ii
+       //          << " / " << newDCId << " / " << tmoles << " / "
+       //          << node_->DC_a(newDCId) << " / "
+       //          << " / " << DCName_[newDCId] << endl;
+       //   }
+       // }
       for (int ii = 0; ii < sizeMicroPhaseDCMembers; ++ii) {
         newDCId = microPhaseDCMembers.at(ii);
         tmoles = DCMoles_[newDCId];
@@ -2726,9 +2724,11 @@ void ChemicalSystem::setMicroPhaseSI() {
       if (moles > 0.0) {
         aveSI = aveSI / moles;
       }
+      // if (sa && (i == 15)) // for tests - only AFt for now
+      //   cout << "         aveSI[15] = " << aveSI << endl;
       microPhaseSI_.at(i) = aveSI;
     }
-    // if (sa)
+    // if (sa)  // for tests - only AFt for now
     //   cout << endl
     //        << "          SI[15] = " << microPhaseSI_[15] << endl;
   } catch (EOBException eex) {

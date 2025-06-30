@@ -35,7 +35,7 @@ struct RestoreInterface {
                                             interface */
   std::vector<Isite> growthSites;      /**< The list of all sites eligible for
                                             adjacent growth */
-  std::vector<Isite> dissolutionSites; /**< The list of sites eligible for 
+  std::vector<Isite> dissolutionSites; /**< The list of sites eligible for
                                             self-dissolution */
 };
 
@@ -159,8 +159,12 @@ private:
                                 attack, in hours */
   double leachTime_;         /**< Simulation time at which to begin leaching,
                                       in hours */
-  int oldDamageCount_; /**< Number of pixels in the lattice that were already damaged */
-  int allDamageCount_; /**< Total number of pixels in the lattice that are damaged */
+  int oldDamageCount_; /**< Number of pixels in the system that were already
+                            damaged before the current cycle */
+  int newDamageCount_; /**< Number of pixels in the system damaged during the
+                            current cycle */
+  int allDamageCount_; /**< Total number of pixels in the system that are damaged
+                            at the end of the current cycle */
 
   bool verbose_; /**< Flag for verbose output */
   bool warning_; /**< Flag for warning output */

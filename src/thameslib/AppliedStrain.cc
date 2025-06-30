@@ -42,8 +42,8 @@ AppliedStrain::AppliedStrain(int nx, int ny, int nz, int dim,
 void AppliedStrain::femat() {
   double dndx[8], dndy[8], dndz[8];
   double g[3][3][3];
-  double es[6][8][3]; //, delta[8][3];
-                      // int is[8];
+  double es[6][8][3];
+  // double delta[8][3];
   double x, y, z;
   // int nxy = nx * ny;
   int is[8];
@@ -185,7 +185,7 @@ void AppliedStrain::femat() {
             for (int nn = 0; nn < 3; nn++) {
               for (int ii = 0; ii < 8; ii++) {
                 for (int jj = 0; jj < 8; jj++) {
-                  double sum = 0.0;
+                  sum = 0.0;
                   for (int kk = 0; kk < 6; kk++) {
                     for (int ll = 0; ll < 6; ll++) {
                       sum +=

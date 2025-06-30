@@ -34,8 +34,7 @@ National Academy of Sciences USA, 105 (2008) 9903–9908.
 class PozzolanicModel : public KineticModel {
 
 protected:
-  double
-      surfaceAreaMultiplier_;      /**< Dimensionless factor to multiply the
+  double surfaceAreaMultiplier_;   /**< Dimensionless factor to multiply the
                                         calculated surface area to account for
                                         unresolved internal porosity, roughness,
                                         etc. */

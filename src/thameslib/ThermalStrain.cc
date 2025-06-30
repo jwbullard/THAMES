@@ -92,7 +92,7 @@ ThermalStrain::ThermalStrain(int nx, int ny, int nz, int dim,
   /// of phases.
   ///
 
-  // write a new method! // check!
+  // write a new method!
 
   tstrength_.clear();
   tstrength_.resize(nphase_, 5.0); // [MPa]
@@ -2959,7 +2959,7 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
   /// is `kmax * ldemb`.
   ///
 
-  for (int count = 0; count < 0; count++) { // check!
+  for (int count = 0; count < 0; count++) {
 #ifdef DEBUG
     cout << "ThermalStrain::Calc boxsize_ is: " << boxsize_ << endl;
     cout.flush();
@@ -3021,6 +3021,7 @@ void ThermalStrain::Calc(double time, string fileName, double exx, double eyy,
       localRelax(boxsize_, expcor[0], expcor[1], expcor[2], expindex);
     }
   }
+
   relax(kmax);
 
   string outfilename = "displacement.dat";

@@ -35,7 +35,7 @@ protected:
   int numPhases_;         /**< Total number of phases in the kinetic model */
   ChemicalSystem *chemSys_;  /**< Pointer to the ChemicalSystem object for
                                   this simulation */
-  Lattice *lattice_;         /**< Pointer to the lattice object holding the 
+  Lattice *lattice_;         /**< Pointer to the lattice object holding the
                                   microstructure */
   double initSolidMass_;     /**< initial total mass of solids controlled by
                                   this model [g] */

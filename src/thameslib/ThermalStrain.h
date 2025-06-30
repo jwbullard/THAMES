@@ -43,7 +43,7 @@ where <i>A</i> is the Hessian matrix composed of the stiffness matrices
 and the periodic boundary conditions.  Up to this point, the energy
 is exactly the same as for any applied strain problem (see the `AppliedStrain`
 class documentation).  In addition, <i>T</i> is the thermal energy term
-that is linear in the displacement, <i>u</i> is the displacement vecdtor
+that is linear in the displacement, <i>u</i> is the displacement vector
 field.
 
 Some of the class variables are used to build the components of this equation.
@@ -174,7 +174,9 @@ protected:
                                          components, one at every element, so the
                                          dimensions are ss_[ns][3][3] */
   int kmax_; /**< the number of relaxation steps for a given elastic computation */
+
 public:
+
   /**
   @brief Constructor.
 

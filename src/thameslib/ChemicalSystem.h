@@ -220,13 +220,14 @@ class ChemicalSystem {
   std::vector<std::string> GEMPhaseName_; /**< Names of phases in the GEM CSD */
   std::vector<int> microPhaseId_;         /**< Unique ids of THAMES microstructure phases */
 
-  std::vector<double> ICMolarMass_; /**< One molar mass for each IC [g/mm3ol] */
-  std::vector<double> DCMolarMass_; /**< One molar mass for each DC [g/mol] */
-  std::vector<double>
-      GEMPhaseMolarMass_; /**< One molar mass for each GEM phase [g/mol] */
-  std::vector<std::vector<int>>
-      growthTemplate_; /**< A list of the phases on which a given phase
-                               is allowed to grow; one list for each phase */
+  std::vector<double> ICMolarMass_;              /**< One molar mass for each IC [g/mol] */
+  std::vector<double> DCMolarMass_;              /**< One molar mass for each DC [g/mol] */
+  std::vector<double> GEMPhaseMolarMass_;        /**< One molar mass for each GEM phase
+                                                      [g/mol] */
+  std::vector<std::vector<int>> growthTemplate_; /**< A list of the phases on which a given
+                                                      phase is allowed to grow; one list for
+                                                      each phase */
+
   /**< A list of the microStructure microPhases with which a microPhase has an
   affinity to associate when growing. The affinity vector is always the same
   length, one entry for every microstructure phase, and the default value is
@@ -343,6 +344,7 @@ class ChemicalSystem {
   std::vector<double> so3_;        /**< Mass fraction of SO<sub>3</sub> dissolved in
                                         each phase, in units of
                                         g per 100 g of the phase */
+
   std::vector<int> grayscale_;     /**< A number on [0,255] giving the relative
                                         grayscale brightness of the THAMES
                                         phases in a backscattered electron image */
@@ -5740,7 +5742,7 @@ public:
 
   */
   void setMicroPhaseSI(void);
-  // void setMicroPhaseSI(bool sa);
+  void setMicroPhaseSI(bool sa);
 
   /**
   @brief Set the vector of saturation indices of all microPhases.
@@ -6323,7 +6325,6 @@ public:
   named by the input variable str
   */
   elMod getElasticModuliComp(std::string str) { return elasticModuli_[str]; }
-
 
   /**
   @brief Set the total mass of all solid microPhases in the system, including the

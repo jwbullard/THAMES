@@ -857,7 +857,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   double hyd_time = hydTimeIni_ + timestep;
 
-  chemSys_->initDCLowerLimit(0); // check!
+  chemSys_->initDCLowerLimit(0);
 
   bool doTweak = (chemSys_->getTimesGEMFailed() > 0) ? true : false;
 

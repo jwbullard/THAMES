@@ -423,8 +423,8 @@ void Controller::doCycle(double elemTimeInterval) {
   int i;
   int time_index;
   RestoreSystem iniLattice;
-  RestoreSite site_l;           // only one declaration
-  RestoreInterface interface_l; // only one declaration
+  RestoreSite site_l;
+  RestoreInterface interface_l;
 
   ///
   /// This block arbitrarily sets the leaching initiation time to 100 days if
@@ -770,7 +770,6 @@ void Controller::doCycle(double elemTimeInterval) {
       iniLattice.site.shrink_to_fit();
 
       // RestoreSite site_l; // only one declaration
-
       for (int ij = 0; ij < numSites_; ij++) {
         site_l.microPhaseId = (lattice_->getSite(ij))->getMicroPhaseId();
         site_l.growth = (lattice_->getSite(ij))->getGrowthPhases();
@@ -788,9 +787,7 @@ void Controller::doCycle(double elemTimeInterval) {
       iniLattice.interface.shrink_to_fit();
 
       // RestoreInterface interface_l; // only one declaration
-      int dimLatticeInterface =
-          lattice_->getInterfaceSize(); // only one declaration
-
+      int dimLatticeInterface = lattice_->getInterfaceSize();
       for (int ij = 0; ij < dimLatticeInterface; ij++) {
         interface_l.microPhaseId = lattice_->getInterface(ij).getMicroPhaseId();
         interface_l.growthSites = lattice_->getInterface(ij).getGrowthSites();
@@ -1161,7 +1158,7 @@ void Controller::doCycle(double elemTimeInterval) {
       map<int, vector<double>> expansion;
       expansion = lattice_->getExpansion();
 
-      ifstream instopexp("stopexp.dat"); // check!
+      ifstream instopexp("stopexp.dat");
       if (!instopexp) {
         // if (verbose_)
         cout << endl
@@ -1185,8 +1182,13 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // expansion.clear();
 
-      if (expansion.size() > 0) { // check! : expansion.size() > 0 !!!
+      cout << "  cyc = "
+           << cyc << " -> damaged sites before set damage :  "
+                                   "oldDamageCount_/allDamageCount_ = "
+           << oldDamageCount_ << " / " << allDamageCount_ << endl;
 
+      newDamageCount_ = 0;
+      if (expansion.size() > 0) {
         // double strxx, stryy, strzz;
         vector<double> locEleStress;
         double locTstrength;
@@ -1201,7 +1203,7 @@ void Controller::doCycle(double elemTimeInterval) {
         bool notPKPhase = true;
 
         int oldDamageCount = 0;
-        int newDamageCount = 0;
+        // int newDamageCount = 0;
         // double poreintroduce = 0.5;
 
         if (verbose_) {
@@ -1219,24 +1221,20 @@ void Controller::doCycle(double elemTimeInterval) {
         ostrT << setprecision(3) << temperature_;
         string tempstr(ostrT.str());
 
-        int days, hours, mins;
-        double hours_dbl;
-        days = floor(time_[i] / 24);
-        hours_dbl = time_[i] - (days * 24);
-        hours = floor(hours_dbl);
-        mins = floor((hours_dbl - hours) * 60);
-
-        ostringstream ostrD, ostrH, ostrM;
-        ostrD << setfill('0') << setw(4) << days;
+        ostringstream ostrY, ostrD, ostrH, ostrM;
+        ostrY << setfill('0') << setw(3) << formattedTime.years;
+        string timestrY(ostrY.str());
+        ostrD << setfill('0') << setw(3) << formattedTime.days;
         string timestrD(ostrD.str());
-        ostrH << setfill('0') << setw(2) << hours;
+        ostrH << setfill('0') << setw(2) << formattedTime.hours;
         string timestrH(ostrH.str());
-        ostrM << setfill('0') << setw(2) << mins;
+        ostrM << setfill('0') << setw(2) << formattedTime.minutes;
         string timestrM(ostrM.str());
 
-        string timeString = timestrD + "d" + timestrH + "h" + timestrM + "m";
+        string timeString = timestrY + "y" + timestrD + "d" +
+                            timestrH + "h" + timestrM + "m";
 
-        ofileName = ofileName + "." + timeString + "." + tempstr + "_SA.img";
+        ofileName = ofileName + "." + timeString + "." + tempstr + "K.img";
 
         ///
         /// In the sulfate attack algorithm, calculate the stress and strain
@@ -1248,6 +1246,7 @@ void Controller::doCycle(double elemTimeInterval) {
         int expindex;
         vector<double> expanval;
         vector<int> expcoordin;
+
         for (map<int, vector<double>>::iterator it = expansion.begin();
              it != expansion.end(); it++) {
 
@@ -1282,7 +1281,7 @@ void Controller::doCycle(double elemTimeInterval) {
         // double truevolume = 0.0;
         // for (int ii = 0; ii < numSites_; ii++) {
         //   Site *ste;
-        //   ste = lattice_->getSite(i); // check! i -> ii !!!
+        //   ste = lattice_->getSite(ii);
         //   otruevolume = ste->getTrueVolume();
         //   for (int j = 0; j < 3; j++) {
         //     truevolume += thermalstr_->getEleStrain(ii, j);
@@ -1377,6 +1376,7 @@ void Controller::doCycle(double elemTimeInterval) {
                 break;
               }
             }
+
             if ((pid > ELECTROLYTEID) && notPKPhase &&
                 (chemSys_->isPorous(pid) || chemSys_->isWeak(pid))) {
               // double strxx, stryy, strzz;
@@ -1399,7 +1399,7 @@ void Controller::doCycle(double elemTimeInterval) {
                   (locEleStress[1] >= locTstrength) ||
                   (locEleStress[2] >= locTstrength)) {
 
-                newDamageCount++;
+                newDamageCount_++;
                 ste->setDamage();
                 lattice_->setExpansion(index, damageexp);
                 // lattice_->dWaterChange(poreintroduce);
@@ -1443,31 +1443,23 @@ void Controller::doCycle(double elemTimeInterval) {
                << cyc << " / " << oldDamageCount_ << " / " << oldDamageCount
                << endl;
           cout << endl
-               << "         newDamageCount/allDamageCount_ = " << newDamageCount
+               << "         newDamageCount_/allDamageCount_ = " << newDamageCount_
                << " / " << allDamageCount_ << endl;
           cout << endl << "exit" << endl;
           exit(0);
-        } else {
-          cout << endl
-               << "Controller::doCycle SA - "
-                  "cyc/newDamageCount_/oldDamageCount_/allDamageCount_ = "
-               << cyc << " / " << newDamageCount << " / " << oldDamageCount_;
-
-          allDamageCount_ = newDamageCount + oldDamageCount_;
-          oldDamageCount_ = allDamageCount_;
-
-          cout << " / " << allDamageCount_ << endl;
-          cout.flush();
         }
-
-        // ofstream outdamage("damage.dat");
-        // outdamage.close();
 
         lattice_->writeDamageLattice(time_[i], formattedTime);
         lattice_->writeDamageLatticePNG(time_[i], formattedTime);
         // to see whether new damage is generated
       }
-
+      allDamageCount_ = newDamageCount_ + oldDamageCount_;
+      cout << "  cyc = "
+           << cyc << " -> damaged sites after set damage  :  "
+                     "oldDamageCount_/newDamageCount_/allDamageCount_ = "
+           << oldDamageCount_ << " / " << newDamageCount_ << " / "
+           << allDamageCount_ << endl;
+      oldDamageCount_ = allDamageCount_;
       cout << endl
            << "Controller::doCycle - sulfate attack module - cyc = "
            << cyc << " (i = " << i << ")   =>   normal end" << endl;
@@ -1525,8 +1517,7 @@ int Controller::calculateState(double time, double dt, bool isFirst, int cyc) {
 
     // chemSys_->setMicroPhaseSI();
 
-    // chemSys_->initDCLowerLimit(0); // check!
-    kineticController_->calculateKineticStep(time, dt, cyc); // check!
+    kineticController_->calculateKineticStep(time, dt, cyc);
 
     // if (time >= sulfateAttackTime_) {// for sulfate attack iterations}
 
@@ -1982,7 +1973,7 @@ void Controller::parseDoc(const string &docName) {
     // Now populate the calculation times on a natural log scale
     // and fold in the output times in order
     time_.clear();
-    testTime = 0.0;
+    testTime = 0.0; // check!
     time_.push_back(testTime);
     while (testTime <= finalTime) {
       testTime += (0.1 * (testTime + 0.024));

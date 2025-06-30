@@ -105,12 +105,13 @@ private:
                                                       each voxel */
   map<int, std::vector<int>> expansion_coordin_; /**< Map of coordinates of sites
                                                       with local expansion strain */
-  double waterChange_;          /**< How much water must be added or subtracted
-                                     due to hydration or deterioration */
-  double microstructureVolume_; /**< Microstructure volume in GEM
-                                     volume units */
-  double initialMicrostructureVolume_; /**< Initial microstructure volume in GEM
-                                            volume units */
+  double waterChange_;                      /**< How much water must be added or
+                                                 subtracted due to hydration or
+                                                 deterioration */
+  double microstructureVolume_;             /**< Microstructure volume in GEM
+                                                 volume units */
+  double initialMicrostructureVolume_;      /**< Initial microstructure volume in
+                                                 GEM volume units */
   double voxelPoreVolume_;                  /**< Total volume of voxel pores */
   double voxelPoreVolumeFraction_;          /**< Total volume fraction of voxel
                                                  pores */
