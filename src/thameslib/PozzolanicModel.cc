@@ -159,8 +159,6 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
   double rate = 1.0e-10; // Selected rate
 
-  double DOR;
-
   ///
   /// Determine if this is a normal step or a necessary
   /// tweak from a failed GEM_run call
@@ -194,11 +192,7 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
     scaledMass_ = scaledMass;
 
-    if (initScaledMass_ > 0.0) {
-      DOR = (initScaledMass_ - scaledMass_) / (initScaledMass_);
-      // prevent DOR from prematurely stopping PK calculations
-      // DOR = min(DOR, 0.99);
-    } else {
+    if (initScaledMass_ <= 1.0e-9) {
       throw FloatException("PozzolanicModel", "calculateKineticStep",
                            "initScaledMass_ = 0.0");
     }
@@ -263,8 +257,10 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     surfacePrecipRate =
         baserateconst * rhFactor_ * pow(ohActivity, ohexp_) * area *
         pow(waterActivity, 2.0) * (1.0 - (lossOnIgnition_ / 100.0)) *
-        (sio2_)*pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
+        (sio2_)*pow(abs(pow(saturationIndex, siexp_) - 1.0), dfexp_);
 
+    double signOf = (saturationIndex > 1.0) ? 1.0 : -1.0;
+    surfacePrecipRate *= signOf;
     /// Check for diffusion as possible rate-controlling step
     /// Assume steady-state diffusion, with the surface being
     /// at equilibrium and the bulk being at the current
@@ -273,33 +269,41 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     /// Also assume a particular, fixed boundary layer thickness
     /// through which diffusion occurs, like one micrometer
 
-    double boundaryLayer = 1.0;
+    double boundaryLayer = 1.0e-7; // Units of m
 
-    double average_cgrad = 1.0e9;
-    double sgnof = 1.0;
-    if (DOR > 0.0) {
+    double average_cgrad = 1.0;
+    double average_cdiff = 1.0;
+    if (abs(initScaledMass_ - scaledMass_) > 1.0e-6) {
       /// Below is very rough approximation to chemical potential gradient
       /// Would be better if we knew the equilibrium constant of
       /// the dissociation reaction.  We would need to raise
       /// it to the power 1/dissolvedUnits and then multiply
       /// it by average_cgrad.
+      ///
+      /// @todo Find a way to get Delta Gf from GEMS and then
+      /// use it to calculate K
+      ///
       // Gradient uses vector pointing AWAY from surfae as positive
       // Electrolyte assumed to be at equilibrium at the surface and
       // to have the bulk concentration at the boundary layer thickness
-      average_cgrad =
-          (pow(saturationIndex, (1.0 / dissolvedUnits_)) - 1.0) / boundaryLayer;
+
+      double Keq = 1.0e-5;
+      // average_cdiff has units of mol/dm3, so convert to mol/m3
+      average_cdiff = 1000.0 * pow(Keq, (1.0 / dissolvedUnits_)) *
+                      (pow(saturationIndex, (1.0 / dissolvedUnits_)) - 1.0);
+      average_cgrad = average_cdiff / boundaryLayer;
       // Estimate diffusion rate TO the surface using the negative
       // of Fick's first law
       diffrate = diffusionRateConstEarly_ * (average_cgrad) / boundaryLayer;
-      if (abs(diffrate) < 1.0e-10)
-        sgnof = (std::signbit(diffrate)) ? -1.0 : 1.0;
-      diffrate = sgnof * 1.0e-10;
+      if (abs(diffrate) < 1.0e-10) {
+        signOf = (std::signbit(diffrate)) ? -1.0 : 1.0;
+        diffrate = signOf * 1.0e-10;
+      }
     } else {
-      sgnof = (std::signbit(saturationIndex - 1.0)) ? -1.0 : 1.0;
-      diffrate = sgnof * 1.0e9;
+      signOf = (std::signbit(saturationIndex - 1.0)) ? -1.0 : 1.0;
+      diffrate = signOf * 1.0e9;
     }
 
-    // surfacePrecipRate has units of mol of phase per 100 g of all solid
     // per h
     /// @todo JWB Check to make sure that diffrate has same units as
     /// surfacePrecipRate
