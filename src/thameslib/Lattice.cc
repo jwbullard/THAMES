@@ -3535,7 +3535,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
       } else {
         cout << endl
-             << ">>> Lattice::changeMicrostructure Sulfate Attack => "
+             << "  Lattice::changeMicrostructure Sulfate Attack => "
                 "dissPhaseIDVect.size() = "
              << dissPhaseIDVect.size() << "   => normal dissolution" << endl
              << endl;

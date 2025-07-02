@@ -481,6 +481,10 @@ void Controller::doCycle(double elemTimeInterval) {
   // microPhaseSI_ = 0" << endl; init to 0 all microPhaseSI_
   // chemSys_->setZeroMicroPhaseSI();
 
+  chemSys_->setInitialElectrolyteComposition();
+  chemSys_->setInitialGasComposition();
+  chemSys_->calculateSI();
+
   bool writeICsDCs = true;
   if (writeICsDCs)
     writeTxtOutputFiles_onlyICsDCs(0); // to check the total ICs
@@ -1515,11 +1519,7 @@ int Controller::calculateState(double time, double dt, bool isFirst, int cyc) {
     /// except to prohibit users from defining mixtures of CSD phases
     /// as microstructure phases.
 
-    // chemSys_->setMicroPhaseSI();
-
     kineticController_->calculateKineticStep(time, dt, cyc);
-
-    // if (time >= sulfateAttackTime_) {// for sulfate attack iterations}
 
     ///
     /// Now that the method is done determining the change in moles of each IC,
@@ -1973,8 +1973,8 @@ void Controller::parseDoc(const string &docName) {
     // Now populate the calculation times on a natural log scale
     // and fold in the output times in order
     time_.clear();
-    testTime = 0.0; // check!
-    time_.push_back(testTime);
+    testTime = 0.0;
+    // time_.push_back(testTime);
     while (testTime <= finalTime) {
       testTime += (0.1 * (testTime + 0.024));
       if (testTime >= finalTime) {

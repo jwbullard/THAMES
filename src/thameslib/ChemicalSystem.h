@@ -2952,6 +2952,17 @@ public:
   }
 
   /**
+  @brief Set the numbers of moles of all independent components (IC) in the
+  system to zero.
+
+  */
+  void setZeroICMoles(void) {
+    for (int i = 0; i < numICs_; i++) {
+      ICMoles_[i] = 0.0;
+    }
+  }
+
+  /**
   @brief Get the number of moles of every independent component (IC) in the
   system.
 
@@ -5636,12 +5647,26 @@ public:
   int calculateState(double time, bool isFirst, int cyc);
 
   /**
+  @brief Calculate the saturation indices of all microPhases in the system.
+
+  */
+  void calculateSI(void);
+
+  /**
   @brief Check for chemical composition requirements on
   the electrolyte and set the DC moles if necessary.
 
   @param isFirst is true if this is the first cycle
   */
-  void setElectrolyteComposition(const bool isFirst, bool attack);
+  void setElectrolyteComposition(bool attack);
+
+  /**
+  @brief set the chemical composition of the electrolyte 
+  before to start simulation
+
+  @param isFirst is true if this is the first cycle
+  */
+  void setInitialElectrolyteComposition(void);
 
   /**
   @brief Check for chemical composition requirements on
@@ -5649,7 +5674,15 @@ public:
 
   @param isFirst is true if this is the first cycle
   */
-  void setGasComposition(const bool isFirst, bool attack);
+  void setGasComposition(bool attack);
+
+  /**
+  @brief set the chemical composition of the gas phase 
+  before to start simulation
+
+  @param isFirst is true if this is the first cycle
+  */  
+  void setInitialGasComposition(void);
 
   /**
   @brief Update the number of moles of each IC based on changes to a dependent
@@ -5694,62 +5727,6 @@ public:
     }
     return possible;
   }
-
-  /**
-  @brief Set the vector of saturation indices of all GEM CSD phases.
-  */
-  void setSI(void);
-
-  /**
-  @brief Get the vector of saturation indices of all GEM CSD phases.
-
-  @return the vector of saturation indices of all GEM CSD phases
-  */
-  std::vector<double> getSI(void) { return SI_; }
-
-  /**
-  @brief Get the saturation index of a GEM CSD phase, by its id.
-
-  @param phaseid is the index of the GEM phase to query
-  @return the saturation index of the GEM phase
-  */
-  double getSI(int phaseid) {
-    try {
-      return SI_.at(phaseid);
-    } catch (out_of_range &oor) {
-      EOBException ex("ChemicalSystem", "getSI", "SI_", SI_.size(), phaseid);
-      ex.printException();
-      exit(1);
-    }
-  }
-
-  void initSI(int phaseid, double val) {
-    if (SI_.size() == 0)
-      SI_.resize(numGEMPhases_, 0.0);
-    SI_[phaseid] = val;
-  }
-
-  /**
-  @brief Get the saturation index of a GEM CSD phase, by its name.
-
-  @param str is the name of the GEM phase to query
-  @return the saturation index of the GEM phase
-  */
-  double getSI(const std::string &str) { return SI_[getGEMPhaseId(str)]; }
-
-  /**
-  @brief Set the vector of saturation indices of all microstructure phases.
-
-  */
-  void setMicroPhaseSI(void);
-  void setMicroPhaseSI(bool sa);
-
-  /**
-  @brief Set the vector of saturation indices of all microPhases.
-
-  @param t is the current time
-  */
-  void setMicroPhaseSI(double t);
 
   /**
   @brief Get the vector of saturation indices of all microstructure phases.
