@@ -2662,15 +2662,24 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
 void ChemicalSystem::calculateSI(void) {
   string msg;
+  int i, j;
+  int numICs1 = numICs_ - 1;
+  vector<double> ICMoles(numICs_, 0.0);
 
   vector<double> iniDCMoles;
-  iniDCMoles.clear();
+  // iniDCMoles.clear();
+  double totCharge = 0.0;
   for (int i = 0; i < numDCs_; i++) {
     iniDCMoles.push_back(DCMoles_[i]);
     if (DCClassCode_[i] != 'S'
         && DCClassCode_[i] != 'T'
         && DCClassCode_[i] != 'W') {
       DCMoles_[i] = 0.0;
+    } else {
+      totCharge += DCMoles_[i] * DCCharge_[i];
+      for (j = 0; j < numICs1; j++) {
+        ICMoles[j] += DCMoles_[i] * getDCStoich(i, j);
+      }
     }
     DCLowerLimit_[i] = 0.0;
     // cout << "   i = " << i << "  :  DCName_/DCMoles_/DCLowerLimit_ = "
@@ -2678,7 +2687,26 @@ void ChemicalSystem::calculateSI(void) {
     //      << DCLowerLimit_[i] << endl;
   }
 
-  checkICMoles(); // All the ICMoles_ >= ICTHRESH (1.0e-8)
+  // check charge balance i.e. the value of ICMoles_[numICs_- 1]
+  if (abs(totCharge) >= 1.0e-9) {
+    int dcId;
+    if (totCharge > 0) {
+      dcId = getDCId("OH-");
+    } else {
+      dcId = getDCId("H+");
+    }
+    DCMoles_[dcId] += totCharge;
+  }
+
+  // All ICMoles_, excepting ICMoles_[numICs_- 1] (electric charge),
+  // must be greater than ICTHRESH (1.0e-8)
+  ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+  for (i = 0; i < numICs1; i++) {
+    if (ICMoles[i] < ICTHRESH)
+      ICMoles_[i] = ICTHRESH;
+  }
+
+  // checkICMoles();
   // writeICMoles();
 
   nodeStatus_ = NEED_GEM_AIA;
@@ -2774,29 +2802,30 @@ void ChemicalSystem::calculateSI(void) {
   int size;
   int phId;
 
-  //cout << "    ChemicalSystem::calculateSI - from GEM phases for all microPhases:"
-  //      << endl;
-  for (int i = FIRST_SOLID; i < numMicroPhases_; ++i) {
+  //cout << "    ChemicalSystem::calculateSI - from GEM phases for all"
+  //        " microPhases:"
+  //     << endl;
+  for (i = FIRST_SOLID; i < numMicroPhases_; ++i) {
     aveSI = totMoles = 0.0;
     size = microPhaseMembers_[i].size();
 
-    for (int ii = 0; ii < size; ++ii) {
-      phId = microPhaseMembers_[i][ii]; // microPhasePhMembers[i];
+    for (j = 0; j < size; ++j) {
+      phId = microPhaseMembers_[i][j]; // microPhasePhMembers[i];
       moles = node_->Ph_Mole(phId);
       totMoles += moles;
     }
 
     if (totMoles > 0) {
-      for (int ii = 0; ii < size; ++ii) {
-        phId = microPhaseMembers_[i][ii]; // microPhasePhMembers[i];
+      for (j = 0; j < size; ++j) {
+        phId = microPhaseMembers_[i][j]; // microPhasePhMembers[i];
         moles = node_->Ph_Mole(phId);
         // cout << "       moles = " << moles << endl;
         aveSI += (pow(10, node_->Ph_SatInd(phId)) * moles);
       }
       aveSI = aveSI / totMoles;
     } else {
-      for (int ii = 0; ii < size; ++ii) {
-        phId = microPhaseMembers_[i][ii]; // microPhasePhMembers[i];
+      for (j = 0; j < size; ++j) {
+        phId = microPhaseMembers_[i][j]; // microPhasePhMembers[i];
         moles = node_->Ph_Mole(phId);
         // cout << "       moles = " << moles << endl;
         aveSI += pow(10, node_->Ph_SatInd(phId));
@@ -2805,12 +2834,17 @@ void ChemicalSystem::calculateSI(void) {
     }
 
     microPhaseSI_.at(i) = aveSI;
-    // cout << "           mPhId/mPhName = " << i << " / " << microPhaseName_[i]
-    //         << " :  totMoles/aveSI = " << totMoles << " / " << aveSI << endl;
+    // cout << "           mPhId/mPhName = " << i << " / "
+    //      << microPhaseName_[i] << " :  totMoles/aveSI = "
+    //      << totMoles << " / " << aveSI << endl;
   }
 
-  setZeroICMoles(); // ICMoles_ reset to 0.0
-  for (int i = 0; i < numDCs_; i++)
+  // reset ICMoles_ to 0
+  for (i = 0; i < numICs_; i++)
+    ICMoles_[i] = 0.0;
+
+  // reset DCMoles_ to their initial values
+  for (i = 0; i < numDCs_; i++)
     DCMoles_[i] = iniDCMoles[i];
 
 }
