@@ -2178,37 +2178,19 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   ///
 
   bool doAttack = (time >= beginAttackTime_) ? true : false;
-  if (doAttack)
+  if (doAttack) {
     cout << endl << "  ChemicalSystem::calculateState - cyc = " << cyc
          << " : doAttack = " << doAttack << endl;
 
-  // Check and set chemical conditions on electrolyte and gas phase
-  setElectrolyteComposition(doAttack);
-  setGasComposition(doAttack);
-
-  if (doAttack) {
     DCLowerLimit_[aliteDCId_] = DCMoles_[aliteDCId_];
     DCLowerLimit_[beliteDCId_] = DCMoles_[beliteDCId_];
     DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
     DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
-
-    /*
-    cout << endl
-         << "  ----> ChemicalSystem::calculateState -  ICMoles_ : " << endl;
-    for (int i = 0; i < numICs_; i++) {
-      cout << "        i/ICMoles_/ICName_[i] -i- : " << i << " / " <<
-    ICMoles_[i]
-           << " / " << ICName_[i] << endl;
-    }
-    checkICMoles();
-    cout;
-    for (int i = 0; i < numICs_; i++) {
-      cout << "        i/ICMoles_/ICName_[i] -f- : " << i << " / " <<
-    ICMoles_[i]
-           << " / " << ICName_[i] << endl;
-    }
-    */
   }
+
+  // Check and set chemical conditions on electrolyte and gas phase
+  setElectrolyteComposition(doAttack);
+  setGasComposition(doAttack);
 
   // All the ICMoles_ that are less than 10^-9 are set to 10^-9
   if (isFirst) {
