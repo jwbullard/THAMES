@@ -2445,12 +2445,9 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   // writePhasemoles();
 
   microVolume_ = 0.0;
-  setPGEMPhaseStoich(); // call getPGEMPhaseStoich() => pGEMPhaseStoich_[i]
-                        // number of moles all ICs in all GEM CSD phases.
-  setGEMPhaseStoich();  // call getGEMPhaseStoich() => GEMPhaseStoich_[i][j]
+
   setGEMPhaseMass();    // => GEMPhaseMass_[i]
   setGEMPhaseVolume();  // => GEMPhaseVolume_[i]
-  setGEMPhaseMolarMass(); // =>GEMPhaseMolarMass_[pidx]
 
   if (verbose_) {
     cout << endl
