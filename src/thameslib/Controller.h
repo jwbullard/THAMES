@@ -355,12 +355,12 @@ public:
   void writeTxtOutputFiles_onlyICsDCs(double time);
 
   /**
-  @brief Convert time in hours to y,d,h,m format
+  @brief Convert time in hours to y,d,h,m string format
 
   @param curtime is the simulation time in h
-  @return TimeStruct data structure
+  @return string "***y***d**h**m"
   */
-  TimeStruct getFormattedTime(const double curtime);
+  std::string getTimeString(const double curtime);
 
 }; // End of Controller class
 

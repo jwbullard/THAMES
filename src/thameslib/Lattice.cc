@@ -4497,7 +4497,7 @@ void Lattice::calcMasterPoreSizeDist(
 }
 
 void Lattice::writePoreSizeDistribution(const double curtime,
-                                        const TimeStruct formattedtime) {
+                                        const string timeString) {
 
   // At this point we have a complete pore volume distribution
   // for the microstructure.  We next need to determine
@@ -4537,18 +4537,8 @@ void Lattice::writePoreSizeDistribution(const double curtime,
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  ofileName = ofileName + "_PoreSizeDistribution." + timestrY + "y" + timestrD +
-              "d" + timestrH + "h" + timestrM + "m." + tempstr + "K.csv";
+  ofileName = ofileName + "_PoreSizeDistribution." + timeString + "."
+                        + tempstr + "K.csv";
 
   ofstream out(ofileName.c_str());
 
@@ -4661,33 +4651,14 @@ void Lattice::writeMicroColors() {
   return;
 }
 
-void Lattice::writeLattice(const double curtime,
-                           const TimeStruct formattedtime) {
+void Lattice::writeLattice(const string timeString) {
   string ofileName(jobRoot_);
 
   ostringstream ostrT;
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
-              "h" + timestrM + "m." + tempstr + "K.img";
-
-  if (verbose_) {
-    cout << endl
-         << "  Lattice::writeLattice, curtime = " << curtime
-         << "h, ofileName = " << ofileName << endl;
-    cout.flush();
-  }
+  ofileName = ofileName + "." + timeString + "." + tempstr + "K.img";
 
   ofstream out(ofileName.c_str());
   try {
@@ -4757,7 +4728,7 @@ void Lattice::writeNewLattice(int newZdim) {
 }
 
 void Lattice::writeLatticeXYZ(const double curtime,
-                              const TimeStruct formattedtime) {
+                              const string timeString) {
   string ofileName(jobRoot_);
 
   ostringstream ostr1;
@@ -4769,18 +4740,7 @@ void Lattice::writeLatticeXYZ(const double curtime,
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  ofileName = ofileName + "allSites." + timestrY + "y" + timestrD + "d" +
-              timestrH + "h" + timestrM + "m." + tempstr + "K.xyz";
+  ofileName = ofileName + "allSites." + timeString + "." + tempstr + "K.xyz";
 
   if (verbose_) {
     cout << "    In Lattice::writeLatticeXYZ, curtime = " << curtime
@@ -4872,8 +4832,7 @@ void Lattice::appendXYZ(double curtime) {
   out.close();
 }
 
-void Lattice::writeLatticeCFG(const double curtime,
-                              const TimeStruct formattedtime) {
+void Lattice::writeLatticeCFG(const string timeString) {
 
   string ofileNameCFG(jobRoot_);
   string ofileNameUSR(jobRoot_);
@@ -4882,26 +4841,8 @@ void Lattice::writeLatticeCFG(const double curtime,
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  ofileNameCFG = ofileNameCFG + "." + timestrY + "y" + timestrD + "d" +
-                 timestrH + "h" + timestrM + "m." + tempstr + "K.cfg";
-  ofileNameUSR = ofileNameUSR + "." + timestrY + "y" + timestrD + "d" +
-                 timestrH + "h" + timestrM + "m." + tempstr + "K.usr";
-
-  if (verbose_) {
-    cout << "    In Lattice::writeLatticeCFG, ofileNameCFG = " << ofileNameCFG
-         << ", curtime = " << curtime << endl;
-    cout.flush();
-  }
+  ofileNameCFG = ofileNameCFG + "." + timeString + "." + tempstr + "K.cfg";
+  ofileNameUSR = ofileNameUSR + "." + timeString + "." + tempstr + "K.usr";
 
   ofstream outCFG(ofileNameCFG.c_str());
   ofstream outUSR(ofileNameUSR.c_str());
@@ -4973,27 +4914,16 @@ void Lattice::writeLatticeCFG(const double curtime,
   }
 }
 
-void Lattice::writeDamageLattice(const double curtime,
-                                 const TimeStruct formattedtime) {
+void Lattice::writeDamageLattice(const string timeString) {
   string ofileName(jobRoot_);
   ostringstream ostrT;
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
+  ofileName = ofileName + "." + timeString + "." + tempstr + "K.damage.img";
 
-  ofileName = ofileName + "." + timestrY + "y" + timestrD + "d" + timestrH +
-              "h" + timestrM + "m." + tempstr + "K.damage.img";
-
-  cout << "  Lattice::writeDamageLattice - ofileName = " << ofileName << endl;
+  cout << endl
+       << "  Lattice::writeDamageLattice - ofileName = " << ofileName << endl;
 
   ofstream out(ofileName.c_str());
   try {
@@ -5025,8 +4955,7 @@ void Lattice::writeDamageLattice(const double curtime,
   out.close();
 }
 
-void Lattice::writeLatticePNG(const double curtime,
-                              const TimeStruct formattedtime) {
+void Lattice::writeLatticePNG(const string timeString) {
   int i, j;
   string oppmName(jobRoot_);
   string opngName(jobRoot_);
@@ -5050,20 +4979,8 @@ void Lattice::writeLatticePNG(const double curtime,
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  oppmName = oppmName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
-             timestrM + "m." + tempstr + "K.ppm";
-  opngName = opngName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
-             timestrM + "m." + tempstr + "K.png";
+  oppmName = oppmName + "." + timeString + "." + tempstr + "K.ppm";
+  opngName = opngName + "." + timeString + "." + tempstr + "K.png";
 
   ///
   /// Open the output file
@@ -5156,8 +5073,7 @@ void Lattice::writeLatticePNG(const double curtime,
   return;
 }
 
-void Lattice::writeDamageLatticePNG(const double curtime,
-                                    const TimeStruct formattedtime) {
+void Lattice::writeDamageLatticePNG(const string timeString) {
   int i, j;
   string oppmName(jobRoot_);
   string opngName(jobRoot_);
@@ -5182,20 +5098,8 @@ void Lattice::writeDamageLatticePNG(const double curtime,
   string tempstr(ostrT.str());
   string buff;
 
-  ostringstream ostrY, ostrD, ostrH, ostrM;
-  ostrY << setfill('0') << setw(3) << formattedtime.years;
-  string timestrY(ostrY.str());
-  ostrD << setfill('0') << setw(3) << formattedtime.days;
-  string timestrD(ostrD.str());
-  ostrH << setfill('0') << setw(2) << formattedtime.hours;
-  string timestrH(ostrH.str());
-  ostrM << setfill('0') << setw(2) << formattedtime.minutes;
-  string timestrM(ostrM.str());
-
-  oppmName = oppmName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
-             timestrM + "m." + tempstr + "K.damage.ppm";
-  opngName = opngName + "." + timestrY + "y" + timestrD + "d" + timestrH + "h" +
-             timestrM + "m." + tempstr + "K.damage.png";
+  oppmName = oppmName + "." + timeString + "." + tempstr + "K.damage.ppm";
+  opngName = opngName + "." + timeString + "." + tempstr + "K.damage.png";
 
   ///
   /// Open the output file
