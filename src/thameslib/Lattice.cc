@@ -2793,14 +2793,14 @@ double Lattice::emptyPorosity(double aqFracToEmpty, const int cyc) {
   // What is the remaining volume fraction to remove?
   aqFracToEmpty -= aqFracEmptied;
   if (aqFracToEmpty > 0.0) {
-    double subVoxEmptied = emptySubVoxelPorosity(aqFracToEmpty, cyc);
+    double subVoxEmptied = emptySubVoxelPorosity(aqFracToEmpty);
     aqFracEmptied += subVoxEmptied;
     aqFracToEmpty -= subVoxEmptied;
   }
   return (aqFracEmptied);
 }
 
-double Lattice::emptySubVoxelPorosity(double aqFracToEmpty, const int cyc) {
+double Lattice::emptySubVoxelPorosity(double aqFracToEmpty) {
 
   double aqFracEmptied = 0.0;
   double volfrac_filled = 0.0;
@@ -2829,7 +2829,7 @@ double Lattice::emptySubVoxelPorosity(double aqFracToEmpty, const int cyc) {
 double Lattice::fillPorosity(double aqFracToFill, const int cyc) {
   // Start with the smallest unsaturated sub-voxel pores
   double dNumsites = static_cast<double>(numSites_);
-  double subVoxFilled = fillSubVoxelPorosity(aqFracToFill, cyc);
+  double subVoxFilled = fillSubVoxelPorosity(aqFracToFill);
   aqFracToFill -= subVoxFilled;
   double aqFracFilled = subVoxFilled;
 
@@ -2845,7 +2845,7 @@ double Lattice::fillPorosity(double aqFracToFill, const int cyc) {
   return (aqFracFilled);
 }
 
-double Lattice::fillSubVoxelPorosity(double aqFracToFill, const int cyc) {
+double Lattice::fillSubVoxelPorosity(double aqFracToFill) {
 
   double aqFracFilled = 0.0;
   double volfrac_empty = 0.0;
