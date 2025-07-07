@@ -210,13 +210,6 @@ inline const double ICTHRESH = 1.0e-8;
 
 inline const double Pi = 3.14159265359;
 
-typedef struct {
-  int years;
-  int days;
-  int hours;
-  int minutes;
-} TimeStruct;
-
 inline const double S_PER_MINUTE = 60.0;
 inline const double S_PER_H = 3600.0;
 inline const double S_PER_DAY = 86400.0;

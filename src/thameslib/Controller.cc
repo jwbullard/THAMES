@@ -262,9 +262,9 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
           "microstructure files (writeLattice(0.0), etc)"
        << endl;
 
-  TimeStruct formattedTime = getFormattedTime(0.0);
-  lattice_->writeLattice(0.0, formattedTime);
-  lattice_->writeLatticePNG(0.0, formattedTime);
+  string curTimeString = getTimeString(0.0);
+  lattice_->writeLattice(curTimeString);
+  lattice_->writeLatticePNG(curTimeString);
   if (xyz_)
     lattice_->appendXYZ(0.0);
 
@@ -529,7 +529,8 @@ void Controller::doCycle(double elemTimeInterval) {
               (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0.0);
        ++i) {
 
-    TimeStruct formattedTime = getFormattedTime(time_[i]);
+    string curTimeString = getTimeString(time_[i]);
+
     ///
     /// Do not advance the time step if GEM_run failed the last time
     ///
@@ -619,8 +620,8 @@ void Controller::doCycle(double elemTimeInterval) {
       timesGEMFailed_loc = calculateState(time_[i], timestep, isFirst, cyc);
 
     } catch (GEMException gex) {
-      lattice_->writeLattice(time_[i], formattedTime);
-      lattice_->writeLatticePNG(time_[i], formattedTime);
+      lattice_->writeLattice(curTimeString);
+      lattice_->writeLatticePNG(curTimeString);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw gex;
@@ -1035,15 +1036,15 @@ void Controller::doCycle(double elemTimeInterval) {
 
     } catch (DataException dex) {
       dex.printException();
-      lattice_->writeLattice(time_[i], formattedTime);
-      lattice_->writeLatticePNG(time_[i], formattedTime);
+      lattice_->writeLattice(curTimeString);
+      lattice_->writeLatticePNG(curTimeString);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw dex;
     } catch (EOBException ex) {
       ex.printException();
-      lattice_->writeLattice(time_[i], formattedTime);
-      lattice_->writeLatticePNG(time_[i], formattedTime);
+      lattice_->writeLattice(curTimeString);
+      lattice_->writeLatticePNG(curTimeString);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
       throw ex;
@@ -1053,8 +1054,8 @@ void Controller::doCycle(double elemTimeInterval) {
               "- cyc = "
            << cyc << endl;
       mex.printException();
-      lattice_->writeLattice(time_[i], formattedTime);
-      lattice_->writeLatticePNG(time_[i], formattedTime);
+      lattice_->writeLattice(curTimeString);
+      lattice_->writeLatticePNG(curTimeString);
       if (xyz_)
         lattice_->appendXYZ(time_[i]);
 
@@ -1101,13 +1102,13 @@ void Controller::doCycle(double elemTimeInterval) {
            << ", writeTime = " << writeTime << endl;
       //
 
-      lattice_->writeLattice(time_[i], formattedTime);
-      lattice_->writeLatticePNG(time_[i], formattedTime);
+      lattice_->writeLattice(curTimeString);
+      lattice_->writeLatticePNG(curTimeString);
 
       if (xyz_)
         lattice_->appendXYZ(writeTime);
 
-      lattice_->writePoreSizeDistribution(time_[i], formattedTime);
+      lattice_->writePoreSizeDistribution(time_[i], curTimeString);
 
       time_index++;
     }
@@ -1225,20 +1226,20 @@ void Controller::doCycle(double elemTimeInterval) {
         ostrT << setprecision(3) << temperature_;
         string tempstr(ostrT.str());
 
-        ostringstream ostrY, ostrD, ostrH, ostrM;
-        ostrY << setfill('0') << setw(3) << formattedTime.years;
-        string timestrY(ostrY.str());
-        ostrD << setfill('0') << setw(3) << formattedTime.days;
-        string timestrD(ostrD.str());
-        ostrH << setfill('0') << setw(2) << formattedTime.hours;
-        string timestrH(ostrH.str());
-        ostrM << setfill('0') << setw(2) << formattedTime.minutes;
-        string timestrM(ostrM.str());
+        // ostringstream ostrY, ostrD, ostrH, ostrM;
+        // ostrY << setfill('0') << setw(3) << formattedTime.years;
+        // string timestrY(ostrY.str());
+        // ostrD << setfill('0') << setw(3) << formattedTime.days;
+        // string timestrD(ostrD.str());
+        // ostrH << setfill('0') << setw(2) << formattedTime.hours;
+        // string timestrH(ostrH.str());
+        // ostrM << setfill('0') << setw(2) << formattedTime.minutes;
+        // string timestrM(ostrM.str());
 
-        string timeString = timestrY + "y" + timestrD + "d" +
-                            timestrH + "h" + timestrM + "m";
+        // string timeString = timestrY + "y" + timestrD + "d" +
+        //                     timestrH + "h" + timestrM + "m";
 
-        ofileName = ofileName + "." + timeString + "." + tempstr + "K.img";
+        ofileName = ofileName + "." + curTimeString + "." + tempstr + "K.img";
 
         ///
         /// In the sulfate attack algorithm, calculate the stress and strain
@@ -1274,7 +1275,7 @@ void Controller::doCycle(double elemTimeInterval) {
         // thermalstr_ -> writeStrainEngy(jobRoot_,time_[i]);
 
         // thermalstr_->writeDisp(jobRoot_, time_[i]);
-        thermalstr_->writeDisp(jobRoot_, timeString);
+        thermalstr_->writeDisp(jobRoot_, curTimeString);
 
         ///
         /// Get the true volume of each voxel after FEM calculation
@@ -1453,8 +1454,8 @@ void Controller::doCycle(double elemTimeInterval) {
           exit(0);
         }
 
-        lattice_->writeDamageLattice(time_[i], formattedTime);
-        lattice_->writeDamageLatticePNG(time_[i], formattedTime);
+        lattice_->writeDamageLattice(curTimeString);
+        lattice_->writeDamageLatticePNG(curTimeString);
         // to see whether new damage is generated
       }
       allDamageCount_ = newDamageCount_ + oldDamageCount_;
@@ -1475,9 +1476,9 @@ void Controller::doCycle(double elemTimeInterval) {
   /// visualization
   ///
 
-  TimeStruct timebefore = getFormattedTime(time_[i - 1]);
-  lattice_->writeLattice(time_[i - 1], timebefore);
-  lattice_->writeLatticePNG(time_[i - 1], timebefore);
+  string curTimeString = getTimeString(time_[i - 1]);
+  lattice_->writeLattice(curTimeString);
+  lattice_->writeLatticePNG(curTimeString);
 
   // if (xyz_ && (time_[i - 1] < sattack_time_))... ?
   if (xyz_)
@@ -2151,8 +2152,7 @@ void Controller::parseDoc(const string &docName) {
   return;
 }
 
-TimeStruct Controller::getFormattedTime(const double curtime) {
-
+string Controller::getTimeString(const double curtime) {
   int s_per_h = static_cast<int>(S_PER_H);
   int s_per_year = static_cast<int>(S_PER_YEAR);
   int s_per_day = static_cast<int>(S_PER_DAY);
@@ -2161,42 +2161,54 @@ TimeStruct Controller::getFormattedTime(const double curtime) {
   int h_per_day = 24;
   int d_per_year = 365;
 
-  TimeStruct mytime;
-  mytime.years = mytime.days = mytime.hours = mytime.minutes = 0;
-
   // Convert curtime (currently in h) into nearest second
   double curtime_in_s_dbl = curtime * S_PER_H;
   int curtime_s = static_cast<int>(curtime_in_s_dbl + 0.5);
 
+  int years, days, hours, mins;
   // How many years is this?
-  mytime.years = curtime_s / s_per_year;
-  curtime_s -= (mytime.years * s_per_year);
+  years = curtime_s / s_per_year;
+  curtime_s -= (years * s_per_year);
   // Convert remaining time into days
-  mytime.days = curtime_s / s_per_day;
-  curtime_s -= (mytime.days * s_per_day);
+  days = curtime_s / s_per_day;
+  curtime_s -= (days * s_per_day);
   // Convert remaining time into hours
-  mytime.hours = curtime_s / s_per_h;
-  curtime_s -= (mytime.hours * s_per_h);
+  hours = curtime_s / s_per_h;
+  curtime_s -= (hours * s_per_h);
   // Convert remaining time into minutes
-  mytime.minutes = curtime_s / s_per_minute;
-  curtime_s -= (mytime.minutes * s_per_minute);
+  mins = curtime_s / s_per_minute;
+  curtime_s -= (mins * s_per_minute);
 
   // Round up minutes if curtime_in_s >= 30
   if (curtime_s >= 30) {
-    mytime.minutes += 1;
+    mins += 1;
     // Propagate this rounding to other time units
-    if (mytime.minutes > min_per_h) {
-      mytime.hours += 1;
-      mytime.minutes -= min_per_h;
-      if (mytime.hours > h_per_day) {
-        mytime.days += 1;
-        mytime.hours -= h_per_day;
-        if (mytime.days > d_per_year) {
-          mytime.years += 1;
-          mytime.days -= d_per_year;
+    if (mins > min_per_h) {
+      hours += 1;
+      mins -= min_per_h;
+      if (hours > h_per_day) {
+        days += 1;
+        hours -= h_per_day;
+        if (days > d_per_year) {
+          years += 1;
+          days -= d_per_year;
         }
       }
     }
   }
-  return mytime;
+
+  ostringstream ostrY, ostrD, ostrH, ostrM;
+  ostrY << setfill('0') << setw(3) << years;
+  string timestrY(ostrY.str());
+  ostrD << setfill('0') << setw(3) << days;
+  string timestrD(ostrD.str());
+  ostrH << setfill('0') << setw(2) << hours;
+  string timestrH(ostrH.str());
+  ostrM << setfill('0') << setw(2) << mins;
+  string timestrM(ostrM.str());
+
+  string timeString = timestrY + "y" + timestrD + "d" +
+                      timestrH + "h" + timestrM + "m";
+
+  return timeString;
 }

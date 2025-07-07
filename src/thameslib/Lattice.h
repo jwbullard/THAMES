@@ -1133,10 +1133,10 @@ public:
   @brief Write the pore size distribution data to a file
 
   @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
   void writePoreSizeDistribution(const double curtime,
-                                 const TimeStruct formattedtime);
+                                 const string timeString);
 
   /**
   @brief Write the microstructure colors to a file
@@ -1144,7 +1144,6 @@ public:
   This is done to save processing the simparams.json file just to get the colors
   and will make post-processing of images easier.
 
-  @param root is the root name of the output file to create
   */
   void writeMicroColors();
 
@@ -1153,18 +1152,17 @@ public:
 
   The microstructure output file will indicate the phase id at each site.
 
-  @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeLattice(const double curtime, const TimeStruct formattedtime);
+  void writeLattice(const std::string timeString);
 
   /**
   @brief Write the 3D microstructure to a xyz file.
 
   @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeLatticeXYZ(const double curtime, const TimeStruct formattedtime);
+  void writeLatticeXYZ(const double curtime, const std::string timeString);
 
   /**
   @brief Write one by one the 3D microstructure into the same xyz file (append).
@@ -1177,10 +1175,9 @@ public:
   @brief Write the 3D microstructure to a cfg file that can be read by AtomEye
   program.
 
-  @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeLatticeCFG(const double curtime, const TimeStruct formattedtime);
+  void writeLatticeCFG(const std::string timeString);
 
   /**
   @brief Write to a file of a 3D sub-microStructure of the current microStructure.
@@ -1197,19 +1194,17 @@ public:
 
   The damage output file is binary, each site either being damaged or not.
 
-  @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeDamageLattice(const double curtime, const TimeStruct formattedtime);
+  void writeDamageLattice(const std::string timeString);
 
   /**
   @brief Write the 3D microstructure to a png file that can be immediately
   rendered.
 
-  @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeLatticePNG(const double curtime, const TimeStruct formattedtime);
+  void writeLatticePNG(const std::string timeString);
 
   /**
   @brief Write the 3D microstructure to a png file that can be immediately
@@ -1217,11 +1212,9 @@ public:
 
   The damage output file is binary, each site either being damaged or not.
 
-  @param curtime is the current time in hours
-  @param formattedtime is the current time resolved into y,d,h,m
+  @param timeString is the current time resolved into y,d,h,m
   */
-  void writeDamageLatticePNG(const double curtime,
-                             const TimeStruct formattedtime);
+  void writeDamageLatticePNG(const std::string timeString);
 
   /**
   @brief Create files of sequential slices of the microstructure in the x
