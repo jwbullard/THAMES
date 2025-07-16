@@ -764,20 +764,18 @@ public:
 
   @param volFracToRemove is the targeted reduction in electrolyte volume
   fraction, on a total microstructure volume basis
-  @param cyc is the current computational iteration
   @return the actual volume fraction of electrolyte removed
   */
-  double emptyPorosity(double volFracToRemove, const int cyc);
+  double emptyPorosity(double volFracToRemove);
 
   /**
   @brief Convert a prescribed number of electrolyte voxels to void
 
   @param numToEmpty is the number of electrolyte voxels to remove, on a total
   microstructure volume basis
-  @param cyc is the current computational iteration
   @return the actual number converted
   */
-  int emptyVoxelPorosity(int numToEmpty, const int cyc);
+  int emptyVoxelPorosity(int numToEmpty);
 
   /**
   @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores

@@ -2952,17 +2952,6 @@ public:
   }
 
   /**
-  @brief Set the numbers of moles of all independent components (IC) in the
-  system to zero.
-
-  */
-  void setZeroICMoles(void) {
-    for (int i = 0; i < numICs_; i++) {
-      ICMoles_[i] = 0.0;
-    }
-  }
-
-  /**
   @brief Get the number of moles of every independent component (IC) in the
   system.
 
@@ -5649,8 +5638,10 @@ public:
   /**
   @brief Calculate the saturation indices of all microPhases in the system.
 
-  */
-  void calculateSI(void);
+  @param cyc is the cycle number for the main controller loop (iteration over
+  time)
+  */  
+  void calculateSI(int cyc);
 
   /**
   @brief Check for chemical composition requirements on

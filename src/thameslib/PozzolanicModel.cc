@@ -259,6 +259,11 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     // double saturationIndex = solut_->getSI(GEMPhaseId_);
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
+    cout << "    PozzolanicModel::calculateKineticStep      - microPhaseId_/mPhName/SI : "
+         << setw(3) << right << microPhaseId_ << " / "
+         << setw(15) << left << name_ << " / "
+         << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
+
     // activity of water
     double waterActivity = chemSys_->getDCActivity(chemSys_->getDCId("H2O@"));
 

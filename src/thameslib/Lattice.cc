@@ -2774,19 +2774,19 @@ double Lattice::changeSaturationState(double aqFracToEmpty, const int cyc) {
 
   double aqFracEmptied = 0.0;
   if (aqFracToEmpty > 0.0) {
-    aqFracEmptied = emptyPorosity(aqFracToEmpty, cyc);
+    aqFracEmptied = emptyPorosity(aqFracToEmpty);
   } else if (aqFracToEmpty < 0.0) {
     aqFracEmptied = -fillPorosity(-aqFracToEmpty, cyc);
   }
   return (aqFracEmptied);
 }
 
-double Lattice::emptyPorosity(double aqFracToEmpty, const int cyc) {
+double Lattice::emptyPorosity(double aqFracToEmpty) {
   // Start removing any saturated pore voxels if they exist
   // How many saturated sites should be removed?
   double dNumsites = static_cast<double>(numSites_);
   int numToEmpty = static_cast<int>((aqFracToEmpty * numSites_) + 0.5);
-  int actualFracEmptied = emptyVoxelPorosity(numToEmpty, cyc);
+  int actualFracEmptied = emptyVoxelPorosity(numToEmpty);
   double dFracEmptied = static_cast<double>(actualFracEmptied);
   double aqFracEmptied = dFracEmptied / dNumsites;
 
@@ -2872,7 +2872,7 @@ double Lattice::fillSubVoxelPorosity(double aqFracToFill) {
   return (aqFracFilled);
 }
 
-int Lattice::emptyVoxelPorosity(int numToEmpty, const int cyc) {
+int Lattice::emptyVoxelPorosity(int numToEmpty) {
   int maxsearchsize = 3;
   Site *stenb;
 
