@@ -187,6 +187,11 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
 
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
+    cout << "    StandardKineticModel::calculateKineticStep - microPhaseId_/mPhName/SI : "
+         << setw(3) << right << microPhaseId_ << " / "
+         << setw(15) << left << name_ << " / "
+         << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
+
     // dissolutionRateConst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
     // Therefore dissrate has units of mol of phase per 100 g of all solid

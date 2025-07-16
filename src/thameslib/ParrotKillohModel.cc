@@ -205,6 +205,12 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
       cout.flush();
     }
 
+    cout << "    ParrotKillohModel::calculateKineticStep    - microPhaseId_/mPhName/SI : "
+         << setw(3) << right << microPhaseId_ << " / "
+         << setw(15) << left << name_ << " / "
+         << chemSys_->getMicroPhaseSI(microPhaseId_)
+         << " (SI not used in PK model)" << endl;
+
     // RH factor is the same for all clinker phases
 
     /// This is a big kluge for internal relative humidity

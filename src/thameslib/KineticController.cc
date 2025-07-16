@@ -1281,10 +1281,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
 
     if (hyd_time >= beginAttackTime_) {
       cout << endl
-           << "     KineticController::calculateKineticStep : time >= "
+           << "     KineticController::updateKineticStep : time >= "
               "beginAttackTime_ -> "
            << hyd_time << " >= " << beginAttackTime_ << " (hyd_time)" << endl;
-      cout << "     KineticController::calculateKineticStep 0 : count_[VOIDID] "
+      cout << "     KineticController::updateKineticStep 0 : count_[VOIDID] "
               "= "
            << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
            << lattice_->getCount()[ELECTROLYTEID]
@@ -1294,10 +1294,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
       DCMoles_[waterDCId_] += waterAddMoles;
 
       if (waterAddMoles > 0)
-        cout << "     KineticController::calculateKineticStep : check if OK!"
+        cout << "     KineticController::updateKineticStep : check if OK!"
              << endl;
 
-      cout << "     KineticController::calculateKineticStep 1 : count_[VOIDID] "
+      cout << "     KineticController::updateKineticStep 1 : count_[VOIDID] "
               "= "
            << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
            << lattice_->getCount()[ELECTROLYTEID]

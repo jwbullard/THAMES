@@ -481,13 +481,19 @@ void Controller::doCycle(double elemTimeInterval) {
   // microPhaseSI_ = 0" << endl; init to 0 all microPhaseSI_
   // chemSys_->setZeroMicroPhaseSI();
 
+  cout << endl
+       << "   ICTHRESH = " << setprecision(1)
+       << ICTHRESH << " mol" << setprecision(15) << endl;
+
   chemSys_->setInitialElectrolyteComposition();
   chemSys_->setInitialGasComposition();
-  chemSys_->calculateSI();
+  chemSys_->calculateSI(0);
 
   bool writeICsDCs = true;
   if (writeICsDCs)
     writeTxtOutputFiles_onlyICsDCs(0); // to check the total ICs
+
+  writeTxtOutputFiles(0);
 
   // variables used in DCLowerLimit computation
   double volMolDiff, molarMassDiff, vfracDiff;
@@ -893,38 +899,63 @@ void Controller::doCycle(double elemTimeInterval) {
 
               phId = vectPhIdDiff[ij];
 
-              DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
-
-              volMolDiff = chemSys_->getDCMolarVolume(DCId);  // m3/mol
-              molarMassDiff = chemSys_->getDCMolarMass(DCId); // g/mol
-
-              vfracDiff =
-                  (static_cast<double>(numSitesNotAvailable[ij])) /
-                   (static_cast<double>(numSites_));
-
-              microPhaseMassDiff =
-                  vfracDiff * molarMassDiff / volMolDiff / 1.0e6; // g/cm3
-
-              scaledMassDiff =
-                  microPhaseMassDiff * 100.0 / lattice_->getInitSolidMass();
-
               if (chemSys_->isKinetic(phId) && (time_[i] < beginAttackTime_)) {
+                // each KC microPhase must correspond to a single GEM phase and
+                // more important: to a single DC !!! attention to bassanite!!!
+
+                vfracDiff =
+                    (static_cast<double>(numSitesNotAvailable[ij])) /
+                     (static_cast<double>(numSites_));
+
+                DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
+
+                volMolDiff = chemSys_->getDCMolarVolume(DCId);  // m3/mol
+                molarMassDiff = chemSys_->getDCMolarMass(DCId); // g/mol
+
+                microPhaseMassDiff =
+                    vfracDiff * molarMassDiff / volMolDiff / 1.0e6; // g/cm3
+
+                scaledMassDiff =
+                    microPhaseMassDiff * 100.0 / lattice_->getInitSolidMass();
+
                 kineticController_->updateKineticStep(cyc, phId, scaledMassDiff,
                                                       timestep);
               } else {
+                // to a nKC microPhase can correspond one or more GEM phases so,
+                // one or more DCs!
 
-                cout << "    Controller::doCycle - not a KM phase - for cyc = "
+                cout << endl<< "    Controller::doCycle - not a KM phase - for cyc = "
                      << cyc << " & phaseId = " << phId << " ["
-                     << chemSys_->getMicroPhaseName(phId) << " / DCId:" << DCId
+                     << chemSys_->getMicroPhaseName(phId) << " / DCId(phId,0):"
+                     << chemSys_->getMicroPhaseDCMembers(phId,0)
                      << "]" << endl;
 
-                numMolesDiff = scaledMassDiff / molarMassDiff;
+                double numTotSites_phId = lattice_->getCount()[phId];
+                double numTotMoles = 0;
+                int numTotCompNotZero = 0;
+                vector<int> compDC = chemSys_->getMicroPhaseDCMembers(phId);
+                int size = static_cast<int>(compDC.size());
 
-                cout << "      DCMoles_/keepNumDCMoles : "
-                     << chemSys_->getDCMoles(DCId) << " / " << numMolesDiff
-                     << endl;
+                cout << "      DCs components:" << endl;
+                for (int k = 0; k < size; k++) {
+                  numMolesDiff = numSitesNotAvailable[ij] * chemSys_->getDCMoles(compDC[k])
+                      / numTotSites_phId;
 
-                chemSys_->setDCLowerLimit(DCId, numMolesDiff);
+                  chemSys_->setDCLowerLimit(compDC[k], numMolesDiff);
+
+                  cout << "          DCId = " << setw(3) << right << compDC[k]
+                       << "   DCName = " << setw(15) << left << chemSys_->getDCName(compDC[k])
+                       << "   DCMoles = " << chemSys_->getDCMoles(compDC[k])
+                       << "   DCLowerLimit = " << chemSys_->getDCLowerLimit(compDC[k]) << endl;
+
+                  numTotMoles += chemSys_->getDCMoles(compDC[k]);
+                  if (chemSys_->getDCMoles(compDC[k]) > 0) {
+                    numTotCompNotZero++;
+                  }
+                }
+
+                cout <<  "        numTotCompNotZero = " << numTotCompNotZero
+                     << "    numTotMoles = " << numTotMoles << endl;
               }
             }
 
@@ -934,6 +965,7 @@ void Controller::doCycle(double elemTimeInterval) {
                     "phName/phId/count/dissInterfaceSize/numSitesNotAvailable"
                     "/DCId/DCMoles/DCLowerLimit :"
                  << endl;
+
             for (int ij = 0; ij < numSitesNotAvailableSize; ij++) {
               phId = vectPhIdDiff[ij];
               DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
