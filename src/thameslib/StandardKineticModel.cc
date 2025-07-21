@@ -5,7 +5,8 @@
 */
 #include "StandardKineticModel.h"
 
-using std::cout; using std::endl;
+using std::cout;
+using std::endl;
 
 StandardKineticModel::StandardKineticModel() {
 
@@ -187,10 +188,10 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
 
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
-    cout << "    StandardKineticModel::calculateKineticStep - microPhaseId_/mPhName/SI : "
-         << setw(3) << right << microPhaseId_ << " / "
-         << setw(15) << left << name_ << " / "
-         << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
+    cout << "    StandardKineticModel::calculateKineticStep - "
+            "microPhaseId_/mPhName/SI : "
+         << setw(3) << right << microPhaseId_ << " / " << setw(15) << left
+         << name_ << " / " << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
 
     // dissolutionRateConst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
@@ -204,8 +205,13 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     if (saturationIndex < 1.0) {
       dissrate = dissolutionRateConst_ * rhFactor_ * area *
                  pow((1.0 - pow(saturationIndex, siexp_)), dfexp_);
-    } else {
+    } else if (area > 0.0) {
+      // Normal growth
       dissrate = -dissolutionRateConst_ * rhFactor_ * area *
+                 pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
+    } else {
+      // Use placeholder minimum area until we can implement nucleation
+      dissrate = -dissolutionRateConst_ * rhFactor_ * 0.1 *
                  pow((pow(saturationIndex, siexp_) - 1.0), dfexp_);
     }
 

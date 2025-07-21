@@ -10,16 +10,16 @@
 // #define DEBUG
 // #endif
 
+#include "../version.h"
+#include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <map>
-#include <fstream>
-#include <sstream>
-#include <ctime>
-#include "../version.h"
 
 #include "../GEMS3K-standalone/GEMS3K/node.h"
 #include "../Resources/include/nlohmann/json.hpp"
@@ -206,7 +206,7 @@ inline const int COLORSATVAL = 255;
 inline const int GEMSFORMAT = 0;
 inline const int EXTERNALFORMAT = 0;
 
-inline const double ICTHRESH = 1.0e-8;
+inline const double ICTHRESH = 1.0e-7;
 
 inline const double Pi = 3.14159265359;
 
