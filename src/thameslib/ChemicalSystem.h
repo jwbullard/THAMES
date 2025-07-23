@@ -608,6 +608,7 @@ class ChemicalSystem {
                                        shrinking_, contains the molar volume ratios
                                        of the corresponding microPhases:*/
 
+  // std::vector<double> DCMolesDBR_;
 public:
 
   /**
@@ -5640,8 +5641,9 @@ public:
 
   @param cyc is the cycle number for the main controller loop (iteration over
   time)
+  @param time is the simulated time associated with this state [hours]
   */  
-  void calculateSI(int cyc);
+  void calculateSI(int cyc, double time);
 
   /**
   @brief Check for chemical composition requirements on

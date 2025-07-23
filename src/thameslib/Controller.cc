@@ -487,7 +487,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
   chemSys_->setInitialElectrolyteComposition();
   chemSys_->setInitialGasComposition();
-  chemSys_->calculateSI(0);
+  chemSys_->calculateSI(0, 0.0);
 
   bool writeICsDCs = true;
   if (writeICsDCs)
