@@ -91,12 +91,13 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   }
 
   // The next loop reads the CSV header only, one row at a time
-  int rownum = 0;
+  int rownum = -1;
   double testres = 0.0;
-  for (auto &row : CSVRange(in)) {
+  CSVRow row;
+  while (in >> row) {
     if (rownum == 0) { // version
       if (row[0] == VERSIONSTRING) {
-        version_ = std::atof(row[1]);
+        version_ = std::string(row[1]);
       } else {
         ///
         /// Image file generated prior to VCCTL Version 3.0.
@@ -115,13 +116,13 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
         break;
       }
     } else if (rownum == 1) { // x dimension
-      xdim__ = std::atoi(row[1]);
+      xdim_ = row2int(row[1]);
     } else if (rownum == 2) { // y dimension
-      ydim__ = std::atoi(row[1]);
+      ydim_ = row2int(row[1]);
     } else if (rownum == 3) { // z dimension
-      zdim__ = std::atoi(row[1]);
+      zdim_ = row2int(row[1]);
     } else if (rownum == 4) { // resolution
-      testres = std::atof(row[1]);
+      testres = row2double(row[1]);
       setResolution(testres * 1.0e-6); // Convert to meters
     } else {
       break;
@@ -211,6 +212,7 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   /// of the lattice.  Not yet assigning a phase to the site because
   /// the file has not yet been read
   ///
+  /// Note that the reading order is now switched to standard C-order
 
   for (i = 0; i < xdim_; i++) {
     for (j = 0; j < ydim_; j++) {
@@ -444,7 +446,11 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
         break;
       }
 
-      idn = xn + (xdim_ * yn) + (xdim_ * ydim_) * zn;
+      // The following line is for standard A-ordering
+      // idn = xn + (xdim_ * yn) + (xdim_ * ydim_) * zn;
+
+      // The follwing line is for standard C-ordering
+      idn = zn + (xdim_ * yn) + (zdim_ * ydim_) * xn;
       site_[ii].setNb(j, &site_[idn]);
     }
   }
@@ -459,20 +465,21 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     throw FileException("Lattice", "Lattice", fileName, "Could not open");
   }
 
-  // The next loop reads the CSV header only, one row at a time
+  // From now on the image files will be in C-order, not A-order
+  // This means we need to convert from x,y,z to a site number
+  int zid = 0;
   rownum = 0;
-
-  // GODZILLA STOPPED HERE. NEED TO READ CSV DATA
   for (auto &row : CSVRange(in)) {
     if (rownum > 4) { // Data starts on the sixth row
-      site_[i].setMicroPhaseId(pid);
+      // There should be zdim_ entries on each row, indexed 0 to (zdim_ - 1)
+      zid = 0;
+      while (zid < zdim_) {
+        pid = row2int(row[zid]);
+        site_[i].setMicroPhaseId(pid);
+        zid++;
+      }
     }
-  }
-  in.close();
-  for (i = 0; i < numSites_; i++) {
-    in >> pid;
-    site_[i].setMicroPhaseId(pid);
-    count_[pid]++;
+    rownum++;
   }
 
   ///
@@ -3211,7 +3218,11 @@ int Lattice::getIndex(int ix, int iy, int iz) const {
     }
   }
 
-  return (ix + (xdim_ * iy) + ((xdim_ * ydim_) * iz));
+  // Voxels are read and written in C-order now
+  return (iz + (xdim_ * iy) + ((zdim_ * ydim_) * ix));
+
+  // Use line below if using A-order
+  // return (ix + (xdim_ * iy) + ((xdim_ * ydim_) * iz));
 }
 
 int Lattice::changeMicrostructure(double time, const int simtype,
@@ -4720,7 +4731,6 @@ void Lattice::writeLattice(const string timeString) {
     out << ",";
   out << endl;
 
-  // int index;
   // for (int k = 0; k < zdim_; k++) {
   //   for (int j = 0; j < ydim_; j++) {
   //     for (int i = 0; i < xdim_; i++) {
@@ -5019,9 +5029,9 @@ void Lattice::writeDamageLattice(const string timeString) {
   }
   for (int i = 1; i < numSites_; i++) {
     if (site_[i].IsDamage()) {
-      out << "1" << endl;
+      out << ",1" << endl;
     } else {
-      out << "0" << endl;
+      out << ",0" << endl;
     }
     if ((i % zdim_ == 0) && (i != numSites_ - 1))
       out << endl;

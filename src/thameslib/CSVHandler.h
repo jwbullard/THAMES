@@ -6,7 +6,6 @@
 #ifndef SRC_THAMESLIB_CSVHANDLER_H_
 #define SRC_THAMESLIB_CSVHANDLER_H_
 
-#include "global.h"
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -47,10 +46,7 @@ private:
   std::vector<int> m_data;
 };
 
-std::istream &operator>>(std::istream &str, CSVRow &data) {
-  data.readNextRow(str);
-  return str;
-}
+std::istream &operator>>(std::istream &str, CSVRow &data);
 
 /**
 @class Declare the CSVIterator class
@@ -114,6 +110,11 @@ public:
   CSVIterator begin() const { return CSVIterator{stream}; }
   CSVIterator end() const { return CSVIterator{}; }
 };
+
+// Handler functions to convert to different data types
+int row2int(const std::string_view &string);
+
+double row2double(const std::string_view &string);
 
 /// The commented code below shows some ways to implement these classes to read
 /// CSV Files
