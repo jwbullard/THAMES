@@ -5,8 +5,11 @@
 
 #include "Controller.h"
 
-using std::cout; using std::endl;
-using std::string; using std::vector; using std::map;
+using std::cout;
+using std::endl;
+using std::map;
+using std::string;
+using std::vector;
 
 Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        ThermalStrain *thmstr, const int simtype,
@@ -482,8 +485,8 @@ void Controller::doCycle(double elemTimeInterval) {
   // chemSys_->setZeroMicroPhaseSI();
 
   cout << endl
-       << "   ICTHRESH = " << setprecision(1)
-       << ICTHRESH << " mol" << setprecision(15) << endl;
+       << "   ICTHRESH = " << setprecision(1) << ICTHRESH << " mol"
+       << setprecision(15) << endl;
 
   chemSys_->setInitialElectrolyteComposition();
   chemSys_->setInitialGasComposition();
@@ -654,7 +657,8 @@ void Controller::doCycle(double elemTimeInterval) {
                 "  "
                 "   : "
              << i << " / " << cyc << " / " << time_[i] << " / " << timestep
-             << "   =>   searching for a new dissolution time : WAIT..." << endl;
+             << "   =>   searching for a new dissolution time : WAIT..."
+             << endl;
         cout.flush();
 
         numTotGen = 0;
@@ -662,7 +666,8 @@ void Controller::doCycle(double elemTimeInterval) {
         fracNextTimeStep = nextTimeStep / fracNum;
 
         for (int indFracNum = 0; indFracNum < fracNum; indFracNum++) {
-          timeZero = time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
+          timeZero =
+              time_[i] + (static_cast<double>(indFracNum) * fracNextTimeStep);
           minTime = timeZero - deltaTime;
           numGen = 0;
           numIntervals = 0;
@@ -903,9 +908,8 @@ void Controller::doCycle(double elemTimeInterval) {
                 // each KC microPhase must correspond to a single GEM phase and
                 // more important: to a single DC !!! attention to bassanite!!!
 
-                vfracDiff =
-                    (static_cast<double>(numSitesNotAvailable[ij])) /
-                     (static_cast<double>(numSites_));
+                vfracDiff = (static_cast<double>(numSitesNotAvailable[ij])) /
+                            (static_cast<double>(numSites_));
 
                 DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
 
@@ -924,11 +928,12 @@ void Controller::doCycle(double elemTimeInterval) {
                 // to a nKC microPhase can correspond one or more GEM phases so,
                 // one or more DCs!
 
-                cout << endl<< "    Controller::doCycle - not a KM phase - for cyc = "
+                cout << endl
+                     << "    Controller::doCycle - not a KM phase - for cyc = "
                      << cyc << " & phaseId = " << phId << " ["
                      << chemSys_->getMicroPhaseName(phId) << " / DCId(phId,0):"
-                     << chemSys_->getMicroPhaseDCMembers(phId,0)
-                     << "]" << endl;
+                     << chemSys_->getMicroPhaseDCMembers(phId, 0) << "]"
+                     << endl;
 
                 double numTotSites_phId = lattice_->getCount()[phId];
                 double numTotMoles = 0;
@@ -938,15 +943,18 @@ void Controller::doCycle(double elemTimeInterval) {
 
                 cout << "      DCs components:" << endl;
                 for (int k = 0; k < size; k++) {
-                  numMolesDiff = numSitesNotAvailable[ij] * chemSys_->getDCMoles(compDC[k])
-                      / numTotSites_phId;
+                  numMolesDiff = numSitesNotAvailable[ij] *
+                                 chemSys_->getDCMoles(compDC[k]) /
+                                 numTotSites_phId;
 
                   chemSys_->setDCLowerLimit(compDC[k], numMolesDiff);
 
                   cout << "          DCId = " << setw(3) << right << compDC[k]
-                       << "   DCName = " << setw(15) << left << chemSys_->getDCName(compDC[k])
+                       << "   DCName = " << setw(15) << left
+                       << chemSys_->getDCName(compDC[k])
                        << "   DCMoles = " << chemSys_->getDCMoles(compDC[k])
-                       << "   DCLowerLimit = " << chemSys_->getDCLowerLimit(compDC[k]) << endl;
+                       << "   DCLowerLimit = "
+                       << chemSys_->getDCLowerLimit(compDC[k]) << endl;
 
                   numTotMoles += chemSys_->getDCMoles(compDC[k]);
                   if (chemSys_->getDCMoles(compDC[k]) > 0) {
@@ -954,7 +962,7 @@ void Controller::doCycle(double elemTimeInterval) {
                   }
                 }
 
-                cout <<  "        numTotCompNotZero = " << numTotCompNotZero
+                cout << "        numTotCompNotZero = " << numTotCompNotZero
                      << "    numTotMoles = " << numTotMoles << endl;
               }
             }
@@ -1119,8 +1127,8 @@ void Controller::doCycle(double elemTimeInterval) {
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
     if ((time_index < static_cast<int>(outputImageTime_.size())) &&
         ((time_[i] >= outputImageTime_[time_index]) ||
-         (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice))
-       ) {
+         (abs(time_[i] - outputImageTime_[time_index]) <
+          thrTimeToWriteLattice))) {
 
       double writeTime = time_[i];
       if (abs(time_[i] - outputImageTime_[time_index]) < thrTimeToWriteLattice)
@@ -1219,9 +1227,9 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // expansion.clear();
 
-      cout << "  cyc = "
-           << cyc << " -> damaged sites before set damage :  "
-                                   "oldDamageCount_/allDamageCount_ = "
+      cout << "  cyc = " << cyc
+           << " -> damaged sites before set damage :  "
+              "oldDamageCount_/allDamageCount_ = "
            << oldDamageCount_ << " / " << allDamageCount_ << endl;
 
       newDamageCount_ = 0;
@@ -1480,8 +1488,8 @@ void Controller::doCycle(double elemTimeInterval) {
                << cyc << " / " << oldDamageCount_ << " / " << oldDamageCount
                << endl;
           cout << endl
-               << "         newDamageCount_/allDamageCount_ = " << newDamageCount_
-               << " / " << allDamageCount_ << endl;
+               << "         newDamageCount_/allDamageCount_ = "
+               << newDamageCount_ << " / " << allDamageCount_ << endl;
           cout << endl << "exit" << endl;
           exit(0);
         }
@@ -1491,15 +1499,15 @@ void Controller::doCycle(double elemTimeInterval) {
         // to see whether new damage is generated
       }
       allDamageCount_ = newDamageCount_ + oldDamageCount_;
-      cout << "  cyc = "
-           << cyc << " -> damaged sites after set damage  :  "
-                     "oldDamageCount_/newDamageCount_/allDamageCount_ = "
+      cout << "  cyc = " << cyc
+           << " -> damaged sites after set damage  :  "
+              "oldDamageCount_/newDamageCount_/allDamageCount_ = "
            << oldDamageCount_ << " / " << newDamageCount_ << " / "
            << allDamageCount_ << endl;
       oldDamageCount_ = allDamageCount_;
       cout << endl
-           << "Controller::doCycle - sulfate attack module - cyc = "
-           << cyc << " (i = " << i << ")   =>   normal end" << endl;
+           << "Controller::doCycle - sulfate attack module - cyc = " << cyc
+           << " (i = " << i << ")   =>   normal end" << endl;
     }
   }
 
@@ -1936,8 +1944,9 @@ void Controller::parseDoc(const string &docName) {
   if (!f.is_open()) {
     cout << endl << "JSON " << docName << " file not found" << endl;
     throw FileException("Controller", "parseDoc", docName, "File not found");
-  } else{
-    cout << endl << "JSON " << docName << " file found => start reading" << endl;
+  } else {
+    cout << endl
+         << "JSON " << docName << " file found => start reading" << endl;
   }
 
   /// Parse the JSON file all at once
@@ -1980,7 +1989,7 @@ void Controller::parseDoc(const string &docName) {
 
       // Knowing the time interval, construct the output
       // times
-      if (outputImageTimeInterval_ > 0.01) {
+      if (outputImageTimeInterval_ > 1.0e-9) {
 
         while (testTime < finalTime) {
           testTime += outputImageTimeInterval_;
@@ -2143,7 +2152,7 @@ void Controller::parseDoc(const string &docName) {
       for (int i = 0; i < tempSize; i++) {
         if (outputImageTime_[i] > beginAttackTime_) {
           outputImageTime_.erase(outputImageTime_.begin() + i,
-                            outputImageTime_.begin() + tempSize);
+                                 outputImageTime_.begin() + tempSize);
           break;
         }
       }
@@ -2239,8 +2248,8 @@ string Controller::getTimeString(const double curtime) {
   ostrM << setfill('0') << setw(2) << mins;
   string timestrM(ostrM.str());
 
-  string timeString = timestrY + "y" + timestrD + "d" +
-                      timestrH + "h" + timestrM + "m";
+  string timeString =
+      timestrY + "y" + timestrD + "d" + timestrH + "h" + timestrM + "m";
 
   return timeString;
 }
