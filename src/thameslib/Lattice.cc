@@ -1068,7 +1068,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
       growStruct.posVect = i;
       growStruct.affinity = afty;
       growthVector.push_back(growStruct);
-      // growProbStruct(int id_i = 0, int affinity_i = 0, int posVect_i = 0){}
       site_[siteID].setInGrowthVectorPos(phaseID, posProbVect);
       posProbVect++;
     }
@@ -1206,12 +1205,12 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     // affAllPos - works with modified affinities in affinity_ table from
     // ChemicalSystem (all positives!)
 
-    // affSum = 0;
-    // for (j = 0; j < growthVectorSize; j++) {
-    //   aff = growthVector[j].getAffinity();
-    //   affSum += aff;
-    // }
     // calc probabilities & choose a site
+    // affSum = 0.0;
+    // for (j = 0; j < growthVectorSize; j++) {
+    //   affSum += growthVector[j].affinity;
+    // }
+
     rng = callRNG();
     if (affSum > 0) {
       probRNG = growthVector[0].affinity / affSum;
@@ -1223,6 +1222,7 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
           if (rng <= probRNG)
             break;
         }
+        if (isitePos == growthVectorSize) isitePos--;
       }
     } else {
       isitePos = static_cast<int>(rng * growthVectorSize);
@@ -1232,14 +1232,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     pid = ste->getMicroPhaseId(); // always ELECTROLYTEID !!
     posVect = growthVector[isitePos].posVect;
     phaseID = growPhaseIDVect[posVect]; // phase to grow
-
-    // if (bcl % 100000 == 0) {
-    //   cout << endl << "        Lattice::growPhase totalTRC = "
-    //        << totalTRC << "   bcl = " << bcl << "   affSum = "
-    //        << affSum << "   phaseID = " << phaseID << "   numLeftTot = "
-    //        << numLeftTot << endl;
-    //   cout.flush();
-    // }
 
     if (pid != ELECTROLYTEID) {
       cout << endl
@@ -1267,7 +1259,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
         if (growPhaseIDVect[k] == plist[j] && numLeft[k] > 0) {
           posGrPhId = ste->getInGrowthVectorPos(plist[j]);
           affSum -= growthVector[posGrPhId].affinity;
-          // extractFromgrowthVector.push_back(posGrPhId);
           if (posGrPhId != growthVectorSize - 1) {
             growthVector[posGrPhId] = growthVector[growthVectorSize - 1];
             pos = growthVector[posGrPhId].posVect;
@@ -1283,6 +1274,27 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
       }
       removeGrowthSite_grow(ste, plist[j]);
     }
+    if (affSum < 0.0) {
+      cout << endl
+           << "    Lattice::growPhase test:  affSum = " << affSum
+           << "  - for growthVectorSize = " << growthVectorSize << endl;
+      cout << "      phaseid totalTRC/trc_g/bcl count_ numLeftTot numChangeTot :  "
+           << phaseID << "   " << totalTRC << "/" << trc_g << "/" << bcl
+           << "   " << count_[phaseID] << "   " << numLeftTot << "   "
+           << numChangeTot << endl;
+      cout << "      posVect pid : " << posVect << "   " << pid << endl;
+      cout << "      ste.id numLeft numChange : " << ste->getId() << "   "
+           << numLeft[posVect] << "   " << numChange[posVect] << endl;
+      if (growthVectorSize > 1) {
+        cout << endl
+             << "    Lattice::growPhase error: growthVectorSize > 1   =>   exit"
+             << endl;
+        exit(0);
+      }
+      cout << "      =>  affSum = 0.0" << endl;
+      affSum = 0.0;
+    }
+
     ste->clearGrowth();
     setMicroPhaseId(ste, phaseID);
 
@@ -1345,12 +1357,10 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
             posGrowVect = stenb->getInGrowthVectorPos(k);
             if (posGrowVect != -1) {
               affSum += afty;
-              afty += growthVector[posGrowVect].affinity;
-              growthVector[posGrowVect].affinity = afty;
+              growthVector[posGrowVect].affinity += afty;
             }
 
           } else {
-
             if (k == phaseID) {
               addGrowthSite(stenb, phaseID);
 
@@ -1361,8 +1371,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                 growStruct.posVect = posVect;
                 growStruct.affinity = afty;
                 growthVector.push_back(growStruct);
-                // growProbStruct(int id_i = 0, int affinity_i = 0, int
-                // posVect_i = 0){}
                 stenb->setInGrowthVectorPos(phaseID, growthVectorSize);
                 growthVectorSize++;
               }
@@ -1392,8 +1400,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                   growStruct.posVect = kk;
                   growStruct.affinity = afty;
                   growthVector.push_back(growStruct);
-                  // growProbStruct(int id_i = 0, int affinity_i = 0, int
-                  // posVect_i = 0){}
                   stenb->setInGrowthVectorPos(phaseTmpl, growthVectorSize);
                   growthVectorSize++;
                   break;
@@ -1571,8 +1577,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
             growStruct.posVect = i;
             growStruct.affinity = afty;
             growthVector.push_back(growStruct);
-            // growProbStruct(int id_i = 0, int affinity_i = 0, int posVect_i =
-            // 0){}
             site_[isite[jj].getId()].setInGrowthVectorPos(phaseID, posProbVect);
             posProbVect++;
           }
@@ -2346,6 +2350,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       // for (int i = 0; i < dissolutionVectorSize; i++) {
       //   sumWmc +=  dissolutionVector[i].wmc;
       // }
+
       probRNG = dissolutionVector[0].wmc / sumWmc;
       if (rng <= probRNG) {
         isitePos = 0;
@@ -2355,6 +2360,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
           if (rng <= probRNG)
             break;
         }
+        if (isitePos == dissolutionVectorSize) isitePos--;
       }
 
       ste = &site_[dissolutionVector[isitePos].id];
@@ -2363,6 +2369,24 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
 
       wmcIni = ste->getWmc0();
       sumWmc -= ste->getWmc();
+      if (sumWmc < 0.0) {
+        cout << endl
+             << "    Lattice::dissolvePhase test:  sumWmc = " << sumWmc
+             << "  - for dissolutionVectorSize = " << dissolutionVectorSize << endl;
+        cout << "    Lattice::dissolvePhase test: steId/pid/posVect/isitePos  "
+             << ste->getId() << "/" << pid << "/" << posVect << "/" << isitePos
+             << endl;
+        cout << "    Lattice::dissolvePhase test: totalTRC/trc_d/bcl  "
+             << totalTRC << "/" << trc_d << "/" << bcl << endl;
+        if (dissolutionVectorSize > 1) {
+          cout << endl
+               << "    Lattice::dissolvePhase error: dissolutionVectorSize > 1   =>   exit"
+               << endl;
+          exit(0);
+        }
+        cout << "    =>  sumWmc = 0.0" << endl;
+        sumWmc = 0.0;
+      }
 
       if (ste->getInDissInterfacePos() == -1) {
         cout << endl
@@ -2459,8 +2483,8 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
             posnb = stenb->getInDissolutionVectorPos();
             if (posnb != -1) {
               sumWmc += dwmcval;
-              stWmc = dwmcval + dissolutionVector[posnb].wmc;
-              dissolutionVector[posnb].wmc = stWmc;
+              // dissolutionVector[posnb].wmc += dwmcval;
+              dissolutionVector[posnb].wmc = stenb->getWmc();
             }
 
             // for (int k = 0; k < dissPhaseIDVectSize; k++) {
@@ -2633,20 +2657,6 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
     // cout << "     *** out totalTRC trc_d bcl :  " << totalTRC
     //      << "   " << trc_d << "   " << bcl << endl;
   }
-
-  /*
-  for (int i = 0; i < numSites_; i++) {
-    if (site_[i].getInDissolutionVectorPos() != -1) {
-      cout << endl << "     *** out error site_[i].getInDissolutionVectorPos()
-  != -1 for i = "
-           << i << "   => site_[i].getInDissolutionVectorPos() = " <<
-  site_[i].getInDissolutionVectorPos() << endl; cout << "     *** out totalTRC
-  trc_d bcl :  " << totalTRC
-           << "   " << trc_d << "   " << bcl << endl;
-      cout << endl << "     exit" << endl; exit(0);
-    }
-  }
-  */
 
   numadded_D = numChangeTot;
   vector<int> numleft;
@@ -6053,11 +6063,9 @@ void Lattice::transformSolSol(Site *ste, int oldPhId, int newPhId,
     addDissolutionSite(ste, newPhId);
   }
 
-  if (abs(dwmcval) > 1.e-6) { // small enough
-    for (int i = 0; i < NN_NNN; i++) {
-      stenb = ste->nb(i);
-      stenb->dWmc(dwmcval);
-    }
+  for (int i = 0; i < NN_NNN; i++) {
+    stenb = ste->nb(i);
+    stenb->dWmc(dwmcval);
   }
 
   for (int i = 0; i < NN_NNN; i++) {

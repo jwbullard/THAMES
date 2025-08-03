@@ -429,7 +429,11 @@ public:
 
   @param dwmcval is the increment to make to the existing value of wmc
   */
-  void dWmc(double dwmcval) { wmc_ += dwmcval; }
+  void dWmc(double dwmcval) {
+    wmc_ += dwmcval;
+    if (wmc_ < 0.0)
+      wmc_= 0.0;
+  }
 
   /**
   @brief Calculate the "weighted mean curvature" of the site.

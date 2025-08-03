@@ -2154,7 +2154,14 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
   }
 
   // setMicroPhasePorosity(idx, porosity);
-  microPhasePorosity_[idx] = porosity;
+
+  int testPorInt;
+  double testPorDbl = 0.0;
+  testPorInt = porosity * 1.e5;
+  testPorDbl = testPorInt / 1.e5;
+
+  microPhasePorosity_[idx] = testPorDbl;
+  // microPhasePorosity_[idx] = porosity;
 
   return;
 }
@@ -2818,17 +2825,21 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
         // cout << endl << msg << endl;
 
         thr = 10 * thr;
-        cout << "    ChemicalSystem::calculateSI - change thr to "
-             << setprecision(3) << thr << setprecision(15) << endl;
-        if (thr > 1.e-5) {
-          cout << endl << "    ChemicalSystem::calculateSI - exit for thr = "
+        // cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
+        //      << " - change thr (i.e. ICTHRESH) to "
+        //      << setprecision(3) << thr << setprecision(15) << endl;
+        if (thr > limitICTHRESH) { // 1.0e-3
+          cout << endl << "    ChemicalSystem::calculateSI - cyc = " << cyc
+               << " - exit for thr (i.e. ICTHRESH limit) = "
                << setprecision(3) << thr << setprecision(15) << endl;
           throw GEMException("ChemicalSystem", "calculateSI", msg);
         }
       }
     } else {
-      cout << "    ChemicalSystem::calculateSI -"
-           << " : GEM_run OK  -> nodeStatus_ = " << nodeStatus_ << endl;
+      cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
+           << " : GEM_run OK  -> nodeStatus_ = " << nodeStatus_
+           << " for thr (i.e. ICTHRESH) = " << setprecision(3)
+           << thr << setprecision(15)<<endl;
     }
 
     // node_->GEM_to_MT(nodeHandle_, nodeStatus_, iterDone_, Vs_, Ms_, Gs_, Hs_,
@@ -2840,37 +2851,37 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
   } // while
 
   double aveSI = 0.0;
-  double moles = 0.0;
-  double totMoles = 0.0;
+  // double moles = 0.0;
+  // double totMoles = 0.0;
   // double molesSolute = 0.0;
   int size;
 
   cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
-       << " - from GEM phases (to use for next cycle):"
+       << " - from GEM phases (to use for next cycle)" // :"
        << endl;
   int phId;
   for (int i = FIRST_SOLID; i < numMicroPhases_; ++i) {
-    aveSI = totMoles = 0.0;
+    aveSI = 0.0; // totMoles = 0.0;
     size = microPhaseMembers_[i].size();
     // cout << "      mPhId/mPhName = " << i << " / " << microPhaseName_[i]
     //      << " : " << endl;
 
     for (int j = 0; j < size; ++j) {
       phId = microPhaseMembers_[i][j]; // microPhasePhMembers[i];
-      moles = node_->Ph_Mole(phId);
+      // moles = node_->Ph_Mole(phId);
       // molesSolute = solutPhaseMoles_[phId];
       // cout << "          phId/Ph_SatInd/GEMPhaseName/moles/molesSolute = " << phId << " / "
       //      << node_->Ph_SatInd(phId)  << " / " << GEMPhaseName_[phId] << " / "
-      //      << moles  << " / " << molesSolute << endl;;
+      //      << moles  << " / " << molesSolute << endl;
       aveSI += pow(10, node_->Ph_SatInd(phId));
-      totMoles += moles;
+      // totMoles += moles;
     }
     aveSI = aveSI / size;
     microPhaseSI_[i] = aveSI;
 
-    cout << "        mPhId/mPhName = " << setw(3) << right << i
-         << " / " << setw(15) << left << microPhaseName_[i] << " :  totMoles/aveSI = "
-         << totMoles << " / " << aveSI << endl;
+    // cout << "        mPhId/mPhName = " << setw(3) << right << i
+    //      << " / " << setw(15) << left << microPhaseName_[i] << " :  totMoles/aveSI = "
+    //      << totMoles << " / " << aveSI << endl;
   } // from GEM phases
 
   // reset ICMoles_ to 0
