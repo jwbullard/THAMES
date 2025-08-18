@@ -279,7 +279,7 @@ public:
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
                                     double &massDissolved, int cyc,
-                                    double totalDOR);
+                                    double totalDOR, bool doTweak);
 
 }; // End of ParrotKillohModel class
 

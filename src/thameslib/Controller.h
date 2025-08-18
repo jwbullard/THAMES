@@ -180,6 +180,10 @@ private:
   int numSites_;           /**< Total number of microStructure voxels */
   double initMicroVolume_; /**< Initial absolute volume of the microStructure */
 
+  double finalHydrationTime_;
+
+  double deltaTime_;
+  double lastGoodTime_;
 public:
   /**
   @brief The constructor.
@@ -225,6 +229,7 @@ public:
   */
   // void doCycle(const std::string &statfilename, int choice, double
   // elemTimeInterval);
+  // void doCycle(void);
   void doCycle(double elemTimeInterval);
 
   /**
@@ -251,7 +256,7 @@ public:
   @return the node status handle (from ChemicalSystem::calculateState)
   */
   // void calculateState(double time, double dt, bool isFirst, int cyc);
-  int calculateState(double time, double dt, bool isFirst, int cyc);
+  int calculateState(double &time, double dt, bool isFirst, int cyc);
 
   /**
   @brief Parse the input JSON file specifying Controller parameters to use.
@@ -267,6 +272,7 @@ public:
   parameters
   */
   void parseDoc(const std::string &docname);
+  void parseDocM(const std::string &docname);
 
   /**
   @brief Set the simulation time at which to begin sulfate attack simulation.

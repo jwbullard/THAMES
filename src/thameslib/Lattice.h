@@ -43,12 +43,14 @@ struct structGrowVect {
   int id;
   int posVect;
   double affinity;
+  // double prb;
 };
 
 struct structDissVect {
   int id;
   int posVect;
   double wmc;
+  // double prb;
 };
 
 /**
@@ -60,6 +62,13 @@ sites.
 class Lattice {
 
 private:
+  // for tests
+  // double minLastD_, maxLastD_;
+  // int lt1D_, gt1D_;
+  // double minLastG_, maxLastG_;
+  // int lt1G_, gt1G_;
+  // double minRNG_, maxRNG_;
+
   std::string version_; /**< THAMES version for header information */
   std::string thamesVersion_;
   std::string jobRoot_; /**< The root name for output files */
@@ -1016,7 +1025,7 @@ public:
   can be dissolved is smaller than the number requested by the corresponding
   kinetic model
   @param vectPhNameDiff is the vector of names of microphases
-  @param repeat counts the number of changeMicrostructure calls for a given
+  @param recalls counts the number of changeMicrostructure calls for a given
   cycle (cyc)
   @param cyc (cycle) is the iteration number in main iteration loop in
   Controller::doCycle - each cycle corresponds to a time step
@@ -1028,7 +1037,7 @@ public:
                            std::vector<int> &vectPhNumDiff,
                            std::vector<int> &vectPhIdDiff,
                            std::vector<std::string> &vectPhNameDiff,
-                           int repeat, int cyc);
+                           int recalls, int cyc);
 
   /**
   @brief Adjust GEMS calculated volumes of microstructure phases
@@ -1932,6 +1941,13 @@ public:
       numRNGcall_0_ = 0;
     }
     lastRNG_ = rg_->Ran3();
+
+    // for tests
+    // if (lastRNG_ > maxRNG_)
+    //   maxRNG_ = lastRNG_;
+    // if (lastRNG_ < minRNG_)
+    //   minRNG_ = lastRNG_;
+
     return lastRNG_;
   }
 
@@ -2143,6 +2159,18 @@ public:
   conversion - generalize this for any phase transformation.
   */
   void createGrowingVectSA(void);
+
+  // for tests
+  // double getMaxLastD(void) { return maxLastD_; }
+  // double getMinLastD(void) { return minLastD_; }
+  // int getGt1D(void) { return gt1D_; }
+  // int getLt1D(void) { return lt1D_; }
+  // double getMaxLastG(void) { return maxLastG_; }
+  // double getMinLastG(void) { return minLastG_; }
+  // int getGt1G(void) { return gt1G_; }
+  // int getLt1G(void) { return lt1G_; }
+  // double getMaxRNG(void) { return maxRNG_; }
+  // double getMinRNG(void) { return minRNG_; }
 
 }; // End of Lattice class
 

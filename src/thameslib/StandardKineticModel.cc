@@ -129,7 +129,7 @@ StandardKineticModel::StandardKineticModel(ChemicalSystem *cs, Lattice *lattice,
 void StandardKineticModel::calculateKineticStep(const double timestep,
                                                 double &scaledMass,
                                                 double &massDissolved, int cyc,
-                                                double totalDOR) {
+                                                double totalDOR, bool doTweak) {
   ///
   /// Initialize local variables
   ///
@@ -187,10 +187,12 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
 
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
-    cout << "    StandardKineticModel::calculateKineticStep - microPhaseId_/mPhName/SI : "
-         << setw(3) << right << microPhaseId_ << " / "
-         << setw(15) << left << name_ << " / "
-         << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
+    if (!doTweak)
+      cout << "    StandardKineticModel::calculateKineticStep - "
+              "microPhaseId_/mPhName/SI : "
+           << setw(3) << right << microPhaseId_ << " / "
+           << setw(15) << left << name_ << " / "
+           << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
 
     // dissolutionRateConst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
@@ -218,13 +220,15 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     // solid
     massDissolved = dissrate * timestep * chemSys_->getDCMolarMass(DCId_);
 
-    if (verbose_) {
-      cout << "    StandardKineticModel::calculateKineticStep "
-              "dissrate/massDissolved : "
-           << dissrate << " / " << massDissolved << endl;
-    }
 
     scaledMass = scaledMass_ - massDissolved;
+
+    if (verbose_) {
+      cout << endl << "    StandardKineticModel::calculateKineticStep "
+              "dissrate/massDissolved/scaledMass_/scaledMass : "
+           << dissrate << " / " << massDissolved << " / " << scaledMass_ << " / "
+           << scaledMass << endl;
+    }
 
     if (scaledMass < 0.0) {
       massDissolved = scaledMass_;
@@ -233,7 +237,7 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     scaledMass_ = scaledMass;
 
     if (verbose_) {
-      cout << "  ****************** SKM_hT = " << timestep
+      cout << endl << "  ****************** SKM_hT = " << timestep
            << "    cyc = " << cyc << "    microPhaseId_ = " << microPhaseId_
            << "    microPhase = " << name_
            << "    GEMPhaseIndex = " << GEMPhaseId_ << " ******************"

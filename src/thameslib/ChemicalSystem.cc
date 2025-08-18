@@ -226,8 +226,8 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
     GEMPhaseMass_ = new double[numGEMPhases_];
     exmsg = "solutPhaseMass_";
     solutPhaseMass_ = new double[numGEMPhases_];
-    exmsg = "prevGEMPhaseMass_";
-    prevGEMPhaseMass_ = new double[numGEMPhases_];
+    // exmsg = "prevGEMPhaseMass_";
+    // prevGEMPhaseMass_ = new double[numGEMPhases_];
     exmsg = "specificSurfaceArea_";
     specificSurfaceArea_ = new double[numGEMPhases_];
     exmsg = "carrier_";
@@ -499,8 +499,8 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   for (int i = 0; i < numGEMPhases_; i++) {
     GEMPhaseMass_[i] =
         static_cast<double>(node_->Ph_Mass(i) * 1000.0); // in g, not kg
-    prevGEMPhaseMass_[i] =
-        static_cast<double>(node_->Ph_Mass(i) * 1000.0); // in g, not kg
+    // prevGEMPhaseMass_[i] =
+    //     static_cast<double>(node_->Ph_Mass(i) * 1000.0); // in g, not kg
   }
 
   setGEMPhaseVolume();
@@ -723,7 +723,7 @@ vector<double> ChemicalSystem::getSolution(void) {
   vector<double> tempICMoles;
   tempICMoles.clear();
   tempICMoles.resize(numICs_, 0.0);
-  cout << endl;
+  // cout << endl;
   for (int i = 0; i < numDCs_; i++) {
     char cc = getDCClassCode(i);
     if (cc == 'S' || cc == 'T' || cc == 'W') {
@@ -733,7 +733,7 @@ vector<double> ChemicalSystem::getSolution(void) {
       }
     }
   }
-  cout << endl;
+  // cout << endl;
 
   /*
   for (int i = 0; i < numDCs_; i++) {
@@ -1750,7 +1750,7 @@ ChemicalSystem::ChemicalSystem(const ChemicalSystem &obj) {
   GEMPhaseMoles_ = obj.getGEMPhaseMoles();
   prevGEMPhaseMoles_ = obj.getPrevGEMPhaseMoles();
   GEMPhaseMass_ = obj.getGEMPhaseMass();
-  prevGEMPhaseMass_ = obj.getPrevGEMPhaseMass();
+  // prevGEMPhaseMass_ = obj.getPrevGEMPhaseMass();
   GEMPhaseVolume_ = obj.getGEMPhaseVolume();
   prevGEMPhaseVolume_ = obj.getPrevGEMPhaseVolume();
   carrier_ = obj.getCarrier();
@@ -1835,7 +1835,7 @@ ChemicalSystem::~ChemicalSystem(void) {
   delete[] DCLowerLimit_;
   delete[] DCUpperLimit_;
   delete[] specificSurfaceArea_;
-  delete[] prevGEMPhaseMass_;
+  // delete[] prevGEMPhaseMass_;
   delete[] prevGEMPhaseVolume_;
   delete[] prevGEMPhaseMoles_;
   delete[] GEMPhaseMass_;
@@ -2166,9 +2166,28 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
   return;
 }
 
-int ChemicalSystem::calculateState(double time, bool isFirst = false,
+int ChemicalSystem::calculateState(double time, vector<int> updateDCId,
+                                   vector<int> updatePHId,
+                                   bool isFirst = false,
                                    int cyc = 0) {
   string msg;
+
+  int updateDCIdSize = updateDCId.size();
+  int dcId, phId;
+
+  vector<double> DCMolesIni, DCLowerLimitIni, DCUpperLimitIni;
+  vector<bool> resetIniDC;
+
+  if (updateDCIdSize > 0) {
+    for(int i = 0; i < numDCs_; i++) {
+      DCMolesIni.push_back(DCMoles_[i]);
+      DCLowerLimitIni.push_back(DCLowerLimit_[i]);
+      DCUpperLimitIni.push_back(DCUpperLimit_[i]);
+      resetIniDC.push_back(true);
+    }
+  }
+
+  bool loopUpdateDC = true;
 
   vector<double> microPhaseVolumes = getMicroPhaseVolume();
 
@@ -2188,258 +2207,329 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   /// in this case.
   ///
 
-  bool doAttack = (time >= beginAttackTime_) ? true : false;
-  if (doAttack) {
-    cout << endl << "  ChemicalSystem::calculateState - cyc = " << cyc
-         << " : doAttack = " << doAttack << endl;
+  // if (timesGEMFailed_ == 0) // check!
+  //   cout << endl
+  //        << "  ChemicalSystem::calculateState - cyc = " << cyc << " : ENTER" << endl;
 
-    DCLowerLimit_[aliteDCId_] = DCMoles_[aliteDCId_];
-    DCLowerLimit_[beliteDCId_] = DCMoles_[beliteDCId_];
-    DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
-    DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
-  }
-  /*
-  // Check and set chemical conditions on electrolyte and gas phase
-  setElectrolyteComposition(doAttack);
-  setGasComposition(doAttack);
-  */
+  // try to solve the updateKineticState decission
+  while (loopUpdateDC) {
 
-  // All the ICMoles_ that are less than 10^-9 are set to 10^-9
-  if (isFirst) {
-    checkICMoles();
-  }
+    /*
+    // static int testCyc70 = 0;
+    if (cyc == 71 || (cyc == 70)) { // && testCyc70 == 0)) { // check!
+      // if (cyc >= 1807) {
+      //   DCtest = DCLowerLimit_[141];
+      //   DCMoles_[141] -= DCLowerLimit_[141];
+      //   DCLowerLimit_[141] = 0.0; // 2.371964751741132e-07;
+      // }
+      cout << endl << "ChemicalSystem::calculateState - before GEM_from_MT" << endl;
+      cout << "DCLowerLimit_[i] < 0:" << endl;
+      for (int i = 0; i < numDCs_; ++i) {
+        if (DCLowerLimit_[i] < 0) {
+          DCLowerLimit_[i] = 0.0;
+          DCUpperLimit_[i] = 0.0;
+          cout << "    " << setw(4) << right << i << " : " << setw(15) << left << DCName_[i] << " : "
+               << DCMoles_[i] << ", [" << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
+        }
+      }
 
-  if (verbose_) {
-    cout << endl
-         << "ChemicalSystem::calculateState Entering GEM_from_MT cyc = " << cyc
-         << endl;
-    cout << "DCMoles:" << endl;
-    for (int i = 0; i < numDCs_; ++i) {
-      cout << "    " << i << "   " << DCName_[i] << ": " << DCMoles_[i] << ", ["
-           << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
+      cout << endl << "ICMoles:" << endl;
+      for (int i = 0; i < numICs_; ++i) {
+        cout << "    " << setw(4) << right << i << " : " << setw(15) << left << ICName_[i] << " : "
+             << ICMoles_[i] << endl;
+      }
     }
-    cout.flush();
-    cout << "ICMoles:" << endl;
-    for (int i = 0; i < numICs_; ++i) {
-      cout << "    " << ICName_[i] << ": " << ICMoles_[i] << endl;
+    // testCyc70++;
+    */
+
+    checkICMolesT(cyc);
+
+    bool doAttack = (time >= beginAttackTime_) ? true : false;
+    if (doAttack) {
+      cout << endl << "  ChemicalSystem::calculateState - cyc = " << cyc
+           << " : doAttack = " << doAttack << endl;
+
+      DCLowerLimit_[aliteDCId_] = DCMoles_[aliteDCId_];
+      DCLowerLimit_[beliteDCId_] = DCMoles_[beliteDCId_];
+      DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
+      DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
     }
-    cout.flush();
-  }
+    /*
+    // Check and set chemical conditions on electrolyte and gas phase
+    setElectrolyteComposition(doAttack);
+    setGasComposition(doAttack);
+    */
 
-  node_->GEM_from_MT(nodeHandle_, nodeStatus_, T_, P_, Vs_, Ms_, ICMoles_,
-                     DCUpperLimit_, DCLowerLimit_, specificSurfaceArea_,
-                     DCMoles_);
-
-  if (isFirst) {
-    for (int i = 0; i < numICs_; i++) {
-      ICMoles_[i] = 0.0;
+    // All the ICMoles_ that are less than 10^-9 are set to 10^-9
+    if (isFirst) {
+      checkICMoles();
     }
-  }
 
-  if (verbose_) {
-    cout << "ChemicalSystem::calculateState Exiting GEM_from_MT" << endl;
-    cout << "DCMoles:" << endl;
-    for (int i = 0; i < numDCs_; ++i) {
-      cout << "    " << DCName_[i] << ": " << DCMoles_[i] << ", ["
-           << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
-    }
-    cout.flush();
-  }
-
-  /// For passing the current THAMES time and time step into the working
-  /// instance of the DBR structure.
-  ///
-  /// This function returns nothing and appears to be incapable of throwing an
-  /// exception
-  ///
-  ///
-  /// @todo Check carefully if this function can throw an exception
-  ///
-  /// @note This function call seems to be optional.  It is not needed for
-  /// the GEM data structures or calculations, but mostly for debugging
-  /// purposes.
-  ///
-  /// @note This function used to be called GEM_set_MT in older versions of
-  /// GEMS3K
-  ///
-
-  node_->GEM_from_MT_time(time, 1.0);
-
-  ///
-  /// Attempt to run GEM with automatic initial approximation (AIA)
-  ///
-  /// This starts the thermodynamic calculation and returns the results,
-  /// including the ionic strength, pH, IC chemical potentials, DC moles,
-  /// phase moles, phase volumes, and other results of the calculation.  All
-  /// of these parameters are loaded into the THAMES vectors that keep track
-  /// of these things, since, they were passed to the GEM calculation by
-  /// reference.
-  ///
-  /// The argument is false if we want to use activity coefficients and
-  /// speciation from a previous GEM_run, but is true if we want to use the
-  /// activity coefficients and speciation stored in a DBR memory structure
-  /// read from a DBR file
-  ///
-  /// Possible return values for nodeStatus_:
-  ///    0 (NO_GEM_SOLVER): No GEM recalculation needed for node
-  ///    1 (NEED_GEM_AIA) : Need GEM calc with LPP (auto initial approx, AIA)
-  ///    2 (OK_GEM_AIA)   : OK after GEM calc with LPP AIA
-  ///    3 (BAD_GEM_AIA)  : Not fully trusworthy result after calc with LPP AIA
-  ///    4 (ERR_GEM_AIA)  : Failure (no result) in GEM calc with LPP AIA
-  ///    5 (NEED_GEM_SIA) : Need GEM calc with no-LPP (smart initial approx,
-  ///    SIA) 6 (OK_GEM_SIA)   : OK after GEM calc with SIA 7 (BAD_GEM_SIA)  :
-  ///    Not fully trusworthy result after calc with SIA 8 (ERR_GEM_SIA)  :
-  ///    Failure (no result) in GEM calc with SIA 9 (T_ERROR_GEM ) : Terminal
-  ///    error (e.g., memory corruption). Need restart
-  ///
-
-  nodeStatus_ = node_->GEM_run(true);
-
-  if (!(nodeStatus_ == OK_GEM_AIA || nodeStatus_ == OK_GEM_SIA)) {
-    bool dothrow = false;
     if (verbose_) {
-      cerr << endl
-           << "  ChemicalSystem::calculateState - GEM_run ERROR: nodeStatus_ = "
-           << nodeStatus_ << endl;
+      cout << endl << endl
+           << "ChemicalSystem::calculateState Entering GEM_from_MT cyc = " << cyc
+           << endl;
+      cout << "DCMoles:" << endl;
+      for (int i = 0; i < numDCs_; ++i) {
+        cout << "    " << i << "   " << DCName_[i] << ": " << DCMoles_[i] << ", ["
+             << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
+      }
+      cout.flush();
+      cout << "ICMoles:" << endl;
+      for (int i = 0; i < numICs_; ++i) {
+        cout << "    " << ICName_[i] << ": " << ICMoles_[i] << endl;
+      }
+      cout.flush();
     }
-    switch (nodeStatus_) {
-    case NEED_GEM_AIA:
-      msg = "    Need GEM calc with auto initial approx (AIA)";
-      cerr << msg << endl;
-      dothrow = false;
-      break;
-    case BAD_GEM_AIA:
-      timesGEMWarned_++;
-      cout << "  ChemicalSystem::calculateState - cyc = " << cyc
-           << " : GEM_run OK  ->  GEM_run has failed " << timesGEMFailed_
-           << " consecutive times before to find this solution "
-              "(timesGEMWarned_ = "
+
+    node_->GEM_from_MT(nodeHandle_, nodeStatus_, T_, P_, Vs_, Ms_, ICMoles_,
+                       DCUpperLimit_, DCLowerLimit_, specificSurfaceArea_,
+                       DCMoles_);
+
+    if (isFirst) {
+      for (int i = 0; i < numICs_; i++) {
+        ICMoles_[i] = 0.0;
+      }
+    }
+
+    if (verbose_) {
+      cout << "ChemicalSystem::calculateState Exiting GEM_from_MT" << endl;
+      cout << "DCMoles:" << endl;
+      for (int i = 0; i < numDCs_; ++i) {
+        cout << "    " << DCName_[i] << ": " << DCMoles_[i] << ", ["
+             << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
+      }
+      cout.flush();
+    }
+
+    /// For passing the current THAMES time and time step into the working
+    /// instance of the DBR structure.
+    ///
+    /// This function returns nothing and appears to be incapable of throwing an
+    /// exception
+    ///
+    ///
+    /// @todo Check carefully if this function can throw an exception
+    ///
+    /// @note This function call seems to be optional.  It is not needed for
+    /// the GEM data structures or calculations, but mostly for debugging
+    /// purposes.
+    ///
+    /// @note This function used to be called GEM_set_MT in older versions of
+    /// GEMS3K
+    ///
+
+    node_->GEM_from_MT_time(time, 1.0);
+
+    ///
+    /// Attempt to run GEM with automatic initial approximation (AIA)
+    ///
+    /// This starts the thermodynamic calculation and returns the results,
+    /// including the ionic strength, pH, IC chemical potentials, DC moles,
+    /// phase moles, phase volumes, and other results of the calculation.  All
+    /// of these parameters are loaded into the THAMES vectors that keep track
+    /// of these things, since, they were passed to the GEM calculation by
+    /// reference.
+    ///
+    /// The argument is false if we want to use activity coefficients and
+    /// speciation from a previous GEM_run, but is true if we want to use the
+    /// activity coefficients and speciation stored in a DBR memory structure
+    /// read from a DBR file
+    ///
+    /// Possible return values for nodeStatus_:
+    ///    0 (NO_GEM_SOLVER): No GEM recalculation needed for node
+    ///    1 (NEED_GEM_AIA) : Need GEM calc with LPP (auto initial approx, AIA)
+    ///    2 (OK_GEM_AIA)   : OK after GEM calc with LPP AIA
+    ///    3 (BAD_GEM_AIA)  : Not fully trusworthy result after calc with LPP AIA
+    ///    4 (ERR_GEM_AIA)  : Failure (no result) in GEM calc with LPP AIA
+    ///    5 (NEED_GEM_SIA) : Need GEM calc with no-LPP (smart initial approx,
+    ///    SIA) 6 (OK_GEM_SIA)   : OK after GEM calc with SIA 7 (BAD_GEM_SIA)  :
+    ///    Not fully trusworthy result after calc with SIA 8 (ERR_GEM_SIA)  :
+    ///    Failure (no result) in GEM calc with SIA 9 (T_ERROR_GEM ) : Terminal
+    ///    error (e.g., memory corruption). Need restart
+    ///
+
+    nodeStatus_ = node_->GEM_run(true);
+
+    if (!(nodeStatus_ == OK_GEM_AIA || nodeStatus_ == OK_GEM_SIA)) {
+      bool dothrow = false;
+      if (verbose_) {
+        cerr << endl
+             << "  ChemicalSystem::calculateState - GEM_run ERROR: nodeStatus_ = "
+             << nodeStatus_ << endl;
+      }
+      switch (nodeStatus_) {
+        case NEED_GEM_AIA:
+          msg = "    Need GEM calc with auto initial approx (AIA)";
+          cerr << msg << endl;
+          dothrow = false;
+          break;
+        case BAD_GEM_AIA:
+          timesGEMWarned_++;
+          cout << endl
+               << "  ChemicalSystem::calculateState - cyc = " << cyc
+               << " : GEM_run OK (time = " << time << ") ->  GEM_run has failed "
+               << timesGEMFailed_ << " consecutive times before to find this solution "
+                                     "(timesGEMWarned_ = "
+               << timesGEMWarned_ << ")" << endl;
+
+          timesGEMFailed_ = 0;
+
+          if (verbose_) {
+            msg = "    Untrustworthy result with auto initial approx (AIA)";
+            cerr << msg << endl;
+          }
+          dothrow = false;
+          break;
+        case ERR_GEM_AIA:
+          // cout << "  ChemicalSystem::calculateState - cyc = " << cyc
+          //      << " : GEM_run FAILED (ERR_GEM_AIA)" << endl;
+          msg =
+              "  ChemicalSystem::calculateState - Failed result with auto initial "
+              "approx (AIA)";
+          if (verbose_) {
+            cerr << msg << ", GEMS failed " << timesGEMFailed_ << " times" << endl;
+          }
+          node_->GEM_print_ipm("IPM_dump.txt");
+          timesGEMFailed_++;
+          dothrow = (timesGEMFailed_ > maxGEMFails_) ? true : false;
+          break;
+        case NEED_GEM_SIA:
+          msg = "    Need GEM calc with smart initial approx (SIA)";
+          cerr << msg << endl;
+          dothrow = false;
+          break;
+        case BAD_GEM_SIA:
+          msg = "    Untrustworthy result with smart initial approx (SIA)";
+          cerr << msg << endl;
+          dothrow = false;
+          break;
+        case ERR_GEM_SIA:
+          msg = "    ChemicalSystem::calculateState - Failed result with smart "
+                "initial "
+                "approx (SIA)";
+          cerr << msg << ", GEMS failed " << timesGEMFailed_ << " times" << endl;
+          node_->GEM_print_ipm("IPM_dump.txt");
+          timesGEMFailed_++;
+          dothrow = (timesGEMFailed_ > maxGEMFails_) ? true : false;
+          break;
+        case T_ERROR_GEM:
+          msg = "    Terminal GEM error; need restart";
+          cerr << msg << endl;
+          dothrow = true;
+          break;
+        case NO_GEM_SOLVER:
+          msg = "    No GEM recalculation needed for node";
+          cerr << msg << endl;
+          dothrow = false;
+          break;
+      }
+      if (dothrow) {
+        throw GEMException("ChemicalSystem", "calculateState", msg);
+      }
+    } else {
+      // string finStrNodeStatus;
+      // if (nodeStatus_ == 2) {
+      //   finStrNodeStatus = "OK_GEM_AIA";
+      // } else if (iniNodeStatus == 6) {
+      //   finStrNodeStatus = "OK_GEM_SIA";
+      // }
+      // cout << endl <<"  ChemicalSystem::calculateState - for cyc = " << cyc <<
+      // " : OK" << endl; cout << "    ChemicalSystem::calculateState - initial
+      // nodeStatus_ = " << iniNodeStatus << " [" << iniStrNodeStatus << "]" <<
+      // endl; cout << "    ChemicalSystem::calculateState - final nodeStatus_   =
+      // " << nodeStatus_ << " [" << finStrNodeStatus << "]" << endl;
+
+      cout << endl
+           << "  ChemicalSystem::calculateState - cyc = " << cyc
+           << " : GEM_run OK (time = " << time << ") ->  GEM_run has failed "
+           << timesGEMFailed_ << " consecutive times before to find this solution "
+                                 "(timesGEMWarned_ = "
            << timesGEMWarned_ << ")" << endl;
 
+      // cout << "    ChemicalSystem::calculateState - solution for kinetic
+      // controlled phases:" << endl; for (int i = 0; i < numMicroPhases_; i++) {
+      //   if (isKinetic_[i]) {
+      //     cout << "      i = " << setw(3) << right << i << " : " << setw(15) <<
+      //     left
+      //          << microPhaseName_[i]
+      //          << " => updated scaledMass (microPhaseMass_[i]) = " <<
+      //          microPhaseMass_[i]
+      //          << " , microPhaseMassDissolved_[i] = " <<
+      //          microPhaseMassDissolved_[i]
+      //          << " and volume = " << microPhaseVolume_[i] << endl;
+      //   }
+      // }
+
       timesGEMFailed_ = 0;
-
-      if (verbose_) {
-        msg = "    Untrustworthy result with auto initial approx (AIA)";
-        cerr << msg << endl;
-      }
-      dothrow = false;
-      break;
-    case ERR_GEM_AIA:
-      msg =
-          "  ChemicalSystem::calculateState - Failed result with auto initial "
-          "approx (AIA)";
-      if (verbose_) {
-        cerr << msg << ", GEMS failed " << timesGEMFailed_ << " times" << endl;
-      }
-      node_->GEM_print_ipm("IPM_dump.txt");
-      timesGEMFailed_++;
-      dothrow = (timesGEMFailed_ > maxGEMFails_) ? true : false;
-      break;
-    case NEED_GEM_SIA:
-      msg = "    Need GEM calc with smart initial approx (SIA)";
-      cerr << msg << endl;
-      dothrow = false;
-      break;
-    case BAD_GEM_SIA:
-      msg = "    Untrustworthy result with smart initial approx (SIA)";
-      cerr << msg << endl;
-      dothrow = false;
-      break;
-    case ERR_GEM_SIA:
-      msg = "    ChemicalSystem::calculateState - Failed result with smart "
-            "initial "
-            "approx (SIA)";
-      cerr << msg << ", GEMS failed " << timesGEMFailed_ << " times" << endl;
-      node_->GEM_print_ipm("IPM_dump.txt");
-      timesGEMFailed_++;
-      dothrow = (timesGEMFailed_ > maxGEMFails_) ? true : false;
-      break;
-    case T_ERROR_GEM:
-      msg = "    Terminal GEM error; need restart";
-      cerr << msg << endl;
-      dothrow = true;
-      break;
-    case NO_GEM_SOLVER:
-      msg = "    No GEM recalculation needed for node";
-      cerr << msg << endl;
-      dothrow = false;
-      break;
     }
-    if (dothrow) {
-      throw GEMException("ChemicalSystem", "calculateState", msg);
+
+    if (timesGEMFailed_ > 0) {
+      // cout << "  ChemicalSystem::calculateState - GEM_run has failed "
+      //      << timesGEMFailed_ << " consecutive times  cyc = " << cyc << endl;
+      // if (timesGEMFailed_ % 10000  == 0) {
+      //   cout << endl << "  ChemicalSystem::calculateState - test : GEM_run has
+      //   failed "
+      //        << timesGEMFailed_ << " consecutive times  cyc = " << cyc << endl;
+      // }
+      return timesGEMFailed_;
     }
-  } else {
-    // string finStrNodeStatus;
-    // if (nodeStatus_ == 2) {
-    //   finStrNodeStatus = "OK_GEM_AIA";
-    // } else if (iniNodeStatus == 6) {
-    //   finStrNodeStatus = "OK_GEM_SIA";
-    // }
-    // cout << endl <<"  ChemicalSystem::calculateState - for cyc = " << cyc <<
-    // " : OK" << endl; cout << "    ChemicalSystem::calculateState - initial
-    // nodeStatus_ = " << iniNodeStatus << " [" << iniStrNodeStatus << "]" <<
-    // endl; cout << "    ChemicalSystem::calculateState - final nodeStatus_   =
-    // " << nodeStatus_ << " [" << finStrNodeStatus << "]" << endl;
 
-    cout << "  ChemicalSystem::calculateState - cyc = " << cyc
-         << " : GEM_run OK  ->  GEM_run has failed " << timesGEMFailed_
-         << " consecutive times before to find this solution "
-            "(timesGEMWarned_ = "
-         << timesGEMWarned_ << ")" << endl;
+    if (verbose_) {
+      cout << "    Going into ChemicalSystem::calculateState::GEM_to_MT (2)... ";
+      cout.flush();
+    }
 
-    // cout << "    ChemicalSystem::calculateState - solution for kinetic
-    // controlled phases:" << endl; for (int i = 0; i < numMicroPhases_; i++) {
-    //   if (isKinetic_[i]) {
-    //     cout << "      i = " << setw(3) << right << i << " : " << setw(15) <<
-    //     left
-    //          << microPhaseName_[i]
-    //          << " => updated scaledMass (microPhaseMass_[i]) = " <<
-    //          microPhaseMass_[i]
-    //          << " , microPhaseMassDissolved_[i] = " <<
-    //          microPhaseMassDissolved_[i]
-    //          << " and volume = " << microPhaseVolume_[i] << endl;
-    //   }
-    // }
+    ///
+    /// Next call retrieves the GEMIPM chemical speciation calculation
+    /// results from the DBR structure instance into memory provided by
+    /// the THAMES code.  The dimensions and ordering of the arrays must
+    /// correspond to those in currently existing DCH memory structure
+    ///
+    /// This function returns nothing and appears unable of throwing exceptions
+    /// @todo Check carefully whether this function can throw an exception
+    ///
 
-    timesGEMFailed_ = 0;
-  }
+    node_->GEM_to_MT(nodeHandle_, nodeStatus_, iterDone_, Vs_, Ms_, Gs_, Hs_,
+                     ionicStrength_, pH_, pe_, Eh_, &ICResiduals_[0],
+                     &ICChemicalPotential_[0], &DCMoles_[0], &DCActivityCoeff_[0],
+                     &solutPhaseMoles_[0], &solutPhaseVolume_[0],
+                     &solutPhaseMass_[0], &pSolutPhaseStoich_[0], &carrier_[0],
+                     &specificSurfaceArea_[0], &pSolidStoich_[0]);
 
-  if (timesGEMFailed_ > 0) {
-    // cout << "  ChemicalSystem::calculateState - GEM_run has failed "
-    //      << timesGEMFailed_ << " consecutive times  cyc = " << cyc << endl;
-    // if (timesGEMFailed_ % 10000  == 0) {
-    //   cout << endl << "  ChemicalSystem::calculateState - test : GEM_run has
-    //   failed "
-    //        << timesGEMFailed_ << " consecutive times  cyc = " << cyc << endl;
-    // }
-    return timesGEMFailed_;
-  }
-
-  if (verbose_) {
-    cout << "    Going into ChemicalSystem::calculateState::GEM_to_MT (2)... ";
-    cout.flush();
-  }
-
-  ///
-  /// Next call retrieves the GEMIPM chemical speciation calculation
-  /// results from the DBR structure instance into memory provided by
-  /// the THAMES code.  The dimensions and ordering of the arrays must
-  /// correspond to those in currently existing DCH memory structure
-  ///
-  /// This function returns nothing and appears unable of throwing exceptions
-  /// @todo Check carefully whether this function can throw an exception
-  ///
-
-  node_->GEM_to_MT(nodeHandle_, nodeStatus_, iterDone_, Vs_, Ms_, Gs_, Hs_,
-                   ionicStrength_, pH_, pe_, Eh_, &ICResiduals_[0],
-                   &ICChemicalPotential_[0], &DCMoles_[0], &DCActivityCoeff_[0],
-                   &solutPhaseMoles_[0], &solutPhaseVolume_[0],
-                   &solutPhaseMass_[0], &pSolutPhaseStoich_[0], &carrier_[0],
-                   &specificSurfaceArea_[0], &pSolidStoich_[0]);
+    // check if GEMS accepted the updateKineticState decission; if not, try to force GEMS to do it
+    loopUpdateDC = false;
+    if (updateDCIdSize > 0) {
+      for(int i = 0; i < updateDCIdSize; i++) {
+        dcId = updateDCId[i];
+        if (abs(DCMoles_[dcId] - DCLowerLimit_[dcId]) > 1.e-16) {
+          cout << endl << "    ChemicalSystem::calculateState - cyc = " << cyc
+               << " => DCMoles_[" << dcId << "] != DCLowerLimit_[" << dcId << "] : "
+               << DCMoles_[dcId] << " != " << DCLowerLimit_[dcId] << endl;
+          // DCMolesIni[i] = DCMoles_[dcId];
+          // DCLowerLimitIni[i] = DCLowerLimit_[dcId];
+          DCMoles_[dcId] = DCMolesIni[dcId] - DCLowerLimitIni[dcId];
+          DCLowerLimit_[dcId] = 0.0; // 2.371964751741132e-07;
+          DCUpperLimit_[dcId] = 0.0;
+          resetIniDC[dcId] = false;
+          loopUpdateDC = true;
+        }
+      }
+      if (loopUpdateDC) {
+        for(int i = 0; i < numDCs_; i++) {
+          if (resetIniDC[i]) {
+            DCMoles_[i] = DCMolesIni[i];
+            DCLowerLimit_[i] = DCLowerLimitIni[i];
+            DCUpperLimit_[i] = DCUpperLimitIni[i];
+          }
+        }
+      }
+    }
+  } // while
 
   if (verbose_) {
     cout << endl << "Done!" << endl;
-    cout << "ChemicalSystem::calculateState Exiting GEM_from_MT cyc = " << cyc
+    cout << "ChemicalSystem::calculateState Exiting GEM_to_MT cyc = " << cyc
          << endl;
     cout << "DCMoles:" << endl;
     for (int i = 0; i < numDCs_; ++i) {
@@ -2460,6 +2550,37 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
   setGEMPhaseMass();    // => GEMPhaseMass_[i]
   setGEMPhaseVolume();  // => GEMPhaseVolume_[i]
+
+  int microPhaseMembersSize_i;
+  for (int i = 1; i < numMicroPhases_; i++) {
+    if (!isKinetic_[i]) {
+      calcMicroPhasePorosity(i);
+      microPhaseMass_[i] = microPhaseVolume_[i] = 0.0;
+    }
+  }
+  double phi; // local variable to store subvoxel volume fraction of pores of
+              // a phase 0 <= phi <= 1
+  if (updateDCIdSize > 0) {
+    for(int i = 0; i < updateDCIdSize; i++) {
+      dcId = updateDCId[i];
+      if (!resetIniDC[dcId]) {
+        phId = updatePHId[i];
+        DCMoles_[dcId] += DCLowerLimitIni[dcId];
+        microPhaseMass_[phId] = DCMoles_[dcId] * DCMolarMass_[dcId];
+        phi = microPhasePorosity_[phId];
+        if (!isKinetic_[phId]) {
+          if (phi < 1.0) {
+            microPhaseVolume_[phId] = DCMoles_[dcId] * node_->DC_V0(dcId, P_, T_)
+                / (1.0 - phi);
+          } else {
+            microPhaseVolume_[phId] = DCMoles_[dcId] * node_->DC_V0(dcId, P_, T_)
+                / (0.001);
+          }
+          microVolume_ += microPhaseVolume_[phId];
+        }
+      }
+    }
+  }
 
   if (verbose_) {
     cout << endl
@@ -2494,10 +2615,9 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   /// Account for subvoxel porosity within each microstructure phase here
   /// We used to do this in the Lattice class but it is cleaner here
 
-  double phi; // local variable to store subvoxel volume fraction of pores of
+  // double phi; // local variable to store subvoxel volume fraction of pores of
               // a phase 0 <= phi <= 1
 
-  int microPhaseMembersSize_i;
   for (int i = 1; i < numMicroPhases_; i++) {
     if (verbose_) {
       cout << "Setting microPhase amounts for " << i << " = "
@@ -2506,14 +2626,10 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     }
 
     if (!isKinetic_[i]) {
-      calcMicroPhasePorosity(i);
-      // phi = getMicroPhasePorosity(i);
+      // calcMicroPhasePorosity(i);
       phi = microPhasePorosity_[i];
-      microPhaseMass_[i] = microPhaseVolume_[i] = 0.0;
-      microPhaseMembersSize_i = microPhaseMembers_[i].size();
 
-      // if (i == 1) cout << endl << "microPhaseMembersSize_i for i = 1 is : "
-      //                  <<  microPhaseMembersSize_i << endl;
+      microPhaseMembersSize_i = microPhaseMembers_[i].size();
 
       for (int j = 0; j < microPhaseMembersSize_i; j++) {
 
@@ -2572,7 +2688,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
         // exit(0);
       }
     } else {
-      calcMicroPhasePorosity(i);
+      // calcMicroPhasePorosity(i);
       phi = getMicroPhasePorosity(i);
       if (verbose_) {
         cout << "    IS a KINETIC phase: is composed of "
@@ -2672,71 +2788,99 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
   vector<double> ICMoles;
   int i, j;
   int numICs1 = numICs_ - 1;
-  double totCharge = 0.0;
+  // double totCharge = 0.0;
   nodeStatus_ = ERR_GEM_AIA;
+  vector<double> locDCLowerLimit;
+  vector<double> locDCUpperLimit;
+
+  ICMoles.clear();
+  ICMoles.resize(numICs_, 0.0);
+
+  // if (cyc == 0) {
+  //   cout << endl << "  ChemicalSystem::calculateSI - cyc = 0 - DCMoles_:" << endl;
+  //   cout << "    i ... :  DCClassCode_/DCMoles_/DCLowerLimit_/DCUpperLimit_/DCName_ "
+  //        << endl;
+  // }
+
+  // Check and set chemical conditions on electrolyte and gas phase
+  if (cyc > 0) {
+    bool doAttack = (time >= beginAttackTime_) ? true : false;
+    setElectrolyteComposition(doAttack);
+    setGasComposition(doAttack);
+  }
+
+  for (int i = 0; i < numDCs_; i++) {
+    locDCLowerLimit.push_back(DCLowerLimit_[i]);
+    locDCUpperLimit.push_back(DCUpperLimit_[i]);
+    if (DCClassCode_[i] != 'S'
+        && DCClassCode_[i] != 'T'
+        && DCClassCode_[i] != 'W') {
+      // DCMoles_[i] = DCMolesDBR_[i];
+      // DCUpperLimit_[i] = DCMolesDBR_[i];
+      // DCLowerLimit_[i] = DCMolesDBR_[i];
+      // DCMoles_[i] = 0.0;
+      DCUpperLimit_[i] = DCMoles_[i];
+      DCLowerLimit_[i] = DCMoles_[i];
+    }
+    else {
+      // totCharge += DCMoles_[i] * DCCharge_[i];
+      for (j = 0; j < numICs1; j++) {
+        ICMoles[j] += DCMoles_[i] * getDCStoich(i, j);
+      }
+      DCLowerLimit_[i] = 0.0;
+      DCUpperLimit_[i] = 1.0e6;
+    }
+    // if (cyc == 0)
+    //   cout << "    i = " << setw(3) << right << i << "  :  "
+    //        << DCClassCode_[i] << " / " << DCMoles_[i] << " / " << DCLowerLimit_[i] << " / "
+    //        << DCUpperLimit_[i] << " / " << DCName_[i]  << endl;
+  }
+
+  // check charge balance i.e. the value of ICMoles_[numICs_- 1]
+  /*
+  double absTotCharge = abs(totCharge);
+  if (absTotCharge > 0.0) {
+    int dcId, icId;
+    if (totCharge > 0) {
+      dcId = getDCId("OH-");
+      icId = getICId("H");
+      ICMoles_[icId] -= absTotCharge;
+      icId = getICId("O");
+      ICMoles_[icId] -= absTotCharge;
+
+    } else {
+      dcId = getDCId("H+");
+      icId = getICId("H");
+      ICMoles_[icId] -= absTotCharge;
+    }
+    DCMoles_[dcId] += absTotCharge;
+  }
+  */
+
+  // All ICMoles_, excepting ICMoles_[numICs_- 1] (electric charge),
+  // must be greater than thr (initial: thr = ICTHRESH = 1.0e-9)
+  ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+  for (i = 0; i < numICs1; i++) {
+    if (ICMoles[i] < thr) // ICTHRESH)
+      ICMoles_[i] = thr;  // ICTHRESH;
+  }
+
+  /* // check !
+  cout << endl << "ChemicalSystem::calculateSI - before GEM_from_MT" << endl;
+  cout << "DCMoles:" << endl;
+  for (int i = 0; i < numDCs_; ++i) {
+    cout << "    " << setw(4) << right << i << " : " << setw(15) << left << DCName_[i] << " : "
+         << DCMoles_[i] << ", [" << DCLowerLimit_[i] << ", " << DCUpperLimit_[i] << "]" << endl;
+  }
+
+  cout << endl << "ICMoles:" << endl;
+  for (int i = 0; i < numICs_; ++i) {
+    cout << "    " << setw(4) << right << i << " : " << setw(15) << left << ICName_[i] << " : "
+         << ICMoles_[i] << endl;
+  }
+  */
 
   while (nodeStatus_ == ERR_GEM_AIA) {
-    totCharge = 0.0;
-    ICMoles.clear();
-    ICMoles.resize(numICs_, 0.0);
-
-    // if (cyc == 0) {
-    //   cout << endl << "  ChemicalSystem::calculateSI - cyc = 0 - DCMoles_:" << endl;
-    //   cout << "    i ... :  DCClassCode_/DCMoles_/DCLowerLimit_/DCUpperLimit_/DCName_ "
-    //        << endl;
-    // }
-
-    // Check and set chemical conditions on electrolyte and gas phase
-    if (cyc > 0) {
-      bool doAttack = (time >= beginAttackTime_) ? true : false;
-      setElectrolyteComposition(doAttack);
-      setGasComposition(doAttack);
-    }
-
-    for (int i = 0; i < numDCs_; i++) {
-      if (DCClassCode_[i] != 'S'
-          && DCClassCode_[i] != 'T'
-          && DCClassCode_[i] != 'W') {
-        // DCMoles_[i] = DCMolesDBR_[i];
-        // DCUpperLimit_[i] = DCMolesDBR_[i];
-        // DCLowerLimit_[i] = DCMolesDBR_[i];
-        // DCMoles_[i] = 0.0;
-        DCUpperLimit_[i] = DCMoles_[i];
-        DCLowerLimit_[i] = DCMoles_[i];
-      }
-      else {
-        totCharge += DCMoles_[i] * DCCharge_[i];
-        for (j = 0; j < numICs1; j++) {
-          ICMoles[j] += DCMoles_[i] * getDCStoich(i, j);
-        }
-        DCLowerLimit_[i] = 0.0;
-      }
-      // if (cyc == 0)
-      //   cout << "    i = " << setw(3) << right << i << "  :  "
-      //        << DCClassCode_[i] << " / " << DCMoles_[i] << " / " << DCLowerLimit_[i] << " / "
-      //        << DCUpperLimit_[i] << " / " << DCName_[i]  << endl;
-    }
-
-    // check charge balance i.e. the value of ICMoles_[numICs_- 1]
-    if (abs(totCharge) > 0.0) {
-      int dcId;
-      if (totCharge > 0) {
-        dcId = getDCId("OH-");
-      } else {
-        dcId = getDCId("H+");
-      }
-      DCMoles_[dcId] += totCharge;
-    }
-
-    // All ICMoles_, excepting ICMoles_[numICs_- 1] (electric charge),
-    // must be greater than thr (initial: thr = ICTHRESH = 1.0e-8)
-
-    ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
-    for (i = 0; i < numICs1; i++) {
-      if (ICMoles[i] < thr) // ICTHRESH)
-        ICMoles_[i] = thr;  // ICTHRESH;
-    }
-
     // cout << endl << ">>>>> test ICs for cyc = " << cyc << "  :" << endl;
     // writeICMoles();
 
@@ -2834,9 +2978,18 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
                << setprecision(3) << thr << setprecision(15) << endl;
           throw GEMException("ChemicalSystem", "calculateSI", msg);
         }
+
+        // totCharge = 0.0;
+        ICMoles.clear();
+        ICMoles.resize(numICs_, 0.0);
+        ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+        for (i = 0; i < numICs1; i++) {
+          if (ICMoles[i] < thr) // ICTHRESH)
+            ICMoles_[i] = thr;  // ICTHRESH;
+        }
       }
     } else {
-      cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
+      cout << endl << "    ChemicalSystem::calculateSI - cyc = " << cyc
            << " : GEM_run OK  -> nodeStatus_ = " << nodeStatus_
            << " for thr (i.e. ICTHRESH) = " << setprecision(3)
            << thr << setprecision(15)<<endl;
@@ -2850,29 +3003,29 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
     //                  &specificSurfaceArea_[0], &pSolidStoich_[0]);
   } // while
 
-  double aveSI = 0.0;
   // double moles = 0.0;
   // double totMoles = 0.0;
-  // double molesSolute = 0.0;
+  double aveSI = 0.0;
   int size;
 
-  cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
-       << " - from GEM phases (to use for next cycle)" // :"
-       << endl;
+  // cout << "    ChemicalSystem::calculateSI - cyc = " << cyc
+  //      << " - from GEM phases (to use for next cycle)" // :"
+  //      << endl;
   int phId;
   for (int i = FIRST_SOLID; i < numMicroPhases_; ++i) {
-    aveSI = 0.0; // totMoles = 0.0;
+    // totMoles = 0.0;
+    aveSI = 0.0; 
     size = microPhaseMembers_[i].size();
-    // cout << "      mPhId/mPhName = " << i << " / " << microPhaseName_[i]
-    //      << " : " << endl;
+    // cout << endl << "      mPhId/mPhName/size = " << i
+    //      << " / " << setw(15) << left << microPhaseName_[i]
+    //      << " / " << setw(3) << right << size << " : " << endl;
 
     for (int j = 0; j < size; ++j) {
       phId = microPhaseMembers_[i][j]; // microPhasePhMembers[i];
       // moles = node_->Ph_Mole(phId);
-      // molesSolute = solutPhaseMoles_[phId];
-      // cout << "          phId/Ph_SatInd/GEMPhaseName/moles/molesSolute = " << phId << " / "
+      // cout << "          phId/Ph_SatInd/GEMPhaseName/moles = " << phId << " / "
       //      << node_->Ph_SatInd(phId)  << " / " << GEMPhaseName_[phId] << " / "
-      //      << moles  << " / " << molesSolute << endl;
+      //      << moles  << endl;
       aveSI += pow(10, node_->Ph_SatInd(phId));
       // totMoles += moles;
     }
@@ -2880,19 +3033,18 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
     microPhaseSI_[i] = aveSI;
 
     // cout << "        mPhId/mPhName = " << setw(3) << right << i
-    //      << " / " << setw(15) << left << microPhaseName_[i] << " :  totMoles/aveSI = "
-    //      << totMoles << " / " << aveSI << endl;
+    //      << " / " << setw(15) << left << microPhaseName_[i]
+    //      << " :  totMoles/aveSI = " << totMoles << " / " << aveSI << endl;
   } // from GEM phases
 
   // reset ICMoles_ to 0
   for (int i = 0; i < numICs_; i++)
     ICMoles_[i] = 0.0;
 
-  // reset DCMoles_, DCUpperLimit_ & DCLowerLimit_ to their initial values
+  // reset DCUpperLimit_ & DCLowerLimit_ to their initial values
   for (int i = 0; i < numDCs_; i++) {
-    // DCMoles_[i] = iniDCMoles[i];
-    DCUpperLimit_[i] = 1.0e6;
-    DCLowerLimit_[i] = 0;
+    DCUpperLimit_[i] = locDCUpperLimit[i];
+    DCLowerLimit_[i] = locDCLowerLimit[i];
   }
 }
 
@@ -3484,7 +3636,151 @@ void ChemicalSystem::initColorMap(void) {
   colorN_["Periclase"].rgb.push_back(128);
   colorN_["Periclase"].gray = 220; // as Alite
 
-  colorN_["DAMAGE"].colorId = 38; // always last microphase
+  // *** ini for PC-FlyAsh-200
+
+  colorN_["C3AH6"].colorId = 38;
+  colorN_["C3AH6"].altName = "C3AH6";
+  colorN_["C3AH6"].rgb.push_back(244);
+  colorN_["C3AH6"].rgb.push_back(70);
+  colorN_["C3AH6"].rgb.push_back(203);
+  colorN_["C3AH6"].gray = 106; // as AFm
+
+  colorN_["C4AH11"].colorId = 39;
+  colorN_["C4AH11"].altName = "C4AH11";
+  colorN_["C4AH11"].rgb.push_back(244);
+  colorN_["C4AH11"].rgb.push_back(70);
+  colorN_["C4AH11"].rgb.push_back(203);
+  colorN_["C4AH11"].gray = 106; // as AFm
+
+  colorN_["C4AH13"].colorId = 40;
+  colorN_["C4AH13"].altName = "C4AH13";
+  colorN_["C4AH13"].rgb.push_back(244);
+  colorN_["C4AH13"].rgb.push_back(70);
+  colorN_["C4AH13"].rgb.push_back(203);
+  colorN_["C4AH13"].gray = 106; // as AFm
+
+  colorN_["C4AH19"].colorId = 41;
+  colorN_["C4AH19"].altName = "C4AH19";
+  colorN_["C4AH19"].rgb.push_back(244);
+  colorN_["C4AH19"].rgb.push_back(70);
+  colorN_["C4AH19"].rgb.push_back(203);
+  colorN_["C4AH19"].gray = 106; // as AFm
+
+  colorN_["C4Ac0.5H105"].colorId = 42;
+  colorN_["C4Ac0.5H105"].altName = "C4Ac0.5H105, (DC)hemicarb10.5";
+  colorN_["C4Ac0.5H105"].rgb.push_back(250);
+  colorN_["C4Ac0.5H105"].rgb.push_back(198);
+  colorN_["C4Ac0.5H105"].rgb.push_back(220);
+  colorN_["C4Ac0.5H105"].gray = 108; // as AFm-c
+
+  colorN_["C4Ac0.5H12"].colorId = 43;
+  colorN_["C4Ac0.5H12"].altName = "C4Ac0.5H12, (DC)hemicarb";
+  colorN_["C4Ac0.5H12"].rgb.push_back(250);
+  colorN_["C4Ac0.5H12"].rgb.push_back(198);
+  colorN_["C4Ac0.5H12"].rgb.push_back(220);
+  colorN_["C4Ac0.5H12"].gray = 108; // as AFm-c
+
+  colorN_["C4Ac0.5H9"].colorId = 44;
+  colorN_["C4Ac0.5H9"].altName = "C4Ac0.5H9, (DC)hemicarb9";
+  colorN_["C4Ac0.5H9"].rgb.push_back(250);
+  colorN_["C4Ac0.5H9"].rgb.push_back(198);
+  colorN_["C4Ac0.5H9"].rgb.push_back(220);
+  colorN_["C4Ac0.5H9"].gray = 108; // as AFm-c
+
+  colorN_["C4AcH11"].colorId = 45;
+  colorN_["C4AcH11"].altName = "C4AcH11, (DC)monocarb";
+  colorN_["C4AcH11"].rgb.push_back(250);
+  colorN_["C4AcH11"].rgb.push_back(198);
+  colorN_["C4AcH11"].rgb.push_back(220);
+  colorN_["C4AcH11"].gray = 108; // as AFm-c
+
+  colorN_["C4AcH9"].colorId = 46;
+  colorN_["C4AcH9"].altName = "C4AcH9, monocarb9";
+  colorN_["C4AcH9"].rgb.push_back(250);
+  colorN_["C4AcH9"].rgb.push_back(198);
+  colorN_["C4AcH9"].rgb.push_back(220);
+  colorN_["C4AcH9"].gray = 108; // as AFm-c
+
+  colorN_["C6AsH13"].colorId = 47;
+  colorN_["C6AsH13"].altName = "Ettringite, C6AsH13, (DC)ettr13";
+  colorN_["C6AsH13"].rgb.push_back(127);
+  colorN_["C6AsH13"].rgb.push_back(0);
+  colorN_["C6AsH13"].rgb.push_back(255);
+  colorN_["C6AsH13"].gray = 113; // as AFt
+
+  colorN_["C6AsH9"].colorId = 48;
+  colorN_["C6AsH9"].altName = "Ettringite, C6AsH9, (DC)ettr9";
+  colorN_["C6AsH9"].rgb.push_back(127);
+  colorN_["C6AsH9"].rgb.push_back(0);
+  colorN_["C6AsH9"].rgb.push_back(255);
+  colorN_["C6AsH9"].gray = 113; // as AFt
+
+  colorN_["SO4_CO3_AFt"].colorId = 49;
+  colorN_["SO4_CO3_AFt"].altName = "Ettringite, SO4_CO3_AFt, (DC)tricarb03, (DC)ettr03_ss";
+  colorN_["SO4_CO3_AFt"].rgb.push_back(127);
+  colorN_["SO4_CO3_AFt"].rgb.push_back(0);
+  colorN_["SO4_CO3_AFt"].rgb.push_back(255);
+  colorN_["SO4_CO3_AFt"].gray = 113; // as AFt
+
+  colorN_["ettr"].colorId = 50;
+  colorN_["ettr"].altName = "Ettringite, ettr, (DC)ettr, (DC)ettr30";
+  colorN_["ettr"].rgb.push_back(127);
+  colorN_["ettr"].rgb.push_back(0);
+  colorN_["ettr"].rgb.push_back(255);
+  colorN_["ettr"].gray = 113; // as AFt
+
+  colorN_["ettr-AlFe"].colorId = 51;
+  colorN_["ettr-AlFe"].altName = "Ettringite, ettr-AlFe, (DC)ettr05, (DC)Fe-ettr05";
+  colorN_["ettr-AlFe"].rgb.push_back(127);
+  colorN_["ettr-AlFe"].rgb.push_back(0);
+  colorN_["ettr-AlFe"].rgb.push_back(255);
+  colorN_["ettr-AlFe"].gray = 113; // as AFt
+
+  colorN_["C4AsH105"].colorId = 52;
+  colorN_["C4AsH105"].altName = "Sulfoaluminate, C4AsH105, (DC)monosulf10.5";
+  colorN_["C4AsH105"].rgb.push_back(152);
+  colorN_["C4AsH105"].rgb.push_back(93);
+  colorN_["C4AsH105"].rgb.push_back(175);
+  colorN_["C4AsH105"].gray = 106; // Monosulfate
+
+  colorN_["C4AsH12"].colorId = 53;
+  colorN_["C4AsH12"].altName = "Sulfoaluminate, C4AsH12, (DC)monosulf12";
+  colorN_["C4AsH12"].rgb.push_back(152);
+  colorN_["C4AsH12"].rgb.push_back(93);
+  colorN_["C4AsH12"].rgb.push_back(175);
+  colorN_["C4AsH12"].gray = 106; // Monosulfate
+
+  colorN_["C4AsH14"].colorId = 54;
+  colorN_["C4AsH14"].altName = "Sulfoaluminate, C4AsH14, (DC)monosulf14";
+  colorN_["C4AsH14"].rgb.push_back(152);
+  colorN_["C4AsH14"].rgb.push_back(93);
+  colorN_["C4AsH14"].rgb.push_back(175);
+  colorN_["C4AsH14"].gray = 106; // Monosulfate
+
+  colorN_["C4AsH16"].colorId = 55;
+  colorN_["C4AsH16"].altName = "Sulfoaluminate, C4AsH16, (DC)monosulf16";
+  colorN_["C4AsH16"].rgb.push_back(152);
+  colorN_["C4AsH16"].rgb.push_back(93);
+  colorN_["C4AsH16"].rgb.push_back(175);
+  colorN_["C4AsH16"].gray = 106; // Monosulfate
+
+  colorN_["C4AsH9"].colorId = 56;
+  colorN_["C4AsH9"].altName = "Sulfoaluminate, C4AsH9, (DC)monosulf9";
+  colorN_["C4AsH9"].rgb.push_back(152);
+  colorN_["C4AsH9"].rgb.push_back(93);
+  colorN_["C4AsH9"].rgb.push_back(175);
+  colorN_["C4AsH9"].gray = 106; // Monosulfate
+
+  colorN_["monosulf-AlFe"].colorId = 57;
+  colorN_["monosulf-AlFe"].altName = "Sulfoaluminate, monosulf-AlFe, (DC)monosulf1205, (DC)Fe-monosulf05";
+  colorN_["monosulf-AlFe"].rgb.push_back(152);
+  colorN_["monosulf-AlFe"].rgb.push_back(93);
+  colorN_["monosulf-AlFe"].rgb.push_back(175);
+  colorN_["monosulf-AlFe"].gray = 106; // Monosulfate
+
+  // *** end for PC-FlyAsh-200
+
+  colorN_["DAMAGE"].colorId = 58 ; // always last microphase
   colorN_["DAMAGE"].altName = "DAMAGE";
   colorN_["DAMAGE"].rgb.push_back(255);
   colorN_["DAMAGE"].rgb.push_back(0);
@@ -4060,7 +4356,7 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
   return crystalStrain;
 }
 
-void ChemicalSystem::updateMicroPhaseMasses(int pid, double val, int called) {
+void ChemicalSystem::updateMicroPhaseMasses(int cyc, int pid, double val, int called) {
   int DCId = 0;
   if (pid > ELECTROLYTEID) {
     microPhaseMassDissolved_[pid] = microPhaseMass_[pid] - val;
@@ -4076,7 +4372,21 @@ void ChemicalSystem::updateMicroPhaseMasses(int pid, double val, int called) {
       exit(1);
     }
     // setMicroPhaseVolume(pid, (val * v0 / dcmm));
+
+    // if (cyc == 1804) { // check!
+    //   cout << endl << "updateMicroPhaseMasses() - cyc = " << cyc << " / " << called
+    //        << " - before : pid = " << pid << "  &  microPhaseVolume_[pid] = "
+    //        << microPhaseVolume_[pid] << endl;
+    // }
+
     microPhaseVolume_[pid] = val * v0 / dcmm;
+
+    // if (cyc == 1804) { // check!
+    //   cout << "updateMicroPhaseMasses() - cyc/called = " << cyc << " / " << called
+    //        << " - after : pid = " << pid << "  &  microPhaseVolume_[pid] = "
+    //        << microPhaseVolume_[pid] << endl;
+    // }
+
     if (verbose_) {
       if (called == 0) {
         cout << "    ChemicalSystem::updateMicroPhaseMassess for pid = "
