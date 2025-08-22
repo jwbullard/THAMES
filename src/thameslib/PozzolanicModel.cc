@@ -260,8 +260,8 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
     if (!doTweak)
-      cout << "    PozzolanicModel::calculateKineticStep - "
-              "microPhaseId_/mPhName/SI : "
+      cout << "    PozzolanicModel::calculateKineticStep      - "
+              "microPhaseId_/mPhName/SI : "       
            << setw(3) << right << microPhaseId_ << " / "
            << setw(15) << left << name_ << " / "
            << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;

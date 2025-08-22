@@ -206,8 +206,8 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
     }
 
     if (!doTweak)
-      cout << "    ParrotKillohModel::calculateKineticStep - "
-              "microPhaseId_/mPhName/SI : "
+      cout << "    ParrotKillohModel::calculateKineticStep    - "
+              "microPhaseId_/mPhName/SI : "       
            << setw(3) << right << microPhaseId_ << " / "
            << setw(15) << left << name_ << " / "
            << chemSys_->getMicroPhaseSI(microPhaseId_)

@@ -453,7 +453,6 @@ void Controller::doCycle(double elemTimeInterval) {
   static double timestep = 0.0;
 
   int timeIndexIMG = 0;
-  // int timeIndexTXT = 0;
 
   int timesGEMFailed_loc = 0;
 
@@ -511,16 +510,14 @@ void Controller::doCycle(double elemTimeInterval) {
   int i = 0;
   int cyc = 0;
   int timeSize = time_.size();
+  double initialLastTime = time_[timeSize - 1];
 
   int lastGoodI = 0;
   lastGoodTime_ = 0.0;
   double currTime = 0.0;
 
   // Main computation cycle
-  // for (i = 0; (i < timeSize) &&
-  //             (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0.0);
-  //      ++i) {
-  while ((currTime < time_[time_.size() - 1]) &&
+  while ((currTime <= time_[timeSize - 1]) &&
          (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0)) {
 
     ///
@@ -529,7 +526,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
     if (timesGEMFailed_loc == 0) {
       lastGoodTime_ = currTime;
-      cout << endl << "timeVector - i/cyc/lastGoodI = "
+      cout << endl << "Controller::doCycle - vector time_ before next cycle - i/cyc/lastGoodI = "
            << i << " / " << cyc << " / " << lastGoodI
            << " : lastGoodTime_ = " << lastGoodTime_;
       if (i > 0) {
@@ -545,15 +542,13 @@ void Controller::doCycle(double elemTimeInterval) {
              << endl;
       }
     }
+
     i++;
 
-    // bool isFirst = (i == 0) ? true : false;
     bool isFirst = (cyc == 0) ? true : false;
+
     cyc++;
 
-    // new
-
-    // if (time_[i] < beginAttackTime_) {
     if (currTime < beginAttackTime_) {
       if (timesGEMFailed_loc > 0) {
       	// if the first call of GEMS returns an error,
@@ -567,36 +562,46 @@ void Controller::doCycle(double elemTimeInterval) {
         if (timestep > 1.e-3) { // stepTimeTHR
          
           currTime -= timestep;
-          // time_[i] = lastGoodTime + timestep;
+
         } else {
         	
-          currTime = time_[i];
-          
-          // cout << endl << "changeValue for i= " << i
-          //      << " initial: time_[i] = " << time_[i]
-          //      << "   time_[i-1] = " << time_[i-1]
-          //      << "   time_[i+1] = " << time_[i+1]
-          //      << "   size = " << time_.size()
-          //      << "   time_[time_.size() - 1] = " << time_[time_.size() - 1]
-          //      << endl;
-          
-          time_.erase(time_.begin() + (i - 1));
-          
-          timestep = currTime - lastGoodTime_; // - time_[i - 1];
+          if (i < timeSize) {
+            currTime = time_[i];
+
+            time_.erase(time_.begin() + (i - 1));
+            timeSize = time_.size();
+
+            timestep = currTime - lastGoodTime_;
+          } else {
+            cout << endl
+                 << endl
+                 << endl
+                 << "##### Controller::doCycle - START NEW CYCLE - "
+                    "CHANGE TIME NOT POSSIBLE #####"
+                 << endl;
+            cout << endl << "##### i/timeSize/lastGoodTime_/initialLastTime/currTime : "
+                 << i << " / " << timeSize << " / " << lastGoodTime_ << " / "
+                 << initialLastTime << " / " << currTime
+                 << " (time in hours) #####"
+                 << endl;
+            break;
+            // throw EOBException("Controller", "doCycle - 1", "time_", timeSize, i);
+          }
         }
 
         dissTimeInterval = currTime - lastGoodTime_;
 
-        cout << "Controller::doCycle GEMFailed (" << timesGEMFailed_loc
+        cout << endl
+             << "Controller::doCycle GEM failed (" << timesGEMFailed_loc
              << " times) - i/cyc = " << i << " / " << cyc
-             << "  =>  START NEW CYCLE change time_[i] - lastGoodI/lastGoodTime_/"
-                "time_[i]/currTime: "
+             << "  =>  START NEW CYCLE - change time_[i] - lastGoodI/lastGoodTime_/"
+                "time_[i]/currTime         : "
              << lastGoodI << " / " << lastGoodTime_ << " / " << time_[i] << " / "
              << currTime << endl;
-        cout << "      doCycle GEMFailed (" << timesGEMFailed_loc
+        cout << "Controller::doCycle GEM failed (" << timesGEMFailed_loc
              << " times) - i/cyc = " << i << " / " << cyc
-             << "  =>  START NEW CYCLE change time_[i] - lastGoodI/lastGoodTime_/"
-                "old_timestep/new_timestep: "
+             << "  =>  START NEW CYCLE - change time_[i] - lastGoodI/lastGoodTime_/"
+                "old_timestep/new_timestep : "
              << lastGoodI << " / " << lastGoodTime_ << " / " << old_timestep << " / "
              << timestep << endl;
 
@@ -605,37 +610,45 @@ void Controller::doCycle(double elemTimeInterval) {
       	//   step is computed as the difference between the next computation time
       	//   value and the time corresponding to the previous step 
 
-        currTime = time_[i - 1];
+        if (i - 1 < timeSize) {
+          currTime = time_[i - 1];
 
-        timestep = currTime - lastGoodTime_;
+          timestep = currTime - lastGoodTime_;
 
-        dissTimeInterval = timestep;
+          dissTimeInterval = timestep;
 
-        cout << endl
-             << endl
-             << endl
-             << "##### Controller::doCycle  START NEW CYCLE   "
-                "i/cyc/time[i+1]/time_[i]/time_[i-1]/currTime/timestep/: "
-             << i << " / " << cyc << " / "
-             << time_[i + 1] << " / " <<    time_[i] << " / " << time_[i - 1] << " / "
-             << currTime << " / " << timestep
-             << " (time in hours) #####"
-             << endl;
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE   "
+                  "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
+               << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
+               << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
+               << endl;
+        } else {
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE : "
+                  "ALL TIME VALUES HAVE BEEN USED !  #####"
+               << endl;
+          cout << endl << "##### i/timeSize/lastGoodTime_/initialLastTime/currTime : "
+               << i << " / " << timeSize << " / " << lastGoodTime_ << " / " << initialLastTime
+               << " / " << currTime
+               << " (time in hours) #####"
+               << endl;
+          break;
+          // throw EOBException("Controller", "doCycle - 0", "time_", timeSize, i - 1);
+        }
+
       }
-    } else { // check! for SA : dissTimeInterval?/currTime?
-      timestep = time_[i] - time_[i - 1];
-      cout << endl
-           << endl
-           << endl
-           << "##### Controller::doCycle  START NEW CYCLE - SA   "
-              "i/cyc/time_[i]/time_[i-1]/timestep: "
-           << i << " / " << cyc << " / " << time_[i] << " / " << time_[i - 1]
-           << " / " << timestep << " (time in hours) #####" << endl;
-
+    } else { // for SA
       if (timesGEMFailed_loc > 0) {
         cout << endl
-             << ">>>>> Controller::doCycle - SA - i/cyc/time_[i]/currTime : " << i
-             << " / " << cyc << " / " << time_[i] << " / " << currTime << endl;
+             << ">>>>> Controller::doCycle - SA - timesGEMFailed_loc > 0 "
+                "=> i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
+             << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
+             << lastGoodTime_ << " / " << timestep << endl;
         cout << endl
              << ">>>>> \"normal exit\" (for now!) under sulfate attack "
                 "conditions"
@@ -644,6 +657,20 @@ void Controller::doCycle(double elemTimeInterval) {
         bool is_Error = false;
         throw MicrostructureException(
             "Controller", "doCycle", "SA - first GEM_run failed (0)", is_Error);
+      } else {
+        currTime = time_[i - 1];
+
+        timestep = currTime - lastGoodTime_;
+
+        dissTimeInterval = timestep;
+        cout << endl
+             << endl
+             << endl
+             << "##### Controller::doCycle  START NEW CYCLE - SA  "
+                "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
+             << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
+             << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
+             << endl;
       }
     }
 
@@ -655,8 +682,6 @@ void Controller::doCycle(double elemTimeInterval) {
     /// runs all the major steps of a computational cycle
 
     try {
-
-      // chemSys_->initDCLowerLimit(0.0);
 
       cout << endl // check!
            << "test_calculateState_ini - i/cyc/currTime/timesGEMFailed_loc: "
@@ -671,17 +696,17 @@ void Controller::doCycle(double elemTimeInterval) {
            << i << " / " << cyc << " / " << currTime << " / " << timesGEMFailed_loc
            << endl;
 
-      if (timesGEMFailed_loc > 0) { // check!
-        if (currTime < beginAttackTime_) {  // check!
+      if (timesGEMFailed_loc > 0) {
+        if (currTime < beginAttackTime_) {
           cout << endl
-               << "  Controller::doCycle GEM_run failed "
+               << "Controller::doCycle GEM_run failed "
                   "i/cyc/time[i]/currTime/getTimesGEMFailed_loc : "
                << i << " / " << cyc << " / " << time_[i] << " / "
                << currTime << " / " << timesGEMFailed_loc << endl;
           continue;
-        } else { // check!
+        } else {
           cout << endl
-               << "  Controller::doCycle => SA - first GEM_run failed "
+               << "Controller::doCycle => SA - first GEM_run failed "
                   "i/cyc/time[i]/currTime/getTimesGEMFailed_loc : "
                << i << " / " << cyc << " / " << time_[i] << " / "
                << currTime << " / " << timesGEMFailed_loc << endl;
@@ -696,9 +721,9 @@ void Controller::doCycle(double elemTimeInterval) {
               "Controller", "doCycle", "SA - first GEM_run failed (1)", is_Error);
         }
       } else {
-        // time_[i - 1] = currTime;
+
         cout << endl
-             << "  Controller::doCycle GEM_run OK "
+             << "Controller::doCycle GEM_run OK "
                 "i/cyc/time[i]/currTime/getTimesGEMFailed_loc: "
              << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
              << timesGEMFailed_loc << endl;
@@ -730,7 +755,7 @@ void Controller::doCycle(double elemTimeInterval) {
     //    //**********************
     //    ...
     //
-    //   this old algorithm to search for a good time value into ten small intervals
+    //   this old algorithm to search for a good time value using ten small intervals
     //   has been replaced by another one and moved into Controller::calculateState(...) 
     //
     //    ...
@@ -885,7 +910,7 @@ void Controller::doCycle(double elemTimeInterval) {
             updatePHId.clear();
             for (int ij = 0; ij < numSitesNotAvailableSize; ij++) {
 
-              phId = vectPhIdDiff[ij];
+              phId = vectPhIdDiff[ij]; // microPhase Id
 
               if (chemSys_->isKinetic(phId) && (time_[i] < beginAttackTime_)) {
                 // each KC microPhase must correspond to a single GEM phase and
@@ -1131,8 +1156,8 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // if (verbose_)
       cout << endl
-           << "Controller::doCycle - write microstructure files at i = " << i << " / time_[" << i
-           << "] = " << time_[i] << " / outputImageTime_[" << timeIndexIMG
+           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = " << i
+           << currTime << " / outputImageTime_[" << timeIndexIMG
            << "] = " << outputImageTime_[timeIndexIMG]
            << ", writeTime = " << writeTime << endl;
       //
@@ -1361,7 +1386,7 @@ void Controller::doCycle(double elemTimeInterval) {
         if (verbose_) {
           cout << "Controller::doCycle Sulfate attack module writing " << endl;
           cout << "Controller::doCycle lattice at time_[" << i
-               << "] = " << time_[i] << ", " << endl;
+               << "] = " << time_[i] << ", currTime = " << currTime << endl;
           cout << "controller::doCycle outputImageTime_[" << timeIndexIMG
                << "] = " << outputImageTime_[timeIndexIMG] << endl;
           cout.flush();
@@ -1386,7 +1411,7 @@ void Controller::doCycle(double elemTimeInterval) {
         // string timeString = timestrY + "y" + timestrD + "d" +
         //                     timestrH + "h" + timestrM + "m";
 
-        string curTimeString = getTimeString(time_[i]);
+        string curTimeString = getTimeString(currTime);
         ofileName = ofileName + "." + curTimeString + "." + tempstr + "K.img";
 
         ///
@@ -1417,7 +1442,7 @@ void Controller::doCycle(double elemTimeInterval) {
         /// microstructure, and then write the displacement field
         ///
 
-        thermalstr_->Calc(time_[i], ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        thermalstr_->Calc(currTime, ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
         // thermalstr_ -> writeStress(jobRoot_,time_[i],0); //write strxx
         // thermalstr_ -> writeStrainEngy(jobRoot_,time_[i]);
@@ -1685,6 +1710,12 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
 
     try {
 
+      cout << endl
+           << "  Controller::calculateState - enter  : currTime = " << currTime
+           << "   currTimeLoc = " << currTime
+           << "   timesGEMFailed = " << timesGEMFailed
+           << endl;
+
       timesGEMFailed = chemSys_->calculateState(currTime, updateDCId, updatePHId,
                                                 isFirst, cyc);
       if (verbose_) {
@@ -1708,13 +1739,13 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
     // if first call of GEMS returns an error, the dissolution time is modified 
     //   generating new values into a small interval centered on the initial value
     if (timesGEMFailed > 0) {
-      cout << endl << endl
-           <<"  Controller::calculateState - failed : currTime = " << currTime
-           << "   timesGEMFailed = " << timesGEMFailed
-           << "   ready to use RNG!"
-           << endl;
-
       double currTimeLoc = currTime;
+
+      cout << "  Controller::calculateState - failed : currTime = " << currTime
+           << "   currTimeLoc = " << currTimeLoc
+           << "   timesGEMFailed = " << timesGEMFailed
+           << "   =>   choose a new time arround currTime!"
+           << endl;
 
       double minTime = currTime - deltaTime_;
       if (abs(minTime - lastGoodTime_) > 1.e-3) {
@@ -1722,11 +1753,10 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
         double rNum;
         double timeStepLoc;
         int numTimesGEMFailed = 0;
-        cout << endl << endl
-             <<"    Controller::calculateState - failed : currTime = " << currTime
-             << "   currTimeLoc = " << currTimeLoc
-             << "   timesGEMFailed = " << timesGEMFailed
-             << "   ready to use RNG!"
+        cout << "  Controller::calculateState - failed : currTime = " << currTime
+             << " & abs(minTime - lastGoodTime_ = "
+             << abs(minTime - lastGoodTime_)
+             << "  => use RNG => WAIT..."
              << endl;
 
         // while (timesGEMFailed > 0 && timesGEMFailed  < 1000) {
@@ -1768,14 +1798,14 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
         }
 
         if (timesGEMFailed == 0) {
-          cout <<"    Controller::calculateState - solved: currTime = " << currTime
+          cout << "  Controller::calculateState - solved : currTime = " << currTime
                << "   currTimeLoc = " << currTimeLoc
                << "   timesGEMFailed = " << timesGEMFailed
                << "   numTimesGEMFailed = " << numTimesGEMFailed
                << endl;
           currTime = currTimeLoc;
         } else {
-          cout <<"    Controller::calculateState - not solved: currTime = " << currTime
+          cout << "  Controller::calculateState - not solved : currTime = " << currTime
                << "   currTimeLoc = " << currTimeLoc
                << "   timesGEMFailed = " << timesGEMFailed
                << "   numTimesGEMFailed = " << numTimesGEMFailed
@@ -1783,8 +1813,7 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
 
         }
       } else {
-        cout << endl << endl
-             <<"    ChemicalSystem::calculateState - failed : currTime = " << currTime
+        cout << "  ChemicalSystem::calculateState - failed : currTime = " << currTime
              << "   currTimeLoc = " << currTimeLoc
              << "   timesGEMFailed = " << timesGEMFailed
              << "   cannot use RNG!!! (abs(minTime - lastGoodTime_) = "
@@ -1792,8 +1821,7 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
              << endl;
       }
     } else {
-      cout << endl << endl
-           <<"  Controller::calculateState - OK without RNG: currTime = " << currTime
+      cout << "  Controller::calculateState - OK (did not use RNG) : currTime = " << currTime
            << "   currTimeLoc = " << currTime
            << "   timesGEMFailed = " << timesGEMFailed
            << endl;

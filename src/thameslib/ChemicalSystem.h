@@ -3009,29 +3009,11 @@ public:
     return;
   }
 
-  void checkICMolesM(void) {
-    int i, j;
-    std::vector<double> ICMoles;
-    ICMoles.resize(numICs_, 0.0);
+  /**
+  @brief Make sure that the electric charge is zero
 
-    for (j = 0; j < numDCs_; j++) {
-      for (i = 0; i < numICs_; i++) {
-
-        ICMoles[i] += (DCMoles_[j] - DCLowerLimit_[j]) * getDCStoich(j, i);
-      }
-    }
-    cout << endl << "ICMOLES :" << endl;
-    for (i = 0; i < numICs_; i++) {
-      cout << "   i = " << i << "  :  ICMoles[i] = " << ICMoles[i] << endl;
-    //   if (ICMoles[i] < ICTHRESH)
-    //     ICMoles_[i] = ICTHRESH;
-    //   if (i == numICs_ - 1) // This IC is always charge
-    //     ICMoles_[i] = 0.0;
-    }
-    return;
-  }
-
-  void checkICMolesT(int cyc) {
+  */
+  void compensateChargeMoles(int cyc) {
     int i, j;
     // bool test = false;
     std::vector<double> ICMoles;
@@ -3063,10 +3045,10 @@ public:
     //     // test = true;
     //   }
     // }
-    if (ICMoles[12] > 0) {
-      ICMoles_[12] = - abs(ICMoles[12]);
+    if (ICMoles[numICs_ - 1] > 0) {
+      ICMoles_[numICs_ - 1] = - abs(ICMoles[numICs_ - 1]);
     } else {
-      ICMoles_[12] = abs(ICMoles[12]);
+      ICMoles_[numICs_ - 1] = abs(ICMoles[numICs_ - 1]);
     }
     // cout << endl;
     // if (test) {
@@ -4145,6 +4127,11 @@ public:
     }
   }
 
+  /**
+  @brief Initialize the upper bound on a DC to a prescribed value
+
+  @param val is the upper bound to set for this DC (in scaled moles)
+  */
   void initDCUpperLimit(double val) {
     for (int i = 0; i < numDCs_; i++) {
       DCUpperLimit_[i] = val;
@@ -5707,6 +5694,7 @@ public:
   time)
   @return the node status handle
   */
+  // int calculateState(double time, bool isFirst, int cyc);
   int calculateState(double time, vector<int> updateDCId, vector<int> updatePHId,
                      bool isFirst, int cyc);
 

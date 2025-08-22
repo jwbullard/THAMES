@@ -2242,7 +2242,7 @@ int ChemicalSystem::calculateState(double time, vector<int> updateDCId,
     // testCyc70++;
     */
 
-    checkICMolesT(cyc);
+    compensateChargeMoles(cyc);
 
     bool doAttack = (time >= beginAttackTime_) ? true : false;
     if (doAttack) {
@@ -2615,9 +2615,6 @@ int ChemicalSystem::calculateState(double time, vector<int> updateDCId,
   /// Account for subvoxel porosity within each microstructure phase here
   /// We used to do this in the Lattice class but it is cleaner here
 
-  // double phi; // local variable to store subvoxel volume fraction of pores of
-              // a phase 0 <= phi <= 1
-
   for (int i = 1; i < numMicroPhases_; i++) {
     if (verbose_) {
       cout << "Setting microPhase amounts for " << i << " = "
@@ -2765,8 +2762,8 @@ int ChemicalSystem::calculateState(double time, vector<int> updateDCId,
   }
 
   if (initMicroVolume_ < microVolume_) {
-    cout << "  ChemicalSystem::calculateState - cyc = " << cyc
-         << " => initMicroVolume_ < microVolume_ : " << initMicroVolume_
+    cout << "    ChemicalSystem::calculateState - cyc = " << cyc
+         << " : initMicroVolume_ < microVolume_ : " << initMicroVolume_
          << " < " << microVolume_ << endl;
   }
 
@@ -2919,9 +2916,9 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
           dothrow = false;
           break;
         case ERR_GEM_AIA:
-          msg = "  ChemicalSystem::calculateSI - Failed result with auto initial "
+          msg = "     ChemicalSystem::calculateSI - Failed result with auto initial "
                 "approx (AIA) - ERR_GEM_AIA";
-          cout << endl << msg << " => nodeStatus_ = " << nodeStatus_ << endl;
+          cout << msg << " => nodeStatus_ = " << nodeStatus_ << endl;
           if (verbose_) {
             cerr << msg << ", GEMS failed - ERR_GEM_AIA" << endl;
           }
@@ -2973,7 +2970,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
         //      << " - change thr (i.e. ICTHRESH) to "
         //      << setprecision(3) << thr << setprecision(15) << endl;
         if (thr > limitICTHRESH) { // 1.0e-3
-          cout << endl << "    ChemicalSystem::calculateSI - cyc = " << cyc
+          cout << endl << "      ChemicalSystem::calculateSI - cyc = " << cyc
                << " - exit for thr (i.e. ICTHRESH limit) = "
                << setprecision(3) << thr << setprecision(15) << endl;
           throw GEMException("ChemicalSystem", "calculateSI", msg);
@@ -2989,18 +2986,12 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
         }
       }
     } else {
-      cout << endl << "    ChemicalSystem::calculateSI - cyc = " << cyc
+      cout << "       ChemicalSystem::calculateSI - cyc = " << cyc
            << " : GEM_run OK  -> nodeStatus_ = " << nodeStatus_
            << " for thr (i.e. ICTHRESH) = " << setprecision(3)
            << thr << setprecision(15)<<endl;
     }
 
-    // node_->GEM_to_MT(nodeHandle_, nodeStatus_, iterDone_, Vs_, Ms_, Gs_, Hs_,
-    //                  ionicStrength_, pH_, pe_, Eh_, &ICResiduals_[0],
-    //                  &ICChemicalPotential_[0], &DCMoles_[0], &DCActivityCoeff_[0],
-    //                  &solutPhaseMoles_[0], &solutPhaseVolume_[0],
-    //                  &solutPhaseMass_[0], &pSolutPhaseStoich_[0], &carrier_[0],
-    //                  &specificSurfaceArea_[0], &pSolidStoich_[0]);
   } // while
 
   // double moles = 0.0;

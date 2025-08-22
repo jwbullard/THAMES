@@ -1154,6 +1154,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
           chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
           chemSys_->setDCUpperLimit(DCId, keepNumDCMoles);
+
           if (verbose_) {
             cout << "    calculateKineticStep - "
                     "midx/DCId/DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
@@ -1309,8 +1310,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
     numDCMolesDissolved =
         (massDissolved - totMassImpurity) / chemSys_->getDCMolarMass(DCId);
     keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+
     chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
     chemSys_->setDCUpperLimit(DCId, keepNumDCMoles);
+
     cout << "      massDissolved/totMassImpurity/massDissolved - "
             "totMassImpurity "
             ": "

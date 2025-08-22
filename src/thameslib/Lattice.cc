@@ -1067,7 +1067,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
   // growth probabilities based on affinities
   vector<structGrowVect> growthVector;
   structGrowVect growStruct;
-  // vector<double> vectorAftyTest; // for tests
 
   int posProbVect = 0;
   double affSum = 0;
@@ -1084,7 +1083,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
       growStruct.posVect = i;
       growStruct.affinity = afty;
       growthVector.push_back(growStruct);
-      // vectorAftyTest.push_back(afty);
       site_[siteID].setInGrowthVectorPos(phaseID, posProbVect);
       posProbVect++;
     }
@@ -1203,7 +1201,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                 growStruct.posVect = j;
                 growStruct.affinity = afty;
                 growthVector.push_back(growStruct);
-                // vectorAftyTest.push_back(afty);
                 site_[isite[jj].getId()].setInGrowthVectorPos(phaseID,
                                                               posProbVect);
                 posProbVect++;
@@ -1321,14 +1318,12 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
           affSum -= growthVector[posGrPhId].affinity;
           if (posGrPhId != growthVectorSize - 1) {
             growthVector[posGrPhId] = growthVector[growthVectorSize - 1];
-            // vectorAftyTest[posGrPhId] = vectorAftyTest[growthVectorSize - 1];
             pos = growthVector[posGrPhId].posVect;
             phaseInGrowVect = growPhaseIDVect[pos];
             site_[growthVector[posGrPhId].id].setInGrowthVectorPos(
                 phaseInGrowVect, posGrPhId);
           }
           growthVector.pop_back();
-          // vectorAftyTest.pop_back(); // check!
           growthVectorSize--;
           ste->setInGrowthVectorPos(plist[j], -1);
           break;
@@ -1420,8 +1415,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
             if (posGrowVect != -1) {
               affSum += afty;
               growthVector[posGrowVect].affinity += afty;
-              // growthVector[posGrowVect].affinity = interface_[k].getAffinity(pos);
-              // vectorAftyTest[posGrowVect] = growthVector[posGrowVect].affinity;
             }
 
           } else {
@@ -1436,7 +1429,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                 growStruct.posVect = posVect;
                 growStruct.affinity = afty;
                 growthVector.push_back(growStruct);
-                // vectorAftyTest.push_back(afty);
                 stenb->setInGrowthVectorPos(phaseID, growthVectorSize);
                 growthVectorSize++;
               }
@@ -1466,7 +1458,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                   growStruct.posVect = kk;
                   growStruct.affinity = afty;
                   growthVector.push_back(growStruct);
-                  // vectorAftyTest.push_back(afty);
                   stenb->setInGrowthVectorPos(phaseTmpl, growthVectorSize);
                   growthVectorSize++;
                   break;
@@ -1644,7 +1635,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
             growStruct.posVect = i;
             growStruct.affinity = afty;
             growthVector.push_back(growStruct);
-            // vectorAftyTest.push_back(afty);
             site_[isite[jj].getId()].setInGrowthVectorPos(phaseID, posProbVect);
             posProbVect++;
           }
@@ -2385,7 +2375,6 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       dissStruct.id = stId;
       dissStruct.posVect = i;
       dissStruct.wmc = stWmc;
-      // dissStruct.prb = 0;
 
       dissolutionVector.push_back(dissStruct);
       // dissProbStruct(int id_i = 0, double instab_i = 0, int posVect_i = 0,
@@ -2428,7 +2417,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
   // int isitePosError = 0;
 
   int callGEM = -1;
-  // double sumTest;
+
   while ((numLeftTot > 0) && (dissolutionVectorSize >= 1)) {
     try {
       bcl++;
@@ -3332,9 +3321,11 @@ int Lattice::changeMicrostructure(double time, const int simtype,
     normalTRC++;
   } else {
     totalRecalls++;
+
     for (int i = 0; i < static_cast<int>(vectPhIdDiff.size()); i++){
       vectPhNumRecall[vectPhIdDiff[i]] = vectPhNumDiff[i];
     }
+
     vectPhNumDiff.clear();
     vectPhIdDiff.clear();
     vectPhNameDiff.clear();
