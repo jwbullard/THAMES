@@ -591,6 +591,7 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     for (int i = 0; i < numDCs; i++) {
       chemSys_->setDCMoles(i, 0.0);
       chemSys_->setDCLowerLimit(i, 0.0);
+      chemSys_->setDCUpperLimit(i, 1.0e6);
       // cout << "   " << i << "\t" << chemSys_->getDCMoles(i)
       //      << "\t" << chemSys_->getDCClassCode(i) << "\t" <<
       //      chemSys_->getDCName(i) << endl;
@@ -1361,6 +1362,7 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
             }
 
           } else {
+
             if (k == phaseID) {
               addGrowthSite(stenb, phaseID);
 
@@ -3201,7 +3203,7 @@ int Lattice::getIndex(int ix, int iy, int iz) const {
 int Lattice::changeMicrostructure(double time, const int simtype,
                                   vector<int> &vectPhNumDiff,
                                   vector<int> &vectPhIdDiff,
-                                  vector<string> &vectPhNameDiff, int repeat,
+                                  vector<string> &vectPhNameDiff, int recalls,
                                   int cyc) {
 
   // int i;
@@ -3215,12 +3217,23 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   vector<int> netsites(numMicroPhases_, 0);
   vector<string> phasenames;
 
-  static int totalTRC, normalTRC, totalRepeat;
+  vector<int> vectPhNumRecall(numMicroPhases_, 0);
+
+  static int totalTRC, normalTRC, totalRecalls;
   totalTRC++;
-  if (repeat == 0) {
+  if (recalls == 0) {
     normalTRC++;
   } else {
-    totalRepeat++;
+    totalRecalls++;
+
+    for (int i = 0; i < static_cast<int>(vectPhIdDiff.size()); i++){
+      if (chemSys_->getIsKinetic()[vectPhIdDiff[i]])
+        vectPhNumRecall[vectPhIdDiff[i]] = vectPhNumDiff[i];
+    }
+
+    vectPhNumDiff.clear();
+    vectPhIdDiff.clear();
+    vectPhNameDiff.clear();
   }
 
   // checkSite(8); cout << endl << " exit Lattice::changeMicrostructure " <<
@@ -3321,10 +3334,10 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   // But those two are not needed here anymore
 
   if (verbose_) {
-    cout << "Lattice::changeMicrostructure Calculating volume "
+    cout << endl << "Lattice::changeMicrostructure Calculating volume "
          << "of each phase to be added... cyc = " << cyc << endl;
     for (int i = 0; i < volNextSize; i++) {
-      cout << "Lattice::changeMicrostructure ****Volume fraction["
+      cout << "Lattice::changeMicrostructure **** i = " << i << "  Volume fraction["
            << phasenames[i] << "] in next state should be = " << vfrac_next[i];
       cout << ", or " << static_cast<int>(numSites_ * vfrac_next[i]) << " sites"
            << endl;
@@ -3634,8 +3647,14 @@ int Lattice::changeMicrostructure(double time, const int simtype,
         // exit(0);
       }
       cursites = count_[i];
-      newsites = ceil(numSites_ * vfrac_next[i]);
+
+      if (vectPhNumRecall[i] > 0) {
+        newsites = vectPhNumRecall[i];
+      } else {
+        newsites = ceil(numSites_ * vfrac_next[i]);
       // newsites = ceil((numSites_ - count_[0])  * vfrac_next[i]);
+      }
+
       netsites[i] = newsites - cursites;
       if (netsites[i] != 0) {
         cout << "  Lattice::changeMicrostructure ***for " << setw(15) << left
@@ -3688,11 +3707,11 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
   // cout << "  Lattice::changeMicrostructure netsites.size() = " <<
   // netsitesSize_
-  //      << " -> normalTRC/repeat (totalTRC/normalTRC/totalRepeat): " <<
+  //      << " -> normalTRC/recalls (totalTRC/normalTRC/totalRecalls): " <<
   //      normalTRC
-  //      << " / " << repeat << "   (" << totalTRC << " / " << normalTRC << " /
+  //      << " / " << recalls << "   (" << totalTRC << " / " << normalTRC << " /
   //      "
-  //      << totalRepeat << ")" << endl;
+  //      << totalRecalls << ")" << endl;
   cout << "  Lattice::changeMicrostructure - cyc = " << cyc
        << "  =>  number of phases to dissolve : " << setw(3) << right
        << dissPhaseIDVect.size() << endl;
@@ -3783,7 +3802,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
            << "   cyc / totalTRC / normalTRC : " << cyc << " / " << totalTRC
            << " / " << normalTRC << endl;
       cout << endl
-           << "   repeat / totalRepeat : " << repeat << " / " << totalRepeat
+           << "   recalls / totalRecalls : " << recalls << " / " << totalRecalls
            << endl;
       cout << endl << "   nucleatedPhases :" << endl;
       for (int i = 0; i < static_cast<int>(growPhaseIDVect.size()); i++) {
@@ -3892,7 +3911,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
          << "Lattice::changeMicrostructure error => totcount != numSites_ : "
          << totcount << " != " << numSites_ << endl;
     cout << "time,simtype : " << time << " , " << simtype << " , " << endl;
-    cout << "repeat  : " << repeat << endl;
+    cout << "recalls  : " << recalls << endl;
     cout << "cyc  : " << cyc << endl;
     cout << "stop program" << endl;
     exit(1);
@@ -3934,7 +3953,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
     // }
     // cout << endl
     //      << "  time, simtype : " << time << " , " << simtype << endl;
-    // cout << "  repeat  : " << repeat << endl;
+    // cout << "  recalls  : " << recalls << endl;
     // cout << "  cyc  : " << cyc << endl;
     // cout << "    no VOXEL-SCALE electrolyte in the system" << endl;
     // cout << "  no water in the system => normal end of the program" << endl;
@@ -4436,13 +4455,13 @@ double Lattice::getMaxPhasePoreDiameter(
 vector<double> Lattice::getPoreVolumeFractions(void) {
   // Get the volume fraction of the microstructure occupied
   // by internal pores of each phase
-  int numMicroPhases = volumeFraction_.size();
-  vector<double> pore_volfrac(numMicroPhases, 0.0);
+  // int numMicroPhases = volumeFraction_.size();
+  vector<double> pore_volfrac(numMicroPhases_, 0.0);
 
   // The variable phi will hold the "subvoxel" porosity of a phase
   double phi = 0.0;
 
-  for (int i = 0; i < numMicroPhases; ++i) {
+  for (int i = 0; i < numMicroPhases_; ++i) {
     phi = chemSys_->getMicroPhasePorosity(i);
     pore_volfrac[i] = volumeFraction_[i] * phi;
   }

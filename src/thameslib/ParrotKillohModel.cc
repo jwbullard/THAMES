@@ -171,7 +171,7 @@ ParrotKillohModel::ParrotKillohModel(ChemicalSystem *cs, Lattice *lattice,
 void ParrotKillohModel::calculateKineticStep(const double timestep,
                                              double &scaledMass,
                                              double &massDissolved, int cyc,
-                                             double totalDOR) {
+                                             double totalDOR, bool doTweak) {
 
   ///
   /// Initialize local variables
@@ -205,11 +205,13 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
       cout.flush();
     }
 
-    cout << "    ParrotKillohModel::calculateKineticStep    - microPhaseId_/mPhName/SI : "
-         << setw(3) << right << microPhaseId_ << " / "
-         << setw(15) << left << name_ << " / "
-         << chemSys_->getMicroPhaseSI(microPhaseId_)
-         << " (SI not used in PK model)" << endl;
+    if (!doTweak)
+      cout << "    ParrotKillohModel::calculateKineticStep    - "
+              "microPhaseId_/mPhName/SI : "       
+           << setw(3) << right << microPhaseId_ << " / "
+           << setw(15) << left << name_ << " / "
+           << chemSys_->getMicroPhaseSI(microPhaseId_)
+           << " (SI not used in PK model)" << endl;
 
     // RH factor is the same for all clinker phases
 
@@ -309,7 +311,7 @@ void ParrotKillohModel::calculateKineticStep(const double timestep,
       scaledMass = scaledMass_;
 
       if (verbose_) {
-        cout << "    ParrotKillohModel::calculateKineticStep "
+        cout << endl << "    ParrotKillohModel::calculateKineticStep "
                 "rate/wcFactor/massDissolved : "
              << rate << " / " << wcFactor << " / " << massDissolved << endl;
         cout << "  ****************** PKM_hT = " << timestep

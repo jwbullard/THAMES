@@ -417,8 +417,8 @@ class ChemicalSystem {
   double *solutPhaseVolume_;  /**< List of volume of each phase in the system */
   double *prevGEMPhaseMoles_; /**< List of moles of each phase in the system
                                       in the previous time step */
-  double *prevGEMPhaseMass_;  /**< List of mass of each phase in the system
-                                in the previous time step */
+  // double *prevGEMPhaseMass_;  /**< List of mass of each phase in the system
+  //                               in the previous time step */
   double *prevGEMPhaseVolume_;  /**< List of volume of each phase in the system
                                   in the previous time step */
   double *carrier_;             /**< List of moles of carrier (solvent) in
@@ -2998,14 +2998,63 @@ public:
         ICMoles[i] += (DCMoles_[j] - DCLowerLimit_[j]) * getDCStoich(j, i);
       }
     }
-
+    // cout << endl << "ICMOLES :" << endl;
     for (i = 0; i < numICs_; i++) {
+      // cout << "   i = " << i << "  :  ICMoles[i] = " << ICMoles[i] << endl;
       if (ICMoles[i] < ICTHRESH)
         ICMoles_[i] = ICTHRESH;
       if (i == numICs_ - 1) // This IC is always charge
         ICMoles_[i] = 0.0;
     }
     return;
+  }
+
+  /**
+  @brief Make sure that the electric charge is zero
+
+  */
+  void compensateChargeMoles() {
+    int i, j;
+    // bool test = false;
+    std::vector<double> ICMoles;
+    ICMoles.resize(numICs_, 0.0);
+
+    for (j = 0; j < numDCs_; j++) {
+      // if (DCMoles_[j] < DCLowerLimit_[j]) {
+      //   cout << endl
+      //        << "      ChemicalSystem::checkICMolesT() => "
+      //           "DCMoles_[j] < DCLowerLimit_[j] for cyc = "
+      //        << cyc << " : j = " << j << " :  DCMoles_/DCLowerLimit_ = "
+      //        << DCMoles_[j] << " / " << DCLowerLimit_[j]
+      //        << endl;
+      // }
+      for (i = 0; i < numICs_; i++) {
+        ICMoles[i] += (DCMoles_[j] - DCLowerLimit_[j]) * getDCStoich(j, i);
+      }
+    }
+    // cout << endl << "ICMOLES-T :" << endl;
+    // for (i = 0; i < numICs_; i++) {
+    //  //cout << "   i = " << i << "  :  ICMoles[i] = " << ICMoles[i] << endl;
+    //  if (ICMoles[i] < 0){
+    //  // if ((ICMoles[i] < 0) && (i != numICs_ - 1)){
+    //    cout << endl
+    //         << "      ChemicalSystem::checkICMolesT() => negative IC - cyc = "
+    //         << cyc << " : i = " << i << "  :  ICMoles[i] = " << ICMoles[i]
+    //         << endl;
+    //     // ICMoles_[i] += 1.e-2;
+    //     // test = true;
+    //   }
+    // }
+    if (ICMoles[numICs_ - 1] > 0) {
+      ICMoles_[numICs_ - 1] = - abs(ICMoles[numICs_ - 1]);
+    } else {
+      ICMoles_[numICs_ - 1] = abs(ICMoles[numICs_ - 1]);
+    }
+    // cout << endl;
+    // if (test) {
+    //   cout << endl << " negative IC : exit-0" << endl;
+    //   // exit(0);
+    // }
   }
 
   /**
@@ -3361,7 +3410,7 @@ public:
 
   */
   void setGEMPhaseMass(void) {
-    setPrevGEMPhaseMass();
+    // setPrevGEMPhaseMass();
     for (int i = 0; i < numGEMPhases_; i++) {
       GEMPhaseMass_[i] = static_cast<double>(node_->Ph_Mass(i) * 1000.0); // in g, not kg
     }
@@ -3422,27 +3471,27 @@ public:
   @param val is the mass to assign to that GEM phase in the previous time step
   [g]
   */
-  void setPrevGEMPhaseMass(const int idx, const double val) {
-    if (idx < numGEMPhases_) {
-      prevGEMPhaseMass_[idx] = val;
-    } else {
-      EOBException ex("ChemicalSystem", "setPrevGEMPhaseMass",
-                      "prevGEMPhaseMass_", numGEMPhases_, idx);
-      ex.printException();
-      exit(1);
-    }
-    return;
-  }
+  // void setPrevGEMPhaseMass(const int idx, const double val) {
+  //   if (idx < numGEMPhases_) {
+  //     prevGEMPhaseMass_[idx] = val;
+  //   } else {
+  //     EOBException ex("ChemicalSystem", "setPrevGEMPhaseMass",
+  //                     "prevGEMPhaseMass_", numGEMPhases_, idx);
+  //     ex.printException();
+  //     exit(1);
+  //   }
+  //   return;
+  // }
 
   /**
   @brief Set the mass of all GEM CSD phases in the previous time step [g].
 
   */
-  void setPrevGEMPhaseMass(void) {
-    for (int i = 0; i < numGEMPhases_; i++) {
-      prevGEMPhaseMass_[i] = GEMPhaseMass_[i];
-    }
-  }
+  // void setPrevGEMPhaseMass(void) {
+  //   for (int i = 0; i < numGEMPhases_; i++) {
+  //     prevGEMPhaseMass_[i] = GEMPhaseMass_[i];
+  //   }
+  // }
 
   /**
   @brief Get the mass of every GEM CSD phase in the system in the previous time
@@ -3453,7 +3502,7 @@ public:
   @return a pointer to the list of masses assigned to each GEM phase in the
   previous time step [g]
   */
-  double *getPrevGEMPhaseMass(void) const { return prevGEMPhaseMass_; }
+  // double *getPrevGEMPhaseMass(void) const { return prevGEMPhaseMass_; }
 
   /**
   @brief Get the mass of a GEM CSD phase (by id) in the previous time step [g].
@@ -3461,16 +3510,16 @@ public:
   @param idx is the GEM phase id to query
   @return the mass assigned to that GEM phase in the previous time step [g]
   */
-  double getPrevGEMPhaseMass(const int idx) {
-    if (idx < numGEMPhases_) {
-      return prevGEMPhaseMass_[idx];
-    } else {
-      EOBException ex("ChemicalSystem", "getPrevGEMPhaseMass",
-                      "prevGEMPhaseMass_", numGEMPhases_, idx);
-      ex.printException();
-      exit(1);
-    }
-  }
+  // double getPrevGEMPhaseMass(const int idx) {
+  //   if (idx < numGEMPhases_) {
+  //     return prevGEMPhaseMass_[idx];
+  //   } else {
+  //     EOBException ex("ChemicalSystem", "getPrevGEMPhaseMass",
+  //                     "prevGEMPhaseMass_", numGEMPhases_, idx);
+  //     ex.printException();
+  //     exit(1);
+  //   }
+  // }
 
   /**
   @brief Get the mass of a GEM CSD phase (by name) in the previous time step.
@@ -4075,6 +4124,17 @@ public:
   void initDCLowerLimit(double val) {
     for (int i = 0; i < numDCs_; i++) {
       DCLowerLimit_[i] = val;
+    }
+  }
+
+  /**
+  @brief Initialize the upper bound on a DC to a prescribed value
+
+  @param val is the upper bound to set for this DC (in scaled moles)
+  */
+  void initDCUpperLimit(double val) {
+    for (int i = 0; i < numDCs_; i++) {
+      DCUpperLimit_[i] = val;
     }
   }
 
@@ -5636,6 +5696,11 @@ public:
   */
   int calculateState(double time, bool isFirst, int cyc);
 
+  // used to check if all DCMoles_ have right values according to corresponding
+  //   DCUpperLimit_ & DCUpperLimit_
+  // int calculateState(double time, vector<int> updateDCId, vector<int> updatePHId,
+  //                    bool isFirst, int cyc);
+
   /**
   @brief Calculate the saturation indices of all microPhases in the system.
 
@@ -6318,6 +6383,86 @@ public:
     growingVect = growingVectSA_;
     shrinkingVect = shrinkingSA_;
     volRatiosVect = volRatiosSA_;
+  }
+
+  void writeICsDCs(void) {
+
+    int i, j;
+    std::vector<double> ICMoles;
+    ICMoles.resize(numICs_, 0.0);
+    std::vector<double> DCMoles;
+    DCMoles.resize(numDCs_, 0.0);
+    for (i = 0; i < numDCs_; i++) {
+      DCMoles[i] = DCMoles_[i];
+    }
+
+    std::vector<int> impurityDCID;
+    impurityDCID.clear();
+    impurityDCID.push_back(getDCId("K2O"));
+    impurityDCID.push_back(getDCId("Na2O"));
+    impurityDCID.push_back(getDCId("Per"));
+    impurityDCID.push_back(getDCId("SO3"));
+
+    double scMass;
+    int mPhId;
+    double massImpurity, totMassImpurity;
+
+    // cout << endl << "getIsDCKinetic: " << endl;
+    for (j = 0; j < numDCs_; j++) {
+      if (isDCKinetic_[j]) {
+        mPhId = getDC_to_MPhID(j);
+        scMass = getMicroPhaseMass(mPhId);
+
+        totMassImpurity = 0;
+
+        massImpurity = scMass * getK2o(mPhId);
+        totMassImpurity += massImpurity;
+        DCMoles[impurityDCID[0]] +=
+            massImpurity / getDCMolarMass("K2O");
+
+        massImpurity = scMass * getNa2o(mPhId);
+        totMassImpurity += massImpurity;
+        DCMoles[impurityDCID[1]] +=
+            massImpurity / getDCMolarMass("Na2O");
+
+        massImpurity = scMass * getMgo(mPhId);
+        totMassImpurity += massImpurity;
+        DCMoles[impurityDCID[2]] +=
+            massImpurity / getDCMolarMass("Per"); // MgO
+
+        massImpurity = scMass * getSo3(mPhId);
+        totMassImpurity += massImpurity;
+        DCMoles[impurityDCID[3]] +=
+            massImpurity / getDCMolarMass("SO3");
+
+        DCMoles[j] = (scMass - totMassImpurity) / getDCMolarMass(j);
+      }
+    }
+
+    for (j = 0; j < numDCs_; j++) {
+      for (i = 0; i < numICs_; i++) {
+        ICMoles[i] += DCMoles[j] * getDCStoich(j, i);
+      }
+    }
+
+    cout << endl
+         << "  writeICsDCs() => ICMoles :"
+         << endl;
+    for (i = 0; i < numICs_; i++) {
+      cout << "   i = " << setw(3) << right << i << " : "
+           << setw(4) << left << ICName_[i] << "  =>  "
+           << ICMoles[i] << endl;
+    }
+
+    cout << endl
+         << "  writeICsDCs() => DCMoles/DCMoles_/DCLowerLimit_/DCUpperLimit_ :"
+         << endl;
+    for (i = 0; i < numDCs_; i++) {
+      cout << "   i = " << setw(4) << right << i << " : "
+           << setw(18) << left << DCName_[i] << "  =>  "
+           << DCMoles[i] << " / " << DCMoles_[i] << " / "
+           << DCLowerLimit_[i] << " / " << DCUpperLimit_[i] << endl;
+    }
   }
 
 }; // End of ChemicalSystem class

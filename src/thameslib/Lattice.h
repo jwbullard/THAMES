@@ -1016,7 +1016,7 @@ public:
   can be dissolved is smaller than the number requested by the corresponding
   kinetic model
   @param vectPhNameDiff is the vector of names of microphases
-  @param repeat counts the number of changeMicrostructure calls for a given
+  @param recalls counts the number of changeMicrostructure calls for a given
   cycle (cyc)
   @param cyc (cycle) is the iteration number in main iteration loop in
   Controller::doCycle - each cycle corresponds to a time step
@@ -1028,7 +1028,7 @@ public:
                            std::vector<int> &vectPhNumDiff,
                            std::vector<int> &vectPhIdDiff,
                            std::vector<std::string> &vectPhNameDiff,
-                           int repeat, int cyc);
+                           int recalls, int cyc);
 
   /**
   @brief Adjust GEMS calculated volumes of microstructure phases

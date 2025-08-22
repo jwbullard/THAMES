@@ -147,7 +147,7 @@ PozzolanicModel::PozzolanicModel(ChemicalSystem *cs, Lattice *lattice,
 void PozzolanicModel::calculateKineticStep(const double timestep,
                                            double &scaledMass,
                                            double &massDissolved, int cyc,
-                                           double totalDOR) {
+                                           double totalDOR, bool doTweak) {
 
   ///
   /// Initialize local variables
@@ -259,10 +259,12 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     // double saturationIndex = solut_->getSI(GEMPhaseId_);
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
-    cout << "    PozzolanicModel::calculateKineticStep      - microPhaseId_/mPhName/SI : "
-         << setw(3) << right << microPhaseId_ << " / "
-         << setw(15) << left << name_ << " / "
-         << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
+    if (!doTweak)
+      cout << "    PozzolanicModel::calculateKineticStep      - "
+              "microPhaseId_/mPhName/SI : "       
+           << setw(3) << right << microPhaseId_ << " / "
+           << setw(15) << left << name_ << " / "
+           << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
 
     // activity of water
     double waterActivity = chemSys_->getDCActivity(chemSys_->getDCId("H2O@"));
@@ -340,6 +342,13 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
 
     scaledMass = scaledMass_ - massDissolved;
 
+    if (verbose_) {
+      cout << endl << "    PozzolanicModel::calculateKineticStep "
+              "rate/massDissolved/scaledMass_/scaledMass : "
+           << rate << " / " << massDissolved << " / " << scaledMass_ << " / "
+           << scaledMass << endl;
+    }
+
     if (scaledMass < 0) {
       massDissolved = scaledMass_;
       scaledMass = 0;
@@ -347,7 +356,7 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     scaledMass_ = scaledMass;
 
     if (verbose_) {
-      cout << "  ****************** PZM_hT = " << timestep << "\tcyc = " << cyc
+      cout << endl << "  ****************** PZM_hT = " << timestep << "\tcyc = " << cyc
            << "\tmicroPhaseId_ = " << microPhaseId_
            << "    microPhase = " << name_
            << "\tGEMPhaseIndex = " << GEMPhaseId_ << " ******************"

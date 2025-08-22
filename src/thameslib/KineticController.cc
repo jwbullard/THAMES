@@ -863,13 +863,13 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   if (doTweak) {
     // hyd_time = hydTimeIni_ + timestep;
-    if (verbose_) {
+    if (verbose_)
       cout << endl
            << "  KineticController::calculateKineticStep - tweak cyc = " << cyc
            << " :  hyd_time = " << hyd_time
            << "   hydTimeIni_ = " << hydTimeIni_ << "   timestep = " << timestep
            << endl;
-    }
+
     for (int midx = 0; midx < pKMsize_; ++midx) {
       phaseDissolvedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
       chemSys_->setMicroPhaseMass(phaseDissolvedId[midx], scaledMassIni_[midx]);
@@ -1043,7 +1043,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
           /// "cement" components. It is intended for the Parrot-Killoh
           /// model usage.
           phaseKineticModel_[midx]->calculateKineticStep(
-              timestep, scaledMass, massDissolved, cyc, totalDOR);
+              timestep, scaledMass, massDissolved, cyc, totalDOR, doTweak);
 
           /// @note may want to change the condition of next block
           /// because it is possible for the scaled mass of a kinetic phase to
@@ -1062,8 +1062,14 @@ void KineticController::calculateKineticStep(double time, const double timestep,
             exit(0);
           }
 
-          chemSys_->updateMicroPhaseMasses(phaseDissolvedId[midx], scaledMass,
-                                           0);
+          // cout << "   cyc = " << cyc
+          //      << " : midx/phName/scaledMassIni_/scaledMass/massDissolved: "
+          //      << setw(3) << right << midx << " / "
+          //      << setw(15) << left << phaseKineticModel_[midx]->getName() << " / "
+          //      << scaledMassIni_[midx] << " / " << scaledMass << " / "
+          //      << massDissolved;
+
+          chemSys_->updateMicroPhaseMasses(phaseDissolvedId[midx], scaledMass, 0);
 
           if (verbose_) {
             cout << "New scaled mass = "
@@ -1108,11 +1114,46 @@ void KineticController::calculateKineticStep(double time, const double timestep,
           DCMoles_[impurityDCID_[3]] += dcmoles;
           impurity_SO3_[midx] = dcmoles;
 
-          numDCMolesDissolved = (massDissolved - totMassImpurity) /
-                                chemSys_->getDCMolarMass(DCId);
-          keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+          if (scaledMass > 0) {
+            numDCMolesDissolved = (massDissolved - totMassImpurity) /
+                                   chemSys_->getDCMolarMass(DCId);
+            keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+            if (keepNumDCMoles < 0) {
+              cout << endl
+                   << "KineticController::calculateKineticStep error for cyc = "
+                   << cyc << " : keepNumDCMoles < 0  !!!" << endl;
+              cout << "midx/DCId/DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
+                   << midx << " / " << DCId << " / " << DCMoles_[DCId] << " / "
+                   << numDCMolesDissolved << " / " << keepNumDCMoles << endl;
+              cout << "scaledMass/massDissolved/totMassImpurity/"
+                      "massDissolved - totMassImpurity : "
+                   << scaledMass << " / " << massDissolved << " / "
+                   << totMassImpurity << " / " << massDissolved - totMassImpurity
+                   << endl;
+              cout << endl << "end program" << endl;
+              exit(0);
+            }
+          } else if (scaledMass < 0) {
+            cout << endl
+                 << "KineticController::calculateKineticStep error for cyc = "
+                 << cyc << " : scaledMass < 0  i.e. scaledMass = " << scaledMass
+                 << "   massDissolved = " << massDissolved << endl;
+            cout << "   midx/phName/scaledMassIni_[midx] : " << midx << " / "
+                 << phaseKineticModel_[midx]->getName() << " / "
+                 << scaledMassIni_[midx] << endl;
+            cout << endl << "end program" << endl;
+            exit(0);
+          } else {
+            keepNumDCMoles = 0.0;
+          }
+
+          // cout << "   :   DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
+          //      <<  DCMoles_[DCId] << " / " << numDCMolesDissolved << " / "
+          //      << keepNumDCMoles << endl;
 
           chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
+          chemSys_->setDCUpperLimit(DCId, keepNumDCMoles);
+
           if (verbose_) {
             cout << "    calculateKineticStep - "
                     "midx/DCId/DCMoles_/numDCMolesDissolved/keepNumDCMoles : "
@@ -1268,7 +1309,10 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
     numDCMolesDissolved =
         (massDissolved - totMassImpurity) / chemSys_->getDCMolarMass(DCId);
     keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+
     chemSys_->setDCLowerLimit(DCId, keepNumDCMoles);
+    chemSys_->setDCUpperLimit(DCId, keepNumDCMoles);
+
     cout << "      massDissolved/totMassImpurity/massDissolved - "
             "totMassImpurity "
             ": "

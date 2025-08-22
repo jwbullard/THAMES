@@ -180,6 +180,10 @@ private:
   int numSites_;           /**< Total number of microStructure voxels */
   double initMicroVolume_; /**< Initial absolute volume of the microStructure */
 
+  double finalHydrationTime_;
+
+  double deltaTime_;
+  double lastGoodTime_;
 public:
   /**
   @brief The constructor.
@@ -251,7 +255,7 @@ public:
   @return the node status handle (from ChemicalSystem::calculateState)
   */
   // void calculateState(double time, double dt, bool isFirst, int cyc);
-  int calculateState(double time, double dt, bool isFirst, int cyc);
+  int calculateState(double &time, double dt, bool isFirst, int cyc);
 
   /**
   @brief Parse the input JSON file specifying Controller parameters to use.
