@@ -371,7 +371,7 @@ public:
 
   @param vol is the array of all microstructure phase volumes
   */
-  void calcSubvoxelPoreVolume(std::vector<double> &vol);
+  // void calcSubvoxelPoreVolume(std::vector<double> &vol);
 
   /**
   @brief Calculate the total volume of solids including
@@ -380,7 +380,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcSolidVolumeWithPores(std::vector<double> &vol);
+  // void calcSolidVolumeWithPores(std::vector<double> &vol);
 
   /**
   @brief Get the total volume of solids including
@@ -396,7 +396,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcNonSolidVolume(std::vector<double> &vol);
+  // void calcNonSolidVolume(std::vector<double> &vol);
 
   /**
   @brief Get or calculate the non-solid volume
@@ -1488,7 +1488,7 @@ public:
 
   @param vol is the volume of each microstructure phase
   */
-  void calcVoxelWaterVolume(std::vector<double> &vol);
+  // void calcVoxelWaterVolume(std::vector<double> &vol);
 
   /**
   @brief Get the voxel water volume

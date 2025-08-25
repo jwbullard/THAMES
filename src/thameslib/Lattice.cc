@@ -4002,13 +4002,14 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
   // which the subvoxel pore volume is calculated as well
 
   solidVolumeWithPores_ = 0.0;
-  for (i = 0; i < volSize; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID)
-      solidVolumeWithPores_ += vol[i];
-  }
-  if (solidVolumeWithPores_ <= 0.0)
-    throw DataException("Lattice", "adjustMicrostructureVolumes",
-                        "totvolume is NOT positive");
+  // for (i = 0; i < volSize; ++i) {
+  //   if (i != ELECTROLYTEID && i != VOIDID)
+  //     solidVolumeWithPores_ += vol[i];
+  // }
+
+  // if (solidVolumeWithPores_ <= 0.0)
+  //   throw DataException("Lattice", "adjustMicrostructureVolumes",
+  //                       "totvolume is NOT positive");
 
   // The current microstructure volume as predicted by GEMS
   // The initial microstructure volume is calculated the first
@@ -4019,11 +4020,20 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
 
   // Calculate the subvoxel pore volume
   subvoxelPoreVolume_ = 0.0;
-  for (i = 0; i < volSize; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
+  // for (i = 0; i < volSize; ++i) {
+  //   if (i != ELECTROLYTEID && i != VOIDID) {
+  //     subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
+  //   }
+  // }
+
+  for (i = FIRST_SOLID; i < volSize; ++i) {
+      solidVolumeWithPores_ += vol[i];
       subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
-    }
   }
+
+  if (solidVolumeWithPores_ <= 0.0)
+    throw DataException("Lattice", "adjustMicrostructureVolumes",
+                        "totvolume is NOT positive");
 
   double solidvolume = solidVolumeWithPores_ - subvoxelPoreVolume_;
   // microstructureVolume_ = chemSys_->getMicroVolume();
@@ -4185,7 +4195,7 @@ void Lattice::adjustMicrostructureVolFracs(vector<string> &names,
   return;
 }
 
-void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
+// void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
 
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
@@ -4197,19 +4207,19 @@ void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
 
   // This will hold the subvoxel pore volume (m3)
 
-  subvoxelPoreVolume_ = 0.0;
-  int size = vol.size();
+//   subvoxelPoreVolume_ = 0.0;
+//   int size = vol.size();
   // double phi; // Holds the subvoxel porosity of a microstructurephase
-  for (int i = 0; i < size; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
-    }
-  }
+//   for (int i = 0; i < size; ++i) {
+//     if (i != ELECTROLYTEID && i != VOIDID) {
+//       subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
+//     }
+//   }
 
   // The total amount of non-solid space in the microstructure
-}
+// }
 
-void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
+// void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
 
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
@@ -4221,24 +4231,24 @@ void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
 
   // This will hold the subvoxel pore volume (m3)
 
-  solidVolumeWithPores_ = 0.0;
-  int size = vol.size();
-  for (int i = 0; i < size; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      solidVolumeWithPores_ += vol[i];
-    }
-  }
-}
+//   solidVolumeWithPores_ = 0.0;
+//   int size = vol.size();
+//   for (int i = 0; i < size; ++i) {
+//     if (i != ELECTROLYTEID && i != VOIDID) {
+//       solidVolumeWithPores_ += vol[i];
+//     }
+//   }
+// }
 
-void Lattice::calcVoxelWaterVolume(vector<double> &vol) {
-  calcSubvoxelPoreVolume(vol);
-  voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
-  if (voxelWaterVolume_ < 0.0)
-    voxelWaterVolume_ = 0.0;
-  if (chemSys_->isSaturated()) {
-    voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
-  }
-}
+// void Lattice::calcVoxelWaterVolume(vector<double> &vol) {
+//   calcSubvoxelPoreVolume(vol);
+//   voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+//   if (voxelWaterVolume_ < 0.0)
+//     voxelWaterVolume_ = 0.0;
+//   if (chemSys_->isSaturated()) {
+//     voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+//   }
+// }
 
 // void Lattice::calcVoxelVoidVolume() {
 //   voxelPoreVolume_ = nonSolidVolume_ - subvoxelPoreVolume_;
