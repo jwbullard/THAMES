@@ -2781,7 +2781,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
     }
     else {
       // totCharge += DCMoles_[i] * DCCharge_[i];
-      for (j = 0; j < numICs1; j++) {
+      for (j = 0; j < numICs_; j++) {
         ICMoles[j] += DCMoles_[i] * getDCStoich(i, j);
       }
       DCLowerLimit_[i] = 0.0;
@@ -2795,11 +2795,12 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
 
   // All ICMoles_, excepting ICMoles_[numICs_- 1] (electric charge),
   // must be greater than thr (initial: thr = ICTHRESH = 1.0e-9)
-  ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+  // ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+  ICMoles_[numICs1] = - ICMoles[numICs1];
   for (i = 0; i < numICs1; i++) {
     if (ICMoles[i] < thr) // ICTHRESH)
       ICMoles_[i] = thr;  // ICTHRESH;
-  }
+  }  
 
   while (nodeStatus_ == ERR_GEM_AIA) {
     // cout << endl << ">>>>> test ICs for cyc = " << cyc << "  :" << endl;
@@ -2900,10 +2901,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
           throw GEMException("ChemicalSystem", "calculateSI", msg);
         }
 
-        // totCharge = 0.0;
-        ICMoles.clear();
-        ICMoles.resize(numICs_, 0.0);
-        ICMoles_[numICs1] = 0.0; // numICs1 = numICs_ - 1;
+        // all ICMoles, including charge, do not change
         for (i = 0; i < numICs1; i++) {
           if (ICMoles[i] < thr) // ICTHRESH)
             ICMoles_[i] = thr;  // ICTHRESH;

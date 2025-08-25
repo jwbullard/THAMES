@@ -3045,11 +3045,9 @@ public:
     //     // test = true;
     //   }
     // }
-    if (ICMoles[numICs_ - 1] > 0) {
-      ICMoles_[numICs_ - 1] = - abs(ICMoles[numICs_ - 1]);
-    } else {
-      ICMoles_[numICs_ - 1] = abs(ICMoles[numICs_ - 1]);
-    }
+
+    ICMoles_[numICs_ - 1] = - ICMoles[numICs_ - 1];
+
     // cout << endl;
     // if (test) {
     //   cout << endl << " negative IC : exit-0" << endl;
