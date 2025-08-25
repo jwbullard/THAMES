@@ -3013,7 +3013,7 @@ public:
   @brief Make sure that the electric charge is zero
 
   */
-  void compensateChargeMoles() {
+  void compensateChargeMoles(int cyc) {
     int i, j;
     // bool test = false;
     std::vector<double> ICMoles;
@@ -6218,7 +6218,7 @@ public:
   both calculateKineticStep and updateKineticStep methods, see the
   KineticController class documentation.
   */
-  void updateMicroPhaseMasses(int pid, double val, int called);
+  void updateMicroPhaseMasses(int cyc, int pid, double val, int called);
 
   /**
   @brief add a component to the isParrotKilloh_ vector

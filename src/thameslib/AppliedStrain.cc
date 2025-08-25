@@ -1058,7 +1058,6 @@ void AppliedStrain::relax(int kmax) {
       gg_ += (gb_[m][m3] * gb_[m][m3]);
     }
   }
-  cout.flush();
 
   for (int kkk = 0; kkk < kmax; kkk++) {
 

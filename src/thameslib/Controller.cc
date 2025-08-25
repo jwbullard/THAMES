@@ -1140,7 +1140,7 @@ void Controller::doCycle(double elemTimeInterval) {
     /// Calculate the pore size distribution and saturation
     ///
 
-    lattice_->calculatePoreSizeDistribution();
+    // lattice_->calculatePoreSizeDistribution();
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
     if ((timeIndexIMG < static_cast<int>(outputImageTime_.size())) &&
@@ -1168,6 +1168,7 @@ void Controller::doCycle(double elemTimeInterval) {
       if (xyz_)
         lattice_->appendXYZ(writeTime);
 
+      lattice_->calculatePoreSizeDistribution();
       lattice_->writePoreSizeDistribution(time_[i], curTimeString);
 
       timeIndexIMG++;
