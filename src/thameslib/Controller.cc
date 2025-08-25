@@ -1012,7 +1012,7 @@ void Controller::doCycle(double elemTimeInterval) {
             if (timesGEMFailed_recall > 0) {
               cout << "  Controller::doCycle - GEM_run failed for whileCount = "
                    << whileCount << endl;
-              cout.flush();
+              // cout.flush();
               timesGEMFailed_loc = timesGEMFailed_recall;
               testDiff = false;
               for (int iii = 0; iii < numSitesNotAvailableSize; iii++) {
@@ -1023,11 +1023,12 @@ void Controller::doCycle(double elemTimeInterval) {
                        << " / " << cyc << " / " << phId << " / " << iii
                        << "   =>   numSitesNotAvailable[iii] = "
                        << numSitesNotAvailable[iii] << endl;
-                  cout.flush();
+                  // cout.flush();
                   testDiff = true;
                   break;
                 }
               }
+              cout.flush();
               if (!testDiff) {
                 cout
                     << "Controller::doCycle - do not update the microstructure "
@@ -1137,7 +1138,7 @@ void Controller::doCycle(double elemTimeInterval) {
     /// Calculate the pore size distribution and saturation
     ///
 
-    lattice_->calculatePoreSizeDistribution();
+    // lattice_->calculatePoreSizeDistribution();
 
     // thrTimeToWriteLattice threshold ~ 1 minute i.e 0.0167 hours
     if ((timeIndexIMG < static_cast<int>(outputImageTime_.size())) &&
@@ -1165,6 +1166,7 @@ void Controller::doCycle(double elemTimeInterval) {
       if (xyz_)
         lattice_->appendXYZ(writeTime);
 
+      lattice_->calculatePoreSizeDistribution();
       lattice_->writePoreSizeDistribution(time_[i], curTimeString);
 
       timeIndexIMG++;

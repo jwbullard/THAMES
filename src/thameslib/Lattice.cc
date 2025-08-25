@@ -946,7 +946,7 @@ void Lattice::findInterfaces(void) {
     }
     cout << endl;
   }
-  cout.flush();
+
   /*
     {
       for (int i = 0; i < numMicroPhases_; i++) {
@@ -1650,7 +1650,6 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
       if ((site_[k].getMicroPhaseId() == VOIDID) &&
           (hasPorousSolidNeighbor(k, NUM_NEAREST_NEIGHBORS))) {
         voidNucSites.push_back(k);
-        cout.flush();
       }
     }
     sizeVS = voidNucSites.size();
@@ -1803,7 +1802,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
             cout << endl
                  << "pos/stenb->getInGrowInterfacePos(phaseID) : " << pos
                  << " / " << stenb->getInGrowInterfacePos(phaseID) << endl;
-            cout.flush();
+
             cout << endl << "stop program" << endl;
             exit(1);
           }
@@ -1836,7 +1835,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
                   cout << endl
                        << "stenb->getInGrowInterfacePos(phaseTmpl) : "
                        << stenb->getInGrowInterfacePos(phaseTmpl) << endl;
-                  cout.flush();
+
                   cout << endl << "stop program" << endl;
                   exit(1);
                 }
@@ -2159,7 +2158,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
             cout << endl
                  << "pos/stenb->getInGrowInterfacePos(phaseID) : " << pos
                  << " / " << stenb->getInGrowInterfacePos(phaseID) << endl;
-            cout.flush();
+
             cout << endl << "stop program" << endl;
             exit(1);
           }
@@ -2190,7 +2189,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
                   cout << endl
                        << "stenb->getInGrowInterfacePos(phaseTmpl) : "
                        << stenb->getInGrowInterfacePos(phaseTmpl) << endl;
-                  cout.flush();
+
                   cout << endl << "stop program" << endl;
                   exit(1);
                 }
@@ -2571,7 +2570,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       cout << endl
            << "steId pid dissolutionVectorSize :  " << ste->getId() << "   "
            << pid << "   " << dissolutionVectorSize << endl;
-      cout.flush();
+
       for (i = 0; i < dissPhaseIDVectSize; i++) {
         phaseID = dissPhaseIDVect[i];
         isite = interface_[phaseID].getDissolutionSites();
@@ -2805,6 +2804,7 @@ double Lattice::emptyPorosity(double aqFracToEmpty) {
   // What is the remaining volume fraction to remove?
   aqFracToEmpty -= aqFracEmptied;
   if (aqFracToEmpty > 0.0) {
+    calculatePoreSizeDistribution();
     double subVoxEmptied = emptySubVoxelPorosity(aqFracToEmpty);
     aqFracEmptied += subVoxEmptied;
     aqFracToEmpty -= subVoxEmptied;
@@ -2840,6 +2840,7 @@ double Lattice::emptySubVoxelPorosity(double aqFracToEmpty) {
 
 double Lattice::fillPorosity(double aqFracToFill, const int cyc) {
   // Start with the smallest unsaturated sub-voxel pores
+  calculatePoreSizeDistribution();
   double dNumsites = static_cast<double>(numSites_);
   double subVoxFilled = fillSubVoxelPorosity(aqFracToFill);
   aqFracToFill -= subVoxFilled;
@@ -3436,9 +3437,10 @@ int Lattice::changeMicrostructure(double time, const int simtype,
                // << "   -> phaseID: " << setw(3) << right
                // << chemSys_->getMicroPhaseId(phasenames[i])
                << endl;
-          cout.flush();
+          // cout.flush();
         }
       }
+      cout.flush();
       if (verbose_) {
         cout << "Lattice::changeMicrostructure Crystal-pressure "
              << "transform at time_ = " << time_ << endl;
@@ -3552,9 +3554,10 @@ int Lattice::changeMicrostructure(double time, const int simtype,
                  // << "   -> phaseID: " << setw(3) << right
                  // << chemSys_->getMicroPhaseId(phasenames[i])
                  << endl;
-            cout.flush();
+            // cout.flush();
           }
         }
+        cout.flush();
 
       } else {
         cout << endl
@@ -3667,9 +3670,10 @@ int Lattice::changeMicrostructure(double time, const int simtype,
              // << "   -> phaseID: " << setw(3) << right
              // << chemSys_->getMicroPhaseId(phasenames[i])
              << endl;
-        cout.flush();
+        // cout.flush();
       }
     }
+    cout.flush();
   }
 
   ///
@@ -3837,10 +3841,16 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   cout << endl
        << "  Lattice::changeMicrostructure - cyc = " << cyc
        << " :  numEmptyFill = " << numEmptyFill
+       // << "   aqFracToEmpty = " << aqFracToEmpty
        << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
        << endl;
-  cout.flush();
+  // cout.flush();
+
   double aqFracEmptied = changeSaturationState(aqFracToEmpty, cyc);
+
+  // cout << "   =>   aqFracEmptied = " << aqFracEmptied
+  //      << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
+  //      << endl;
 
   if (verbose_) {
     cout << "Lattice::changeMicrostructure ***netsites[" << phasenames[VOIDID]
@@ -4490,9 +4500,8 @@ vector<double> Lattice::setPSDiameters(void) {
   return (binnedDiams);
 }
 
-void Lattice::calcMasterPoreSizeDist(
-    const vector<double> histogramDiameters,
-    const vector<vector<struct PoreSizeData>> phasePoreSizeDist) {
+void Lattice::calcMasterPoreSizeDist(const vector<double> histogramDiameters,
+         const vector<vector<struct PoreSizeData>> phasePoreSizeDist) {
 
   int numHistogramDiameters = histogramDiameters.size();
   masterPoreSizeDist_.clear();
