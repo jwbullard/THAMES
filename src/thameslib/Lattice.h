@@ -43,14 +43,12 @@ struct structGrowVect {
   int id;
   int posVect;
   double affinity;
-  // double prb;
 };
 
 struct structDissVect {
   int id;
   int posVect;
   double wmc;
-  // double prb;
 };
 
 /**
@@ -62,13 +60,6 @@ sites.
 class Lattice {
 
 private:
-  // for tests
-  // double minLastD_, maxLastD_;
-  // int lt1D_, gt1D_;
-  // double minLastG_, maxLastG_;
-  // int lt1G_, gt1G_;
-  // double minRNG_, maxRNG_;
-
   std::string version_; /**< THAMES version for header information */
   std::string thamesVersion_;
   std::string jobRoot_; /**< The root name for output files */
@@ -380,7 +371,7 @@ public:
 
   @param vol is the array of all microstructure phase volumes
   */
-  void calcSubvoxelPoreVolume(std::vector<double> &vol);
+  // void calcSubvoxelPoreVolume(std::vector<double> &vol);
 
   /**
   @brief Calculate the total volume of solids including
@@ -389,7 +380,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcSolidVolumeWithPores(std::vector<double> &vol);
+  // void calcSolidVolumeWithPores(std::vector<double> &vol);
 
   /**
   @brief Get the total volume of solids including
@@ -405,7 +396,7 @@ public:
   @param vol is the array of all microstructure phase volumes
   it
   */
-  void calcNonSolidVolume(std::vector<double> &vol);
+  // void calcNonSolidVolume(std::vector<double> &vol);
 
   /**
   @brief Get or calculate the non-solid volume
@@ -1497,7 +1488,7 @@ public:
 
   @param vol is the volume of each microstructure phase
   */
-  void calcVoxelWaterVolume(std::vector<double> &vol);
+  // void calcVoxelWaterVolume(std::vector<double> &vol);
 
   /**
   @brief Get the voxel water volume
@@ -1941,13 +1932,6 @@ public:
       numRNGcall_0_ = 0;
     }
     lastRNG_ = rg_->Ran3();
-
-    // for tests
-    // if (lastRNG_ > maxRNG_)
-    //   maxRNG_ = lastRNG_;
-    // if (lastRNG_ < minRNG_)
-    //   minRNG_ = lastRNG_;
-
     return lastRNG_;
   }
 
@@ -2159,18 +2143,6 @@ public:
   conversion - generalize this for any phase transformation.
   */
   void createGrowingVectSA(void);
-
-  // for tests
-  // double getMaxLastD(void) { return maxLastD_; }
-  // double getMinLastD(void) { return minLastD_; }
-  // int getGt1D(void) { return gt1D_; }
-  // int getLt1D(void) { return lt1D_; }
-  // double getMaxLastG(void) { return maxLastG_; }
-  // double getMinLastG(void) { return minLastG_; }
-  // int getGt1G(void) { return gt1G_; }
-  // int getLt1G(void) { return lt1G_; }
-  // double getMaxRNG(void) { return maxRNG_; }
-  // double getMinRNG(void) { return minRNG_; }
 
 }; // End of Lattice class
 

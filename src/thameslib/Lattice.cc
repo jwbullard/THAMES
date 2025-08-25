@@ -5,8 +5,6 @@
 */
 #include "Lattice.h"
 
-// #include <numeric> // for tests // check!
-
 using std::cout; using std::endl;
 using std::string; using std::vector; using std::map;
 
@@ -41,18 +39,6 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   int idn;
   int pid;
   string msg;
-
-  // for tests // check!
-  // maxLastD_ = -100;
-  // minLastD_ = 100;
-  // lt1D_ = 0;
-  // gt1D_ = 0;
-  // maxLastG_ = -100;
-  // minLastG_ = 100;
-  // lt1G_ = 0;
-  // gt1G_ = 0;
-  // maxRNG_ = -100;
-  // minRNG_ = 100;
 
   chemSys_ = cs;
   rg_ = rg;
@@ -1220,30 +1206,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     // affAllPos - works with modified affinities in affinity_ table from
     // ChemicalSystem (all positives!)
 
-    /*
-    { // check!
-      int siteId, phaseId, interfacePos;
-      for (j = 0; j < growthVectorSize; j++) {
-        siteId = growthVector[j].id;
-        phaseId = growPhaseIDVect[growthVector[j].posVect];
-        interfacePos = site_[siteId].getInGrowInterfacePosVector()[phaseId];
-        // if (growthVector[j].affinity != interface_[phaseId].getAffinity(interfacePos)) {
-        if (growthVector[j].affinity < 0) {
-          cout << endl << "        Lattice::growPhase error - affinity - totalTRC = "
-               << totalTRC << "   bcl = " << bcl << "   j = "
-               << j <<  "   siteId = " << siteId << "   phaseId = "
-               << phaseId <<   "   interfacePos = " << interfacePos << endl;
-          cout << endl << "   growthVector[j].affinity = "
-               << growthVector[j].affinity << endl;
-          cout << endl << "   interface_[phaseId].aff  = "
-          	   << interface_[phaseId].getAffinity(interfacePos) << endl;
-          cout << endl << "exit" << endl;
-          exit(0);
-        }
-      }
-    }
-    */
-
     // calc probabilities & choose a site
     // affSum = 0.0;
     // for (j = 0; j < growthVectorSize; j++) {
@@ -1253,24 +1215,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     rng = callRNG();
     if (affSum > 0) {
       probRNG = growthVector[0].affinity / affSum;
-      // for (j = 1; j < growthVectorSize; j++) {  // check!
-      //   probRNG += (growthVector[j].affinity / affSum);
-      //   growthVector[j].prb = probRNG;
-      // }
-      // if (growthVector[growthVectorSize - 1].prb > maxLastG_)
-      //   maxLastG_ = growthVector[growthVectorSize - 1].prb;
-      // if (growthVector[growthVectorSize - 1].prb > 1.)
-      //   gt1G_++;
-      // if (growthVector[growthVectorSize - 1].prb < minLastG_)
-      //   minLastG_ = growthVector[growthVectorSize - 1].prb;
-      // if (growthVector[growthVectorSize - 1].prb < 1.)
-      //   lt1G_++;
-      // growthVector[growthVectorSize - 1].prb = 1.0;
-      // for (isitePos = 0; isitePos < growthVectorSize; isitePos++) {
-      //   if (rng <= growthVector[isitePos].prb)
-      //     break;
-      // }
-
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
@@ -1645,14 +1589,6 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
   }
 
   numadded_G = numChangeTot;
-
-  // for tests // check!
-  // cout << endl << "totalTRC = " << totalTRC << " :   maxLastG_ = " << maxLastG_
-  //      << "  gt1G_ = " << gt1G_ << endl;
-  // cout << "totalTRC = " << totalTRC << " :   minLastG_ = " << minLastG_
-  //      << "  lt1G_ = " << lt1G_ << endl;
-  // cout << "totalTRC = " << totalTRC << " :   minRNG_ = " << minRNG_
-  //      << "  maxRNG_ = " << maxRNG_ << "  eps1 = " << 1.0 - maxRNG_ << endl;
 
   return (nucleated);
 }
@@ -2323,19 +2259,6 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
   double wmcIni, wmcEnd, dwmcval;
   bool phaseid_exist;
 
-  // for (int i = 0; i < numSites_; i++) { // check!
-  //   ste = &site_[i];
-  //   if (ste->getWmc() < 0 || ste->getWmc0() < 0) {
-  //     cout << endl << "     *** out error0 : ste->getWmc() = " << ste->getWmc()
-  //          << "   ste->getWmc0() = " << ste->getWmc0()
-  //          << "   for i = " << i << "  &  pid = " << ste->getMicroPhaseId() << endl;
-  //     cout << "     *** out totalTRC trc_d bcl :  " << totalTRC
-  //          << "   " << trc_d << "   " << bcl << endl;
-  //     cout << endl << "     exit" << endl;
-  //     exit(0);
-  //   }
-  // }
-
   int dissPhaseIDVectSize = dissPhaseIDVect.size();
   vector<int> numChange(dissPhaseIDVectSize, 0);
   vector<int> dim_isite(dissPhaseIDVectSize, 0);
@@ -2431,25 +2354,6 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       // }
 
       probRNG = dissolutionVector[0].wmc / sumWmc;
-
-      // dissolutionVector[0].prb = probRNG; // check!
-      // for (int i = 1; i < dissolutionVectorSize; i++) {
-      //   probRNG += (dissolutionVector[i].wmc / sumWmc);
-      //   dissolutionVector[i].prb = probRNG;
-      // }
-      // if (dissolutionVector[dissolutionVectorSize - 1].prb > maxLastD_)
-      //   maxLastD_ = dissolutionVector[dissolutionVectorSize - 1].prb;
-      // if (dissolutionVector[dissolutionVectorSize - 1].prb > 1.)
-      //   gt1D_++;
-      // if (dissolutionVector[dissolutionVectorSize - 1].prb < minLastD_)
-      //   minLastD_ = dissolutionVector[dissolutionVectorSize - 1].prb;
-      // if (dissolutionVector[dissolutionVectorSize - 1].prb < 1.)
-      //   lt1D_++;
-      // dissolutionVector[dissolutionVectorSize - 1].prb = 1.0;
-      // for (isitePos = 0; isitePos < dissolutionVectorSize; isitePos++) { // new
-      //   if (rng <= dissolutionVector[isitePos].prb)
-      //    break;
-      // }
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
@@ -3323,7 +3227,8 @@ int Lattice::changeMicrostructure(double time, const int simtype,
     totalRecalls++;
 
     for (int i = 0; i < static_cast<int>(vectPhIdDiff.size()); i++){
-      vectPhNumRecall[vectPhIdDiff[i]] = vectPhNumDiff[i];
+      if (chemSys_->getIsKinetic()[vectPhIdDiff[i]])
+        vectPhNumRecall[vectPhIdDiff[i]] = vectPhNumDiff[i];
     }
 
     vectPhNumDiff.clear();
@@ -4097,13 +4002,14 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
   // which the subvoxel pore volume is calculated as well
 
   solidVolumeWithPores_ = 0.0;
-  for (i = 0; i < volSize; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID)
-      solidVolumeWithPores_ += vol[i];
-  }
-  if (solidVolumeWithPores_ <= 0.0)
-    throw DataException("Lattice", "adjustMicrostructureVolumes",
-                        "totvolume is NOT positive");
+  // for (i = 0; i < volSize; ++i) {
+  //   if (i != ELECTROLYTEID && i != VOIDID)
+  //     solidVolumeWithPores_ += vol[i];
+  // }
+
+  // if (solidVolumeWithPores_ <= 0.0)
+  //   throw DataException("Lattice", "adjustMicrostructureVolumes",
+  //                       "totvolume is NOT positive");
 
   // The current microstructure volume as predicted by GEMS
   // The initial microstructure volume is calculated the first
@@ -4114,11 +4020,20 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
 
   // Calculate the subvoxel pore volume
   subvoxelPoreVolume_ = 0.0;
-  for (i = 0; i < volSize; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
+  // for (i = 0; i < volSize; ++i) {
+  //   if (i != ELECTROLYTEID && i != VOIDID) {
+  //     subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
+  //   }
+  // }
+
+  for (i = FIRST_SOLID; i < volSize; ++i) {
+      solidVolumeWithPores_ += vol[i];
       subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
-    }
   }
+
+  if (solidVolumeWithPores_ <= 0.0)
+    throw DataException("Lattice", "adjustMicrostructureVolumes",
+                        "totvolume is NOT positive");
 
   double solidvolume = solidVolumeWithPores_ - subvoxelPoreVolume_;
   // microstructureVolume_ = chemSys_->getMicroVolume();
@@ -4280,7 +4195,7 @@ void Lattice::adjustMicrostructureVolFracs(vector<string> &names,
   return;
 }
 
-void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
+// void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
 
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
@@ -4292,19 +4207,19 @@ void Lattice::calcSubvoxelPoreVolume(vector<double> &vol) {
 
   // This will hold the subvoxel pore volume (m3)
 
-  subvoxelPoreVolume_ = 0.0;
-  int size = vol.size();
+//   subvoxelPoreVolume_ = 0.0;
+//   int size = vol.size();
   // double phi; // Holds the subvoxel porosity of a microstructurephase
-  for (int i = 0; i < size; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
-    }
-  }
+//   for (int i = 0; i < size; ++i) {
+//     if (i != ELECTROLYTEID && i != VOIDID) {
+//       subvoxelPoreVolume_ += (vol[i] * chemSys_->getMicroPhasePorosity(i));
+//     }
+//   }
 
   // The total amount of non-solid space in the microstructure
-}
+// }
 
-void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
+// void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
 
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
@@ -4316,24 +4231,24 @@ void Lattice::calcSolidVolumeWithPores(vector<double> &vol) {
 
   // This will hold the subvoxel pore volume (m3)
 
-  solidVolumeWithPores_ = 0.0;
-  int size = vol.size();
-  for (int i = 0; i < size; ++i) {
-    if (i != ELECTROLYTEID && i != VOIDID) {
-      solidVolumeWithPores_ += vol[i];
-    }
-  }
-}
+//   solidVolumeWithPores_ = 0.0;
+//   int size = vol.size();
+//   for (int i = 0; i < size; ++i) {
+//     if (i != ELECTROLYTEID && i != VOIDID) {
+//       solidVolumeWithPores_ += vol[i];
+//     }
+//   }
+// }
 
-void Lattice::calcVoxelWaterVolume(vector<double> &vol) {
-  calcSubvoxelPoreVolume(vol);
-  voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
-  if (voxelWaterVolume_ < 0.0)
-    voxelWaterVolume_ = 0.0;
-  if (chemSys_->isSaturated()) {
-    voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
-  }
-}
+// void Lattice::calcVoxelWaterVolume(vector<double> &vol) {
+//   calcSubvoxelPoreVolume(vol);
+//   voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+//   if (voxelWaterVolume_ < 0.0)
+//     voxelWaterVolume_ = 0.0;
+//   if (chemSys_->isSaturated()) {
+//     voxelWaterVolume_ = vol[ELECTROLYTEID] - subvoxelPoreVolume_;
+//   }
+// }
 
 // void Lattice::calcVoxelVoidVolume() {
 //   voxelPoreVolume_ = nonSolidVolume_ - subvoxelPoreVolume_;
