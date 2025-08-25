@@ -3013,7 +3013,7 @@ public:
   @brief Make sure that the electric charge is zero
 
   */
-  void compensateChargeMoles(int cyc) {
+  void compensateChargeMoles() {
     int i, j;
     // bool test = false;
     std::vector<double> ICMoles;
@@ -3045,11 +3045,9 @@ public:
     //     // test = true;
     //   }
     // }
-    if (ICMoles[numICs_ - 1] > 0) {
-      ICMoles_[numICs_ - 1] = - abs(ICMoles[numICs_ - 1]);
-    } else {
-      ICMoles_[numICs_ - 1] = abs(ICMoles[numICs_ - 1]);
-    }
+
+    ICMoles_[numICs_ - 1] = - ICMoles[numICs_ - 1];
+
     // cout << endl;
     // if (test) {
     //   cout << endl << " negative IC : exit-0" << endl;
@@ -5694,9 +5692,12 @@ public:
   time)
   @return the node status handle
   */
-  // int calculateState(double time, bool isFirst, int cyc);
-  int calculateState(double time, vector<int> updateDCId, vector<int> updatePHId,
-                     bool isFirst, int cyc);
+  int calculateState(double time, bool isFirst, int cyc);
+
+  // used to check if all DCMoles_ have right values according to corresponding
+  //   DCUpperLimit_ & DCUpperLimit_
+  // int calculateState(double time, vector<int> updateDCId, vector<int> updatePHId,
+  //                    bool isFirst, int cyc);
 
   /**
   @brief Calculate the saturation indices of all microPhases in the system.
@@ -6217,7 +6218,7 @@ public:
   both calculateKineticStep and updateKineticStep methods, see the
   KineticController class documentation.
   */
-  void updateMicroPhaseMasses(int cyc, int pid, double val, int called);
+  void updateMicroPhaseMasses(int pid, double val, int called);
 
   /**
   @brief add a component to the isParrotKilloh_ vector
