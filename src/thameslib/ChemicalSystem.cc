@@ -2221,6 +2221,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
     DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
   }
+
   /*
   // Check and set chemical conditions on electrolyte and gas phase
   setElectrolyteComposition(doAttack);
@@ -2708,7 +2709,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       microPhaseMass_[1] += (water_molesincr * waterMolarMass_);
       microPhaseVolume_[1] += water_volincr;
 
-      cout << "  ChemicalSystem::calculateState - cyc = " << cyc
+      cout << "    ChemicalSystem::calculateState - cyc = " << cyc
            << " : water_molesincr = " << water_molesincr << endl;
       // newMicroVolume_ = initMicroVolume_;
     }
@@ -2759,6 +2760,10 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
   //        << endl;
   // }
 
+  cout << "      ChemicalSystem::calculateSI - ini - cyc = " << cyc
+       << " : time = " << time << "   beginAttackTime_ = " << beginAttackTime_
+       << endl;
+
   // Check and set chemical conditions on electrolyte and gas phase
   if (cyc > 0) {
     bool doAttack = (time >= beginAttackTime_) ? true : false;
@@ -2800,7 +2805,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
   for (i = 0; i < numICs1; i++) {
     if (ICMoles[i] < thr) // ICTHRESH)
       ICMoles_[i] = thr;  // ICTHRESH;
-  }  
+  }
 
   while (nodeStatus_ == ERR_GEM_AIA) {
     // cout << endl << ">>>>> test ICs for cyc = " << cyc << "  :" << endl;
@@ -2829,7 +2834,8 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
           break;
         case BAD_GEM_AIA:
           timesGEMWarned_++;
-          cout << "  ChemicalSystem::calculateSI : GEM_run OK  ->  nodeStatus_ "
+          cout << "      ChemicalSystem::calculateSI :"
+                  " GEM_run OK (BAD_GEM_AIA)  ->  nodeStatus_ "
                << nodeStatus_ << " (timesGEMWarned_ = " << timesGEMWarned_ << ")"
                << endl;
 
@@ -2841,7 +2847,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
           dothrow = false;
           break;
         case ERR_GEM_AIA:
-          msg = "     ChemicalSystem::calculateSI - Failed result with auto initial "
+          msg = "      ChemicalSystem::calculateSI - Failed result with auto initial "
                 "approx (AIA) - ERR_GEM_AIA";
           cout << msg << " => nodeStatus_ = " << nodeStatus_ << endl;
           if (verbose_) {
@@ -2908,8 +2914,8 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
         }
       }
     } else {
-      cout << "       ChemicalSystem::calculateSI - cyc = " << cyc
-           << " : GEM_run OK  -> nodeStatus_ = " << nodeStatus_
+      cout << "      ChemicalSystem::calculateSI - fin - cyc = " << cyc
+           << " : GEM_run OK  ->  nodeStatus_ = " << nodeStatus_
            << " for thr (i.e. ICTHRESH) = " << setprecision(3)
            << thr << setprecision(15)<<endl;
     }
@@ -4025,7 +4031,7 @@ void ChemicalSystem::setElectrolyteComposition(bool doAttack) {
   double waterMass = 0.001 * waterMoles * waterMolarMass_; // in kg
 
   if (doAttack) {
-    cout << "    ChemicalSystem::setElectrolyteComposition - "
+    cout << "        ChemicalSystem::setElectrolyteComposition - "
             "doAttack/waterMass : "
          << doAttack << " / " << waterMass << endl;
 
@@ -4037,7 +4043,7 @@ void ChemicalSystem::setElectrolyteComposition(bool doAttack) {
           DCconc = it->second;
           DCMoles_[DCId] = DCconc * waterMass;
         }
-        cout << "      ChemicalSystem::setElectrolyteComposition attack - "
+        cout << "        ChemicalSystem::setElectrolyteComposition attack - "
                 "waterMass/DCconc/DCMoles_/DCId/DCName : "
              << waterMass << " / " << DCconc << " / "
              << DCMoles_[DCId] << " / " << DCId << " / " << DCName_[DCId]
@@ -4060,6 +4066,11 @@ void ChemicalSystem::setElectrolyteComposition(bool doAttack) {
         DCconc = it->second;
         DCMoles_[DCId] = DCconc * waterMass;
       }
+      cout << "        ChemicalSystem::setElectrolyteComposition fixed  - "
+              "waterMass/DCconc/DCMoles_/DCId/DCName : "
+           << waterMass << " / " << DCconc << " / "
+           << DCMoles_[DCId] << " / " << DCId << " / " << DCName_[DCId]
+           << endl;
       it++;
     }
   }
@@ -4126,6 +4137,10 @@ void ChemicalSystem::setGasComposition(bool doAttack) {
         DCId = it->first;
         DCmoles = it->second;
         DCMoles_[DCId] = DCmoles;
+        cout << "        ChemicalSystem::setGasComposition attack - "
+                "DCMoles_/DCId/DCName : "
+             << DCMoles_[DCId] << " / " << DCId << " / " << DCName_[DCId]
+             << endl;
         it++;
       }
     }
@@ -4252,7 +4267,7 @@ double ChemicalSystem::calculateCrystalStrain(int growPhId, double poreVolFrac,
     double pa = 2.0 * gamma * (1.0 / (rcr - delta) - 1.0 / (r - delta));
 
     ///
-    /// Strain can be retrieved from the stress via the effeictive elastic
+    /// Strain can be retrieved from the stress via the effective elastic
     /// of the porous medium (poromechanics assumption)
     ///
 

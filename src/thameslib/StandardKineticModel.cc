@@ -188,7 +188,7 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     double saturationIndex = chemSys_->getMicroPhaseSI(microPhaseId_);
 
     if (!doTweak)
-      cout << "    StandardKineticModel::calculateKineticStep - "
+      cout << "      StandardKineticModel::calculateKineticStep - "
               "microPhaseId_/mPhName/SI : "
            << setw(3) << right << microPhaseId_ << " / "
            << setw(15) << left << name_ << " / "

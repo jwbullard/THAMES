@@ -865,7 +865,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
     // hyd_time = hydTimeIni_ + timestep;
     if (verbose_)
       cout << endl
-           << "  KineticController::calculateKineticStep - tweak cyc = " << cyc
+           << "    KineticController::calculateKineticStep - tweak cyc = " << cyc
            << " :  hyd_time = " << hyd_time
            << "   hydTimeIni_ = " << hydTimeIni_ << "   timestep = " << timestep
            << endl;
@@ -874,7 +874,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       phaseDissolvedId[midx] = phaseKineticModel_[midx]->getMicroPhaseId();
       chemSys_->setMicroPhaseMass(phaseDissolvedId[midx], scaledMassIni_[midx]);
       if (verbose_) {
-        cout << "     midx = " << midx
+        cout << "       midx = " << midx
              << "     scaledMassIni[midx] = " << scaledMassIni_[midx]
              << "     microPhaseName = " << phaseKineticModel_[midx]->getName()
              << endl;
@@ -890,8 +890,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
   } else {
 
     // hyd_time = hydTimeIni_ + timestep;
-    cout << endl
-         << "  KineticController::calculateKineticStep - cyc = " << cyc
+    cout << "    KineticController::calculateKineticStep - cyc = " << cyc
          << " :  hyd_time = " << hyd_time << "   hydTimeIni_ = " << hydTimeIni_
          << "   timestep = " << timestep << endl;
 
@@ -900,7 +899,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       scaledMassIni_[midx] =
           chemSys_->getMicroPhaseMass(phaseDissolvedId[midx]);
       if (verbose_) {
-        cout << "    midx = " << midx
+        cout << "      midx = " << midx
              << "     scaledMassIni[midx] = " << scaledMassIni_[midx]
              << "     microPhaseName = " << phaseKineticModel_[midx]->getName()
              << endl;
@@ -967,7 +966,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
         if (numPKMphases > 0) {
 
           cout << endl
-               << "     KineticController::calculateKineticStep error - "
+               << "   KineticController::calculateKineticStep error - "
                   "initScaledCementMass_ = 0  while numPKMphases = "
                << numPKMphases << " :" << endl;
           for (int midx = 0; midx < pKMsize_; ++midx) {
@@ -1003,7 +1002,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
                             "totalDOR < 0");
       }
       if (!doTweak) {
-        cout << "  KineticController::calculateKineticStep - cyc = " << cyc
+        cout << "    KineticController::calculateKineticStep - cyc = " << cyc
              << " :  scaledCementMass = " << chemSys_->getScaledCementMass()
              << "   totalDOR = " << totalDOR << endl;
       }
