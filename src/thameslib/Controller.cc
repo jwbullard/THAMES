@@ -1542,16 +1542,19 @@ void Controller::doCycle(double elemTimeInterval) {
           exit(0);
         }
 
-        lattice_->writeDamageLattice(curTimeString);
-        lattice_->writeDamageLatticePNG(curTimeString);
-        // to see whether new damage is generated
+        if (newDamageCount_ > 0) { // or allDamageCount_ > 0 ? // check!
+          // to see whether new damage is generated
+          lattice_->writeDamageLattice(curTimeString);
+          lattice_->writeDamageLatticePNG(curTimeString);
+        }
       }
       allDamageCount_ = newDamageCount_ + oldDamageCount_;
       cout << "  cyc = " << cyc
            << " -> damaged sites after set damage  :  "
               "oldDamageCount_/newDamageCount_/allDamageCount_ = "
            << oldDamageCount_ << " / " << newDamageCount_ << " / "
-           << allDamageCount_ << endl;
+           << allDamageCount_
+           << " (if newDamageCount_ = 0 => no damage file written!)" << endl;
       oldDamageCount_ = allDamageCount_;
       cout << endl
            << "Controller::doCycle - STRAIN module (sulfate attack) - cyc = "

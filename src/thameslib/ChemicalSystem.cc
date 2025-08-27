@@ -2220,6 +2220,10 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
     DCLowerLimit_[beliteDCId_] = DCMoles_[beliteDCId_];
     DCLowerLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
     DCLowerLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
+    DCUpperLimit_[aliteDCId_] = DCMoles_[aliteDCId_];
+    DCUpperLimit_[beliteDCId_] = DCMoles_[beliteDCId_];
+    DCUpperLimit_[aluminateDCId_] = DCMoles_[aluminateDCId_];
+    DCUpperLimit_[ferriteDCId_] = DCMoles_[ferriteDCId_];
   }
 
   /*
