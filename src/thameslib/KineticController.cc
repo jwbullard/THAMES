@@ -1337,32 +1337,12 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
       double waterAddMoles = lattice_->fillAllPorosity(cyc);
       DCMoles_[waterDCId_] += waterAddMoles;
 
-      if (waterAddMoles > 0)
-        cout << "     KineticController::updateKineticStep : check if OK!"
-             << endl;
+      // if (waterAddMoles > 0)
+      //   cout << "     KineticController::updateKineticStep : check if OK!"
+      //        << endl;
 
       cout << "     KineticController::updateKineticStep 1 : count_[VOIDID] "
               "= "
-           << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
-           << lattice_->getCount()[ELECTROLYTEID]
-           << "  =>  waterMoles = " << DCMoles_[waterDCId_] << endl;
-    }
-
-    if (hyd_time >= beginAttackTime_) {
-      cout << endl
-           << "     KineticController::updateKineticStep : hyd_time >= "
-              "beginAttackTime_ -> "
-           << hyd_time << " >= " << beginAttackTime_ << endl;
-
-      cout << "     KineticController::updateKineticStep 0 : count_[VOIDID] = "
-           << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
-           << lattice_->getCount()[ELECTROLYTEID]
-           << "  =>  waterMoles = " << DCMoles_[waterDCId_] << endl;
-
-      double waterAddMoles = lattice_->fillAllPorosity(cyc);
-      DCMoles_[waterDCId_] += waterAddMoles;
-
-      cout << "     KineticController::updateKineticStep 1 : count_[VOIDID] = "
            << lattice_->getCount()[VOIDID] << "   &   count_[ELECTROLYTEID] = "
            << lattice_->getCount()[ELECTROLYTEID]
            << "  =>  waterMoles = " << DCMoles_[waterDCId_] << endl;

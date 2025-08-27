@@ -1154,7 +1154,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // if (verbose_)
       cout << endl
-           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = " << i
+           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = "
            << currTime << " / outputImageTime_[" << timeIndexIMG
            << "] = " << outputImageTime_[timeIndexIMG]
            << ", writeTime = " << writeTime << endl;
