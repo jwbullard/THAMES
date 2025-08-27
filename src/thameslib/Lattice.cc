@@ -3505,7 +3505,17 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
         // correction of site numbers to be changed
         for (int i = 0; i < shrinkingSize; i++) {
-          netsites[dissPhaseIDVect[i]] = correct_netsites[i];
+          if (correct_netsites[i] < 0) {
+            cout << endl
+                 << "  Lattice::changeMicrostructure SA - transformPhase() error : "
+                    "correct_netsites[" << i << "] < 0 (" << correct_netsites[i]
+                 << " < 0) " << endl;
+            cout << "    shrinkingSize = " << shrinkingSize << endl;
+            cout << endl << "    exit" << endl;
+            exit(0);
+          } else {
+            netsites[dissPhaseIDVect[i]] = - correct_netsites[i];
+          }
         }
         netsites[growPhId] -= correct_netsites[shrinkingSize]; // for AFt
 
