@@ -913,7 +913,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
     surfaceAreaIni_ = lattice_->getSurfaceArea();
   }
 
-  if (hyd_time < beginAttackTime_) {
+  if (hyd_time <= beginAttackTime_) {
 
     try {
       // cout << "  KineticController::calculateKineticStep     hyd_time = "
@@ -1322,7 +1322,7 @@ void KineticController::updateKineticStep(int cyc, int pId, double scaledMass,
          << keepNumDCMoles << endl;
     // *****************
 
-    if (hyd_time >= beginAttackTime_) {
+    if (hyd_time > beginAttackTime_) {
       cout << endl
            << "     KineticController::updateKineticStep : time >= "
               "beginAttackTime_ -> "

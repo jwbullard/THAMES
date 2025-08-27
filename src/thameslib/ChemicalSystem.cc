@@ -2211,7 +2211,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
 
   compensateChargeMoles();
 
-  bool doAttack = (time >= beginAttackTime_) ? true : false;
+  bool doAttack = (time > beginAttackTime_) ? true : false;
   if (doAttack) {
     cout << endl << "  ChemicalSystem::calculateState - cyc = " << cyc
          << " : doAttack = " << doAttack << endl;

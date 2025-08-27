@@ -659,19 +659,34 @@ void Controller::doCycle(double elemTimeInterval) {
         throw MicrostructureException(
             "Controller", "doCycle", "SA - first GEM_run failed (0)", is_Error);
       } else {
-        currTime = time_[i - 1];
+        if (i - 1 < timeSize) {
+          currTime = time_[i - 1];
 
-        timestep = currTime - lastGoodTime_;
+          timestep = currTime - lastGoodTime_;
 
-        dissTimeInterval = timestep;
-        cout << endl
-             << endl
-             << endl
-             << "##### Controller::doCycle  START NEW CYCLE - SA  "
-                "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
-             << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
-             << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
-             << endl;
+          dissTimeInterval = timestep;
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE - SA  "
+                  "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
+               << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
+               << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
+               << endl;
+        } else {
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE - SA : "
+                  "ALL TIME VALUES HAVE BEEN USED !  #####"
+               << endl;
+          cout << endl << "##### i/timeSize/lastGoodTime_/initialLastTime/currTime : "
+               << i << " / " << timeSize << " / " << lastGoodTime_ << " / " << initialLastTime
+               << " / " << currTime
+               << " (time in hours) #####"
+               << endl;
+          break;
+        }
       }
     }
 
@@ -1186,7 +1201,7 @@ void Controller::doCycle(double elemTimeInterval) {
     /// The following block executes only for sulfate attack simulations
     ///
 
-    if (currTime >= sulfateAttackTime_) { // check! change time[i] with currTime!!!
+    if (currTime > sulfateAttackTime_) { // check! change time[i] with currTime!!!
 
       cout << endl << endl << "Controller::doCycle - STRAIN module (sulfate attack) : cyc = "
            << cyc << "   i = " << i << "   sulfateAttackTime_ = " << sulfateAttackTime_

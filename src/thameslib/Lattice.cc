@@ -3358,7 +3358,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   /// sulfate attack during this simulation.
   ///
 
-  if (simtype == SULFATE_ATTACK && time_ >= sulfateAttackTime_) {
+  if (simtype == SULFATE_ATTACK && time_ > sulfateAttackTime_) {
     // if (simtype == SULFATE_ATTACK) {
     /*
     ///
