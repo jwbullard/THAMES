@@ -3453,7 +3453,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   /// sulfate attack during this simulation.
   ///
 
-  if (simtype == SULFATE_ATTACK && time_ >= sulfateAttackTime_) {
+  if (simtype == SULFATE_ATTACK && time_ > sulfateAttackTime_) {
     // if (simtype == SULFATE_ATTACK) {
     /*
     ///
@@ -3600,7 +3600,17 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
         // correction of site numbers to be changed
         for (int i = 0; i < shrinkingSize; i++) {
-          netsites[dissPhaseIDVect[i]] = correct_netsites[i];
+          if (correct_netsites[i] < 0) {
+            cout << endl
+                 << "  Lattice::changeMicrostructure SA - transformPhase() error : "
+                    "correct_netsites[" << i << "] < 0 (" << correct_netsites[i]
+                 << " < 0) " << endl;
+            cout << "    shrinkingSize = " << shrinkingSize << endl;
+            cout << endl << "    exit" << endl;
+            exit(0);
+          } else {
+            netsites[dissPhaseIDVect[i]] = - correct_netsites[i];
+          }
         }
         netsites[growPhId] -= correct_netsites[shrinkingSize]; // for AFt
 
@@ -5616,7 +5626,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   vector<Isite> isite;
 
   cout << endl << "    Lattice::transformPhase totalTRC = " << totalTRC << " =>" << endl;
-  cout << "      phaseId/phaseName/sitesToBeDissolved:" << endl;
+  cout << "      phaseId/phaseName/sitesToBeDissolved :" << endl;
   int numChangeTot = 0;
   int numLeftTot = 0;
   for (i = 0; i < dissPhaseIDVectSize; i++) {
@@ -5669,8 +5679,8 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   int dissolutionVectorSize = dissolutionVector.size();
   sumWmc = dissolutionVectorSize;
 
-  cout << "    Lattice::transformPhase DISS_INI totalTRC/trc_t/bcl/sumWmc "
-       << totalTRC << "/" << trc_t << "/" << bcl << "/" << sumWmc << endl;
+  cout << "    Lattice::transformPhase DISS_INI totalTRC/trc_t/bcl/sumWmc : "
+       << totalTRC << " / " << trc_t << " / " << bcl << " / " << sumWmc << endl;
   cout << "      DISS_INI dissPhaseIDVectSize = " << dissPhaseIDVectSize
        << "   dissolutionVectorSize = " << dissolutionVectorSize
        << "   numLeftTot = " << numLeftTot
@@ -6132,10 +6142,14 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
        << "    Lattice::transformPhase => totalTRC trc_t bcl numLeftTot numChangeTot  :  "
        << totalTRC << "   " << trc_t << "   " << bcl << "   " << numLeftTot << "   "
        << numChangeTot << endl;
-  cout << "    Lattice::transformPhase => smallerThanMax & greaterThanMax = "
+  cout << "    Lattice::transformPhase : max = " << max
+       << " & ((waterneighborSize + 1) <= max)? => smallerThanMax & greaterThanMax = "
        << smallerThanMax << "  &  " << greaterThanMax
-       << "   =>    countExpPos = " << countExpPos
-       << "  &  countExpNeg = " << countExpNeg << endl;
+       << endl;
+  cout << "    Lattice::transformPhase : for smallerThanMax"
+          " exp = chemSys_->calculateCrystalStrain  => countExpPos = "
+       << countExpPos << " (applyExpansion!)  &  countExpNeg = "
+       << countExpNeg << endl;
 
   numadded_D = numChangeTot;
 

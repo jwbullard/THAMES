@@ -658,19 +658,34 @@ void Controller::doCycle(double elemTimeInterval) {
         throw MicrostructureException(
             "Controller", "doCycle", "SA - first GEM_run failed (0)", is_Error);
       } else {
-        currTime = time_[i - 1];
+        if (i - 1 < timeSize) {
+          currTime = time_[i - 1];
 
-        timestep = currTime - lastGoodTime_;
+          timestep = currTime - lastGoodTime_;
 
-        dissTimeInterval = timestep;
-        cout << endl
-             << endl
-             << endl
-             << "##### Controller::doCycle  START NEW CYCLE - SA  "
-                "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
-             << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
-             << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
-             << endl;
+          dissTimeInterval = timestep;
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE - SA  "
+                  "i/cyc/time_[i]/currTime/lastGoodTime_/timestep : "
+               << i << " / " << cyc << " / " << time_[i] << " / " << currTime << " / "
+               << lastGoodTime_ << " / " << timestep << " (time in hours) #####"
+               << endl;
+        } else {
+          cout << endl
+               << endl
+               << endl
+               << "##### Controller::doCycle - START NEW CYCLE - SA : "
+                  "ALL TIME VALUES HAVE BEEN USED !  #####"
+               << endl;
+          cout << endl << "##### i/timeSize/lastGoodTime_/initialLastTime/currTime : "
+               << i << " / " << timeSize << " / " << lastGoodTime_ << " / " << initialLastTime
+               << " / " << currTime
+               << " (time in hours) #####"
+               << endl;
+          break;
+        }
       }
     }
 
@@ -856,7 +871,7 @@ void Controller::doCycle(double elemTimeInterval) {
           whileCount++;
           numSitesNotAvailableSize = numSitesNotAvailable.size();
           cout << endl
-               << "  Controller::doCycle - cyc = " << cyc
+               << "Controller::doCycle - cyc = " << cyc
                << " :  changeLattice = " << changeLattice
                << "  =>  whileCount = " << whileCount << endl;
 
@@ -898,12 +913,12 @@ void Controller::doCycle(double elemTimeInterval) {
                                iniLattice.numRNGcallLONGMAX,
                                iniLattice.lastRNG);
 
-            cout << "  Controller::doCycle - cyc = " << cyc
+            cout << "Controller::doCycle - cyc = " << cyc
                  << " :  reset system OK & GEM_run recall for "
                     "i/whileCount/numSitesNotAvailable.size() = "
                  << i << " / " << whileCount << " / "
                  << numSitesNotAvailableSize << endl;
-            cout << "  Controller::doCycle - cyc = " << cyc
+            cout << "Controller::doCycle - cyc = " << cyc
                  << " :  reset DCLowerLimits :" << endl;
 
             updateDCId.clear();
@@ -958,7 +973,7 @@ void Controller::doCycle(double elemTimeInterval) {
                                  numTotSites_phId;
 
                   chemSys_->setDCLowerLimit(compDC[k], numMolesDiff);
-                  chemSys_->setDCUpperLimit(compDC[k], 1.0e6); // check!
+                  chemSys_->setDCUpperLimit(compDC[k], 1.0e6); // numMolesDiff);
                   updateDCId.push_back(compDC[k]);
                   updatePHId.push_back(phId);
 
@@ -980,27 +995,6 @@ void Controller::doCycle(double elemTimeInterval) {
               }
             }
 
-            cout << endl
-                 << "  Controller::doCycle - cyc = " << cyc
-                 << " :  #  i#/ "
-                    "phName/phId/count/dissInterfaceSize/numSitesNotAvailable"
-                    "/DCId/DCMoles/DCLowerLimit :"
-                 << endl;
-
-            for (int ij = 0; ij < numSitesNotAvailableSize; ij++) {
-              phId = vectPhIdDiff[ij];
-              DCId = chemSys_->getMicroPhaseDCMembers(phId, 0);
-              cout << "                        cyc = " << cyc << " :  #"
-                   << setw(3) << right << ij << "#/ " << setw(15) << left
-                   << vectPhNameDiff[ij] << "   " << setw(5) << right << phId
-                   << "   " << setw(9) << right << lattice_->getCount(phId)
-                   << "   " << setw(9) << right
-                   << lattice_->getDissolutionInterfaceSize(phId) << "   "
-                   << setw(9) << right << numSitesNotAvailable[ij] << "   "
-                   << setw(5) << right << DCId << "   "
-                   << chemSys_->getDCMoles(DCId) << "   "
-                   << chemSys_->getDCLowerLimit(DCId) << endl;
-            }
             cout << endl;
 
             timesGEMFailed_recall =
@@ -1008,14 +1002,14 @@ void Controller::doCycle(double elemTimeInterval) {
                                          isFirst, cyc);
 
             cout << endl
-                 << "  Controller::doCycle - cyc = " << cyc
+                 << "Controller::doCycle - cyc = " << cyc
                  << " :  i/time[i]/currTime/getTimesGEMFailed_recall = " << i << " / "
                  << time_[i] << " / " << currTime << " / " << timesGEMFailed_recall << endl;
 
             if (timesGEMFailed_recall > 0) {
               cout << "  Controller::doCycle - GEM_run failed for whileCount = "
                    << whileCount << endl;
-              cout.flush();
+              // cout.flush();
               timesGEMFailed_loc = timesGEMFailed_recall;
               testDiff = false;
               for (int iii = 0; iii < numSitesNotAvailableSize; iii++) {
@@ -1026,11 +1020,12 @@ void Controller::doCycle(double elemTimeInterval) {
                        << " / " << cyc << " / " << phId << " / " << iii
                        << "   =>   numSitesNotAvailable[iii] = "
                        << numSitesNotAvailable[iii] << endl;
-                  cout.flush();
+                  // cout.flush();
                   testDiff = true;
                   break;
                 }
               }
+              cout.flush();
               if (!testDiff) {
                 cout
                     << "Controller::doCycle - do not update the microstructure "
@@ -1041,7 +1036,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
             } else {
               timesGEMFailed_loc = timesGEMFailed_recall;
-              cout << "  Controller::doCycle - cyc = " << cyc
+              cout << "Controller::doCycle - cyc = " << cyc
                    << " :  GEM_run OK for whileCount = " << whileCount << endl;
               testDiff = true;
             }
@@ -1056,7 +1051,7 @@ void Controller::doCycle(double elemTimeInterval) {
                 currTime, simType_, numSitesNotAvailable, vectPhIdDiff,
                 vectPhNameDiff, whileCount, cyc);
             cout << endl
-                 << "  Controller::doCycle - cyc = " << cyc
+                 << "Controller::doCycle - cyc = " << cyc
                  << "  &  whileCount = " << whileCount
                  << "  :  timesGEMFailed_recall = " << timesGEMFailed_recall
                  << "  &  changeLattice = " << changeLattice << endl;
@@ -1156,7 +1151,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // if (verbose_)
       cout << endl
-           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = " << i
+           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = "
            << currTime << " / outputImageTime_[" << timeIndexIMG
            << "] = " << outputImageTime_[timeIndexIMG]
            << ", writeTime = " << writeTime << endl;
@@ -1316,9 +1311,9 @@ void Controller::doCycle(double elemTimeInterval) {
     /// The following block executes only for sulfate attack simulations
     ///
 
-    if (currTime >= sulfateAttackTime_) { // check! change time[i] with currTime!!!
+    if (currTime > sulfateAttackTime_) { // check! change time[i] with currTime!!!
 
-      cout << endl << endl << "Controller::doCycle - sulfate attack module : cyc = "
+      cout << endl << endl << "Controller::doCycle - STRAIN module (sulfate attack) : cyc = "
            << cyc << "   i = " << i << "   sulfateAttackTime_ = " << sulfateAttackTime_
            << "   currTime = " << currTime << "   time_.size() = " << time_.size()
            << "   time_[size - 1] = " << time_[time_.size() - 1] << endl;
@@ -1330,7 +1325,7 @@ void Controller::doCycle(double elemTimeInterval) {
       //      << endl;
 
       if (verbose_) {
-        cout << "Controller::doCycle Sulfate attack module" << endl;
+        cout << "Controller::doCycle STRAIN module (sulfate attack)" << endl;
         cout.flush();
       }
       map<int, vector<double>> expansion;
@@ -1339,13 +1334,38 @@ void Controller::doCycle(double elemTimeInterval) {
       ifstream instopexp("stopexp.dat");
       if (!instopexp) {
         // if (verbose_)
+        // cout << endl
+        //      << "Controller::doCycle - STRAIN module (sulfate attack) : cyc = " << cyc
+        //      << "   =>   expansion.size() = " << expansion.size() << endl;
+        double maxExpVal = -1.0e6;
+        double minExpVal = 1.0e6;
+        int expindex;
+        int maxExpInd = -1, minExpInd = -1;
+        vector<double> expanval;
+        for (map<int, vector<double>>::iterator it = expansion.begin();
+             it != expansion.end(); it++) {
+          expindex = it->first;
+          expanval = it->second;
+          if (expanval[0] > maxExpVal){
+            maxExpVal = expanval[0];
+            maxExpInd = expindex;
+          }
+          if (expanval[0] < minExpVal){
+            minExpVal = expanval[0];
+            minExpInd = expindex;
+          }
+        }
         cout << endl
-             << "Controller::doCycle - sulfate attack module : cyc = " << cyc
-             << "   =>   expansion.size() = " << expansion.size() << endl;
+             << "Controller::doCycle - STRAIN module (sulfate attack) : cyc = " << cyc
+             << "   =>   expansion.size() = " << expansion.size()
+             << "   minExpInd/minExpVal = " << minExpInd << " / " << minExpVal
+             << "   maxExpInd/maxExpVal = " << maxExpInd << " / " << maxExpVal
+             << endl;
+
       } else {
         expansion.clear();
         cout << endl
-             << "Controller::doCycle - sulfate attack module : cyc = " << cyc
+             << "Controller::doCycle - STRAIN module (sulfate attack) = " << cyc
              << "   =>   expansion has been stopped due to the "
                 "percolation of damage"
              << endl;
@@ -1360,13 +1380,15 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // expansion.clear();
 
+      newDamageCount_ = 0;
+
       cout << "  cyc = " << cyc
            << " -> damaged sites before set damage :  "
-              "oldDamageCount_/allDamageCount_ = "
-           << oldDamageCount_ << " / " << allDamageCount_ << endl;
+              "oldDamageCount_/newDamageCount_/allDamageCount_ = "
+           << oldDamageCount_ << " / " << newDamageCount_ << " / " << allDamageCount_
+           << endl;
 
-      newDamageCount_ = 0;
-      if (expansion.size() > 0) {
+      if (expansion.size() > 0) { // check!  comment to accelerate SA!!!
         // double strxx, stryy, strzz;
         vector<double> locEleStress;
         double locTstrength;
@@ -1385,7 +1407,8 @@ void Controller::doCycle(double elemTimeInterval) {
         // double poreintroduce = 0.5;
 
         if (verbose_) {
-          cout << "Controller::doCycle Sulfate attack module writing " << endl;
+          cout << "Controller::doCycle STRAIN module (sulfate attack) writing "
+               << endl;
           cout << "Controller::doCycle lattice at time_[" << i
                << "] = " << time_[i] << ", currTime = " << currTime << endl;
           cout << "controller::doCycle outputImageTime_[" << timeIndexIMG
@@ -1616,7 +1639,8 @@ void Controller::doCycle(double elemTimeInterval) {
         } // End of loop over all voxels
         if (oldDamageCount_ != oldDamageCount) {
           cout << endl
-               << "Controller::doCycle SA -  error : oldDamageCount_ != "
+               << "Controller::doCycle STRAIN module (sulfate attack) "
+                  "-  error : oldDamageCount_ != "
                   "oldDamageCount"
                   " <-> cyc/oldDamageCount_/oldDamageCount = "
                << cyc << " / " << oldDamageCount_ << " / " << oldDamageCount
@@ -1628,20 +1652,23 @@ void Controller::doCycle(double elemTimeInterval) {
           exit(0);
         }
 
-        lattice_->writeDamageLattice(curTimeString);
-        lattice_->writeDamageLatticePNG(curTimeString);
-        // to see whether new damage is generated
+        if (newDamageCount_ > 0) { // or allDamageCount_ > 0 ? // check!
+          // to see whether new damage is generated
+          lattice_->writeDamageLattice(curTimeString);
+          lattice_->writeDamageLatticePNG(curTimeString);
+        }
       }
       allDamageCount_ = newDamageCount_ + oldDamageCount_;
       cout << "  cyc = " << cyc
            << " -> damaged sites after set damage  :  "
               "oldDamageCount_/newDamageCount_/allDamageCount_ = "
            << oldDamageCount_ << " / " << newDamageCount_ << " / "
-           << allDamageCount_ << endl;
+           << allDamageCount_
+           << " (if newDamageCount_ = 0 => no damage file written!)" << endl;
       oldDamageCount_ = allDamageCount_;
       cout << endl
-           << "Controller::doCycle - sulfate attack module - cyc = " << cyc
-           << " (i = " << i << ")   =>   normal end" << endl;
+           << "Controller::doCycle - STRAIN module (sulfate attack) - cyc = "
+           << cyc << " (i = " << i << ")   =>   normal end" << endl;
     }
   }
 
@@ -1666,6 +1693,12 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
   int timesGEMFailed = 0;
 
   try {
+
+    cout << endl
+         << "  Controller::calculateState - enter  : currTime = " << currTime
+         << "   currTimeLoc = " << currTime
+         << "   timesGEMFailed = " << timesGEMFailed
+         << endl;
 
     ///
     /// We must pass some vectors to the `calculateKineticStep` method that
@@ -1710,12 +1743,6 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
     updatePHId.clear();
 
     try {
-
-      cout << endl
-           << "  Controller::calculateState - enter  : currTime = " << currTime
-           << "   currTimeLoc = " << currTime
-           << "   timesGEMFailed = " << timesGEMFailed
-           << endl;
 
       timesGEMFailed = chemSys_->calculateState(currTime, updateDCId, updatePHId,
                                                 isFirst, cyc);
