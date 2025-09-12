@@ -13,6 +13,7 @@ Site::Site() {
   x_ = y_ = z_ = 0;
   id_ = 0;
   nb_.clear();
+  nbSA_.clear();
   stressFreeVolume_ = trueVolume_ = 0.0;
   damage_ = false;
   expstrain_ = 0.0;
@@ -23,6 +24,7 @@ Site::Site(int xp, int yp, int zp, int xs, int ys, int zs, int neigh,
   x_ = y_ = z_ = 0;
   id_ = 0;
   nb_.clear();
+  nbSA_.clear();
   stressFreeVolume_ = trueVolume_ = 1.0;
   damage_ = false;
   x_ = xp;

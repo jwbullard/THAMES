@@ -197,6 +197,11 @@ protected:
 
   double gg_; /**< The square of the gradient, `gb_`<sup>2</sup> */
 
+  int numDCs_;
+  std::vector<double> convFactDCs_;
+  int waterDCId_;
+  std::vector<std::vector<int>> mPhDCcomp_;
+
 public:
   /**
   @brief The only constructor provided with the base class.

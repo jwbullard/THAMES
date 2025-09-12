@@ -288,7 +288,9 @@ public:
   @param kkk is zero if this is the first call, causing `h` to be built up.
   @return the number of conjugate gradient steps used in this call
   */
-  int localDembx(int boxsize, int x, int y, int z, int localldemb, int kkk);
+  // int localDembx(int boxsize, int x, int y, int z, int localldemb, int kkk);
+  int localDembx(int xlo, int xhi, int ylo, int yhi, int zlo, int zhi,
+                 int localldemb, int kkk);
 
   /**
   @brief Compute the total elastic energy and the gradient in the energy.
@@ -328,12 +330,14 @@ public:
 
   @note Argument time is NOT USED.
 
+  @param cyc is the iteration number in main iteration loop in
+  Controller::doCycle
   @param time is the simulation time [hours] (not used currently)
   @param kmax is the maximum number of total conjugate gradient iterations
   allowed
   */
   // void relax(double time, int kmax);
-  void relax(int kmax);
+  void relax(int cyc, int kmax);
 
   /**
   @brief Control function for elastic relaxation within a subvolume.
@@ -371,9 +375,11 @@ public:
 
   @note Argument index is NOT USED.
 
+  @param cyc is the iteration number in main iteration loop in
+  Controller::doCycle
   @param time is the simulation time [hours]
-  @param fileName is the file name containing the prior equilibrium displacement
-  field if needed
+  @param p_vectPhId is a pointer to a vector containing the prior equilibrium
+  displacement field if needed
   @param exx is the xx component of the macrostrain
   @param eyy is the yy component of the macrostrain
   @param ezz is the zz component of the macrostrain
@@ -381,7 +387,10 @@ public:
   @param eyz is the yz component of the macrostrain
   @param exy is the xy component of the macrostrain
   */
-  void Calc(double time, std::string fileName, double exx, double eyy, double ezz,
+  // void Calc(double time, std::string fileName, double exx, double eyy, double ezz,
+  //           double exz, double eyz, double exy);
+  void Calc(int cyc, double time, std::vector<int> *p_vectPhId,
+            double exx, double eyy, double ezz,
             double exz, double eyz, double exy);
 
   /**
@@ -491,7 +500,7 @@ public:
   notation having 6)
   @return the stress vector [GPa]
   */
-  std::vector<double> getEleStressMod(int i) { return elestress_[i]; }
+  std::vector<double> getEleStress(int i) { return elestress_[i]; }
 
   /**
   @brief Get a component of the the elastic strain at an element.

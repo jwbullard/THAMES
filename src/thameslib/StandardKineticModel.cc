@@ -220,7 +220,6 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     // solid
     massDissolved = dissrate * timestep * chemSys_->getDCMolarMass(DCId_);
 
-
     scaledMass = scaledMass_ - massDissolved;
 
     if (verbose_) {

@@ -73,6 +73,24 @@ ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
 
   // nphase_ = nphase;
   nphase_ = chemSys_->getNumMicroPhases();
+  numDCs_ = chemSys_->getNumDCs();
+  waterDCId_ = chemSys_->getDCId(WaterDCName); // "H2O@"
+
+  double molarVolume;
+  for (int i = 0; i < numDCs_; i++) {
+    molarVolume = chemSys_->getDCMolarVolume(i);
+    convFactDCs_.push_back(molarVolume * 1.0e9);
+  }
+
+  vector<int> mPhDCcomp;
+  mPhDCcomp.clear();
+  mPhDCcomp_.push_back(mPhDCcomp); // void
+  mPhDCcomp_.push_back(mPhDCcomp); // water
+  for (int mPhId = FIRST_SOLID; mPhId < nphase_; mPhId++) {
+    mPhDCcomp.clear();
+    mPhDCcomp = chemSys_->getMicroPhaseDCMembers(mPhId);
+    mPhDCcomp_.push_back(mPhDCcomp);
+  }
 
   ///
   /// Establish the stopping criterion for convergence (proportional to
@@ -98,6 +116,21 @@ ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
   for (int ijk = 0; ijk < nphase_; ijk++) {
     phasemod_[ijk].resize(2, 0.0);
   }
+
+  ///
+  /// Initialize elastic modulus variable `cmod_`
+  ///
+
+  cmod_.clear();
+  cmod_.resize(nphase_);
+  for (int ijk = 0; ijk < nphase_; ijk++) {
+    cmod_[ijk].resize(6);
+    for (int j = 0; j < 6; j++) {
+      cmod_[ijk][j].resize(6, 0.0);
+    }
+  }
+
+  ElasModul();
 
   ///
   /// Initialize the neighbor table for each element
@@ -138,19 +171,19 @@ ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
   }
 
   ///
-  /// Initialize elastic modulus variables, `cmod_`,
+  /// Initialize :
   /// finite element stiffness matrices, `dk_`, the energy constant, `C_`,
   /// and the linear term coefficient vector, `b_`, required for
   /// computing the energy.
 
-  cmod_.clear();
-  cmod_.resize(nphase_);
-  for (int ijk = 0; ijk < nphase_; ijk++) {
-    cmod_[ijk].resize(6);
-    for (int j = 0; j < 6; j++) {
-      cmod_[ijk][j].resize(6, 0.0);
-    }
-  }
+  // cmod_.clear();
+  // cmod_.resize(nphase_);
+  // for (int ijk = 0; ijk < nphase_; ijk++) {
+  //   cmod_[ijk].resize(6);
+  //   for (int j = 0; j < 6; j++) {
+  //     cmod_[ijk][j].resize(6, 0.0);
+  //   }
+  // }
 
   dk_.clear();
   dk_.resize(nphase_);
@@ -166,6 +199,8 @@ ElasticModel::ElasticModel(int nx, int ny, int nz, int dim, ChemicalSystem *cs,
       }
     }
   }
+
+  initStiffness(); // dk_
 
   b_.clear();
   b_.resize(dim);
@@ -780,30 +815,27 @@ void ElasticModel::getAvgStrainengy() {
 
   // strainenergy.clear();
   // strainenergy.resize(156, 0.0);
-  int numDCs = chemSys_->getNumDCs();
   strainenergy.clear();
-  strainenergy.resize(numDCs, 0.0);
+  strainenergy.resize(numDCs_, 0.0);
 
-  double molarVolume;
-  vector<double> convFactDCs;
-  for (int i = 0; i < numDCs; i++) {
-    molarVolume = chemSys_->getDCMolarVolume(i);
-    convFactDCs.push_back(molarVolume * 1.e9);
-  }
+  // double molarVolume;
+  // vector<double> convFactDCs;
+  // for (int i = 0; i < numDCs_; i++) {
+  //   molarVolume = chemSys_->getDCMolarVolume(i);
+  //   convFactDCs_.push_back(molarVolume * 1.e9);
+  // }
 
-  int waterDCId = chemSys_->getDCId(WaterDCName); // "H2O@"
-  strainenergy[waterDCId] =
-      avgStrainengy_[ELECTROLYTEID] * convFactDCs[waterDCId];
+  strainenergy[waterDCId_] =
+      avgStrainengy_[ELECTROLYTEID] * convFactDCs_[waterDCId_];
 
-  vector<int> mPhDCcomp;
   int size;
   int DCId;
   for (int mPhId = FIRST_SOLID; mPhId < nphase_; mPhId++) {
-    mPhDCcomp = chemSys_->getMicroPhaseDCMembers(mPhId);
-    size = mPhDCcomp.size();
+    // mPhDCcomp = chemSys_->getMicroPhaseDCMembers(mPhId);
+    size = mPhDCcomp_[mPhId].size();
     for (int j = 0; j < size; j++) {
-      DCId = mPhDCcomp[j];
-      strainenergy[DCId] = avgStrainengy_[mPhId] * convFactDCs[DCId];
+      DCId = mPhDCcomp_[mPhId][j];
+      strainenergy[DCId] = avgStrainengy_[mPhId] * convFactDCs_[DCId];
     }
   }
 

@@ -31,22 +31,31 @@ AppliedStrain::AppliedStrain(int nx, int ny, int nz, int dim,
   exx_ = eyy_ = ezz_ = 0.0;
   exz_ = eyz_ = exy_ = 0.0;
 
-  kmax_ = 3; // 60;
+  kmax_ = 40; // 3;
   cout << endl
        << "AppliedStrain::AppliedStrain - "
           "the number of relaxation steps for elastic computation :  kmax_ = "
        << kmax_ << endl;
+
+  is_[0] = 26;
+  is_[1] = 2;
+  is_[2] = 1;
+  is_[3] = 0;
+  is_[4] = 25;
+  is_[5] = 18;
+  is_[6] = 17;
+  is_[7] = 16;
 }
 
 // void AppliedStrain::femat(int nx, int ny, int nz, int ns, int nphase) {
 void AppliedStrain::femat() {
-  double dndx[8], dndy[8], dndz[8];
-  double g[3][3][3];
-  double es[6][8][3];
+  // double dndx[8], dndy[8], dndz[8];
+  // double g[3][3][3];
+  // double es[6][8][3];
   // double delta[8][3];
-  double x, y, z;
+  // double x, y, z;
   // int nxy = nx * ny;
-  int is[8];
+  // int is[8]; moved in constructor as is_[8]
   double delta[8][3];
   int nx1 = nx_ - 1;
   int ny1 = ny_ - 1;
@@ -57,6 +66,7 @@ void AppliedStrain::femat() {
   int m;
   double sum = 0;
 
+  /*
   ///
   /// (User) NOTE: complete elastic modulus matrix is used, so an anisotropic
   /// matrix could be directly input at any point, since program is written to
@@ -201,6 +211,7 @@ void AppliedStrain::femat() {
       }
     }
   }
+  */
 
   ///
   /// Set up vector for linear term, b, and constant term, C, in the elastic
@@ -231,14 +242,15 @@ void AppliedStrain::femat() {
   /// 6:ib_[m][17], 7:ib_[m][16].
   ///
 
-  is[0] = 26;
-  is[1] = 2;
-  is[2] = 1;
-  is[3] = 0;
-  is[4] = 25;
-  is[5] = 18;
-  is[6] = 17;
-  is[7] = 16;
+  // moved in constructor as is_[8]  //check!
+  // is[0] = 26;
+  // is[1] = 2;
+  // is[2] = 1;
+  // is[3] = 0;
+  // is[4] = 25;
+  // is[5] = 18;
+  // is[6] = 17;
+  // is[7] = 16;
 
   ///
   /// x = nx - 1, face
@@ -269,7 +281,7 @@ void AppliedStrain::femat() {
                     delta[mm][nn];
             }
           }
-          b_[ib_[m][is[mm]]][nn] += sum;
+          b_[ib_[m][is_[mm]]][nn] += sum;
         }
       }
     }
@@ -304,7 +316,7 @@ void AppliedStrain::femat() {
                     delta[mm][nn];
             }
           }
-          b_[ib_[m][is[mm]]][nn] += sum;
+          b_[ib_[m][is_[mm]]][nn] += sum;
         }
       }
     }
@@ -339,7 +351,7 @@ void AppliedStrain::femat() {
                     delta[mm][nn];
             }
           }
-          b_[ib_[m][is[mm]]][nn] += sum;
+          b_[ib_[m][is_[mm]]][nn] += sum;
         }
       }
     }
@@ -383,7 +395,7 @@ void AppliedStrain::femat() {
                   delta[mm][nn];
           }
         }
-        b_[ib_[m][is[mm]]][nn] += sum;
+        b_[ib_[m][is_[mm]]][nn] += sum;
       }
     }
   }
@@ -426,7 +438,7 @@ void AppliedStrain::femat() {
                   delta[mm][nn];
           }
         }
-        b_[ib_[m][is[mm]]][nn] += sum;
+        b_[ib_[m][is_[mm]]][nn] += sum;
       }
     }
   }
@@ -469,7 +481,7 @@ void AppliedStrain::femat() {
                   delta[mm][nn];
           }
         }
-        b_[ib_[m][is[mm]]][nn] += sum;
+        b_[ib_[m][is_[mm]]][nn] += sum;
       }
     }
   }
@@ -531,7 +543,7 @@ void AppliedStrain::femat() {
                 delta[mm][nn];
         }
       }
-      b_[ib_[m][is[mm]]][nn] += sum;
+      b_[ib_[m][is_[mm]]][nn] += sum;
     }
   }
 
@@ -853,10 +865,25 @@ void AppliedStrain::stress() {
   strxx_ = stryy_ = strzz_ = strxz_ = stryz_ = strxy_ = 0.0;
   sxx_ = syy_ = szz_ = sxz_ = syz_ = sxy_ = 0.0;
 
-  for (int k = 0; k < nz_; k++) {
-    for (int j = 0; j < ny_; j++) {
-      for (int i = 0; i < nx_; i++) {
-        m = k * nxy_ + j * nx_ + i;
+  double exx_nx_dbl = exx_ * nx_dbl;
+  double exy_nx_dbl = exy_ * nx_dbl;
+  double exz_nx_dbl = exz_ * nx_dbl;
+
+  double exy_ny_dbl = exy_ * ny_dbl;
+  double eyy_ny_dbl = eyy_ * ny_dbl;
+  double eyz_ny_dbl = eyz_ * ny_dbl;
+
+  double exz_nz_dbl = exz_ * nz_dbl;
+  double eyz_nz_dbl = eyz_ * nz_dbl;
+  double ezz_nz_dbl = ezz_ * nz_dbl;
+
+  int i, j, k, nxy_k, nx_j;
+  for (k = 0; k < nz_; k++) {
+    nxy_k = nxy_ * k;
+    for (j = 0; j < ny_; j++) {
+      nx_j = nxy_k + nx_ * j;
+      for (i = 0; i < nx_; i++) {
+        m = nx_j + i;
 
         ///
         /// Load in elements of 8-vector using periodic boundary condition.
@@ -881,48 +908,48 @@ void AppliedStrain::stress() {
 
         // if (i == (nx - 1)) {
         if (i == nx1) {
-          uu[1][0] = uu[1][0] + exx_ * nx_dbl;
-          uu[1][1] = uu[1][1] + exy_ * nx_dbl;
-          uu[1][2] = uu[1][2] + exz_ * nx_dbl;
-          uu[2][0] = uu[2][0] + exx_ * nx_dbl;
-          uu[2][1] = uu[2][1] + exy_ * nx_dbl;
-          uu[2][2] = uu[2][2] + exz_ * nx_dbl;
-          uu[5][0] = uu[5][0] + exx_ * nx_dbl;
-          uu[5][1] = uu[5][1] + exy_ * nx_dbl;
-          uu[5][2] = uu[5][2] + exz_ * nx_dbl;
-          uu[6][0] = uu[6][0] + exx_ * nx_dbl;
-          uu[6][1] = uu[6][1] + exy_ * nx_dbl;
-          uu[6][2] = uu[6][2] + exz_ * nx_dbl;
+          uu[1][0] += exx_nx_dbl; // exx_nx_dbl = exx_ * nx_dbl;
+          uu[1][1] += exy_nx_dbl;
+          uu[1][2] += exz_nx_dbl;
+          uu[2][0] += exx_nx_dbl;
+          uu[2][1] += exy_nx_dbl;
+          uu[2][2] += exz_nx_dbl;
+          uu[5][0] += exx_nx_dbl;
+          uu[5][1] += exy_nx_dbl;
+          uu[5][2] += exz_nx_dbl;
+          uu[6][0] += exx_nx_dbl;
+          uu[6][1] += exy_nx_dbl;
+          uu[6][2] += exz_nx_dbl;
         }
         // if (j == (ny - 1)) {
         if (j == ny1) {
-          uu[2][0] = uu[2][0] + exy_ * ny_dbl;
-          uu[2][1] = uu[2][1] + eyy_ * ny_dbl;
-          uu[2][2] = uu[2][2] + eyz_ * ny_dbl;
-          uu[3][0] = uu[3][0] + exy_ * ny_dbl;
-          uu[3][1] = uu[3][1] + eyy_ * ny_dbl;
-          uu[3][2] = uu[3][2] + eyz_ * ny_dbl;
-          uu[6][0] = uu[6][0] + exy_ * ny_dbl;
-          uu[6][1] = uu[6][1] + eyy_ * ny_dbl;
-          uu[6][2] = uu[6][2] + eyz_ * ny_dbl;
-          uu[7][0] = uu[7][0] + exy_ * ny_dbl;
-          uu[7][1] = uu[7][1] + eyy_ * ny_dbl;
-          uu[7][2] = uu[7][2] + eyz_ * ny_dbl;
+          uu[2][0] += exy_ny_dbl; // exy_ny_dbl = exy_ * ny_dbl;
+          uu[2][1] += eyy_ny_dbl;
+          uu[2][2] += eyz_ny_dbl;
+          uu[3][0] += exy_ny_dbl;
+          uu[3][1] += eyy_ny_dbl;
+          uu[3][2] += eyz_ny_dbl;
+          uu[6][0] += exy_ny_dbl;
+          uu[6][1] += eyy_ny_dbl;
+          uu[6][2] += eyz_ny_dbl;
+          uu[7][0] += exy_ny_dbl;
+          uu[7][1] += eyy_ny_dbl;
+          uu[7][2] += eyz_ny_dbl;
         }
         // if (k == (nz - 1)) {
         if (k == nz1) {
-          uu[4][0] = uu[4][0] + exz_ * nz_dbl;
-          uu[4][1] = uu[4][1] + eyz_ * nz_dbl;
-          uu[4][2] = uu[4][2] + ezz_ * nz_dbl;
-          uu[5][0] = uu[5][0] + exz_ * nz_dbl;
-          uu[5][1] = uu[5][1] + eyz_ * nz_dbl;
-          uu[5][2] = uu[5][2] + ezz_ * nz_dbl;
-          uu[6][0] = uu[6][0] + exz_ * nz_dbl;
-          uu[6][1] = uu[6][1] + eyz_ * nz_dbl;
-          uu[6][2] = uu[6][2] + ezz_ * nz_dbl;
-          uu[7][0] = uu[7][0] + exz_ * nz_dbl;
-          uu[7][1] = uu[7][1] + eyz_ * nz_dbl;
-          uu[7][2] = uu[7][2] + ezz_ * nz_dbl;
+          uu[4][0] += exz_nz_dbl; // exz_nz_dbl = exz_ * nz_dbl;
+          uu[4][1] += eyz_nz_dbl;
+          uu[4][2] += ezz_nz_dbl;
+          uu[5][0] += exz_nz_dbl;
+          uu[5][1] += eyz_nz_dbl;
+          uu[5][2] += ezz_nz_dbl;
+          uu[6][0] += exz_nz_dbl;
+          uu[6][1] += eyz_nz_dbl;
+          uu[6][2] += ezz_nz_dbl;
+          uu[7][0] += exz_nz_dbl;
+          uu[7][1] += eyz_nz_dbl;
+          uu[7][2] += ezz_nz_dbl;
         }
 
         ///
@@ -967,10 +994,10 @@ void AppliedStrain::stress() {
         /// Compute the strain energy for each element
         ///
 
-        for (int i = 0; i < 6; i++) {
-          for (int j = 0; j < 6; j++) {
-            strainengy_[m] = 0.5 * elestrain_[m][i] * cmod_[pix_[m]][i][j] *
-                             elestrain_[m][j];
+        for (int ii = 0; ii < 6; ii++) {
+          for (int jj = 0; jj < 6; jj++) {
+            strainengy_[m] = 0.5 * elestrain_[m][ii] * cmod_[pix_[m]][ii][jj] *
+                             elestrain_[m][jj];
           }
         }
 
@@ -1142,8 +1169,10 @@ void AppliedStrain::relax(int kmax) {
   return;
 }
 
-void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
-                         double exz, double eyz, double exy) {
+// void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
+//                          double exz, double eyz, double exy) { //check!
+void AppliedStrain::calc(vector<int> *p_vectPhId, double exx, double eyy,
+                         double ezz, double exz, double eyz, double exy) {
   int kmax = kmax_; // 40;
   int m;
 
@@ -1152,8 +1181,9 @@ void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
   /// the appropriate phase assignments.
   ///
 
-  // ppixel(fileName, nphase_);
-  ppixel(fileName);
+  // ppixel(fileName, nphase_); //check!
+  // ppixel(fileName);
+  ppixel(p_vectPhId);
 
   ///
   /// Count and output the volume fractions of the different phases.
@@ -1213,10 +1243,14 @@ void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
   /// as the initial condition.
   ///
 
-  for (int k = 0; k < nz_; k++) {
-    for (int j = 0; j < ny_; j++) {
-      for (int i = 0; i < nx_; i++) {
-        m = nxy_ * k + nx_ * j + i;
+  int i, j, k, nxy_k, nx_j;
+  for (k = 0; k < nz_; k++) {
+    nxy_k = nxy_ * k;
+    for (j = 0; j < ny_; j++) {
+      nx_j = nxy_k + nx_ * j;
+      for (i = 0; i < nx_; i++) {
+        // m = nxy_ * k + nx_ * j + i;
+        m = nx_j + i;
         // double x = static_cast<double>(i);
         // double y = static_cast<double>(j);
         // double z = static_cast<double>(k);
@@ -1243,14 +1277,16 @@ void AppliedStrain::calc(string fileName, double exx, double eyy, double ezz,
   return;
 }
 
-double AppliedStrain::getBulkModulus(string fileName) {
+// double AppliedStrain::getBulkModulus(string fileName) {
+double AppliedStrain::getBulkModulus(vector<int> *p_vectPhId) {
   double bulk;
   double Stress, Strain;
   // Stress = Strain = 0.0;
 
   // cout << "AppliedStrain::getBulkModulus - bf-calc" << endl;
 
-  calc(fileName, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05);
+  // calc(fileName, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05);
+  calc(p_vectPhId, 0.1, 0.1, 0.1, 0.05, 0.05, 0.05);
 
   // cout << "AppliedStrain::getBulkModulus - af-calc" << endl;
 

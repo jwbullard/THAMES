@@ -35,6 +35,7 @@ protected:
   double trueVolume_;       /**< Actual volume of site, accounting for stress */
   bool damage_ = false;     /**< True if site is damaged, false otherwise */
   std::vector<Site *> nb_;  /**< List of site ids that are neighbors to this site */
+  std::vector<int> nbSA_;   /**< List of site ids that are neighbors to this site */
 
   /**
   @brief Ranking of potential for dissolution if the site is an interface site.
@@ -293,6 +294,23 @@ public:
   @return the neighbor vector (pointers) of this site
   */
   std::vector<Site *> getNb() { return nb_; }
+
+  /**
+  @brief Set a neighbor position with a particular site.
+
+  This method is not used to push neighbors onto the neighbor vector.  The
+  creation of the neighbor table happens elsewhere in the Lattice class.
+
+  @param ind is the index in the allocated neighbor table.
+  */
+  void setNbSA(int ind) { nbSA_.push_back(ind); }
+
+  /**
+  @brief Get the neighbor vector of this site.
+
+  @return the neighbor vector of this site
+  */
+  std::vector<int> getNbSA() { return nbSA_; }
 
   /**
   @brief Get the index number of the site (position in the 1D Lattice vector).

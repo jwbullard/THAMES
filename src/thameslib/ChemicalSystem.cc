@@ -2751,7 +2751,7 @@ void ChemicalSystem::calculateSI(int cyc, double time) {
   int i, j;
   int numICs1 = numICs_ - 1;
   // double totCharge = 0.0;
-  nodeStatus_ = ERR_GEM_AIA;
+  nodeStatus_ = ERR_GEM_AIA; // this is NOT a mistake!
   vector<double> locDCLowerLimit;
   vector<double> locDCUpperLimit;
 

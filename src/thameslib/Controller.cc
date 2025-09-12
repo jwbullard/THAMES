@@ -16,7 +16,10 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        const string &jsonFileName, const string &jobname,
                        const bool verbose, const bool warning, const bool xyz) {
 
-  xyz_ = xyz;
+  // xyz_ = xyz;
+  xyzMovie_ = xyz;
+  xyzFiles_ = false;
+
   simType_ = simtype;
   chemSys_ = cs;
   kineticController_ = kc;
@@ -268,7 +271,11 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   string curTimeString = getTimeString(0.0);
   lattice_->writeLattice(curTimeString);
   lattice_->writeLatticePNG(curTimeString);
-  if (xyz_)
+
+  if (xyzFiles_)
+    lattice_->writeLatticeXYZ(0.0, curTimeString);
+
+  if (xyzMovie_)
     lattice_->appendXYZ(0.0);
 
   ///
@@ -519,7 +526,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
   // Main computation cycle
   while ((currTime <= time_[timeSize - 1]) &&
-         (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0)) {
+         (chemSys_->getGEMPhaseVolume(ElectrolyteGEMName) > 0.0)) {
 
     ///
     /// Do not advance the time step if GEM_run failed the last time
@@ -641,8 +648,8 @@ void Controller::doCycle(double elemTimeInterval) {
           break;
           // throw EOBException("Controller", "doCycle - 0", "time_", timeSize, i - 1);
         }
-
       }
+
     } else { // for SA
       if (timesGEMFailed_loc > 0) {
         cout << endl
@@ -743,8 +750,13 @@ void Controller::doCycle(double elemTimeInterval) {
       string curTimeString = getTimeString(currTime);
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
-      if (xyz_)
+
+      if (xyzFiles_)
+        lattice_->writeLatticeXYZ(currTime, curTimeString);
+
+      if (xyzMovie_)
         lattice_->appendXYZ(currTime);
+
       throw gex;
     }
 
@@ -1086,16 +1098,26 @@ void Controller::doCycle(double elemTimeInterval) {
       dex.printException();
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
-      if (xyz_)
+
+      if (xyzFiles_)
+        lattice_->writeLatticeXYZ(currTime, curTimeString);
+
+      if (xyzMovie_)
         lattice_->appendXYZ(currTime);
+
       throw dex;
     } catch (EOBException ex) {
       string curTimeString = getTimeString(currTime);
       ex.printException();
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
-      if (xyz_)
+
+      if (xyzFiles_)
+        lattice_->writeLatticeXYZ(currTime, curTimeString);
+
+      if (xyzMovie_)
         lattice_->appendXYZ(currTime);
+
       throw ex;
     } catch (MicrostructureException mex) {
       string curTimeString = getTimeString(currTime);
@@ -1106,7 +1128,11 @@ void Controller::doCycle(double elemTimeInterval) {
       mex.printException();
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
-      if (xyz_)
+
+      if (xyzFiles_)
+        lattice_->writeLatticeXYZ(currTime, curTimeString);
+
+      if (xyzMovie_)
         lattice_->appendXYZ(currTime);
 
       // write output .txt files
@@ -1148,16 +1174,18 @@ void Controller::doCycle(double elemTimeInterval) {
 
       // if (verbose_)
       cout << endl
-           << "Controller::doCycle - write microstructure files at i = " << i << " / currTime = "
-           << currTime << " / outputImageTime_[" << timeIndexIMG
-           << "] = " << outputImageTime_[timeIndexIMG]
+           << "Controller::doCycle - write microstructure files at i = " << i
+           << " / currTime = " << currTime << " / outputImageTime_["
+           << timeIndexIMG << "] = " << outputImageTime_[timeIndexIMG]
            << ", writeTime = " << writeTime << endl;
-      //
 
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
 
-      if (xyz_)
+      if(xyzFiles_)
+        lattice_->writeLatticeXYZ(writeTime, curTimeString);
+
+      if (xyzMovie_)
         lattice_->appendXYZ(writeTime);
 
       lattice_->calculatePoreSizeDistribution();
@@ -1278,7 +1306,8 @@ void Controller::doCycle(double elemTimeInterval) {
            << oldDamageCount_ << " / " << newDamageCount_ << " / " << allDamageCount_
            << endl;
 
-      if (expansion.size() > 0) { // check!  comment to accelerate SA!!!
+      // /* // SA!!!
+      if (expansion.size() > 0) {
         // double strxx, stryy, strzz;
         vector<double> locEleStress;
         double locTstrength;
@@ -1306,11 +1335,11 @@ void Controller::doCycle(double elemTimeInterval) {
           cout.flush();
         }
 
-        string ofileName(jobRoot_);
+        // string ofileName(jobRoot_);
 
-        ostringstream ostrT;
-        ostrT << setprecision(3) << temperature_;
-        string tempstr(ostrT.str());
+        // ostringstream ostrT;
+        // ostrT << setprecision(3) << temperature_;
+        // string tempstr(ostrT.str());
 
         // ostringstream ostrY, ostrD, ostrH, ostrM;
         // ostrY << setfill('0') << setw(3) << formattedTime.years;
@@ -1326,7 +1355,7 @@ void Controller::doCycle(double elemTimeInterval) {
         //                     timestrH + "h" + timestrM + "m";
 
         string curTimeString = getTimeString(currTime);
-        ofileName = ofileName + "." + curTimeString + "." + tempstr + "K.img";
+        // ofileName = ofileName + "." + curTimeString + "." + tempstr + "K.img";
 
         ///
         /// In the sulfate attack algorithm, calculate the stress and strain
@@ -1356,7 +1385,12 @@ void Controller::doCycle(double elemTimeInterval) {
         /// microstructure, and then write the displacement field
         ///
 
-        thermalstr_->Calc(currTime, ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        // thermalstr_->Calc(time_[i], ofileName, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        vector<int> sitePhIdVect = lattice_->getAllSitesPhId();
+        vector<int> * p_sitePhIdVect = &sitePhIdVect;
+        
+        thermalstr_->Calc(cyc, currTime, p_sitePhIdVect, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
 
         // thermalstr_ -> writeStress(jobRoot_,time_[i],0); //write strxx
         // thermalstr_ -> writeStrainEngy(jobRoot_,time_[i]);
@@ -1406,7 +1440,7 @@ void Controller::doCycle(double elemTimeInterval) {
             // strxx = thermalstr_->getEleStress(index, 0);
             // stryy = thermalstr_->getEleStress(index, 1);
             // strzz = thermalstr_->getEleStress(index, 2);
-            locEleStress = thermalstr_->getEleStressMod(index);
+            locEleStress = thermalstr_->getEleStress(index);
             // strxx = locEleStress[0];
             // stryy = locEleStress[1];
             // strzz = locEleStress[2];
@@ -1476,7 +1510,7 @@ void Controller::doCycle(double elemTimeInterval) {
               // strxx = thermalstr_->getEleStress(index, 0);
               // stryy = thermalstr_->getEleStress(index, 1);
               // strzz = thermalstr_->getEleStress(index, 2);
-              locEleStress = thermalstr_->getEleStressMod(index);
+              locEleStress = thermalstr_->getEleStress(index);
               // strxx = locEleStress[0];
               // stryy = locEleStress[1];
               // strzz = locEleStress[2];
@@ -1548,6 +1582,12 @@ void Controller::doCycle(double elemTimeInterval) {
           lattice_->writeDamageLatticePNG(curTimeString);
         }
       }
+      // */ // SA!!!
+
+      cout << endl
+           << "Controller::doCycle - STRAIN module (sulfate attack) - cyc = "
+           << cyc << " (i = " << i << ")   =>   normal end" << endl;
+
       allDamageCount_ = newDamageCount_ + oldDamageCount_;
       cout << "  cyc = " << cyc
            << " -> damaged sites after set damage  :  "
@@ -1556,9 +1596,7 @@ void Controller::doCycle(double elemTimeInterval) {
            << allDamageCount_
            << " (if newDamageCount_ = 0 => no damage file written!)" << endl;
       oldDamageCount_ = allDamageCount_;
-      cout << endl
-           << "Controller::doCycle - STRAIN module (sulfate attack) - cyc = "
-           << cyc << " (i = " << i << ")   =>   normal end" << endl;
+
     }
   }
 
@@ -1571,8 +1609,10 @@ void Controller::doCycle(double elemTimeInterval) {
     lattice_->writeLattice(curTimeString);
     lattice_->writeLatticePNG(curTimeString);
 
-    // if (xyz_ && (time_[i - 1] < sattack_time_))... ?
-    if (xyz_)
+    if (xyzFiles_)
+      lattice_->writeLatticeXYZ(time_[i - 1], curTimeString);
+
+    if (xyzMovie_)
       lattice_->appendXYZ(time_[i - 1]);
   }
   return;
@@ -2143,10 +2183,8 @@ void Controller::parseDoc(const string &docName) {
       outputImageTimeInterval_ = cdi.value();
       outputImageTimeInterval_ *= (H_PER_DAY);
 
-      // Knowing the time interval, construct the output
-      // times
+      // Knowing the time interval, construct the output times
       if (outputImageTimeInterval_ > 1.0e-9) {
-
         while (testTime < finalTime) {
           testTime += outputImageTimeInterval_;
           if (testTime < finalTime) {

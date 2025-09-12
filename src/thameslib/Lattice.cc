@@ -441,6 +441,8 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
     }
   }
 
+  setNeighborhoodSA();
+
   ///
   /// This loop reads the phase for each site and assigns it,
   /// also updating the count of the phase.
@@ -2781,13 +2783,13 @@ void Lattice::removeGrowthSite_diss(Site *ste0, int pid) {
   // }
 }
 
-double Lattice::changeSaturationState(double aqFracToEmpty, const int cyc) {
+double Lattice::changeSaturationState(double aqFracToEmpty) {
 
   double aqFracEmptied = 0.0;
   if (aqFracToEmpty > 0.0) {
     aqFracEmptied = emptyPorosity(aqFracToEmpty);
   } else if (aqFracToEmpty < 0.0) {
-    aqFracEmptied = -fillPorosity(-aqFracToEmpty, cyc);
+    aqFracEmptied = -fillPorosity(-aqFracToEmpty);
   }
   return (aqFracEmptied);
 }
@@ -2838,7 +2840,7 @@ double Lattice::emptySubVoxelPorosity(double aqFracToEmpty) {
   return (aqFracEmptied);
 }
 
-double Lattice::fillPorosity(double aqFracToFill, const int cyc) {
+double Lattice::fillPorosity(double aqFracToFill) {
   // Start with the smallest unsaturated sub-voxel pores
   calculatePoreSizeDistribution();
   double dNumsites = static_cast<double>(numSites_);
@@ -2849,7 +2851,7 @@ double Lattice::fillPorosity(double aqFracToFill, const int cyc) {
   // How many void voxels should be changed to electrolyte?
   if (aqFracToFill > 0.0) {
     int aqNumToFill = static_cast<int>((aqFracToFill * numSites_) + 0.5);
-    int aqNumFilled = fillVoxelPorosity(aqNumToFill, cyc);
+    int aqNumFilled = fillVoxelPorosity(aqNumToFill);
     double dAqNumFilled = static_cast<double>(aqNumFilled);
     aqFracFilled += (dAqNumFilled / dNumsites);
     aqFracToFill -= aqFracFilled;
@@ -2963,7 +2965,7 @@ int Lattice::emptyVoxelPorosity(int numToEmpty) {
   return (numemptied);
 }
 
-int Lattice::fillVoxelPorosity(int numToFill, const int cyc) {
+int Lattice::fillVoxelPorosity(int numToFill) {
 
   int maxsearchsize = 10;
 
@@ -2997,10 +2999,9 @@ int Lattice::fillVoxelPorosity(int numToFill, const int cyc) {
 
   if (distVectSize < numToFill) {
     cout << endl
-         << "    Lattice::fillPorosity - not enough voids in the system for "
-            "cyc = "
-         << cyc << "   distVect.size() < numToFill : " << distVectSize << " < "
-         << numToFill << endl;
+         << "    Lattice::fillPorosity - not enough voids in the system to "
+            "be filled <-> distVect.size() < numToFill : " << distVectSize
+         << " < " << numToFill << endl;
     // exit(1);
     cout << "    Lattice::fillPorosity -> normal end of the program" << endl;
     bool is_Error = false;
@@ -3117,6 +3118,34 @@ void Lattice::setResolution(const double res) {
   return;
 }
 
+void Lattice::setNeighborhoodSA(void) {
+  int xp, yp, zp;
+  // double dist;
+
+  int xc, yc, zc;
+  int ind;
+
+  for (int n = 0; n < numSites_; n++) {
+    xc = site_[n].getX();
+    yc = site_[n].getY();
+    zc = site_[n].getZ();
+
+    for (int k = -1; k <= 1; k++) {
+      zp = zc + k;
+      for (int j = -1; j <= 1; j++) {
+        yp = yc + j;
+        for (int i = -1; i <= 1; i++) {
+          xp = xc + i;
+
+          ind = getIndex(xp, yp, zp);
+
+          site_[n].setNbSA(ind);
+        }
+      }
+    }
+  }
+}
+
 vector<int> Lattice::getNeighborhood(const int sitenum, const int size) {
   int xp, yp, zp;
   // double dist;
@@ -3153,6 +3182,24 @@ vector<int> Lattice::getNeighborhood(const int sitenum, const int size) {
   }
 
   return nh;
+}
+
+void Lattice::getNeighborhood(const int sitenum, vector<int> & ids,
+                              vector<int> & phs, int & numW,
+                              double & totPor) {
+
+  ids = site_[sitenum].getNbSA();
+  int size = ids.size(); // 27!
+  int phId;
+  // cout << endl << ">>>>> Lattice::getNeighborhood - ids.size() = " << size << endl;
+
+  for (int i = 0; i < size; i++) {
+    phId = site_[ids[i]].getMicroPhaseId();
+    if (phId == ELECTROLYTEID)
+      numW++;
+    phs.push_back(phId);
+    totPor += site_[ids[i]].getWmc0();
+  }
 }
 
 int Lattice::getIndex(int ix, int iy, int iz) const {
@@ -3856,7 +3903,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
        << endl;
   // cout.flush();
 
-  double aqFracEmptied = changeSaturationState(aqFracToEmpty, cyc);
+  double aqFracEmptied = changeSaturationState(aqFracToEmpty);
 
   // cout << "   =>   aqFracEmptied = " << aqFracEmptied
   //      << "   count_[0]/count_[1] = " << count_[0] << " / " << count_[1]
@@ -5617,7 +5664,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   coordin.resize(3, 0);
 
   double alreadygrown = 0.0;
-  int max;
+  int max = -10000;
 
   vector<Site *> porousneighbor, waterneighbor;
   int waterneighborSize;
@@ -5626,9 +5673,9 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   // string fileName(jobRoot_ + "_alsubvol.dat");
   vector<int> alnbSiteId;
   vector<int> alnbPhId;
-  int stenb_mPhId;
-  int size;
-  Site *alstenb;
+  // int stenb_mPhId;
+  // int size;
+  // Site *alstenb;
 
   int numWater, numPorous;
   double totalPorosity;
@@ -5748,39 +5795,43 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
         ///
 
         alnbSiteId.clear();
+        alnbPhId.clear();
+        numWater = numPorous = 0;
+        totalPorosity = 0.0;
 
-        string fileName(jobRoot_ + "_alsubvol.dat");
+        // string fileName(jobRoot_ + "_alsubvol.dat"); // check!
 
         // cout << "Lattice::transformPhase fileName = " << fileName << endl;
 
-        alnbSiteId =
-            writeSubVolume(fileName, ste, 1); // all 26 neighbors + ste itself
+        // alnbSiteId =
+        //   writeSubVolume(fileName, ste, 1); // all 26 neighbors + ste itself
 
         // cout << "Lattice::transformPhase alnbSiteId.size() = " <<
         // alnbSiteId.size() << endl;
 
-        alnbSiteId = getNeighborhood(ste->getId(), 1);
-        // ste->setDamage();
-        numWater = numPorous = 0;
-        totalPorosity = 0.0;
+        // alnbSiteId = getNeighborhood(ste->getId(), 1);
 
-        size = alnbSiteId.size();
-        alnbPhId.clear();
-        for (int nb = 0; nb < size; nb++) {
-          alstenb = &site_[alnbSiteId[nb]];
-          stenb_mPhId = alstenb->getMicroPhaseId();
-          alnbPhId.push_back(stenb_mPhId);
-          if (stenb_mPhId == ELECTROLYTEID) {
-            numWater++;
-          }
+        getNeighborhood(ste->getId(), alnbSiteId, alnbPhId, numWater, totalPorosity);
+
+        // ste->setDamage();
+        // size = alnbSiteId.size();
+        // for (int nb = 0; nb < size; nb++) {
+          // alstenb = &site_[alnbSiteId[nb]];
+          // stenb_mPhId = alstenb->getMicroPhaseId();
+          // alnbPhId.push_back(stenb_mPhId);
+          // if (stenb_mPhId == ELECTROLYTEID) {
+          // if (alnbPhId[nb] == ELECTROLYTEID) {
+          //   numWater++;
+          // }
           // else if (chemSys_->isPorous(stenb_mPhId)) {
           //   // numPorous++;
           //   alstenb->setDamage();
           // } else if (chemSys_->isWeak(stenb_mPhId)) {
           //   alstenb->setDamage();
           // }
-          totalPorosity += alstenb->getWmc0(); // including ste
-        }
+          // totalPorosity += alstenb->getWmc0(); // including ste
+          // totalPorosity += site_[alnbSiteId[nb]].getWmc0();
+        // }
 
         ///
         /// 2. Calculate the effective bulk modulus of this subvolume
@@ -5788,14 +5839,15 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
 
         // cout << "Lattice::transformPhase bf-FEsolver_" << endl;
 
-        double subbulk = FEsolver_->getBulkModulus(fileName);
+        // double subbulk = FEsolver_->getBulkModulus(fileName);
 
         // cout << "Lattice::transformPhase af-FEsolver_" << endl;
 
         // double subbulk = FEsolver_->getBulkModulus(alnbPhId);
 
-        // vector<int> *p_alnbPhId = &alnbPhId; // *
-        // double subbulk = FEsolver_->getBulkModulus(p_alnbPhId); // *
+        vector<int> *p_alnbPhId = &alnbPhId;
+        double subbulk = FEsolver_->getBulkModulus(p_alnbPhId);
+
         subbulk = subbulk * 1.0e3; // convert GPa to MPa
 
         double subsolidbulk =

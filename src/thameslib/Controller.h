@@ -166,9 +166,11 @@ private:
   int allDamageCount_; /**< Total number of pixels in the system that are damaged
                             at the end of the current cycle */
 
-  bool verbose_; /**< Flag for verbose output */
-  bool warning_; /**< Flag for warning output */
-  bool xyz_;     /**< Flag for 3D movie data output */
+  bool verbose_;  /**< Flag for verbose output */
+  bool warning_;  /**< Flag for warning output */
+  // bool xyz_;   /**< Flag for 3D movie data output */
+  bool xyzMovie_; /**< Flag for 3D movie data output */
+  bool xyzFiles_; /**< Flag for 3D files (.xyz) data output */
 
   int numMicroPhases_;     /**< Number of microPhases */
   int numGEMPhases_;       /**< Number of GEM phases in the CSD */
@@ -335,14 +337,14 @@ public:
 
   @param isxyz is true if 3D visualization data output should be produced
   */
-  void setXyz(const bool isxyz) { xyz_ = isxyz; }
+  // void setXyz(const bool isxyz) { xyz_ = isxyz; }
 
   /**
   @brief Get the xyz flag
 
   @return the xyz flag
   */
-  bool getXyz() const { return xyz_; }
+  // bool getXyz() const { return xyz_; }
 
   /**
   @brief Master function for writing ascii text files
@@ -359,7 +361,7 @@ public:
   void writeTxtOutputFiles_onlyICsDCs(double time);
 
   /**
-  @brief Convert time in hours to y,d,h,m string format
+  @brief Convert time in hours to y,d,h,m (string format ***y***d**h**m)
 
   @param curtime is the simulation time in h
   @return string "***y***d**h**m"

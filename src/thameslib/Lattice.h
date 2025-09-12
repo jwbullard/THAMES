@@ -601,6 +601,24 @@ public:
   std::vector<int> getNeighborhood(const int sitenum, const int size);
 
   /**
+  @brief Get the collection of site indices (ids), site phases (phs)
+  neighboring a given site (sitenum). Calculate also the number of neighbor sites 
+  occupied by electrolyte (numW) and the total porosity (totpor). used for
+  sulfate attack (SA)
+
+  */
+  void getNeighborhood(const int sitenum, std::vector<int> & ids,
+                       std::vector<int> & phs, int & numW,
+                       double & totPor);
+
+  /**
+  @brief Set the collection of site indices neighboring a given site 
+  including the site itself. This ids used for sulfate attack (SA)
+
+  */
+  void setNeighborhoodSA(void);
+
+  /**
   @brief Get a pointer to a Site object at a given index in the `site_` array.
 
   @param index is the index of the Site object in the `site_` array
@@ -743,9 +761,8 @@ public:
 
   @param voidFracToAdd is the target change in void volume
   fraction, on a total microstructure volume basis
-  @param cyc is the current computational iteration
   */
-  double changeSaturationState(double voidFracToAdd, const int cyc);
+  double changeSaturationState(double voidFracToAdd);
 
   /**
   @brief Remove a prescribed volume fraction of water from the system
@@ -799,20 +816,18 @@ public:
 
   @param volFracToAdd is the target increase in electrolyte volume
   fraction, on a total microstructure volume basis
-  @param cyc is the current computational iteration
   @return the actual volume fraction of electrolyte added
   */
-  double fillPorosity(double volFracToAdd, const int cyc);
+  double fillPorosity(double volFracToAdd);
 
   /**
   @brief Convert a prescribed number of void voxels to electrolyte voxels
 
   @param numToFill is the number of electrolyte voxels to fill, on a total
   microstructure volume basis
-  @param cyc is the current computational iteration
   @return the actual number converted
   */
-  int fillVoxelPorosity(int numToFill, const int cyc);
+  int fillVoxelPorosity(int numToFill);
 
   /**
   @brief Empty a prescribed volume fraction of electrolyte from sub-voxel pores
@@ -845,10 +860,9 @@ public:
   is the list visited and the prescribed number of sites switched to water.
 
   @param numToFill is the number of sites to switch from void to water
-  @param cyc (cycle) is the iteration number in main iteration loop
   @return the actual number of sites that were changed
   */
-  int fillPorosity(int numToFill, const int cyc);
+  int fillPorosity(int numToFill);
 
   /**
   @brief Add water to the all empty pore sites.
@@ -2143,6 +2157,14 @@ public:
   conversion - generalize this for any phase transformation.
   */
   void createGrowingVectSA(void);
+
+  std::vector<int> getAllSitesPhId(void) { // check!
+    std::vector<int> allPhId(numSites_, 0);
+    for (int i = 0; i < numSites_; i++) {
+      allPhId[i] = site_[i].getMicroPhaseId();
+    }
+    return allPhId;
+  }
 
 }; // End of Lattice class
 

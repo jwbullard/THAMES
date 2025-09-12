@@ -1064,8 +1064,8 @@ void KineticController::calculateKineticStep(double time, const double timestep,
           // cout << "   cyc = " << cyc
           //      << " : midx/phName/scaledMassIni_/scaledMass/massDissolved: "
           //      << setw(3) << right << midx << " / "
-          //      << setw(15) << left << phaseKineticModel_[midx]->getName() << " / "
-          //      << scaledMassIni_[midx] << " / " << scaledMass << " / "
+          //      << setw(15) << left << phaseKineticModel_[midx]->getName() 
+          //      << " / " << scaledMassIni_[midx] << " / " << scaledMass << " / "
           //      << massDissolved;
 
           chemSys_->updateMicroPhaseMasses(phaseDissolvedId[midx], scaledMass, 0);
