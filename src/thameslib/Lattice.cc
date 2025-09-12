@@ -5,6 +5,8 @@
 */
 #include "Lattice.h"
 
+// #include <numeric> // for tests // check!
+
 using std::cout; using std::endl;
 using std::string; using std::vector; using std::map;
 
@@ -39,6 +41,18 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   int idn;
   int pid;
   string msg;
+
+  // for tests // check!
+  // maxLastD_ = -100;
+  // minLastD_ = 100;
+  // lt1D_ = 0;
+  // gt1D_ = 0;
+  // maxLastG_ = -100;
+  // minLastG_ = 100;
+  // lt1G_ = 0;
+  // gt1G_ = 0;
+  // maxRNG_ = -100;
+  // minRNG_ = 100;
 
   chemSys_ = cs;
   rg_ = rg;
@@ -1208,6 +1222,30 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     // affAllPos - works with modified affinities in affinity_ table from
     // ChemicalSystem (all positives!)
 
+    /*
+    { // check!
+      int siteId, phaseId, interfacePos;
+      for (j = 0; j < growthVectorSize; j++) {
+        siteId = growthVector[j].id;
+        phaseId = growPhaseIDVect[growthVector[j].posVect];
+        interfacePos = site_[siteId].getInGrowInterfacePosVector()[phaseId];
+        // if (growthVector[j].affinity != interface_[phaseId].getAffinity(interfacePos)) {
+        if (growthVector[j].affinity < 0) {
+          cout << endl << "        Lattice::growPhase error - affinity - totalTRC = "
+               << totalTRC << "   bcl = " << bcl << "   j = "
+               << j <<  "   siteId = " << siteId << "   phaseId = "
+               << phaseId <<   "   interfacePos = " << interfacePos << endl;
+          cout << endl << "   growthVector[j].affinity = "
+               << growthVector[j].affinity << endl;
+          cout << endl << "   interface_[phaseId].aff  = "
+          	   << interface_[phaseId].getAffinity(interfacePos) << endl;
+          cout << endl << "exit" << endl;
+          exit(0);
+        }
+      }
+    }
+    */
+
     // calc probabilities & choose a site
     // affSum = 0.0;
     // for (j = 0; j < growthVectorSize; j++) {
@@ -1217,6 +1255,24 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
     rng = callRNG();
     if (affSum > 0) {
       probRNG = growthVector[0].affinity / affSum;
+      // for (j = 1; j < growthVectorSize; j++) {  // check!
+      //   probRNG += (growthVector[j].affinity / affSum);
+      //   growthVector[j].prb = probRNG;
+      // }
+      // if (growthVector[growthVectorSize - 1].prb > maxLastG_)
+      //   maxLastG_ = growthVector[growthVectorSize - 1].prb;
+      // if (growthVector[growthVectorSize - 1].prb > 1.)
+      //   gt1G_++;
+      // if (growthVector[growthVectorSize - 1].prb < minLastG_)
+      //   minLastG_ = growthVector[growthVectorSize - 1].prb;
+      // if (growthVector[growthVectorSize - 1].prb < 1.)
+      //   lt1G_++;
+      // growthVector[growthVectorSize - 1].prb = 1.0;
+      // for (isitePos = 0; isitePos < growthVectorSize; isitePos++) {
+      //   if (rng <= growthVector[isitePos].prb)
+      //     break;
+      // }
+
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
@@ -1592,6 +1648,14 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
 
   numadded_G = numChangeTot;
 
+  // for tests // check!
+  // cout << endl << "totalTRC = " << totalTRC << " :   maxLastG_ = " << maxLastG_
+  //      << "  gt1G_ = " << gt1G_ << endl;
+  // cout << "totalTRC = " << totalTRC << " :   minLastG_ = " << minLastG_
+  //      << "  lt1G_ = " << lt1G_ << endl;
+  // cout << "totalTRC = " << totalTRC << " :   minRNG_ = " << minRNG_
+  //      << "  maxRNG_ = " << maxRNG_ << "  eps1 = " << 1.0 - maxRNG_ << endl;
+
   return (nucleated);
 }
 
@@ -1630,6 +1694,133 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
        << endl;
   cout << "        dissolutionInterfaceSize_ = "
        << dissolutionInterfaceSize_[phaseID] << endl;
+
+  /*
+  // numLeftIni --> numRemaining  &&  numLeft --> numToNucleate // check!
+  // numSites --> numThisPhase  &&  numSites0 --> initNumThisPhase
+  cout << "       CHECK ERRORS BEFORE NUCLEATION:";
+  if (numSites != 0 ||
+      growthInterfaceSize_[phaseID] != 0 ||
+      dissolutionInterfaceSize_[phaseID] != 0) {
+
+    vector<Isite> diss = interface_[phaseID].getDissolutionSites();
+    int dissSz = diss.size();
+    double wmc, wmc0, wmcSum, wmcSum_t;
+    string nameNbPhase;
+    int nbID, nbPhID;
+    bool findSite;
+    int siteDiss = 0, siteBulk = 0;
+    int numCSH, numELE;
+    int error1 = 0, error2 = 0, error3 = 0,
+         error4 = 0, error5 = 0;
+
+    int numIsolated = 0;
+    for (int i = 0; i < numSites_; i++) {
+      if (site_[i].getMicroPhaseId() == phaseID) {
+        //cout << endl << "   check possible errors for siteID/phaseID : "
+        //     << i << " / " << phaseID << endl;
+        numELE = 0;
+        for (int k = 0; k < NN_NNN; k++) {
+          nbPhID = site_[i].nb(k)->getMicroPhaseId();
+          if (nbPhID == ELECTROLYTEID) {
+            numELE++;
+          }
+        }
+        if (numELE > 0) {
+          //cout << "     error1 i/numELE : "
+          //     << i << " / " << numELE << endl;
+          error1++;
+        }
+
+        wmc = site_[i].getWmc();
+        if (wmc > 0) {
+          findSite = false;
+          for (int j = 0; j < dissSz; j++) {
+            if (i == diss[j].getId()) {
+              findSite = true;
+              if (j != dissSz - 1)
+                diss[j] = diss[dissSz - 1];
+              dissSz--;
+              diss.pop_back();
+              siteDiss++;
+              break;
+            }
+          }
+          if (!findSite) {
+            //cout << "     error2 i/findSite : "
+            //     << i << " / findSite = false" << endl;
+            error2++;
+          }
+        }
+
+        wmc0 = site_[i].getWmc0();
+        if (namePhase != "CSHQ") {
+          if (wmc0 > 0) {
+            //cout << "     error3 i/namePhase/wmc0 : " << i
+            //     << " / " << namePhase <<  " / " << wmc0 << endl;
+            error3++;
+          }
+        }
+
+        numCSH = 0;
+        wmcSum = wmc0;
+        for (int k = 0; k < NN_NNN; k++) {
+          nbID = site_[i].nb(k)->getId();
+          nbPhID = site_[i].nb(k)->getMicroPhaseId();
+          if (chemSys_->getMicroPhaseName(nbPhID) == "CSHQ" &&
+              site_[nbID].getWmc0() > 0) {
+            numCSH++;
+            wmcSum += site_[nbID].getWmc0();
+          }
+        }
+        if (abs(wmc - wmcSum) > 1e-5) {
+          //cout << "     error4 i/wmcSum/wmc : " << i
+          //     << " / " << wmcSum <<  " / " << wmc << endl;
+          error4++;
+        }
+
+        if (numCSH == 0 && wmc >0) {
+          //cout << "     error5 i/namePhase/numCSH/wmc : " << i << " / "
+          //     << namePhase << " / " << numCSH
+          //     << " / " << wmc << endl;
+          error5++;
+        }
+        if (numCSH == 0) numIsolated++;
+      }
+    }
+
+    if (error1 > 0 || error2 > 0 || error3 > 0 || error4 > 0 || error5 > 0) {
+      cout << endl << "     error: numSites != 0 -> " << numSites
+           << " != 0" << endl;
+      cout << endl
+           << "     error: growthInterfaceSize_ != 0 -> "
+           << growthInterfaceSize_[phaseID] << " != 0" << endl;
+      cout << endl
+           << "     error: dissolutionInterfaceSize_ != 0 -> "
+           << dissolutionInterfaceSize_[phaseID] << " != 0"
+           << endl;
+      cout << endl
+           << "     error: numIsolated = " << numIsolated << " (?)" << endl;
+      cout << endl
+           << "     error1 = " << error1 << endl;
+      cout << "     error2 = " << error2 << endl;
+      cout << "     error3 = " << error3 << endl;
+      cout << "     error4 = " << error4 << endl;
+      cout << "     error5 = " << error5 << endl;
+
+      cout << endl << "     exit" << endl;
+      bool is_Error = false;
+      throw MicrostructureException("Lattice", "nucleatePhaseRnd",
+                                    "some errors -> one of error1 .. error5 ",
+                                    is_Error);
+      //exit(1);
+    } else {
+      cout << " numIsolated = " << numIsolated << " => NO ERRORS!" << endl;
+    }
+  } else {
+    cout << " NO ERRORS!" << endl;
+  }
+  */
 
   seedID.clear();
 
@@ -1927,6 +2118,134 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
        << endl;
   cout << "        dissolutionInterfaceSize_ = "
        << dissolutionInterfaceSize_[phaseID] << endl;
+
+  /*
+    // numLeftIni --> numRemaining  &&  numLeft --> numToNucleate // check!
+    // numSites --> numThisPhase  &&  numSites0 --> initNumThisPhase
+    cout << "       CHECK ERRORS BEFORE NUCLEATION:";
+    if (numSites != 0 ||
+        growthInterfaceSize_[phaseID] != 0 ||
+        dissolutionInterfaceSize_[phaseID] != 0) {
+
+      vector<Isite> diss = interface_[phaseID].getDissolutionSites();
+      int dissSz = diss.size();
+      double wmc, wmc0, wmcSum;
+      string namePhase = chemSys_->getMicroPhaseName(phaseID);
+      string nameNbPhase;
+      int nbID, nbPhID;
+      bool findSite;
+      int siteDiss = 0, siteBulk = 0;
+      int numCSH, numELE;
+      int error1 = 0, error2 = 0, error3 = 0,
+           error4 = 0, error5 = 0;
+
+      int numIsolated = 0;
+      for (int i = 0; i < numSites_; i++) {
+        if (site_[i].getMicroPhaseId() == phaseID) {
+          //cout << endl << "   check possible errors for siteID/phaseID : "
+          //     << i << " / " << phaseID << endl;
+          numELE = 0;
+          for (int k = 0; k < NN_NNN; k++) {
+            nbPhID = site_[i].nb(k)->getMicroPhaseId();
+            if (nbPhID == ELECTROLYTEID) {
+              numELE++;
+            }
+          }
+          if (numELE > 0) {
+            // cout << "     error1 i/numELE : "
+            //      << i << " / " << numELE << endl;
+            error1++;
+          }
+
+          wmc = site_[i].getWmc();
+          if (wmc > 0) {
+            findSite = false;
+            for (int j = 0; j < dissSz; j++) {
+              if (i == diss[j].getId()) {
+                findSite = true;
+                if (j != dissSz - 1)
+                  diss[j] = diss[dissSz - 1];
+                dissSz--;
+                diss.pop_back();
+                siteDiss++;
+                break;
+              }
+            }
+            if (!findSite) {
+              // cout << "     error2 i/findSite : "
+              //      << i << " / findSite = false" << endl;
+              error2++;
+            }
+          }
+
+          wmc0 = site_[i].getWmc0();
+
+          if (namePhase != "CSHQ") {
+            if (wmc0 > 0) {
+              //cout << "     error3 i/namePhase/wmc0 : " << i
+              //     << " / " << namePhase <<  " / " << wmc0 << endl;
+              error3++;
+            }
+          }
+
+          numCSH = 0;
+          wmcSum = wmc0;
+          for (int k = 0; k < NN_NNN; k++) {
+            nbID = site_[i].nb(k)->getId();
+            nbPhID = site_[i].nb(k)->getMicroPhaseId();
+            if (chemSys_->getMicroPhaseName(nbPhID) == "CSHQ" &&
+                site_[nbID].getWmc0() > 0) {
+              numCSH++;
+              wmcSum += site_[nbID].getWmc0();
+            }
+          }
+          if (abs(wmc - wmcSum) > 1e-5) {
+            // cout << "     error4 i/wmcSum/wmc : " << i
+            //      << " / " << wmcSum <<  " / " << wmc << endl;
+            error4++;
+          }
+          if (numCSH == 0 && wmc >0) {
+            // cout << "     error5 i/namePhase/numCSH/wmc : " << i << " / "
+            //      << namePhase << " / " << numCSH
+            //      << " / " << wmc << endl;
+            error5++;
+          }
+          if (numCSH == 0) numIsolated++;
+        }
+      }
+
+      if (error1 > 0 || error2 > 0 || error3 > 0 || error4 > 0 || error5 > 0) {
+        cout << endl << "     error: numSites != 0 -> " << numSites << " != 0"
+             << endl;
+        cout << endl
+             << "     error: growthInterfaceSize_ != 0 -> "
+             << growthInterfaceSize_[phaseID]
+             << " != 0" << endl;
+        cout << endl
+             << "     error: dissolutionInterfaceSize_ != 0 -> "
+             << dissolutionInterfaceSize_[phaseID] << " != 0" << endl;
+        cout << endl
+             << "     error: numIsolated = " << numIsolated << " (?)" << endl;
+        cout << endl
+             << "     error1 = " << error1 << endl;
+        cout << "     error2 = " << error2 << endl;
+        cout << "     error3 = " << error3 << endl;
+        cout << "     error4 = " << error4 << endl;
+        cout << "     error5 = " << error5 << endl;
+
+        cout << endl << "     exit" << endl;
+        bool is_Error = false;
+        throw MicrostructureException("Lattice", "nucleatePhaseAff",
+                                    "some errors -> one of error1 .. error5 ",
+                                    is_Error);
+        // exit(1);
+      } else {
+        cout << " numIsolated = " << numIsolated << " => NO ERRORS!" << endl;
+      }
+    } else {
+      cout << " NO ERRORS!" << endl;
+    }
+  */
 
   seedID.clear();
   /// JWB: Must be enough saturated pore voxels for all the
@@ -2260,6 +2579,19 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
   double wmcIni, wmcEnd, dwmcval;
   bool phaseid_exist;
 
+  // for (int i = 0; i < numSites_; i++) { // check!
+  //   ste = &site_[i];
+  //   if (ste->getWmc() < 0 || ste->getWmc0() < 0) {
+  //     cout << endl << "     *** out error0 : ste->getWmc() = " << ste->getWmc()
+  //          << "   ste->getWmc0() = " << ste->getWmc0()
+  //          << "   for i = " << i << "  &  pid = " << ste->getMicroPhaseId() << endl;
+  //     cout << "     *** out totalTRC trc_d bcl :  " << totalTRC
+  //          << "   " << trc_d << "   " << bcl << endl;
+  //     cout << endl << "     exit" << endl;
+  //     exit(0);
+  //   }
+  // }
+
   int dissPhaseIDVectSize = dissPhaseIDVect.size();
   vector<int> numChange(dissPhaseIDVectSize, 0);
   vector<int> dim_isite(dissPhaseIDVectSize, 0);
@@ -2355,6 +2687,25 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       // }
 
       probRNG = dissolutionVector[0].wmc / sumWmc;
+
+      // dissolutionVector[0].prb = probRNG; // check!
+      // for (int i = 1; i < dissolutionVectorSize; i++) {
+      //   probRNG += (dissolutionVector[i].wmc / sumWmc);
+      //   dissolutionVector[i].prb = probRNG;
+      // }
+      // if (dissolutionVector[dissolutionVectorSize - 1].prb > maxLastD_)
+      //   maxLastD_ = dissolutionVector[dissolutionVectorSize - 1].prb;
+      // if (dissolutionVector[dissolutionVectorSize - 1].prb > 1.)
+      //   gt1D_++;
+      // if (dissolutionVector[dissolutionVectorSize - 1].prb < minLastD_)
+      //   minLastD_ = dissolutionVector[dissolutionVectorSize - 1].prb;
+      // if (dissolutionVector[dissolutionVectorSize - 1].prb < 1.)
+      //   lt1D_++;
+      // dissolutionVector[dissolutionVectorSize - 1].prb = 1.0;
+      // for (isitePos = 0; isitePos < dissolutionVectorSize; isitePos++) { // new
+      //   if (rng <= dissolutionVector[isitePos].prb)
+      //    break;
+      // }
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
@@ -2660,6 +3011,39 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
     // cout << "     *** out totalTRC trc_d bcl :  " << totalTRC
     //      << "   " << trc_d << "   " << bcl << endl;
   }
+
+  /*
+  for (int i = 0; i < numSites_; i++) { // check!
+    if (site_[i].getInDissolutionVectorPos() != -1) {
+      cout << endl << "     *** out error site_[i].getInDissolutionVectorPos()
+  != -1 for i = "
+           << i << "   => site_[i].getInDissolutionVectorPos() = " <<
+  site_[i].getInDissolutionVectorPos() << endl; cout << "     *** out totalTRC
+  trc_d bcl :  " << totalTRC
+           << "   " << trc_d << "   " << bcl << endl;
+      cout << endl << "     exit" << endl; exit(0);
+    }
+  }
+  */
+
+  /*
+  if (trc_d >= 120) { // check!
+    int countErrorVect = 0;
+    int countErrorInt = 0;
+    for (int i = 0; i < numSites_; i++) {
+      if (site_[i].getInDissolutionVectorPos() > -1) countErrorVect++;
+      if (site_[i].getInDissInterfacePos() > -1) {
+        if (i !=
+  interface_[site_[i].getMicroPhaseId()].getDissolutionSitesId(site_[i].getInDissInterfacePos()))
+          countErrorInt++;
+      }
+    }
+    cout << endl << endl << ">>>>> FIN trc_d/countErrorVect/countErrorInt = " <<
+  trc_d
+          << " / " << countErrorVect << " / " << countErrorInt << endl << endl;
+
+  }
+  */
 
   numadded_D = numChangeTot;
   vector<int> numleft;
@@ -5561,6 +5945,48 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   int bcl = 0;
   int static trc_t;
   trc_t++;
+
+  /*
+  { // test interfete // check!
+    vector<Isite> isite;
+    int dim_isite;
+    int stId;
+    for (int i = 0; i < numMicroPhases_; i++) {
+      isite = interface_[i].getDissolutionSites();
+      dim_isite = isite.size();
+      for (int jj = 0; jj < dim_isite; jj++) {
+        stId = isite[jj].getId();
+        if (site_[stId].getInDissInterfacePos() != jj) {
+          cout << endl << "error in Lattice::transformPhase  - interfacePos - i = "
+               << i << "  (i must be phId!)" << endl;
+          cout << endl << "     stId/phId = " << stId << " / " << site_[stId].getMicroPhaseId()
+               << endl;
+          cout << endl << "     jj = " << jj << "  while  site_[stId].getInDissInterfacePos() = "
+               <<  site_[stId].getInDissInterfacePos() << endl;
+          cout << "   totalTRC/trc_t/bcl :  "
+               << "   " << totalTRC << "/" << trc_t << "/" << bcl << endl;
+          cout << "stop program" << endl;
+          exit(0);
+        }
+      }
+    }
+    for (int i = 0; i < numSites_; i++) {
+      if (site_[i].getInDissolutionVectorPos() != -1) {
+        cout << endl << "error in Lattice::transformPhase  - dissolutionVectorPos != -1 !!!"
+             << endl;
+        cout << endl << "i/phId = " << i << " / " << site_[i].getMicroPhaseId() << endl;
+        cout << endl << "site_[i].getInDissolutionVectorPos() = "
+             << site_[i].getInDissolutionVectorPos() << endl;
+        cout << "   totalTRC/trc_t/bcl :  "
+             << "   " << totalTRC << "/" << trc_t << "/" << bcl << endl;
+        cout << "stop program" << endl;
+        exit(0);
+      }
+    }
+    // cout << endl << ">>>>> totalTRC = " << totalTRC << "   =>   test interfete OK! "
+    //      << endl;
+  }
+  */
 
   int i, jj;
 

@@ -1194,6 +1194,113 @@ void Controller::doCycle(double elemTimeInterval) {
       timeIndexIMG++;
     }
 
+    /* // check!
+    // write a set of images files for a time_[i] that is closest to 
+    //   outputImageTime_[timeIndexIMG] (smaller or greater than this value)
+    if ((time_[i] >= outputImageTime_[timeIndexIMG]) &&
+        (timeIndexIMG < outputImageTimeSize)) {
+
+      if ((time_[i] - outputImageTime_[timeIndexIMG]) <=
+          (outputImageTime_[timeIndexIMG] - time_[i - 1])) {
+
+        double writeTime = time_[i - 1];
+        // if (abs(time_[i - 1] - outputImageTime_[timeIndexIMG]) <= thrTimeToWriteLattice)
+        //   writeTime = outputImageTime_[timeIndexIMG];
+        string curTimeString = getTimeString(writeTime);
+
+        // cout << endl
+        //      << "Controller::doCycle - write microstructure files at time_[" << i
+        //      << "] = " << time_[i] << ", outputImageTime_[" << timeIndexIMG
+        //      << "] = " << outputImageTime_[timeIndexIMG]
+        //      << ", writeTime = " << writeTime << endl;
+
+        cout << endl
+             << "Controller::doCycle - write microstructure files at time_[" << i
+             << "] = " << time_[i] << " but for i = " << i - 1
+             << " and time = " << time_[i - 1] << " (!!!), outputImageTime_["
+             << timeIndexIMG << "] = " << outputImageTime_[timeIndexIMG]
+             << endl;
+
+        // reset for time_[i - 1] :
+        // lattice_->calculatePoreSizeDistribution();  // check!  must be done too!!!
+        // lattice_->writePoreSizeDistribution(writeTime, curTimeString); // must be done too!!!
+
+        vector<int> currSitePhId;
+        for (int ij = 0; ij < numSites_; ij++) {
+          currSitePhId.push_back((lattice_->getSite(ij))->getMicroPhaseId());
+          (lattice_->getSite(ij))
+              ->setMicroPhaseId(iniLattice.site[ij].microPhaseId);
+        }
+
+        lattice_->writeLattice(curTimeString);
+        lattice_->writeLatticePNG(curTimeString);
+
+        if (xyz_)
+          lattice_->appendXYZ(writeTime);
+
+        for (int ij = 0; ij < numSites_; ij++) {
+          (lattice_->getSite(ij))->setMicroPhaseId(currSitePhId[ij]);
+        }
+
+      } else {
+
+        // write output .txt files
+        writeTxtOutputFiles(time_[i]);
+        if (writeICsDCs)
+          writeTxtOutputFiles_onlyICsDCs(time_[i]);
+
+        ///
+        /// Calculate the pore size distribution and saturation
+        ///
+
+        lattice_->calculatePoreSizeDistribution();
+
+        double writeTime = time_[i];
+        if (abs(time_[i] - outputImageTime_[timeIndexIMG]) < thrTimeToWriteLattice)
+          writeTime = outputImageTime_[timeIndexIMG];
+        string curTimeString = getTimeString(writeTime);
+
+        cout << endl
+             << "Controller::doCycle - write microstructure files at time_[" << i
+             << "] = " << time_[i] << ", outputImageTime_[" << timeIndexIMG
+             << "] = " << outputImageTime_[timeIndexIMG]
+             << ", writeTime = " << writeTime << endl;
+
+        lattice_->writeLattice(curTimeString);
+        lattice_->writeLatticePNG(curTimeString);
+
+        if (xyz_)
+          lattice_->appendXYZ(writeTime);
+
+        // lattice_->writePoreSizeDistribution(time_[i], curTimeString);
+        lattice_->writePoreSizeDistribution(writeTime, curTimeString);
+      }
+
+      timeIndexIMG++;
+
+    } else {
+
+      if ((time_[i] - time_[i - 1] > 1.0e-3 && time_[i] > 3.0) ||
+          (time_[i] - time_[i - 1] > 1.0e-4 && time_[i] <= 3.0)) {
+
+        // write only output .txt files
+        writeTxtOutputFiles(time_[i]);
+        if (writeICsDCs)
+          writeTxtOutputFiles_onlyICsDCs(time_[i]);
+
+        ///
+        /// Calculate the pore size distribution and saturation
+        ///
+
+        lattice_->calculatePoreSizeDistribution();
+
+        string curTimeString = getTimeString(time_[i]);
+
+        lattice_->writePoreSizeDistribution(time_[i], curTimeString);
+      }
+    }
+    */
+
     ///
     /// Check if there is any voxel-scale pore water remaining.  If not then
     /// we ASSUME hydration has stopped.
@@ -1307,7 +1414,7 @@ void Controller::doCycle(double elemTimeInterval) {
            << endl;
 
       // /* // SA!!!
-      if (expansion.size() > 0) {
+      if (expansion.size() > 0) { // check!  comment to accelerate SA!!!
         // double strxx, stryy, strzz;
         vector<double> locEleStress;
         double locTstrength;

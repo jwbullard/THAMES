@@ -45,6 +45,8 @@ int main(int argc, char **argv) {
   // Main menu where user decides what kind of simulation this will be.
   //
 
+  cout << "SA - version test v5 (with tests)" << endl << endl; // check!
+
   cout << endl << "Enter simulation type: " << endl;
   cout << "  " << QUIT_PROGRAM << ") Exit program " << endl;
   cout << "  " << HYDRATION << ") Hydration " << endl;
@@ -438,6 +440,20 @@ void deleteDynAllocMem(ChemicalSystem *ChemSys, Lattice *Mic, RanGen *RNG,
                        KineticController *KController, Controller *Ctrl,
                        clock_t st_time, time_t lt, bool errorProgram,
                        const string &outputFolder) {
+
+  // for tests
+  // cout << endl << "  maxLastD_ = " << Mic->getMaxLastD()
+  //      << "  gt1D_ = " << Mic->getGt1D() << endl;
+  // cout << "  minLastD_ = " << Mic->getMinLastD()
+  //     << "  lt1D_ = " << Mic->getLt1D() << endl;
+  //
+  // cout << endl << "  maxLastG_ = " << Mic->getMaxLastG()
+  //      << "  gt1G_ = " << Mic->getGt1G() << endl;
+  // cout << "  minLastG_ = " << Mic->getMinLastG()
+  //     << "  lt1G_ = " << Mic->getLt1G() << endl;
+  //
+  // cout << endl << "  maxRNG_ = " << Mic->getMaxRNG();
+  // cout << endl << "  minRNG_ = " << Mic->getMinRNG();
 
   string buff = "";
   int resCallSystem;
