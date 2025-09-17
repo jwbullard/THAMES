@@ -1703,6 +1703,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
   }
 
   // We might still have run out of all possible nucleation sites
+  /*// check!
   if (numRemaining > 0) {
     cout << endl
          << "     Lattice::nucleatePhaseRnd => requested nucleation "
@@ -1718,6 +1719,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
                                   "no room for nucleation", is_Error);
     // exit(0);
   }
+  */
 
   int sizeSeedID = seedID.size();
   int sID, pid;
@@ -1852,6 +1854,7 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
       }
     }
   }
+  /* // check!
   numThisPhase = 0;
   for (int i = 0; i < numSites_; i++) {
     if (site_[i].getMicroPhaseId() == phaseID)
@@ -1876,14 +1879,61 @@ void Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
                                   is_Error);
     // exit(1);
   }
-  cout << endl
-       << "      Lattice::nucleatePhaseRnd END for phaseID = " << phaseID
-       << endl;
-  cout << "        numNewSites = " << numToNucleate << endl;
-  cout << "        growthInterfaceSize_ = " << growthInterfaceSize_[phaseID]
-       << endl;
-  cout << "        dissolutionInterfaceSize_ = "
-       << dissolutionInterfaceSize_[phaseID] << endl;
+  */
+
+  // We might still have run out of all possible nucleation sites
+  if (numRemaining > 0) {
+    cout << endl
+         << "     Lattice::nucleatePhaseRnd => requested nucleation : "
+            "numToNucleate is larger than all possible nucleation sites!"
+         << endl;
+    cout << "     numToNucleate > all possible nuc sites : "
+         << numToNucleate << " > " << sizeSeedID << endl;
+    cout << endl
+         << "     There is no room for all nucleation events ("
+         << numToNucleate << ")  =>  only " << sizeSeedID
+         << " nucleation events have been realized  =>  normal exit"
+         << endl;
+    // bool is_Error = false;
+    // throw MicrostructureException("Lattice", "nucleatePhaseRnd",
+    //                               "no room for nucleation", is_Error);
+
+  } else {
+
+    numThisPhase = 0;
+    for (int i = 0; i < numSites_; i++) {
+      if (site_[i].getMicroPhaseId() == phaseID)
+        numThisPhase++;
+    }
+
+    if (numThisPhase != initNumThisPhase + numToNucleate) {
+      cout << endl
+           << "     error: numThisPhase != initNumThisPhase + numToNucleate -> "
+           << numThisPhase << " != " << initNumThisPhase + numToNucleate << endl;
+      cout << endl
+           << "     error: initNumThisPhase = " << initNumThisPhase
+           << "  &  numToNucleate = " << numToNucleate << endl;
+      cout << endl
+           << "     Lattice::nucleatePhaseRnd END for phaseID = " << phaseID
+           << endl;
+
+      cout << endl << "     exit" << endl;
+      bool is_Error = false;
+      throw MicrostructureException("Lattice", "nucleatePhaseRnd",
+                                    "not all numToNucleate have been nucleated ",
+                                    is_Error);
+      // exit(1);
+    }
+
+    cout << endl
+         << "      Lattice::nucleatePhaseRnd END for phaseID = " << phaseID
+         << endl;
+    cout << "        numNewSites = " << numToNucleate << endl;
+    cout << "        growthInterfaceSize_ = " << growthInterfaceSize_[phaseID]
+         << endl;
+    cout << "        dissolutionInterfaceSize_ = "
+         << dissolutionInterfaceSize_[phaseID] << endl;
+  }
 }
 
 void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
@@ -2058,7 +2108,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
   }
 
   // We might still have run out of all possible nucleation sites
-
+  /*// check!
   if (numRemaining > 0) {
     cout << endl
          << "      Lattice::nucleatePhaseAff => requested nucleation "
@@ -2074,6 +2124,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
                                   "no room for nucleation", is_Error);
     // exit(0);
   }
+  */
 
   int sizeSeedID = seedID.size();
   int sID, pid;
@@ -2207,6 +2258,7 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
     }
   }
 
+  /* // check!
   numSites = 0;
   for (int i = 0; i < numSites_; i++) {
     if (site_[i].getMicroPhaseId() == phaseID)
@@ -2230,13 +2282,61 @@ void Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
                                   is_Error);
     // exit(1);
   }
-  cout << "      Lattice::nucleatePhaseAff END for phaseID = " << phaseID
-       << endl;
-  cout << "        numNewSites = " << numToNucleate << endl;
-  cout << "        growthInterfaceSize_ = " << growthInterfaceSize_[phaseID]
-       << endl;
-  cout << "        dissolutionInterfaceSize_ = "
-       << dissolutionInterfaceSize_[phaseID] << endl;
+  */
+
+  if (numRemaining > 0) {
+
+    cout << endl
+         << "     Lattice::nucleatePhaseAff => requested nucleation : "
+            "numToNucleate is larger than all possible nucleation sites!"
+         << endl;
+    cout << "     numToNucleate > all possible nuc sites : "
+         << numToNucleate << " > " << sizeSeedID << endl;
+    cout << endl
+         << "     There is no room for all nucleation events ("
+         << numToNucleate << ")  =>  only " << sizeSeedID
+         << " nucleation events have been realized  =>  normal exit"
+         << endl;
+    // bool is_Error = false;
+    // throw MicrostructureException("Lattice", "nucleatePhaseAff",
+    //                               "no room for nucleation", is_Error);
+    // exit(0);
+
+  } else {
+
+    numSites = 0;
+    for (int i = 0; i < numSites_; i++) {
+      if (site_[i].getMicroPhaseId() == phaseID)
+        numSites++;
+    }
+
+    if (numSites != numSites0 + numToNucleate) {
+      cout << endl
+           << "     error: numSites != numSites0 + numToNucleate -> "
+           << numSites << " != " << numSites0 + numToNucleate << endl;
+      cout << endl
+           << "     error: numSites0 = " << numSites0
+           << "  &  numToNucleate = " << numToNucleate << endl;
+      cout << endl
+           << "     Lattice::nucleatePhaseAff END for phaseID = " << phaseID
+           << endl;
+
+      cout << endl << "     exit" << endl;
+      bool is_Error = false;
+      throw MicrostructureException("Lattice", "nucleatePhaseAff",
+                                    "not all numToNucleate have been nucleated ",
+                                    is_Error);
+      // exit(1);
+    }
+
+    cout << "      Lattice::nucleatePhaseAff END for phaseID = " << phaseID
+         << endl;
+    cout << "        numNewSites = " << numToNucleate << endl;
+    cout << "        growthInterfaceSize_ = " << growthInterfaceSize_[phaseID]
+         << endl;
+    cout << "        dissolutionInterfaceSize_ = "
+         << dissolutionInterfaceSize_[phaseID] << endl;
+  }
 }
 
 vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,

@@ -260,6 +260,7 @@ class ChemicalSystem {
                                    controlled */
   std::vector<bool> isDCKinetic_; /**< Whether of not each DC is kinetically
                                  controlled */
+
   /**
   @brief Initial solution composition
 
