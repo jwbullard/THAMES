@@ -1167,8 +1167,8 @@ void Controller::doCycle(double elemTimeInterval) {
           thrTimeToWriteLattice))) {
 
       double writeTime = currTime;
-      // if (abs(currTime - outputImageTime_[time_index]) < thrTimeToWriteLattice)
-      //   writeTime = outputImageTime_[time_index];
+      if (abs(currTime - outputImageTime_[timeIndexIMG]) < thrTimeToWriteLattice)
+        writeTime = outputImageTime_[timeIndexIMG];
 
       string curTimeString = getTimeString(writeTime);
 
@@ -1189,7 +1189,7 @@ void Controller::doCycle(double elemTimeInterval) {
         lattice_->appendXYZ(writeTime);
 
       lattice_->calculatePoreSizeDistribution();
-      lattice_->writePoreSizeDistribution(time_[i], curTimeString);
+      lattice_->writePoreSizeDistribution(writeTime, curTimeString);
 
       timeIndexIMG++;
     }
@@ -2264,53 +2264,59 @@ void Controller::parseDoc(const string &docName) {
     attack_ = false;
     bool errorAttack = false;
     if (simType_ == SULFATE_ATTACK || simType_ == LEACHING) {
-      if (beginAttackTime_ >= 0) {
-        if (endAttackTime_ > beginAttackTime_) {
-          if (attackTimeInterval_ > 0) {
-            attack_ = true;
-          } else {
-            errorAttack = true;
-          }
-        } else {
-          errorAttack = true;
-        }
-      } else {
+      attack_ = true;
+      if (beginAttackTime_ < 0 || endAttackTime_ < 0 || attackTimeInterval_ < 0 ||
+          endAttackTime_ < beginAttackTime_ ) {
         errorAttack = true;
+      } else {
+        if (endAttackTime_ == beginAttackTime_) {
+          if (attackTimeInterval_ > 0)
+            errorAttack = true;
+        } else {
+          if (attackTimeInterval_ == 0)
+            errorAttack = true;
+        }
       }
     }
 
-    if (attack_ && errorAttack) {
-      cout << endl << endl << "************" << endl;
-      cout << endl
-           << "=> you decided to simulate a leaching or a sulfate attack "
-              "but your time parameters are not set accordingly!"
-           << endl;
-      cout << endl
-           << "=> to do it, the specific controll parameters "
-              "must fulfill some additional conditions:"
-           << endl;
-      cout << "  -> beginattacktime >= 0" << endl;
-      cout << "  -> endattacktime > beginattacktime" << endl;
-      cout << "  -> attacktimeinterval > 0" << endl;
+    if (attack_) {
+      if(errorAttack) {
+        cout << endl << endl << "************" << endl;
+        cout << endl << "Controller::parseDoc - error :" << endl;
+        cout << endl
+             << "  first line in input.in file is \"4\""
+                "  =>  you decided to simulate a leaching or a sulfate attack!"
+             << endl;
+        cout << endl
+             << "                   ***"
+                " but your time parameters are not set accordingly! ***"
+             << endl;
+        cout << endl
+             << "  the specific controll parameters "
+                "must fulfill some additional conditions (simparams.json) :"
+             << endl;
+        cout << "     -> beginattacktime >= 0" << endl;
+        cout << "     -> endattacktime >= beginattacktime" << endl;
+        cout << "     -> attacktimeinterval >= 0" << endl;
 
-      cout << endl
-           << "=> by default all these variables are set to -1.0" << endl;
-      cout << endl << "=> for the current simulation their values are:" << endl;
-      cout << "  -> beginattacktime = " << beginAttackTime_ << endl;
-      cout << "  -> endattacktime = " << endAttackTime_ << endl;
-      cout << "  -> attacktimeinterval = " << attackTimeInterval_ << endl;
+        cout << endl
+             << "  by default all these variables are set to -1.0" << endl;
+        cout << endl
+             << "  for the current simulation their values are:" << endl;
+        cout << "     -> beginattacktime    = " << beginAttackTime_ << endl;
+        cout << "     -> endattacktime      = " << endAttackTime_ << endl;
+        cout << "     -> attacktimeinterval = " << attackTimeInterval_ << endl;
 
-      cout << endl
-           << "=> before to restart the program, please modify their values "
-              "into parameters.json file)"
-           << endl;
+        cout << endl
+             << "  => before to restart the program, please modify these values "
+                "into simparams.json file!"
+             << endl;
 
-      cout << endl << endl << "STOP" << endl;
-      cout << endl << endl << "************" << endl;
-      throw DataException("Controller", "Controller",
-                          "leaching or sulfate attack time parameters setting");
-
-    } else if (attack_) {
+        cout << endl << endl << "STOP" << endl;
+        cout << endl << endl << "************" << endl;
+        throw DataException("Controller", "Controller",
+                            "leaching or sulfate attack time parameters setting");
+      }
 
       cout << endl << "   => you decided to simulate a ";
       if (simType_ == LEACHING) {
