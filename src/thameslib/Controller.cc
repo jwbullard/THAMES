@@ -523,6 +523,7 @@ void Controller::doCycle(double elemTimeInterval) {
   int lastGoodI = 0;
   lastGoodTime_ = 0.0;
   double currTime = 0.0;
+  bool nucStopPrg = false;
 
   // Main computation cycle
   while ((currTime <= time_[timeSize - 1]) &&
@@ -854,10 +855,11 @@ void Controller::doCycle(double elemTimeInterval) {
       vectPhIdDiff.clear();
       vector<string> vectPhNameDiff;
       vectPhNameDiff.clear();
+      nucStopPrg = false;
 
       changeLattice = lattice_->changeMicrostructure(
           currTime, simType_, numSitesNotAvailable, vectPhIdDiff,
-          vectPhNameDiff, whileCount, cyc);
+          vectPhNameDiff, whileCount, nucStopPrg, cyc);
 
       // if not all the voxels requested by KM/GEM for a certain microphase
       //  phDiff (DCId)can be dissolved because of the system configuration
@@ -1056,9 +1058,10 @@ void Controller::doCycle(double elemTimeInterval) {
             // numSitesNotAvailable.clear(); // clear in changeMicrostructure(...)
             // vectPhIdDiff.clear();         // clear in changeMicrostructure(...)
             // vectPhNameDiff.clear();       // clear in changeMicrostructure(...)
+            nucStopPrg = false;
             changeLattice = lattice_->changeMicrostructure(
                 currTime, simType_, numSitesNotAvailable, vectPhIdDiff,
-                vectPhNameDiff, whileCount, cyc);
+                vectPhNameDiff, whileCount, nucStopPrg, cyc);
             cout << endl
                  << "Controller::doCycle - cyc = " << cyc
                  << "  &  whileCount = " << whileCount
@@ -1705,23 +1708,57 @@ void Controller::doCycle(double elemTimeInterval) {
       oldDamageCount_ = allDamageCount_;
 
     }
+
+    if (nucStopPrg) {
+      break;
+    }
+
   }
 
   ///
   /// Write the final lattice state to an ASCII file and to a PNG file for
   /// visualization
   ///
-  if (currTime > outputImageTime_[outputImageTime_.size() - 1]) {
+  if (currTime > outputImageTime_[outputImageTime_.size() - 1] || nucStopPrg) {
     string curTimeString = getTimeString(currTime);
+
     lattice_->writeLattice(curTimeString);
     lattice_->writeLatticePNG(curTimeString);
 
     if (xyzFiles_)
-      lattice_->writeLatticeXYZ(time_[i - 1], curTimeString);
+      lattice_->writeLatticeXYZ(currTime, curTimeString);
 
     if (xyzMovie_)
-      lattice_->appendXYZ(time_[i - 1]);
+      lattice_->appendXYZ(currTime);
+
+    // if (currTime > sulfateAttackTime_ && allDamageCount_ > 0) {
+    //   lattice_->writeDamageLattice(curTimeString);
+    //   lattice_->writeDamageLatticePNG(curTimeString);
+    // }
+
+    lattice_->calculatePoreSizeDistribution();
+    lattice_->writePoreSizeDistribution(currTime, curTimeString);
+
+    cout << endl
+         << "Controller::doCycle - program stops (currTime = " << currTime << " hours) : "
+         << endl;
+    if (nucStopPrg) {
+      cout << endl
+           << "                      number of nucleation events < nuclei requested number!"
+           << endl;
+    } else {
+      cout << endl
+           << "                      outputImageTime_.size() = " << outputImageTime_.size()
+           << endl;
+      cout << "                      outputImageTime_[" << outputImageTime_.size() - 1 << "] = "
+           << outputImageTime_[outputImageTime_.size() - 1] << endl;
+      cout << endl
+           << "                      currTime > outputImageTime_[outputImageTime_.size() - 1]"
+              "  =>  normal end"
+           << endl;
+    }
   }
+
   return;
 }
 

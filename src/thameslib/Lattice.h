@@ -710,6 +710,7 @@ public:
   @param growPhNameVect is a vector containing the name of each microphase in
   growPhaseIDVect
   @param numtoadd_G is the number of sites switched by this call
+  @param nucOK is a flag to characterize the nucleation correctness
   @param totalTRC is the total call number of the changeMicrostructure method
   @return the actual number of sites that were changed for each microphase ID
   from the input growPhaseIDVect vector
@@ -717,7 +718,7 @@ public:
   std::vector<int> growPhase(std::vector<int> growPhaseIDVect,
                              std::vector<int> numSiteGrowVect,
                              std::vector<std::string> growPhNameVect,
-                             int &numadded_G, int totalTRC);
+                             int &numadded_G, bool &nucOK, int totalTRC);
 
   /**
   @brief create a new growth interface by nucleation of numToNucleate sites for a
@@ -728,8 +729,9 @@ public:
 
   @param phaseid is the id of the microstructure phase to nucleate
   @param numToNucleate is the number of sites to nucleate/create for this phase
+  @return the number of nucleation events (nuclei) that have been realised
   */
-  void nucleatePhaseAff(const int phaseID, const int numToNucleate);
+  int nucleatePhaseAff(const int phaseID, const int numToNucleate);
 
   /**
   @brief create a new growth interface by nucleation of numToNucleate sites for a
@@ -740,8 +742,9 @@ public:
 
   @param phaseid is the id of the microstructure phase to nucleate
   @param numToNucleate is the number of sites to nucleate/create for this phase
+  @return the number of nucleation events (nuclei) that have been realised
   */
-  void nucleatePhaseRnd(const int phaseID, const int numToNucleate);
+  int nucleatePhaseRnd(const int phaseID, const int numToNucleate);
 
   /**
   @brief Remove (dissolve i.e. switch to electrolyte) the prescribed number of
@@ -1041,6 +1044,8 @@ public:
   @param vectPhNameDiff is the vector of names of microphases
   @param recalls counts the number of changeMicrostructure calls for a given
   cycle (cyc)
+  @param stopPrg is a flag used to stop the program when the possible number of
+  nucleation events is smaller than the nuclei requested number
   @param cyc (cycle) is the iteration number in main iteration loop in
   Controller::doCycle - each cycle corresponds to a time step
 
@@ -1051,7 +1056,7 @@ public:
                            std::vector<int> &vectPhNumDiff,
                            std::vector<int> &vectPhIdDiff,
                            std::vector<std::string> &vectPhNameDiff,
-                           int recalls, int cyc);
+                           int recalls, bool &stopPrg, int cyc);
 
   /**
   @brief Adjust GEMS calculated volumes of microstructure phases
