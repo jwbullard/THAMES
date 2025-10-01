@@ -5003,7 +5003,7 @@ void Lattice::writeLatticeXYZ(const double curtime,
   float x, y, z;
   int mPhId;
   vector<int> colors;
-  string symb;
+  string symb, mPhName;
 
   for (int i = 0; i < numSites_; i++) {
     x = site_[i].getX();
@@ -5011,10 +5011,12 @@ void Lattice::writeLatticeXYZ(const double curtime,
     z = site_[i].getZ();
     mPhId = site_[i].getMicroPhaseId();
     symb = cfgElem_[mPhId].symb; // mPhIdgetElemSymb(mPhId);
-    // mPhName = chemSys_->getMicroPhaseName(mPhId);
+    mPhName = chemSys_->getMicroPhaseName(mPhId);
     // colors = chemSys_->getColor(mPhId);
     colors = chemSys_->getRGB(mPhId);
-    out << mPhId << "\t" << symb << "\t" << x << "\t" << y << "\t" << z << "\t"
+    // out << mPhId << "\t" << symb << "\t" << x << "\t" << y << "\t" << z << "\t"
+    out << setw(2) << right << mPhId << "  " << setw(15) << left << mPhName
+        << "\t" << x << "\t" << y << "\t" << z << "\t"
         << colors[0] << "\t" << colors[1] << "\t" << colors[2] << "\t"
         << particRadius_ << "\t" << "0.0" << endl;
     // out << x << "\t" << y << "\t" << z
@@ -6390,10 +6392,9 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
 
   Site *stenb;
 
-  string growPhName = chemSys_->getMicroPhaseName(growPhID);
-
   // if (verbose_) {
   //   int steId = ste->getId();
+  //   string growPhName = chemSys_->getMicroPhaseName(growPhID);
   //   cout << endl
   //        << "    Lattice::transformLiqSol() INI totalTRC/trc_gT  "
   //        << totalTRC << "/" << trc_gT << "  :  steId = "
