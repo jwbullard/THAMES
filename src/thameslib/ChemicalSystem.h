@@ -603,11 +603,11 @@ class ChemicalSystem {
                                        microPhaseIds growing due to SA attack */
   std::vector<std::vector<int>> shrinkingSA_;    /**<  for each microPhaseId in growingVectSA_,
                                        all the microDhaseIds that can transform
-                                       into this one*/
+                                       into this one */
   std::vector<std::vector<double>> volRatiosSA_; /**<  for each microPhaseId in growingVectSA_
                                        and all corresponding microPhaseIds in
                                        shrinking_, contains the molar volume ratios
-                                       of the corresponding microPhases:*/
+                                       of the corresponding microPhases */
 
   // std::vector<double> DCMolesDBR_;
 public:
@@ -2356,11 +2356,11 @@ public:
   */
   double getMicroPhasePorosity(const int idx) {
     // try {
-    if (idx == VOIDID || idx == ELECTROLYTEID) {
-      return 1.0;
-    } else {
+    // if (idx == VOIDID || idx == ELECTROLYTEID) {
+    //   return 1.0;
+    // } else {
       return microPhasePorosity_[idx];
-    }
+    // }
     //} catch (out_of_range &oor) {
     //  EOBException ex("ChemicalSystem", "getMicroPhasePorosity",
     //                  "microPhasePorosity_", microPhasePorosity_.size(), idx);

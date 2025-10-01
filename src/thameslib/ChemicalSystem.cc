@@ -597,6 +597,12 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   }
 
   ///
+  /// Set up the porosities for VOID and ELECTROLYTE microPhases
+  ///
+  microPhasePorosity_[0] = 1.0; // VOID
+  microPhasePorosity_[1] = 1.0; // ELECTROLYTE
+
+  ///
   /// Set up the main map that correlates microstructure phases with GEM CSD
   /// phases
   ///
@@ -1909,7 +1915,9 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
   ///
   /// First we will list details for the ICs
   ///
-
+  out << "Simulation performed at: T = " << T_ << "K" << endl;
+  out << "                         P = " << P_ << "Pa"
+      << endl << endl;
   out << "Report on the Material Database" << endl;
   out << "-------------- ChemicalSystem -----------------" << endl << endl;
   out << endl << "List of Independent Components :" << endl;
@@ -1917,8 +1925,8 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
   out << "IC_Id) ICName_[i] / ICClassCode_[i] / ICMolarMass_[i]" << endl;
   for (int i = 0; i < numICs_; i++) {
     out << i << ") Name: " << ICName_[i] << endl;
-    out << "        classcode: " << ICClassCode_[i] << endl;
-    out << "       molar mass: " << ICMolarMass_[i] << endl << endl;
+    out << "       classcode            : " << ICClassCode_[i] << endl;
+    out << "       molar mass (g/mol)   : " << ICMolarMass_[i] << endl << endl;
   }
 
   out << endl << "List of Dependent Components:" << endl;
@@ -1928,17 +1936,18 @@ void ChemicalSystem::writeChemSys(ofstream &out) {
       << endl;
   for (int i = 0; i < numDCs_; i++) {
     out << endl << i << ") Name: " << DCName_[i] << endl;
-    out << "        classcode: " << DCClassCode_[i] << endl;
-    out << "       molar mass: " << DCMolarMass_[i] << endl;
-    out << "        DBR index: " << node_->DCtoPh_DBR(i)
+    out << "       classcode            : " << DCClassCode_[i] << endl;
+    out << "       molar mass (g/mol)   : " << DCMolarMass_[i] << endl;
+    out << "       molar volume (m3/mol): " << getDCMolarVolume(i) << endl;
+    out << "       DBR index            : " << node_->DCtoPh_DBR(i)
         << "\t(GEM Phase : " << GEMPhaseName_[node_->DCtoPh_DBR(i)] << ")"
         << endl;
     if (DC_to_MPhID_[i] != -1) {
-      out << "     microPhaseId: " << DC_to_MPhID_[i]
+      out << "       microPhaseId         : " << DC_to_MPhID_[i]
           << "\t(THAMES Phase : " << microPhaseName_[DC_to_MPhID_[i]] << ")"
           << endl;
     } else {
-      out << "     microPhaseId: " << DC_to_MPhID_[i] << "\t- no THAMES Phase"
+      out << "       microPhaseId         : " << DC_to_MPhID_[i] << "\t- no THAMES Phase"
           << endl;
     }
   }
@@ -2538,12 +2547,15 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   setGEMPhaseVolume();  // => GEMPhaseVolume_[i]
 
   int microPhaseMembersSize_i;
-  for (int i = 1; i < numMicroPhases_; i++) {
+
+  microPhaseMass_[ELECTROLYTEID] = microPhaseVolume_[ELECTROLYTEID] = 0.0;
+  for (int i = FIRST_SOLID; i < numMicroPhases_; i++) {
     if (!isKinetic_[i]) {
       calcMicroPhasePorosity(i);
       microPhaseMass_[i] = microPhaseVolume_[i] = 0.0;
     }
   }
+
   double phi; // local variable to store subvoxel volume fraction of pores of
               // a phase 0 <= phi <= 1
 
@@ -2580,16 +2592,18 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
   /// Account for subvoxel porosity within each microstructure phase here
   /// We used to do this in the Lattice class but it is cleaner here
 
-  for (int i = 1; i < numMicroPhases_; i++) {
+  for (int i = ELECTROLYTEID; i < numMicroPhases_; i++) {
     if (verbose_) {
       cout << "Setting microPhase amounts for " << i << " = "
            << microPhaseName_[i] << endl;
       cout.flush();
     }
 
+    phi = microPhasePorosity_[i];
+
     if (!isKinetic_[i]) {
       // calcMicroPhasePorosity(i);
-      phi = microPhasePorosity_[i];
+      // phi = microPhasePorosity_[i];
 
       microPhaseMembersSize_i = microPhaseMembers_[i].size();
 
@@ -2622,14 +2636,28 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
           // cout << endl << "   DCMoles_[waterDCId_] = " <<
           // DCMoles_[waterDCId_]
           //      << "   waterMolarVol_ = " << waterMolarVol_ << endl;
-        } else if (i != VOIDID && phi < 1.0) {
+        } else if (phi < 1.0) {
           microPhaseVolume_[i] +=
               (GEMPhaseVolume_[microPhaseMembers_[i][j]] / (1.0 - phi));
         } else {
-          cout << "WARNING: A solid phase with porosity = 1.0?" << endl;
-          cout.flush();
-          microPhaseVolume_[i] +=
-              (GEMPhaseVolume_[microPhaseMembers_[i][j]] / (0.001));
+          // cout << "WARNING: A solid phase with porosity = 1.0?" << endl;
+          // cout.flush();
+          // microPhaseVolume_[i] +=
+          //     (GEMPhaseVolume_[microPhaseMembers_[i][j]] / (0.001));
+
+          cout << endl
+               << "ChemicalSystem::calculateState error1 - "
+                  "solid phase having microPhasePorosity_ >= 1 for cyc = "
+               << cyc << " and microPhaseId_ = " << i << " :" << endl;
+          for (int i = ELECTROLYTEID; i < numMicroPhases_; i++) {
+            cout << "   " << i
+                 << " : phName/microPhasePorosity_ : " << microPhaseName_[i]
+                 << " / " << microPhasePorosity_[i] << endl;
+          }
+          cout << endl << "end program" << endl;
+
+          throw GEMException("ChemicalSystem", "calculateState",
+                             "error : microPhasePorosity_ >= 1");
         }
       }
       microVolume_ += microPhaseVolume_[i];
@@ -2651,7 +2679,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       }
     } else {
       // calcMicroPhasePorosity(i);
-      phi = getMicroPhasePorosity(i);
+      // phi = getMicroPhasePorosity(i);
       if (verbose_) {
         cout << "    IS a KINETIC phase: is composed of "
              << GEMPhaseName_[microPhaseMembers_[i][0]]
@@ -2667,6 +2695,7 @@ int ChemicalSystem::calculateState(double time, bool isFirst = false,
       ///
 
       microVolume_ += (microPhaseVolume_[i] / (1.0 - phi));
+
       if (microPhaseVolume_[i] < 0) {
         cout << endl
              << "ChemicalSystem::calculateState error2 - microPhaseVolume_ < 0 "
