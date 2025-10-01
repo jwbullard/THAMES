@@ -38,8 +38,6 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
   ///
   /// Set default values for all parameters prior to any customization
   ///
-
-  ///
   /// Setting the default times for outputting images, and for initiating the
   /// simulations for leaching or external sulfate attack.
   ///
@@ -226,6 +224,41 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                           "Could not append");
     }
     outfs << "Time(h),Enthalpy(J/100g)" << endl;
+    outfs.close();
+
+    outfilename = jobRoot_ + "_DOR.csv";
+    outfs.open(outfilename.c_str());
+    if (!outfs) {
+      throw FileException("Controller", "Controller", outfilename,
+                          "Could not append");
+    }
+    outfs << "Time(h),DOR";
+    outfs << endl;
+    outfs.close();
+
+    outfilename = jobRoot_ + "_GelSpaceRatio.csv";
+    outfs.open(outfilename.c_str());
+    if (!outfs) {
+      throw FileException("Controller", "Controller", outfilename,
+                          "Could not append");
+    }
+    outfs << "Time(h),GelVol,VoidElectrolyteVol,GelSpaceRatio";
+    outfs << endl;
+    outfs.close();
+
+    outfilename = jobRoot_ + "_reactProdRatio.csv";
+    outfs.open(outfilename.c_str());
+    if (!outfs) {
+      throw FileException("Controller", "Controller", outfilename,
+                          "Could not append");
+    }
+    outfs << "Time(h)";
+    for (int i = 0; i < numMicroPhases_; i++) {
+      if ((i >= FIRST_SOLID) && (!chemSys_->isCementComponent(i))) {
+        outfs << "," << chemSys_->getMicroPhaseName(i);
+      }
+    }
+    outfs << endl;
     outfs.close();
 
   } catch (FileException fex) {
@@ -2156,6 +2189,58 @@ void Controller::writeTxtOutputFiles(double time) {
 
   outfs << setprecision(5) << time;
   outfs << "," << enth << endl;
+  outfs.close();
+
+  outfilename = jobRoot_ + "_DOR.csv";
+  outfs.open(outfilename.c_str(), ios::app);
+  if (!outfs) {
+    throw FileException("Controller", "Controller", outfilename,
+                        "Could not append");
+  }
+  outfs << setprecision(5) << time;
+  outfs << "," << chemSys_->getTotalDOR() << endl;
+  outfs.close();
+
+  outfilename = jobRoot_ + "_GelSpaceRatio.csv";
+  outfs.open(outfilename.c_str(), ios::app);
+  if (!outfs) {
+    throw FileException("Controller", "Controller", outfilename,
+                        "Could not append");
+  }
+  double gelVolume = 0, spaceVolume = 0, ratio = - 1.0;
+  //outfs << "Time(h),GelVol,VoidElectrolyteVol,GelSpaceRatio";
+  outfs << setprecision(5) << time << ",";
+  for (i = 0; i < numMicroPhases_; i++) {
+    if (i < FIRST_SOLID) {
+      spaceVolume += lattice_->getVolumeFraction(i);
+    } else {
+      if (!chemSys_->isCementComponent(i)) {
+        gelVolume += lattice_->getVolumeFraction(i);
+      }
+    }
+  }
+  if ((spaceVolume + gelVolume) > 0.0)
+    ratio = gelVolume / (spaceVolume + gelVolume);
+  outfs << gelVolume << "," << spaceVolume << "," << ratio << endl;
+  outfs.close();
+
+  outfilename = jobRoot_ + "_reactProdRatio.csv";
+  outfs.open(outfilename.c_str(), ios::app);
+  if (!outfs) {
+    throw FileException("Controller", "Controller", outfilename,
+                        "Could not append");
+  }
+  outfs << setprecision(5) << time;
+  for (i = 0; i < numMicroPhases_; i++) {
+    if ((i >= FIRST_SOLID) && (!chemSys_->isCementComponent(i))) {
+      if (gelVolume == 0) {
+        outfs << ",0";
+      } else {
+        outfs << "," << lattice_->getVolumeFraction(i) / gelVolume;
+      }
+    }
+  }
+  outfs << endl;
   outfs.close();
 }
 

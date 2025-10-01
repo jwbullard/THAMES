@@ -6816,10 +6816,9 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
 
   Site *stenb;
 
-  string growPhName = chemSys_->getMicroPhaseName(growPhID);
-
   // if (verbose_) {
   //   int steId = ste->getId();
+  //   string growPhName = chemSys_->getMicroPhaseName(growPhID);
   //   cout << endl
   //        << "    Lattice::transformLiqSol() INI totalTRC/trc_gT  "
   //        << totalTRC << "/" << trc_gT << "  :  steId = "

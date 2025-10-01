@@ -610,6 +610,14 @@ class ChemicalSystem {
                                        of the corresponding microPhases */
 
   // std::vector<double> DCMolesDBR_;
+
+  double totalDOR_;              /**< total degree of reaction (DOR) defined only as the
+                                      combined degree of hydration of "cement" components,
+                                      which the user defines. This was intended to be only
+                                      portland cement clinker components. Now, user can
+                                      decide which microPhases are clinker components
+                                      (arcanite, thenardite, gypsum, bassanite and
+                                      hemihydrate can belong to the clinker) */
 public:
 
   /**
@@ -6175,6 +6183,20 @@ public:
   double getScaledCementMass(void) { return scaledCementMass_; }
 
   // void setZeroMicroPhaseSI(void) { microPhaseSI_.resize(numMicroPhases_, 0.0); }
+
+  /**
+  @brief Get the total degree of reaction (DOR) defined only as the combined degree
+  of hydration of "cement" components, which the user defines. This was intended to
+  be only portland cement clinker components. Now, user can decide which microPhases
+  are clinker components (arcanite, thenardite, gypsum, bassanite and hemihydrate can
+  belong to the clinker)
+  
+  @return the total degree of reaction (DOR)
+  */
+  double getTotalDOR(void) {
+    totalDOR_ = (initScaledCementMass_ - scaledCementMass_) / initScaledCementMass_;
+    return totalDOR_;
+  }
 
   /**
   @brief Initialize the database containing the RGB values defined by default for

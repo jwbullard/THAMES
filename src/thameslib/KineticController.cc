@@ -949,8 +949,10 @@ void KineticController::calculateKineticStep(double time, const double timestep,
       double totalDOR = 0;
 
       /// @note The totalDOR is defined only as the combined degree of hydration
-      /// of "cement" components, which the user defines. This is intended to
-      /// be only portland cement clinker components
+      /// of "cement" components, which the user defines. This was intended to
+      /// be only portland cement clinker components; now is depending on user decision
+      /// (arcanite, thenardite, gypsum, bassanite and hemihydrate can belong to this
+      /// category)
 
       if (initScaledCementMass_ > 0) {
         totalDOR = (initScaledCementMass_ - chemSys_->getScaledCementMass()) /
