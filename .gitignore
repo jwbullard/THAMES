@@ -45,7 +45,7 @@ doc/InputGuide/*.synctex.gz
 src/Doxyfile
 src/Doxyfile$
 src/thameslib/myconfig.h
-src/vcctl2thames/vcctl2thames.h
+# src/vcctl2thames/vcctl2thames.h
 src/GEMS3K-standalone/Resources
 src/Resources/bin/*
 src/Resources/include/GEMS3K
