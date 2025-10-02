@@ -2260,11 +2260,13 @@ void Controller::parseDoc(const string &docName) {
 
   ifstream f(docName.c_str());
   if (!f.is_open()) {
-    cout << endl << "JSON " << docName << " file not found" << endl;
+    cout << endl << "Controller::parseDoc: JSON " << docName << " file not found"
+         << endl;
     throw FileException("Controller", "parseDoc", docName, "File not found");
   } else {
     cout << endl
-         << "JSON " << docName << " file found => start reading" << endl;
+         << "Controller::parseDoc: JSON " << docName << " file found => start reading"
+         << endl;
   }
 
   /// Parse the JSON file all at once
@@ -2384,82 +2386,141 @@ void Controller::parseDoc(const string &docName) {
 
     // Done searching for chemical attack times
     attack_ = false;
-    bool errorAttack = false;
+    bool errorAttackTime = false;
+    bool errorAttackComp = false;
     if (simType_ == SULFATE_ATTACK || simType_ == LEACHING) {
       attack_ = true;
       if (beginAttackTime_ < 0 || endAttackTime_ < 0 || attackTimeInterval_ < 0 ||
           endAttackTime_ < beginAttackTime_ ) {
-        errorAttack = true;
+        errorAttackTime = true;
       } else {
         if (endAttackTime_ == beginAttackTime_) {
           if (attackTimeInterval_ > 0)
-            errorAttack = true;
+            errorAttackTime = true;
         } else {
           if (attackTimeInterval_ == 0)
-            errorAttack = true;
+            errorAttackTime = true;
         }
       }
+      if (chemSys_->getAttackSolCompSize() <= 0)
+        errorAttackComp = true;
+    } else {
+      if (chemSys_->getAttackSolCompSize() != 0)
+        errorAttackComp = true;
+    }
+
+    cout << endl << "   simType_ = " << simType_ << "  =>  you decided to simulate a ";
+    if (simType_ == LEACHING) {
+      cout << "LEACHING !" << endl;
+    } else if (simType_ == SULFATE_ATTACK) {
+      cout << "SULFATE ATTACK !" << endl;
+    } else if (simType_ == HYDRATION) {
+      cout << "HYDRATION !" << endl;
     }
 
     if (attack_) {
-      if(errorAttack) {
-        cout << endl << endl << "************" << endl;
-        cout << endl << "Controller::parseDoc - error :" << endl;
-        cout << endl
-             << "  first line in input.in file is \"4\""
-                "  =>  you decided to simulate a leaching or a sulfate attack!"
+
+      if(errorAttackTime) {
+
+        cout << endl << endl << "   ************ ERROR ************" << endl;
+        cout << endl << "   Controller::parseDoc - error : "
+             << "your time parameters are not set accordingly !!!"
              << endl;
         cout << endl
-             << "                   ***"
-                " but your time parameters are not set accordingly! ***"
-             << endl;
-        cout << endl
-             << "  the specific controll parameters "
+             << "   the specific controll parameters "
                 "must fulfill some additional conditions (simparams.json) :"
              << endl;
         cout << "     -> beginattacktime >= 0" << endl;
         cout << "     -> endattacktime >= beginattacktime" << endl;
         cout << "     -> attacktimeinterval >= 0" << endl;
+        cout << "          -> if endattacktime = beginattacktime => attacktimeinterval = 0 !"
+             << endl;
+        cout << "          -> if endattacktime > beginattacktime => attacktimeinterval > 0 !"
+             << endl;
+
+        // cout << endl
+        //      << "   by default all these variables are set to -1.0" << endl;
 
         cout << endl
-             << "  by default all these variables are set to -1.0" << endl;
-        cout << endl
-             << "  for the current simulation their values are:" << endl;
+             << "   for the current simulation their values are:" << endl;
         cout << "     -> beginattacktime    = " << beginAttackTime_ << endl;
         cout << "     -> endattacktime      = " << endAttackTime_ << endl;
         cout << "     -> attacktimeinterval = " << attackTimeInterval_ << endl;
 
         cout << endl
-             << "  => before to restart the program, please modify these values "
+             << "   => before to restart the program, please modify these values "
                 "into simparams.json file!"
              << endl;
 
-        cout << endl << endl << "STOP" << endl;
-        cout << endl << endl << "************" << endl;
+        cout << endl << "   ************ STOP! ************" << endl << endl;
+
         throw DataException("Controller", "Controller",
                             "leaching or sulfate attack time parameters setting");
       }
+      if(errorAttackComp) {
 
-      cout << endl << "   => you decided to simulate a ";
+        cout << endl << endl << "   ************ ERROR ************" << endl;
+        cout << endl << "   Controller::parseDoc - error : "
+             << "you didn't decide the composition of attack solution !!!"
+             << endl;
+        cout << endl << "   => for LEACHING or SULFATE ATTACK, simparams.json file"
+                        " must contain \"electrolyte_conditions\" information !!!"
+             << endl;
+        cout << endl
+                     << "   THIS IS AN EXAMPLE :"
+                     << endl;
+
+        cout << endl
+             << "      \"environment\": {" << endl;
+        cout << "        \"temperature\": 298.15," << endl;
+        cout << "        \"reftemperature\": 298.15," << endl;
+        cout << "        \"saturated\": 1," << endl;
+        cout << "        \"electrolyte_conditions\": [" << endl;
+        cout << "          { \"DCname\": \"Na+\"," << endl;
+        cout << "            \"condition\": \"attack\"," << endl;
+        cout << "            \"concentration\": 0.2" << endl;
+        cout << "          }," << endl;
+        cout << "          { \"DCname\": \"SO4-2\"," << endl;
+        cout << "            \"condition\": \"attack\"," << endl;
+        cout << "            \"concentration\": 0.1" << endl;
+        cout << "          }" << endl;
+        cout << "        ]" << endl;
+        cout << "      }," << endl;
+        cout << endl << "      ..." << endl;
+
+        cout << endl
+             << "   => before to restart the program, please add"
+                " such information !!!"
+             << endl;
+
+        cout << endl << "   ************ STOP! ************" << endl << endl;
+        throw DataException("Controller", "Controller",
+                            "sulfate attack missing information");
+      }
+
       if (simType_ == LEACHING) {
         leachTime_ = beginAttackTime_; // not default leachTime_ = 1.0e10
-        cout << "leaching ";
+        // cout << "leaching ";
       } else if (simType_ == SULFATE_ATTACK) {
         sulfateAttackTime_ =
             beginAttackTime_; // not default sulfateAttackTime_ = 1.0e10
-        cout << "sulfate attack ";
+        // cout << "sulfate attack ";
       }
 
-      cout << "using these time parameters (in days/hours):" << endl;
+      cout << endl
+           << "   => you use these time parameters (only beginAttackTime_ has a"
+              " time meaning!):" << endl;
       cout << "     -> beginattacktime    = " << setw(5) << right
-           << static_cast<int>(beginAttackTime_) << " / "
-           << static_cast<int>(beginAttackTime_ * H_PER_DAY) << endl;
+           << static_cast<int>(beginAttackTime_) << "d / "
+           << static_cast<int>(beginAttackTime_ * H_PER_DAY) << "h" << endl;
       cout << "     -> endattacktime      = " << setw(5) << right
-           << static_cast<int>(endAttackTime_) << " / "
-           << static_cast<int>(endAttackTime_ * H_PER_DAY) << endl;
+           << static_cast<int>(endAttackTime_) << "d / "
+           << static_cast<int>(endAttackTime_ * H_PER_DAY) << "h" << endl;
       cout << "     -> attacktimeinterval = " << setw(5) << right
-           << static_cast<int>(attackTimeInterval_) << " / "
-           << static_cast<int>(attackTimeInterval_ * H_PER_DAY) << endl;
+           << static_cast<int>(attackTimeInterval_) << "d / "
+           << static_cast<int>(attackTimeInterval_ * H_PER_DAY) << "h" << endl;
+      cout << "     -> finalTime          = " << time_[time_.size() - 1]
+           << " h" << endl;
 
       // Input times for beginAttackTime_/endAttackTime_/attackTimeInterval_
       // are conventionally in days => convert to hours within model
@@ -2496,17 +2557,69 @@ void Controller::parseDoc(const string &docName) {
         time_.push_back(tp);
       }
 
+
     } else if (simType_ == HYDRATION) {
-      cout << endl << "   => you decided to simulate a hydration" << endl;
+
+      if (chemSys_->getAttackSolCompSize() != 0) {       
+        //attack_ is false & errorAttackComp is true
+        cout << endl << endl << "   ************ ERROR ************" << endl;
+        cout << endl << "   Controller::parseDoc - error : "
+             << "your simparams.json file contains  <<\"condition\": \"attack\">> !!!"
+             << endl;
+        cout << endl
+             << "   => for HYDRATION, \"condition\" can have only two values: \"initial\""
+                " and/or \"fixed\" !!!"
+             << endl;
+
+        cout << endl
+             << "   THIS IS AN EXAMPLE :"
+             << endl;
+
+        cout << endl
+             << "      \"environment\": {" << endl;
+        cout << "        \"temperature\": 298.15," << endl;
+        cout << "        \"reftemperature\": 298.15," << endl;
+        cout << "        \"saturated\": 1," << endl;
+        cout << "        \"electrolyte_conditions\": [" << endl;
+        cout << "          { \"DCname\": \"Ca(SO4)@\"," << endl;
+        cout << "            \"condition\": \"initial\"," << endl;
+        cout << "            \"concentration\": 1.0e-6" << endl;
+        cout << "          }," << endl;
+        cout << "          { \"DCname\": \"Na+\"," << endl;
+        cout << "            \"condition\": \"fixed\"," << endl;
+        cout << "            \"concentration\": 0.1" << endl;
+        cout << "          }" << endl;
+        cout << "          { \"DCname\": \"HCO3-\"," << endl;
+        cout << "            \"condition\": \"fixed\"," << endl;
+        cout << "            \"concentration\": 0.1" << endl;
+        cout << "          }" << endl;
+        cout << "        ]" << endl;
+        cout << "      }," << endl;
+        cout << "      ..." << endl;
+
+        cout << endl
+             << "   => before to restart the program: " << endl;
+        cout << "         -> delete \"electrolyte_conditions\": [...] " << endl;
+        cout << "           or" << endl;
+        cout << "         -> change <<\"condition\": \"attack\">>" << endl;
+
+        cout << endl << "   ************ STOP! ************" << endl << endl;
+        throw DataException("Controller", "Controller",
+                            "only hydration with \"condition\": \"attack\"");
+      }
       beginAttackTime_ = 1.e10;
       endAttackTime_ = 1.e10;
       attackTimeInterval_ = 1.e10;
 
-      // cout << "        using these time parameters (in days):" << endl;
-      // cout << "             -> beginattacktime    = 1.e10" << endl;
-      // cout << "             -> endattacktime      = 1.e10" << endl;
-      // cout << "             -> attacktimeinterval = 1.e10" << endl;
+      cout << endl
+           << "   => you use these time parameters:" << endl;
+      // cout << "             -> beginattacktime    = 1.e10 days" << endl;
+      // cout << "             -> endattacktime      = 1.e10 days" << endl;
+      // cout << "             -> attacktimeinterval = 1.e10 days" << endl;
+      cout << "     -> finalTime          = " << time_[time_.size() - 1]
+           << " hours" << endl;
     }
+
   } catch (FileException fex) {
     fex.printException();
     exit(1);

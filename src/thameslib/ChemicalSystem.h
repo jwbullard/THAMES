@@ -6406,6 +6406,13 @@ public:
     volRatiosVect = volRatiosSA_;
   }
 
+  /** 
+  @brief Get the dimension of the attackSolutionComposition vector
+  
+  @return the size of the attackSolutionComposition vector 
+  */
+  int getAttackSolCompSize(void) { return attackSolutionComposition_.size(); }
+
   void writeICsDCs(void) {
 
     int i, j;
