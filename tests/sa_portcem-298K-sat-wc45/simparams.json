@@ -610,19 +610,19 @@
             "gemdc": [
               {
                 "gemdcname": "CSHQ-JenD",
-                "gemdcporosity": 0.4935
+                "gemdcporosity": 0.2004
               },
               {
                 "gemdcname": "CSHQ-JenH",
-                "gemdcporosity": 0.4935
+                "gemdcporosity": 0.2004
               },
               {
                 "gemdcname": "CSHQ-TobD",
-                "gemdcporosity": 0.2004
+                "gemdcporosity": 0.4935
               },
               {
                 "gemdcname": "CSHQ-TobH",
-                "gemdcporosity": 0.2004
+                "gemdcporosity": 0.4935
               },
               {
                 "gemdcname": "KSiOH",
