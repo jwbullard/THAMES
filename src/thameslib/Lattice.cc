@@ -653,36 +653,40 @@ Lattice::Lattice(ChemicalSystem *cs, RanGen *rg, int seedRNG,
   }
 
   // calc & set wmc
+  electrolyteIntPorosity_ = chemSys_->getMicroPhasePorosityInt(ELECTROLYTEID);
+  voidIntPorosity_ = chemSys_->getMicroPhasePorosityInt(VOIDID);
   int phId;
-  double rng, por;
+  double rng;
+  int porInt;
   for (i = 0; i < numSites_; i++) {
     // stId = site_[i].getId();
     phId = site_[i].getMicroPhaseId();
     if (phId == ELECTROLYTEID) {
-      site_[i].setWmc0(1.);
+      site_[i].setWmc0(electrolyteIntPorosity_); // 1.e5
     } else if ((phId != VOIDID)) {
-      por = chemSys_->getMicroPhasePorosity(phId);
+      porInt = chemSys_->getMicroPhasePorosityInt(phId);
       rng = callRNG();
       if (rng >= thrPorosity) {
-        site_[i].setWmc0(por);
+        site_[i].setWmc0(porInt);
       } else {
-        site_[i].setWmc0(0.0);
+        site_[i].setWmc0(0);
       }
     } else {
-      site_[i].setWmc0(0.0);
+      site_[i].setWmc0(voidIntPorosity_); // VOID 1.e5
     }
   }
-  double wmcLoc;
+  double wmcLocInt;
   int nbIdLoc;
   for (i = 0; i < numSites_; i++) {
     site_[i].setVisit(0);
-    wmcLoc = site_[i].getWmc0();
+    wmcLocInt = site_[i].getWmc0();
     for (j = 0; j < NN_NNN; j++) {
       nbIdLoc = (site_[i].nb(j))->getId();
-      wmcLoc += site_[nbIdLoc].getWmc0();
+      wmcLocInt += site_[nbIdLoc].getWmc0();
     }
-    site_[i].setWmc(wmcLoc);
+    site_[i].setWmc(wmcLocInt);
   }
+  convFactDbl2IntPor_ = chemSys_->getConvFactDbl2IntPor();
 
   // voxels without contact with electrolyte i.e. voxels having low probability
   // to dissolve in this step
@@ -750,7 +754,6 @@ void Lattice::normalizePhaseMasses(vector<double> microPhaseMass) {
       // basis
       pscaledMass = microPhaseMass[microPhaseId] * 100.0 / initSolidMass_;
       DCId = chemSys_->getMicroPhaseDCMembers(microPhaseId, 0);
-      chemSys_->setDC_to_MPhID(DCId, microPhaseId);
       molarMass = chemSys_->getDCMolarMass(DCId);
       if (verbose_) {
         cout << "Lattice::normalizePhaseMasses, 1 cm3 of microstructure has "
@@ -938,6 +941,7 @@ void Lattice::findInterfaces(void) {
          << "     growthInterfaceSize_ =  " << setw(8)
          << growthInterfaceSize_[i]
          << "     porosity : " << chemSys_->getMicroPhasePorosity(i)
+         << "     porosityInt : " << chemSys_->getMicroPhasePorosityInt(i)
          << "     templates : ";
     for (int j = 0; j < numMicroPhases_; j++) {
       if (chemSys_->isGrowthTemplate(i, j)) {
@@ -1023,8 +1027,10 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
   bool needUpdate = false;
   bool needNucleation = true;
 
-  double wmcIni, wmcEnd;
-  double steWmc, stenbWmc, dwmcval;
+  // double wmcIni, wmcEnd;
+  // double steWmc, stenbWmc, dwmcval;
+  int wmcIni, wmcEnd;
+  int steWmc, stenbWmc, dwmcval;
   double rng, probRNG, afty;
 
   int pid;
@@ -1149,6 +1155,9 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                << " seed(s)/site(s) will be nucleated" << endl;
 
           // numNuclei = nucleatePhaseAff(phaseID, numLeft[i]);
+          cout << "      WAIT for nucleation ..." << endl;
+          cout.flush();
+
           numNuclei = nucleatePhaseRnd(phaseID, numLeft[nucPhaseId]);
 
           if (numNuclei < numLeft[nucPhaseId]) {
@@ -1180,6 +1189,7 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
                << interface_[phaseID].getGrowthSites().size() << "   "
                << setw(8) << numLeft[nucPhaseId] << "   " << setw(8)
                << numChange[nucPhaseId] << endl;
+          cout << "        WAIT to update the system ..." << endl;
           cout.flush();
 
           posProbVect = 0;
@@ -1209,6 +1219,12 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
       if (noPosToGrow)
         break;
     }
+    growPhaseIDVectSize = growPhaseIDVect.size();
+    cout << endl
+         << "    Lattice::growPhase growPhaseIDVectSize = " << growPhaseIDVectSize
+         << endl;
+    cout << "      => end initial nucleation" << endl;
+    cout.flush();
   }
 
   if (!noPosToGrow) {
@@ -1320,11 +1336,12 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
       /// @todo Determine why the calculation works this way.
       ///
 
-      double por = chemSys_->getMicroPhasePorosity(phaseID);
-      if (por > 0.0) {
+      // double por = chemSys_->getMicroPhasePorosity(phaseID);
+      int porInt = chemSys_->getMicroPhasePorosityInt(phaseID);
+      if (porInt > 0) {
         rng = callRNG();
         if (rng >= thrPorosity) {
-          wmcEnd = por;
+          wmcEnd = porInt;
         } else {
           wmcEnd = 0;
         }
@@ -1345,7 +1362,7 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
 
       steWmc = ste->getWmc();
 
-      if (steWmc > 0.0) {
+      if (steWmc > 0) {
         addDissolutionSite(ste, phaseID);
       }
 
@@ -1393,7 +1410,7 @@ vector<int> Lattice::growPhase(vector<int> growPhaseIDVect,
               }
             }
           }
-        } else if ((stenbWmc == 0.0) &&
+        } else if ((stenbWmc == 0) &&
                    (stenb->getMicroPhaseId() > ELECTROLYTEID)) {
           removeDissolutionSite(stenb, stenb->getMicroPhaseId());
         }
@@ -1758,8 +1775,10 @@ int Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
   int sizeSeedID = seedID.size();
   int sID, pid;
   Site *ste, *stenb;
-  double dwmcval, steWmc, stenbWmc;
-  double wmcIni, wmcEnd;
+  // double dwmcval, steWmc, stenbWmc;
+  // double wmcIni, wmcEnd;
+  int dwmcval, steWmc, stenbWmc;
+  int wmcIni, wmcEnd;
 
   for (int i = 0; i < sizeSeedID; i++) {
     sID = seedID[i];
@@ -1780,12 +1799,13 @@ int Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
     /// @todo Determine why the calculation works this way.
     ///
 
-    double por = chemSys_->getMicroPhasePorosity(phaseID);
-    wmcEnd = 0.0;
-    if (por > 0.0) {
+    // double por = chemSys_->getMicroPhasePorosity(phaseID);
+    int porInt = chemSys_->getMicroPhasePorosityInt(phaseID);
+    wmcEnd = 0;
+    if (porInt > 0) {
       rng = callRNG();
       if (rng >= thrPorosity) {
-        wmcEnd = por;
+        wmcEnd = porInt;
       }
     }
     ste->setWmc0(wmcEnd);
@@ -1800,7 +1820,7 @@ int Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
 
     steWmc = ste->getWmc();
 
-    if (steWmc > 0.0) {
+    if (steWmc > 0) {
       addDissolutionSite(ste, phaseID);
     }
 
@@ -1881,7 +1901,7 @@ int Lattice::nucleatePhaseRnd(const int phaseID, const int numToNucleate) {
             }
           }
         }
-      } else if ((stenbWmc == 0.0) &&
+      } else if ((stenbWmc == 0) &&
                  (stenb->getMicroPhaseId() > ELECTROLYTEID) &&
                  (stenb->getInDissInterfacePos() > -1)) {
         removeDissolutionSite(stenb, stenb->getMicroPhaseId());
@@ -2165,9 +2185,12 @@ int Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
   int sizeSeedID = seedID.size();
   int sID, pid;
   Site *ste, *stenb;
-  double dwmcval;
-  double steWmc, stenbWmc;
-  double wmcIni, wmcEnd;
+  // double dwmcval;
+  int dwmcval;
+  // double steWmc, stenbWmc;
+  int steWmc, stenbWmc;
+  // double wmcIni, wmcEnd;
+  int wmcIni, wmcEnd;
 
   for (int i = 0; i < sizeSeedID; i++) {
     sID = seedID[i];
@@ -2188,11 +2211,12 @@ int Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
     /// @todo Determine why the calculation works this way.
     ///
 
-    double por = chemSys_->getMicroPhasePorosity(phaseID);
-    if (por > 0.0) {
+    // double por = chemSys_->getMicroPhasePorosity(phaseID);
+    int porInt = chemSys_->getMicroPhasePorosityInt(phaseID);
+    if (porInt > 0) {
       rng = callRNG();
       if (rng >= thrPorosity) {
-        wmcEnd = por;
+        wmcEnd = porInt;
       } else {
         wmcEnd = 0;
       }
@@ -2210,7 +2234,7 @@ int Lattice::nucleatePhaseAff(const int phaseID, const int numToNucleate) {
     ///
 
     steWmc = ste->getWmc();
-    if (steWmc > 0.0) {
+    if (steWmc > 0) {
       addDissolutionSite(ste, phaseID);
     }
 
@@ -2395,9 +2419,11 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
   int isitePos, phaseID;
   int stId, nbid, nbpid;
   int posVect, posnb;
-  double rng, probRNG, stWmc;
-  double wmcIni, wmcEnd, dwmcval;
+  double rng, probRNG;
+  // double wmcIni, wmcEnd, dwmcval;
+  int wmcIni, wmcEnd, dwmcval;
   bool phaseid_exist;
+  int stWmcInt;
 
   int dissPhaseIDVectSize = dissPhaseIDVect.size();
   vector<int> numChange(dissPhaseIDVectSize, 0);
@@ -2425,7 +2451,8 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
   vector<structDissVect> dissolutionVector;
   structDissVect dissStruct;
   int posProbVect = 0;
-  double sumWmc = 0;
+  // double sumWmc = 0;
+  long int sumWmcInt = 0;
   for (i = 0; i < dissPhaseIDVectSize; i++) {
     phaseID = dissPhaseIDVect[i];
     isite = interface_[phaseID].getDissolutionSites();
@@ -2433,11 +2460,14 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
     for (jj = 0; jj < dim_isite[i]; jj++) {
 
       stId = isite[jj].getId();
-      stWmc = site_[stId].getWmc();
-      sumWmc += stWmc;
+      // stWmc = site_[stId].getWmc();
+      stWmcInt = site_[stId].getWmc();
+      // sumWmc += stWmc;
+      sumWmcInt += stWmcInt;
       dissStruct.id = stId;
       dissStruct.posVect = i;
-      dissStruct.wmc = stWmc;
+      // dissStruct.wmc = stWmc;
+      dissStruct.wmcInt = stWmcInt;
 
       dissolutionVector.push_back(dissStruct);
       // dissProbStruct(int id_i = 0, double instab_i = 0, int posVect_i = 0,
@@ -2448,6 +2478,20 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
     }
   }
   int dissolutionVectorSize = dissolutionVector.size();
+
+  if (sumWmcInt < 0) {
+    cout << endl
+         << "    Lattice::dissolvePhase test_-1: sumWmcInt = " << sumWmcInt
+         << "  - for dissolutionVectorSize = " << dissolutionVectorSize << endl;
+    cout << "    Lattice::dissolvePhase test: totalTRC/trc_d/bcl  "
+         << totalTRC << "/" << trc_d << "/" << bcl << endl;
+    if (dissolutionVectorSize > 1) {
+      cout << endl
+           << "    Lattice::dissolvePhase error: dissolutionVectorSize > 1   =>   exit"
+           << endl;
+      exit(0);
+    }
+  }
 
   // cout << endl
   //      << "    Lattice::dissolvePhase DISS_INI totalTRC/trc_d/bcl/sumWmc " <<
@@ -2481,6 +2525,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
 
   int callGEM = -1;
 
+  double sumWmcDbl;
   while ((numLeftTot > 0) && (dissolutionVectorSize >= 1)) {
     try {
       bcl++;
@@ -2493,12 +2538,13 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       //   sumWmc +=  dissolutionVector[i].wmc;
       // }
 
-      probRNG = dissolutionVector[0].wmc / sumWmc;
+      sumWmcDbl = static_cast<double>(sumWmcInt);
+      probRNG = dissolutionVector[0].wmcInt / sumWmcDbl;
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
         for (isitePos = 1; isitePos < dissolutionVectorSize; isitePos++) {
-          probRNG += (dissolutionVector[isitePos].wmc / sumWmc);
+          probRNG += (dissolutionVector[isitePos].wmcInt / sumWmcDbl);
           if (rng <= probRNG)
             break;
         }
@@ -2510,13 +2556,16 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       posVect = dissolutionVector[isitePos].posVect;
 
       wmcIni = ste->getWmc0();
-      sumWmc -= ste->getWmc();
-      if (sumWmc < 0.0) {
+
+      sumWmcInt -= ste->getWmc();
+
+      if (sumWmcInt < 0) {
         cout << endl
-             << "    Lattice::dissolvePhase test:  sumWmc = " << sumWmc
+             << "    Lattice::dissolvePhase test_0: sumWmcInt = " << sumWmcInt
              << "  - for dissolutionVectorSize = " << dissolutionVectorSize << endl;
-        cout << "    Lattice::dissolvePhase test: steId/pid/posVect/isitePos  "
-             << ste->getId() << "/" << pid << "/" << posVect << "/" << isitePos
+        cout << "    Lattice::dissolvePhase test: steId/pid/posVect/isitePos/wmcIni/ste->getWmc()  "
+             << ste->getId() << "/" << pid << "/" << posVect << "/" << isitePos << "/" << wmcIni << "/"
+             << ste->getWmc()
              << endl;
         cout << "    Lattice::dissolvePhase test: totalTRC/trc_d/bcl  "
              << totalTRC << "/" << trc_d << "/" << bcl << endl;
@@ -2526,8 +2575,23 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
                << endl;
           exit(0);
         }
-        cout << "    =>  sumWmc = 0.0" << endl;
-        sumWmc = 0.0;
+        cout << "    =>  sumWmcInt = 0" << endl;
+        sumWmcInt = 0;
+      }
+
+      if ((dissolutionVectorSize == 1) && (sumWmcInt != 0)) {
+        cout << endl
+             << "    Lattice::dissolvePhase test_1: sumWmcInt = " << sumWmcInt
+             << "  - for dissolutionVectorSize = " << dissolutionVectorSize << endl;
+        cout << "    Lattice::dissolvePhase test: steId/pid/posVect/isitePos/wmcIni  "
+             << ste->getId() << "/" << pid << "/" << posVect << "/" << isitePos << "/" << wmcIni
+             << endl;
+        cout << "    Lattice::dissolvePhase test: totalTRC/trc_d/bcl  "
+             << totalTRC << "/" << trc_d << "/" << bcl << endl;
+        cout << endl
+             << "    Lattice::dissolvePhase error: dissolutionVectorSize > 1   =>   exit"
+             << endl;
+        exit(0);
       }
 
       if (ste->getInDissInterfacePos() == -1) {
@@ -2554,7 +2618,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
       /// @todo Determine why the calculation works this way.
       ///
 
-      wmcEnd = ELECTROLYTEID;
+      wmcEnd = electrolyteIntPorosity_; // ELECTROLYTEID;
       ste->setWmc0(wmcEnd);
 
       dwmcval = wmcEnd - wmcIni;
@@ -2604,12 +2668,12 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
 
               for (int k = 0; k < dissPhaseIDVectSize; k++) {
                 if (dissPhaseIDVect[k] == nbpid && numLeft[k] > 0) {
-                  stWmc = stenb->getWmc();
-                  sumWmc += stWmc;
+                  stWmcInt = stenb->getWmc();
+                  sumWmcInt += stWmcInt;
                   stenb->setInDissolutionVectorPos(dissolutionVectorSize);
                   dissStruct.id = stenb->getId();
                   dissStruct.posVect = k;
-                  dissStruct.wmc = stWmc;
+                  dissStruct.wmcInt = stWmcInt;
 
                   dissolutionVector.push_back(dissStruct);
                   // dissProbStruct(int id_i = 0, double instab_i = 0,
@@ -2624,9 +2688,9 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
 
             posnb = stenb->getInDissolutionVectorPos();
             if (posnb != -1) {
-              sumWmc += dwmcval;
+              sumWmcInt += dwmcval;
               // dissolutionVector[posnb].wmc += dwmcval;
-              dissolutionVector[posnb].wmc = stenb->getWmc();
+              dissolutionVector[posnb].wmcInt = stenb->getWmc();
             }
 
             // for (int k = 0; k < dissPhaseIDVectSize; k++) {
@@ -2757,7 +2821,7 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
             site_[dissolutionVector[ij].id].setInDissolutionVectorPos(-1);
           }
           dissolutionVector.clear();
-          sumWmc = 0.;
+          sumWmcInt = 0.;
           posProbVect = 0;
           for (int i_i = 0; i_i < dissPhaseIDVectSize; i_i++) {
             if (numLeft[i_i] > 0) {
@@ -2767,11 +2831,11 @@ vector<int> Lattice::dissolvePhase(vector<int> dissPhaseIDVect,
               for (jj = 0; jj < dim_isite[i_i]; jj++) {
 
                 stId = isite[jj].getId();
-                stWmc = site_[stId].getWmc();
-                sumWmc += stWmc;
+                stWmcInt = site_[stId].getWmc();
+                sumWmcInt += stWmcInt;
                 dissStruct.id = stId;
                 dissStruct.posVect = i_i;
-                dissStruct.wmc = stWmc;
+                dissStruct.wmcInt = stWmcInt;
 
                 dissolutionVector.push_back(dissStruct);
                 // dissProbStruct(int id_i = 0, double instab_i = 0, int
@@ -3089,11 +3153,11 @@ int Lattice::emptyVoxelPorosity(int numToEmpty) {
       ste0->setInGrowInterfacePos(pid, -1);
       growthInterfaceSize_[pid]--;
     }
-    site_[siteID].setWmc0(0);
-    site_[siteID].dWmc(-1);
+    site_[siteID].setWmc0(voidIntPorosity_);
+    site_[siteID].dWmc(-electrolyteIntPorosity_);
     for (int i = 0; i < NN_NNN; i++) {
       stenb = site_[siteID].nb(i);
-      stenb->dWmc(-1);
+      stenb->dWmc(-electrolyteIntPorosity_);
       if ((stenb->getWmc() == 0) && (stenb->getMicroPhaseId() > ELECTROLYTEID))
         removeDissolutionSite(stenb, stenb->getMicroPhaseId());
     }
@@ -3155,13 +3219,13 @@ int Lattice::fillVoxelPorosity(int numToFill) {
   for (int ii = 0; ii < distVectSize; ii++) {
     siteID = distVect[ii];
     setMicroPhaseId(siteID, ELECTROLYTEID);
-    site_[siteID].setWmc0(1);
-    site_[siteID].dWmc(1);
+    site_[siteID].setWmc0(electrolyteIntPorosity_);
+    site_[siteID].dWmc(electrolyteIntPorosity_);
     site_[siteID].clearGrowth();
     for (int i = 0; i < NN_NNN; i++) {
       stenb = site_[siteID].nb(i);
       // wmcIni = stenb->getWmc();
-      stenb->dWmc(1);
+      stenb->dWmc(electrolyteIntPorosity_);
       nbpid = stenb->getMicroPhaseId();
       if (nbpid > ELECTROLYTEID) {
         if (stenb->getInDissInterfacePos() == -1)
@@ -3325,7 +3389,7 @@ vector<int> Lattice::getNeighborhood(const int sitenum, const int size) {
 
 void Lattice::getNeighborhood(const int sitenum, vector<int> & ids,
                               vector<int> & phs, int & numW,
-                              double & totPor) {
+                              int & totPor) {
 
   ids = site_[sitenum].getNbSA();
   int size = ids.size(); // 27!
@@ -3469,12 +3533,13 @@ int Lattice::changeMicrostructure(double time, const int simtype,
          << cyc << endl;
     for (int iii = 0; iii < volNextSize; ++iii) {
       cout << "Lattice::changeMicrostructure    Volume of " << phasenames[iii]
-           << " = " << vol_next[iii] << " m3" << endl;
+           << " = " << vol_next[iii] << " m3"
+           << "  &  count_ = " << count_[iii] << endl;
     }
     cout.flush();
   }
 
-  adjustMicrostructureVolumes(vol_next, volNextSize);
+  adjustMicrostructureVolumes(vol_next, volNextSize, cyc);
 
   if (verbose_) {
     cout << endl
@@ -3482,8 +3547,9 @@ int Lattice::changeMicrostructure(double time, const int simtype,
             "cyc = "
          << cyc << endl;
     for (int iii = 0; iii < volNextSize; ++iii) {
-      cout << "Lattice::changeMicrostructure   Volume of " << phasenames[iii]
-           << " = " << vol_next[iii] << " m3" << endl;
+      cout << "Lattice::changeMicrostructure    Volume of " << phasenames[iii]
+           << " = " << vol_next[iii] << " m3"
+           << "  &  count_ = " << count_[iii] << endl;
     }
   }
 
@@ -3820,7 +3886,9 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
   } else {
     ///
-    ///  Sulfate attack!
+    ///  simtype != SULFATE_ATTACK
+    ///    or
+    ///  simtype == SULFATE_ATTACK && time <= sulfateAttackTime_
     ///
     ///  Normalize to get volume fractions and compute number
     ///  of sites of each phase needed.
@@ -4155,6 +4223,27 @@ int Lattice::changeMicrostructure(double time, const int simtype,
 
     // double surfa = getSurfaceArea(chemSys_->getMicroPhaseId(CSHMicroName));
 
+    /*
+    int totPorTest = 0; // test!
+    for (int i = 0; i < numSites_; i++) {
+      totPorTest = site_[i].getWmc0();
+      for (int j = 0; j < NN_NNN; j++) {
+        // stenb = site_[i].nb(j);
+        // totPorTest += stenb->getWmc0();
+        totPorTest += site_[i].nb(j)->getWmc0();
+      }
+      if (totPorTest != site_[i].getWmc()) {
+        cout << endl << ">>>>> Lattice::getNeighborhood - error for cyc = " << cyc
+             << "  &  siteId = " << i << " : totPorTest != site_[" << i << "].getWmc() <=> "
+             << totPorTest << " != " << site_[i].getWmc() << endl;
+        cout << "       phaseId = " << site_[i].getMicroPhaseId() << endl;
+        cout << "       wmc0 = " << site_[i].getWmc0() << endl;
+        cout << endl << ">>>>> exit <<<<<" << endl;
+        exit(0);
+      }
+    }
+    */
+
     if (volumeFraction_[ELECTROLYTEID] <= 0.0) {
 
       cout << endl
@@ -4178,7 +4267,7 @@ int Lattice::changeMicrostructure(double time, const int simtype,
   }
 }
 
-void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
+void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize, int cyc) {
   int i = 0;
 
 #ifdef DEBUG
@@ -4187,7 +4276,11 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
 #endif
   subvoxelWaterVolume_ = 0;
   voxelWaterVolume_ = 0;
-  waterVolume_ = vol[1];
+  waterVolume_ = vol[ELECTROLYTEID];
+
+  voidVolume_ = 0;
+
+  double solidvolume = 0;
 
   // Find the total system volume according to GEMS, in m3
   // units.  The individual microstructure phase volumes
@@ -4232,15 +4325,35 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
 
   if (solidVolumeWithPores_ <= 0.0)
     throw DataException("Lattice", "adjustMicrostructureVolumes",
-                        "totvolume is NOT positive");
+                        "solidVolumeWithPores_ is NOT positive");
 
-  double solidvolume = solidVolumeWithPores_ - subvoxelPoreVolume_;
+  solidvolume = solidVolumeWithPores_ - subvoxelPoreVolume_;
   // microstructureVolume_ = chemSys_->getMicroVolume();
-  nonSolidVolume_ = initialMicrostructureVolume_ - solidvolume; //
+
+  // nonSolidVolume_: total porosity
+  // nonSolidVolume_: pores at subvoxel level + voxels occupied by voids + voxels occupied by electrolyte
+  if (initialMicrostructureVolume_ > solidvolume) {
+    if (initialMicrostructureVolume_ > solidVolumeWithPores_) {
+      nonSolidVolume_ = initialMicrostructureVolume_ - solidvolume;
+    } else {
+      nonSolidVolume_ = subvoxelPoreVolume_;
+    }
+
+  } else {
+    // initialMicrostructureVolume_ <= solidvolume
+    nonSolidVolume_ = subvoxelPoreVolume_;
+  }
+
   // nonSolidVolume_ IS voxelVoidVolume_ + voxelWaterVolume_ +
   // subvoxelPoreVolume_ voxelPoreVolume_ = nonSolidVolume_ -
   // subvoxelPoreVolume_;
-  voxelPoreVolume_ = initialMicrostructureVolume_ - solidVolumeWithPores_;
+
+  // voxelPoreVolume_: voxels occupied by voids + voxels occupied by electrolyte
+  if (initialMicrostructureVolume_ > solidVolumeWithPores_) {
+    voxelPoreVolume_ = initialMicrostructureVolume_ - solidVolumeWithPores_;
+  } else {
+    voxelPoreVolume_ = 0;
+  }
 
   // calcVoxelWaterVolume
   waterVolume_ = vol[ELECTROLYTEID];
@@ -4250,12 +4363,15 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
   // voxel or subvoxel
   // First need to trim off any extra water that lies outside the system
 
+  // voidVolume_ : total empty porosity
+  // voids at voxel level and empty pores at subvoxel level
   voidVolume_ = nonSolidVolume_ - waterVolume_;
 
   if (voidVolume_ < 0.0)
     waterVolume_ = nonSolidVolume_;
 
   voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
+
   if (voxelWaterVolume_ < 0.0) {
     subvoxelWaterVolume_ = waterVolume_;
     voxelWaterVolume_ = 0;
@@ -4264,14 +4380,75 @@ void Lattice::adjustMicrostructureVolumes(vector<double> &vol, int volSize) {
   }
 
   voxelVoidVolume_ = voxelPoreVolume_ - voxelWaterVolume_;
-  if (voxelVoidVolume_ < 0.0)
-    voxelVoidVolume_ = 0.0;
 
-  if (chemSys_->isSaturated()) { // System is saturated
-    voxelVoidVolume_ = 0.0;
-    voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
-    subvoxelWaterVolume_ = subvoxelPoreVolume_;
+  if (chemSys_->isSaturated()) { // System is saturated - test
+    bool stPrg = false;
+    if (abs(voxelVoidVolume_) > 1.e-15){
+      cout << endl << endl
+           << "   Lattice::adjustMicrostructureVolumes - error_1 - cyc = "
+           << cyc << "   &   waterVolume_ = " << waterVolume_ << endl;
+      cout << endl
+           << "   voxelVoidVolume_ = " << voxelVoidVolume_
+           << "   voxelPoreVolume_ = " << voxelPoreVolume_
+           << "   voxelWaterVolume_ = " << voxelWaterVolume_
+           << "   subvoxelWaterVolume_ = " << subvoxelWaterVolume_
+           << "   subvoxelPoreVolume_ = " << subvoxelPoreVolume_
+           << endl;
+      stPrg = true;
+    }
+    voxelVoidVolume_ = 0.0; // check!
+
+    // cout << endl << "   Lattice::adjustMicrostructureVolumes - cyc = " << cyc
+    //      << "   subvoxelPoreVolume_ = " << subvoxelPoreVolume_
+    //      << "   waterVolume_ = " <<  waterVolume_
+    //      << "   abs = " << abs(waterVolume_ - subvoxelPoreVolume_) << endl;
+
+    if ((waterVolume_ < subvoxelPoreVolume_) &&
+        (abs(waterVolume_ - subvoxelPoreVolume_) > 1.e-15) &&
+        (subvoxelPoreVolume_ > 0)) {
+      cout << endl << endl
+           << "   Lattice::adjustMicrostructureVolumes - error_2 - cyc = "
+           << cyc << "   &   waterVolume_ = " << waterVolume_ << endl;
+      cout << endl
+           << "   voxelVoidVolume_ = " << voxelVoidVolume_
+           << "   voxelPoreVolume_ = " << voxelPoreVolume_
+           << "   voxelWaterVolume_ = " << voxelWaterVolume_
+           << "   subvoxelWaterVolume_ = " << subvoxelWaterVolume_
+           << "   subvoxelPoreVolume_ = " << subvoxelPoreVolume_
+           << endl;
+      stPrg = true;
+    }
+    if (stPrg) {
+      cout << endl << "stop" << endl;
+      exit(0);
+    }
   }
+
+  if (voxelVoidVolume_ < 0.0) {
+    cout << endl << "   Lattice::adjustMicrostructureVolumes - cyc = " << cyc
+         << " - test: voxelVoidVolume_ = " << voxelVoidVolume_ << endl;
+    voxelVoidVolume_ = 0.0;
+  }
+
+  // cout << endl
+  //      << "  Lattice::adjustMicrostructureVolumes - cyc = " << cyc
+  //      << " test: voxelVoidVolume_/waterVolume_/subvoxelPoreVolume_/"
+  //                 "voxelWaterVolume_/subvoxelWaterVolume_/voxelPoreVolume_ = "
+  //      << voxelVoidVolume_ << " / " << waterVolume_ << " / " << subvoxelPoreVolume_ << " / "
+  //      << voxelWaterVolume_ << " / " << subvoxelWaterVolume_ << " / " << voxelPoreVolume_
+  //      << endl;
+
+  // if (chemSys_->isSaturated()) { // System is saturated
+  //   voxelVoidVolume_ = 0.0;
+  //   if (waterVolume_ <  subvoxelPoreVolume_) {
+  //     waterVolume_ = subvoxelPoreVolume_;
+  //     voxelWaterVolume_ = 0;
+  //   } else {
+  //     voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
+  //   }
+  //   // voxelWaterVolume_ = waterVolume_ - subvoxelPoreVolume_;
+  //   subvoxelWaterVolume_ = subvoxelPoreVolume_;
+  // }
 
   /// From here to the end of this time cycle, vol[ELECTROLYTEID] is the
   /// volume of voxel-scale pore water only, not the total volume of water.
@@ -4977,7 +5154,7 @@ void Lattice::writeLatticeXYZ(const double curtime,
   ostrT << setprecision(3) << temperature_;
   string tempstr(ostrT.str());
 
-  ofileName = ofileName + "allSites." + timeString + "." + tempstr + "K.xyz";
+  ofileName = ofileName + "_allSites." + timeString + "." + tempstr + "K.xyz";
 
   if (verbose_) {
     cout << "    In Lattice::writeLatticeXYZ, curtime = " << curtime
@@ -5618,13 +5795,13 @@ double Lattice::fillAllPorosity(const int cyc) {
       for (int ii = 0; ii < countVoid; ii++) {
         siteID = voidVect[ii];
         setMicroPhaseId(siteID, ELECTROLYTEID);
-        site_[siteID].setWmc0(1);
-        site_[siteID].dWmc(1);
+        site_[siteID].setWmc0(electrolyteIntPorosity_);
+        site_[siteID].dWmc(electrolyteIntPorosity_);
         site_[siteID].clearGrowth();
         for (int i = 0; i < NN_NNN; i++) {
           stenb = site_[siteID].nb(i);
           // wmcIni = stenb->getWmc();
-          stenb->dWmc(1);
+          stenb->dWmc(electrolyteIntPorosity_);
           nbpid = stenb->getMicroPhaseId();
           if (nbpid > ELECTROLYTEID) {
             if (stenb->getInDissInterfacePos() == -1)
@@ -5739,7 +5916,8 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   vector<structDissVect> dissolutionVector;
   structDissVect dissStruct;
   int posProbVect = 0;
-  double sumWmc = 0; // numLeftTot
+  // double sumWmc = 0; // numLeftTot
+  long int sumWmcInt = 0;
   for (i = 0; i < dissPhaseIDVectSize; i++) {
     phaseID = dissPhaseIDVect[i];
     isite = interface_[phaseID].getDissolutionSites();
@@ -5752,7 +5930,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
       dissStruct.id = stId;
       dissStruct.posVect = i;
       // dissStruct.wmc = stWmc;
-      dissStruct.wmc = 1; // equal probability!
+      dissStruct.wmcInt = 1; // equal probability!
 
       dissolutionVector.push_back(dissStruct);
       // dissProbStruct(int id_i = 0, double instab_i = 0, int posVect_i = 0,
@@ -5763,10 +5941,10 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
     }
   }
   int dissolutionVectorSize = dissolutionVector.size();
-  sumWmc = dissolutionVectorSize;
+  sumWmcInt = dissolutionVectorSize;
 
-  cout << "    Lattice::transformPhase DISS_INI totalTRC/trc_t/bcl/sumWmc : "
-       << totalTRC << " / " << trc_t << " / " << bcl << " / " << sumWmc << endl;
+  cout << "    Lattice::transformPhase DISS_INI totalTRC/trc_t/bcl/sumWmcInt : "
+       << totalTRC << " / " << trc_t << " / " << bcl << " / " << sumWmcInt << endl;
   cout << "      DISS_INI dissPhaseIDVectSize = " << dissPhaseIDVectSize
        << "   dissolutionVectorSize = " << dissolutionVectorSize
        << "   numLeftTot = " << numLeftTot
@@ -5812,7 +5990,8 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   // Site *alstenb;
 
   int numWater, numPorous;
-  double totalPorosity;
+  // double totalPorosity;
+  int totalPorosity;
 
   double volumeratio;
   // int numGrowth = 0;
@@ -5823,6 +6002,8 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
   int countExpPos = 0;
   int countExpNeg = 0;
 
+  double sumWmcDbl;
+
   while (numLeftTot > 0 &&              // monosulphate
          (dissolutionVectorSize > 0) && // monosulphate dissolution interface
          (alreadygrown < netsites_growPhId)) { // AFt
@@ -5832,19 +6013,20 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
 
       // equal probability!
       rng = callRNG();
+      sumWmcDbl = static_cast<double>(sumWmcInt);
 
       // sumWmc = 0.;
       // for (int i = 0; i < dissolutionVectorSize; i++) {
       //   sumWmc +=  dissolutionVector[i].instab;
       // }
-      probRNG = dissolutionVector[0].wmc / sumWmc;
+      probRNG = dissolutionVector[0].wmcInt / sumWmcDbl;
       // probRNG_0 = 1./ sumWmc;
       // probRNG = probRNG_0;
       if (rng <= probRNG) {
         isitePos = 0;
       } else {
         for (isitePos = 1; isitePos < dissolutionVectorSize; isitePos++) {
-          probRNG += (dissolutionVector[isitePos].wmc / sumWmc);
+          probRNG += (dissolutionVector[isitePos].wmcInt / sumWmcDbl);
           if (rng <= probRNG)
             break;
         }
@@ -5860,16 +6042,16 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
         cout << endl << "    exit" << endl;
         exit(1);
       } else {
-        double sumWmcT = 0;
+        long int sumWmcT = 0;
         for (int i = 0; i < dissolutionVectorSize; i++) {
-          sumWmcT += dissolutionVector[isitePos].wmc;
+          sumWmcT += dissolutionVector[isitePos].wmcInt;
         }
-        if (abs(sumWmc - sumWmcT) > 1.e-6) {
+        if (abs(sumWmcInt - sumWmcT) > 0) {
           cout << endl
                << "transformPhase:     *** sumError: "
-                  "bcl/sumWmc/sumWmcT/(sumWmc - sumWmcT) = "
-               << bcl << " / " << sumWmc << " / " << sumWmcT << " / "
-               << (sumWmc - sumWmcT) << endl;
+                  "bcl/sumWmc/sumWmcT/(sumWmcInt - sumWmcT) = "
+               << bcl << " / " << sumWmcInt << " / " << sumWmcT << " / "
+               << (sumWmcInt - sumWmcT) << endl;
           cout << endl << "    exit" << endl;
           exit(1);
         }
@@ -5892,7 +6074,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
       volumeratio = volumeRatio[posVect];
       max = static_cast<int>(volumeratio);
 
-      sumWmc -= 1; // ste->getWmc();
+      sumWmcInt -= 1; // ste->getWmc();
 
       porousneighbor.clear();
       waterneighbor.clear();
@@ -5931,7 +6113,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
         alnbSiteId.clear();
         alnbPhId.clear();
         numWater = numPorous = 0;
-        totalPorosity = 0.0;
+        totalPorosity = 0;
 
         // string fileName(jobRoot_ + "_alsubvol.dat"); // check!
 
@@ -6003,9 +6185,10 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
         // } else {
         //   porevolfrac = 1.0;
         // }
-        double porevolfrac = 1;
+        double porevolfrac = 1.;
         if (totalPorosity > 0)
-          porevolfrac = volumeratio / totalPorosity;
+          // porevolfrac = volumeratio / (totalPorosity / static_cast<double>(convFactDbl2IntPor_));
+          porevolfrac = (volumeratio / totalPorosity) * convFactDbl2IntPor_;
 
         //  This is hard-wired right now
         //  @todo generalize crystallization pressure to more phases
@@ -6075,7 +6258,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
                 }
                 dissolutionVector.pop_back();
                 dissolutionVectorSize--;
-                sumWmc -= 1;
+                sumWmcInt -= 1;
               } // else { // for tests
                 // cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
                 //      << endl;
@@ -6153,7 +6336,7 @@ vector<int> Lattice::transformPhase(int growPhId, int netsites_growPhId,
                 }
                 dissolutionVector.pop_back();
                 dissolutionVectorSize--;
-                sumWmc -= 1;
+                sumWmcInt -= 1;
               } // else { // for tests
                 // cout << "            * - nothing to do for siteId " << extractSteIdVect[i]
                 //      << endl;
@@ -6261,7 +6444,8 @@ void Lattice::transformSolSol(Site *ste, int oldPhId, int newPhId,
   int nbid, nbpid, nb_pid;
   vector<int> growth_local;
   int grLocSize;
-  double wmcIni, wmcEnd, dwmcval;
+  // double wmcIni, wmcEnd, dwmcval;
+  int wmcIni, wmcEnd, dwmcval;
   Site *stenb;
   bool phaseid_exist;
   vector<int> inGrowInterfacePos;
@@ -6290,7 +6474,7 @@ void Lattice::transformSolSol(Site *ste, int oldPhId, int newPhId,
   /// between the growing phase's porosity and the template's porosity.
   ///
 
-  wmcEnd = chemSys_->getMicroPhasePorosity(newPhId); // normally wmcEnd = 1
+  wmcEnd = chemSys_->getMicroPhasePorosityInt(newPhId); // normally wmcEnd = 1
   ste->setWmc0(wmcEnd);
 
   dwmcval = wmcEnd - wmcIni; // normally dwmcval = 0
@@ -6383,8 +6567,10 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
 
   vector<int> extVect;
 
-  double wmcIni, wmcEnd, dwmcval;
-  double steWmc, stenbWmc;
+  // double wmcIni, wmcEnd, dwmcval;
+  // double steWmc, stenbWmc;
+  int wmcIni, wmcEnd, dwmcval;
+  int steWmc, stenbWmc;
   double rng, afty;
 
   int mPhId;
@@ -6433,11 +6619,12 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
   /// Weighted mean curvature (wmc) is changed by the difference
   /// between the growing phase's porosity and the template's porosity.
 
-  double por = chemSys_->getMicroPhasePorosity(growPhID);
-  if (por > 0.0) {
+  // double por = chemSys_->getMicroPhasePorosity(growPhID);
+  int porInt = chemSys_->getMicroPhasePorosityInt(growPhID);
+  if (porInt > 0) {
     rng = callRNG();
     if (rng >= thrPorosity) {
-      wmcEnd = chemSys_->getMicroPhasePorosity(growPhID);
+      wmcEnd = porInt;
     } else {
       wmcEnd = 0;
     }
@@ -6456,7 +6643,7 @@ vector<int> Lattice::transformLiqSol(Site *ste, int growPhID, int totalTRC) {
 
   steWmc = ste->getWmc();
 
-  if (steWmc > 0.0) {
+  if (steWmc > 0) {
     addDissolutionSite(ste, growPhID);
   }
 

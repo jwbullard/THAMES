@@ -16,6 +16,8 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
                        const string &jsonFileName, const string &jobname,
                        const bool verbose, const bool warning, const bool xyz) {
 
+  stepTimeTHR_ =1.e-3;
+
   // xyz_ = xyz;
   xyzMovie_ = xyz;
   xyzFiles_ = false;
@@ -242,7 +244,7 @@ Controller::Controller(Lattice *msh, KineticController *kc, ChemicalSystem *cs,
       throw FileException("Controller", "Controller", outfilename,
                           "Could not append");
     }
-    outfs << "Time(h),GelVol,VoidElectrolyteVol,GelSpaceRatio";
+    outfs << "Time(h),DOR,GelVol,VoidElectrolyteVol,GelSpaceRatioSim,GelSpaceRatioCalc";
     outfs << endl;
     outfs.close();
 
@@ -601,7 +603,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
         timestep = timestep / 2;
 
-        if (timestep > 1.e-3) { // stepTimeTHR
+        if (timestep > stepTimeTHR_) { // stepTimeTHR_ = 1.e-3
          
           currTime -= timestep;
 
@@ -650,7 +652,7 @@ void Controller::doCycle(double elemTimeInterval) {
       } else {
       	// if the previous call of GEMS returns without error, the dissolution time
       	//   step is computed as the difference between the next computation time
-      	//   value and the time corresponding to the previous step 
+        //   value and the time corresponding to the previous step
 
         if (i - 1 < timeSize) {
           currTime = time_[i - 1];
@@ -658,6 +660,8 @@ void Controller::doCycle(double elemTimeInterval) {
           timestep = currTime - lastGoodTime_;
 
           dissTimeInterval = timestep;
+
+          chemSys_->setAllKeepDCLowerLimitZero();
 
           cout << endl
                << endl
@@ -781,6 +785,7 @@ void Controller::doCycle(double elemTimeInterval) {
       }
 
     } catch (GEMException gex) {
+
       string curTimeString = getTimeString(currTime);
       lattice_->writeLattice(curTimeString);
       lattice_->writeLatticePNG(curTimeString);
@@ -906,6 +911,7 @@ void Controller::doCycle(double elemTimeInterval) {
       //        dissolved) lattice sites for the microphase phDiff
 
       if (changeLattice == 0) {
+
         timesGEMFailed_recall = -1;
         bool testDiff = true;
         int numSitesNotAvailableSize;
@@ -1059,16 +1065,38 @@ void Controller::doCycle(double elemTimeInterval) {
               for (int iii = 0; iii < numSitesNotAvailableSize; iii++) {
                 phId = vectPhIdDiff[iii];
                 if (lattice_->getCount(phId) > numSitesNotAvailable[iii]) {
-                  numSitesNotAvailable[iii]++;
                   cout << "  Controller::doCycle - for i/cyc/phId/iii = " << i
                        << " / " << cyc << " / " << phId << " / " << iii
-                       << "   =>   numSitesNotAvailable[iii] = "
+                       << " : ini numSitesNotAvailable[" << iii << "] = "
+                       << numSitesNotAvailable[iii];
+                  numSitesNotAvailable[iii]++;
+                  cout << "   =>   fin numSitesNotAvailable[" << iii << "] = "
                        << numSitesNotAvailable[iii] << endl;
                   // cout.flush();
                   testDiff = true;
                   break;
+                } else {
+                  vector<int> compDC = chemSys_->getMicroPhaseDCMembers(phId);
+                  int size = static_cast<int>(compDC.size());
+
+                  cout << "  Controller::doCycle - for i/cyc/phId/iii = " << i
+                       << " / " << cyc << " / " << phId << " / " << iii
+                       << " - keepDCLowerLimit :" << endl;
+
+                  for (int k = 0; k < size; k++) {
+                    chemSys_->setKeepDCLowerLimit(compDC[k]);
+
+                    cout << "          DCId = " << setw(3) << right << compDC[k]
+                         << "   DCName = " << setw(15) << left
+                         << chemSys_->getDCName(compDC[k])
+                         << "   DCMoles = " << chemSys_->getDCMoles(compDC[k])
+                         << "   DCLowerLimit = " << chemSys_->getDCLowerLimit(compDC[k])
+                         << "   keepDCLowerLimit = " << chemSys_->getKeepDCLowerLimit(compDC[k])
+                         << endl;
+                  }
                 }
               }
+
               cout.flush();
               if (!testDiff) {
                 cout
@@ -1120,16 +1148,20 @@ void Controller::doCycle(double elemTimeInterval) {
                   "cyc = "
                << cyc << " (i = " << i << ")" << endl;
         }
+
       } else {
 
         kineticController_->setHydTimeIni(currTime);
 
         cout << endl
              << "Controller::doCycle - hydration & lattice update - cyc = "
-             << cyc << " (i = " << i << ")   =>   normal end" << endl;
+             << cyc << " (i = " << i << "  &  time_.size()/time_[size - 1] = "
+             << time_.size() << " / " << time_[time_.size() - 1]
+             << ")   =>   normal end" << endl;
       }
 
     } catch (DataException dex) {
+
       string curTimeString = getTimeString(currTime);
       dex.printException();
       lattice_->writeLattice(curTimeString);
@@ -1143,6 +1175,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
       throw dex;
     } catch (EOBException ex) {
+
       string curTimeString = getTimeString(currTime);
       ex.printException();
       lattice_->writeLattice(curTimeString);
@@ -1156,6 +1189,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
       throw ex;
     } catch (MicrostructureException mex) {
+
       string curTimeString = getTimeString(currTime);
       cout << endl
            << "Controller::doCycle MicroEx from Lattice::changeMicrostructure "
@@ -1187,6 +1221,7 @@ void Controller::doCycle(double elemTimeInterval) {
 
     // write output .txt files
     writeTxtOutputFiles(currTime);
+
     if (writeICsDCs)
       writeTxtOutputFiles_onlyICsDCs(currTime);
 
@@ -1635,9 +1670,8 @@ void Controller::doCycle(double elemTimeInterval) {
 
     }
 
-    if (nucStopPrg) {
+    if (nucStopPrg)
       break;
-    }
 
   }
 
@@ -1646,6 +1680,7 @@ void Controller::doCycle(double elemTimeInterval) {
   /// visualization
   ///
   if (currTime > outputImageTime_[outputImageTime_.size() - 1] || nucStopPrg) {
+
     string curTimeString = getTimeString(currTime);
 
     lattice_->writeLattice(curTimeString);
@@ -1779,7 +1814,7 @@ int Controller::calculateState(double &currTime, double dt, bool isFirst, int cy
            << endl;
 
       double minTime = currTime - deltaTime_;
-      if (abs(minTime - lastGoodTime_) > 1.e-3) {
+      if (abs(minTime - lastGoodTime_) > stepTimeTHR_) { // 1.e-3
         double delta2Time = 2 * deltaTime_;
         double rNum;
         double timeStepLoc;
@@ -2090,8 +2125,9 @@ void Controller::writeTxtOutputFiles(double time) {
     throw FileException("Controller", "Controller", outfilename,
                         "Could not append");
   }
+  double dor = chemSys_->getTotalDOR();
   outfs << setprecision(5) << time;
-  outfs << "," << chemSys_->getTotalDOR() << endl;
+  outfs << "," << dor << endl;
   outfs.close();
 
   outfilename = jobRoot_ + "_GelSpaceRatio.csv";
@@ -2100,9 +2136,10 @@ void Controller::writeTxtOutputFiles(double time) {
     throw FileException("Controller", "Controller", outfilename,
                         "Could not append");
   }
-  double gelVolume = 0, spaceVolume = 0, ratio = - 1.0;
-  //outfs << "Time(h),GelVol,VoidElectrolyteVol,GelSpaceRatio";
-  outfs << setprecision(5) << time << ",";
+  double gelVolume = 0, spaceVolume = 0;
+  //outfs << "Time(h),DOR,GelVol,VoidElectrolyteVol,GelSpaceRatio,GSRcalc";
+  //outfs << setprecision(5) << time << ",";
+  outfs << setprecision(5) << time << "," << dor << ",";
   for (i = 0; i < numMicroPhases_; i++) {
     if (i < FIRST_SOLID) {
       spaceVolume += lattice_->getVolumeFraction(i);
@@ -2112,9 +2149,13 @@ void Controller::writeTxtOutputFiles(double time) {
       }
     }
   }
+
+  double gsrSim = - 1.0;
   if ((spaceVolume + gelVolume) > 0.0)
-    ratio = gelVolume / (spaceVolume + gelVolume);
-  outfs << gelVolume << "," << spaceVolume << "," << ratio << endl;
+    gsrSim = gelVolume / (spaceVolume + gelVolume);
+  double gsrCalc = 0.68*dor / (0.32*dor + 0.45);
+  outfs << gelVolume << "," << spaceVolume << "," << gsrSim << "," << gsrCalc
+        << endl;
   outfs.close();
 
   outfilename = jobRoot_ + "_reactProdRatio.csv";

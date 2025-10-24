@@ -178,10 +178,10 @@
           {
             "gemphasename": "CSHQ",
             "gemdc": [
-              { "gemdcname": "CSHQ-JenD", "gemdcporosity": 0.4935 },
-              { "gemdcname": "CSHQ-JenH", "gemdcporosity": 0.4935 },
-              { "gemdcname": "CSHQ-TobD", "gemdcporosity": 0.2004 },
-              { "gemdcname": "CSHQ-TobH", "gemdcporosity": 0.2004 },
+              { "gemdcname": "CSHQ-JenD", "gemdcporosity": 0.2004 },
+              { "gemdcname": "CSHQ-JenH", "gemdcporosity": 0.2004 },
+              { "gemdcname": "CSHQ-TobD", "gemdcporosity": 0.4935 },
+              { "gemdcname": "CSHQ-TobH", "gemdcporosity": 0.4935 },
               { "gemdcname": "KSiOH", "gemdcporosity": 0.1825 },
               { "gemdcname": "NaSiOH", "gemdcporosity": 0.1825 }
             ]

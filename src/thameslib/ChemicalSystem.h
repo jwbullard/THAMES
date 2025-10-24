@@ -327,6 +327,9 @@ class ChemicalSystem {
   std::vector<double> microPhasePorosity_; /**< The sub-voxel porosity of a given
                                                 phase, such as C-S-H
                                                 (dimensionless) */
+  std::vector<int> microPhasePorosityInt_; /**< The sub-voxel porosity of a given
+                                                phase, such as C-S-H
+                                                (integer, dimensionless) */
 
   /**
   @brief Sub-voxel pore size distribution (volume basis) of each phase
@@ -618,6 +621,15 @@ class ChemicalSystem {
                                       decide which microPhases are clinker components
                                       (arcanite, thenardite, gypsum, bassanite and
                                       hemihydrate can belong to the clinker) */
+
+  double totVolPors_;
+
+  std::vector<double> keepDCLowerLimit_;
+
+  int electrolyteIntPorosity_;
+  int voidIntPorosity_;
+  int convFactDbl2IntPor_;
+
 public:
 
   /**
@@ -2377,6 +2389,10 @@ public:
     //}
   }
 
+  int getMicroPhasePorosityInt(const int idx) {
+      return microPhasePorosityInt_[idx];
+  }
+
   /**
   @brief Get the internal porosity of a microstructure phase.
 
@@ -2424,6 +2440,8 @@ public:
   one micrometer
   */
   std::vector<double> getMicroPhasePorosity() const { return microPhasePorosity_; }
+
+  std::vector<int> getMicroPhasePorosityInt() const { return microPhasePorosityInt_; }
 
   /**
   @brief Get the list of sub-voxel pore size distributions.
@@ -2906,6 +2924,7 @@ public:
       ex.printException();
       exit(1);
     }
+
   }
 
   /**
@@ -6438,7 +6457,7 @@ public:
     // cout << endl << "getIsDCKinetic: " << endl;
     for (j = 0; j < numDCs_; j++) {
       if (isDCKinetic_[j]) {
-        mPhId = getDC_to_MPhID(j);
+        mPhId = DC_to_MPhID_[j];
         scMass = getMicroPhaseMass(mPhId);
 
         totMassImpurity = 0;
@@ -6492,6 +6511,22 @@ public:
            << DCLowerLimit_[i] << " / " << DCUpperLimit_[i] << endl;
     }
   }
+
+  void setKeepDCLowerLimit(int dcId) { keepDCLowerLimit_[dcId] = DCLowerLimit_[dcId]; }
+
+  void  setKeepDCLowerLimitZero(int dcId) {
+    keepDCLowerLimit_[dcId] = 0;
+    DCLowerLimit_[dcId] = 0;
+  }
+
+  void  setAllKeepDCLowerLimitZero(void) {
+    keepDCLowerLimit_.clear();
+    keepDCLowerLimit_.resize(numDCs_, 0.0);
+  }
+
+  double getKeepDCLowerLimit(int dcId) { return keepDCLowerLimit_[dcId]; }
+
+  int getConvFactDbl2IntPor(void) { return convFactDbl2IntPor_;}
 
 }; // End of ChemicalSystem class
 

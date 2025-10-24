@@ -193,7 +193,8 @@ public:
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
                                     double &massDissolved, int cyc,
-                                    double totalDOR, bool doTweak);
+                                    double totalDOR, bool doTweak,
+                                    bool &doNotModif);
 
 }; // End of StandardKineticModel class
 

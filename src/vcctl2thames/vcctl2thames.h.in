@@ -39,11 +39,11 @@ const std::string VCCTL_ImgRes_string = "Image_Resolution:";
 /******************************************************
  * Define strings used in THAMES header
  ******************************************************/
-const std::string THAMES_Version_string = "#THAMES_Version:";
-const std::string THAMES_Xsize_string = "#X_Size:";
-const std::string THAMES_Ysize_string = "#Y_Size:";
-const std::string THAMES_Zsize_string = "#Z_Size:";
-const std::string THAMES_ImgRes_string = "#Image_Resolution:";
+const std::string THAMES_Version_string = "#THAMES:Version:";
+const std::string THAMES_Xsize_string = "#THAMES:X_Size:";
+const std::string THAMES_Ysize_string = "#THAMES:Y_Size:";
+const std::string THAMES_Zsize_string = "#THAMES:Z_Size:";
+const std::string THAMES_ImgRes_string = "#THAMES:Image_Resolution:";
 const std::string THAMES_Version = "@THAMES_VERSION@";
 
 /******************************************************

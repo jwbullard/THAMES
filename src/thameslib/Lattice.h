@@ -48,7 +48,8 @@ struct structGrowVect {
 struct structDissVect {
   int id;
   int posVect;
-  double wmc;
+  // double wmc;
+  int wmcInt;
 };
 
 /**
@@ -186,6 +187,10 @@ private:
   int waterDCId_;           /**< the DCId coresp to DCName = "H2O@" */
   double waterMolarMass_;   /**< the water molar mass corresp. to waterDCId_ */
   double waterMolarVol_;    /**< the water molar volume corresp. to waterDCId_ */
+
+  int electrolyteIntPorosity_;
+  int voidIntPorosity_;
+  int convFactDbl2IntPor_;
 
   // int DAMAGEID_;
 
@@ -609,7 +614,7 @@ public:
   */
   void getNeighborhood(const int sitenum, std::vector<int> & ids,
                        std::vector<int> & phs, int & numW,
-                       double & totPor);
+                       int & totPor);
 
   /**
   @brief Set the collection of site indices neighboring a given site 
@@ -644,9 +649,9 @@ public:
   @param index is the index of the Site object in the `site_` array
   @param dwmcval is the increment to add to the wmc
   */
-  void dWmc(int index, double dwmcval) {
-    site_[index].setWmc(site_[index].getWmc() + dwmcval);
-  }
+  // void dWmc(int index, double dwmcval) {
+  //   site_[index].setWmc(site_[index].getWmc() + dwmcval);
+  // }
 
   /**
   @brief set the internal porosity, wmc0_, of a site i.e. its contribution to
@@ -655,7 +660,7 @@ public:
   @param index is the index of the Site object in the `site_` array
   @param wmc0val is the value of wmc0_ to assign to the site
   */
-  void setWmc0(int index, double wmc0val) { site_[index].setWmc0(wmc0val); }
+  void setWmc0(int index, int wmc0val) { site_[index].setWmc0(wmc0val); }
 
   /**
   @brief Compute normalized initial microstructure phase masses
@@ -1070,7 +1075,7 @@ public:
   from GEMS (not based on voxels)
   @param volSize is the number of elements in the vol vector
   */
-  void adjustMicrostructureVolumes(std::vector<double> &vol, int volSize);
+  void adjustMicrostructureVolumes(std::vector<double> &vol, int volSize, int cyc);
 
   /**
   @brief Calculate microstructure volume fractions

@@ -539,7 +539,8 @@ public:
   */
   virtual void calculateKineticStep(const double timestep, double &scaledMass,
                                     double &massDissolved, int cyc,
-                                    double totalDOR, bool doTweak) = 0;
+                                    double totalDOR, bool doTweak,
+                                    bool &doNotModif) = 0;
 
   /**
   @brief Set up the number of moles of dependent components in the kinetic

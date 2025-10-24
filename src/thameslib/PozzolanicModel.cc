@@ -145,9 +145,9 @@ PozzolanicModel::PozzolanicModel(ChemicalSystem *cs, Lattice *lattice,
 }
 
 void PozzolanicModel::calculateKineticStep(const double timestep,
-                                           double &scaledMass,
-                                           double &massDissolved, int cyc,
-                                           double totalDOR, bool doTweak) {
+                                           double &scaledMass, double &massDissolved,
+                                           int cyc, double totalDOR, bool doTweak,
+                                           bool &doNotModif) {
 
   ///
   /// Initialize local variables
@@ -338,6 +338,15 @@ void PozzolanicModel::calculateKineticStep(const double timestep,
     if (verbose_) {
       cout << "    PozzolanicModel::calculateKineticStep rate/massDissolved : "
            << rate << " / " << massDissolved << endl;
+    }
+
+    if (chemSys_->getKeepDCLowerLimit(DCId_) > 0) {
+      if (massDissolved < 0) {
+        chemSys_->setKeepDCLowerLimitZero(DCId_);
+      } else {
+        doNotModif = true;
+        return;
+      }
     }
 
     scaledMass = scaledMass_ - massDissolved;

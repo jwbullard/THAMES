@@ -127,9 +127,9 @@ StandardKineticModel::StandardKineticModel(ChemicalSystem *cs, Lattice *lattice,
 }
 
 void StandardKineticModel::calculateKineticStep(const double timestep,
-                                                double &scaledMass,
-                                                double &massDissolved, int cyc,
-                                                double totalDOR, bool doTweak) {
+                                                double &scaledMass, double &massDissolved,
+                                                int cyc, double totalDOR, bool doTweak,
+                                                bool &doNotModif) {
   ///
   /// Initialize local variables
   ///
@@ -194,6 +194,26 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
            << setw(15) << left << name_ << " / "
            << chemSys_->getMicroPhaseSI(microPhaseId_) << endl;
 
+    /*
+    if (!doTweak) {
+      cout << "      StandardKineticModel::calculateKineticStep - 0y - cyc = "
+           << cyc << "   DCId_ = " << DCId_ << "   keepDCLowerLimit = "
+           << chemSys_->getKeepDCLowerLimit(DCId_)
+           << "   massDissolved/scaledMass_ : "
+           << massDissolved << " / " << scaledMass_
+           << "   doNotModif = " << doNotModif
+           << endl;
+    } else {
+      cout << "      StandardKineticModel::calculateKineticStep - 0n - cyc = "
+           << cyc << "   DCId_ = " << DCId_ << "   keepDCLowerLimit = "
+           << chemSys_->getKeepDCLowerLimit(DCId_)
+           << "   massDissolved/scaledMass_ : "
+           << massDissolved << " / " << scaledMass_
+           << "   doNotModif = " << doNotModif
+           << endl;
+    }
+    */
+
     // dissolutionRateConst_ has units of mol/m2/h
     // area has units of m2 of phase per 100 g of total solid
     // Therefore dissrate has units of mol of phase per 100 g of all solid
@@ -219,6 +239,37 @@ void StandardKineticModel::calculateKineticStep(const double timestep,
     // Therefore, massDissolved has units of grams of phase per 100 g of all
     // solid
     massDissolved = dissrate * timestep * chemSys_->getDCMolarMass(DCId_);
+
+    if (chemSys_->getKeepDCLowerLimit(DCId_) > 0) {
+      if (massDissolved < 0) {
+        // cout << "      StandardKineticModel::calculateKineticStep - 1 - cyc = "
+        //      << cyc << "   DCId_ = " << DCId_ << "   keepDCLowerLimit = "
+        //      << chemSys_->getKeepDCLowerLimit(DCId_)
+        //      << "   massDissolved(negative)/scaledMass_ : "
+        //      << massDissolved << " / " << scaledMass_
+        //      << "   doNotModif = " << doNotModif
+        //      << endl;
+        chemSys_->setKeepDCLowerLimitZero(DCId_);
+      } else {
+        // cout << "      StandardKineticModel::calculateKineticStep - 2 - cyc = "
+        //      << cyc << "   DCId_ = " << DCId_ << "   keepDCLowerLimit = "
+        //      << chemSys_->getKeepDCLowerLimit(DCId_)
+        //      << "   massDissolved(positive)/scaledMass_ : "
+        //      << massDissolved << " / " << scaledMass_
+        //      << "   doNotModif = " << doNotModif
+        //      << endl;
+        doNotModif = true;
+        return;
+      }
+    // } else {
+    //   cout << "      StandardKineticModel::calculateKineticStep - 3 - cyc = "
+    //        << cyc << "   DCId_ = " << DCId_ << "   keepDCLowerLimit = "
+    //        << chemSys_->getKeepDCLowerLimit(DCId_)
+    //        << "   massDissolved(n-p)/scaledMass_ : "
+    //        << massDissolved << " / " << scaledMass_
+    //        << "   doNotModif = " << doNotModif
+    //        << endl;
+    }
 
     scaledMass = scaledMass_ - massDissolved;
 

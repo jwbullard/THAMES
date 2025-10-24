@@ -169,9 +169,9 @@ ParrotKillohModel::ParrotKillohModel(ChemicalSystem *cs, Lattice *lattice,
 }
 
 void ParrotKillohModel::calculateKineticStep(const double timestep,
-                                             double &scaledMass,
-                                             double &massDissolved, int cyc,
-                                             double totalDOR, bool doTweak) {
+                                             double &scaledMass, double &massDissolved,
+                                             int cyc, double totalDOR, bool doTweak,
+                                             bool &doNotModif) {
 
   ///
   /// Initialize local variables

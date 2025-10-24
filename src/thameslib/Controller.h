@@ -22,9 +22,9 @@ struct RestoreSite {
                                             growth interface */
   int inDissInterfacePos;     /**< site position in the corresponding dissolution
                                    interface */
-  double wmc;                 /**< total porosity ("surface curvature") at this
+  int wmc;                    /**< total porosity ("surface curvature") at this
                                    site */
-  double wmc0;                /**< this site internal porosity (its own contribution
+  int wmc0;                   /**< this site internal porosity (its own contribution
                                    at wmc_ value) */
   int visit;                  /**< reset to 0 */
 };
@@ -186,6 +186,7 @@ private:
 
   double deltaTime_;
   double lastGoodTime_;
+  double stepTimeTHR_;
 public:
   /**
   @brief The constructor.

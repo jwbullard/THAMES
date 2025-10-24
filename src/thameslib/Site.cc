@@ -58,12 +58,12 @@ Site::Site(int xp, int yp, int zp, int xs, int ys, int zs, int neigh,
   inDissolutionVectorPos_ = -1;
 }
 
-void Site::calcWmc(void) {
-  wmc_ = chemSys_->getMicroPhasePorosity(getMicroPhaseId());
-  for (int i = 0; i < NN_NNN; i++) {
-    wmc_ += chemSys_->getMicroPhasePorosity(nb_[i]->getMicroPhaseId());
-  }
-}
+// void Site::calcWmc(void) {
+//   wmc_ = chemSys_->getMicroPhasePorosity(getMicroPhaseId());
+//   for (int i = 0; i < NN_NNN; i++) {
+//     wmc_ += chemSys_->getMicroPhasePorosity(nb_[i]->getMicroPhaseId());
+//   }
+// }
 
 vector<int> Site::getXYZ() {
   vector<int> v(3, 0);

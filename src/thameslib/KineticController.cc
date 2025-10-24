@@ -166,7 +166,7 @@ KineticController::KineticController(ChemicalSystem *cs, Lattice *lattice,
   impurityDCID_.clear();
   impurityDCID_.push_back(chemSys_->getDCId("K2O"));
   impurityDCID_.push_back(chemSys_->getDCId("Na2O"));
-  impurityDCID_.push_back(chemSys_->getDCId("Per")); // 170
+  impurityDCID_.push_back(chemSys_->getDCId("Per"));
   impurityDCID_.push_back(chemSys_->getDCId("SO3"));
 
   // initScaledMass_, scaledMass_ & scaledMassIni_ are
@@ -857,7 +857,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
 
   double hyd_time = hydTimeIni_ + timestep;
 
-  chemSys_->initDCLowerLimit(0);
+  chemSys_->initDCLowerLimit(0); // check !
 
   bool doTweak = (chemSys_->getTimesGEMFailed() > 0) ? true : false;
 
@@ -1023,6 +1023,8 @@ void KineticController::calculateKineticStep(double time, const double timestep,
         }
 
         if (runKM) {
+          bool doNotModif = false;
+
           DCId = phaseKineticModel_[midx]->getDCId();
 
           // ONLY HERE IS WHERE WE CALCULATE THE SURFACE AREA EACH CYCLE
@@ -1043,8 +1045,19 @@ void KineticController::calculateKineticStep(double time, const double timestep,
           /// based SOLELY on the combined degree of reaction of
           /// "cement" components. It is intended for the Parrot-Killoh
           /// model usage.
+
+          // cout << endl << "    KineticController::calculateKineticStep - 0 - cyc = " << cyc
+          //      << " :  doNotModif = false <-> doNotModif = " << doNotModif
+          //      << "   midx = " << midx << "   phName = " << phaseKineticModel_[midx]->getName()
+          //      << "   DCId = " << DCId << "   scaledMass = " << scaledMass
+          //      << "   massDissolved = " << massDissolved
+          //      << "   keepDCLowerLimit = " << chemSys_->getKeepDCLowerLimit(DCId)
+          //      << "   DCMoles_ = " << DCMoles_[DCId]
+          //      << "   DCMoles_cs = " << chemSys_->getDCMoles(DCId)
+          //     << endl;
+
           phaseKineticModel_[midx]->calculateKineticStep(
-              timestep, scaledMass, massDissolved, cyc, totalDOR, doTweak);
+              timestep, scaledMass, massDissolved, cyc, totalDOR, doTweak, doNotModif);
 
           /// @note may want to change the condition of next block
           /// because it is possible for the scaled mass of a kinetic phase to
@@ -1063,12 +1076,28 @@ void KineticController::calculateKineticStep(double time, const double timestep,
             exit(0);
           }
 
-          // cout << "   cyc = " << cyc
-          //      << " : midx/phName/scaledMassIni_/scaledMass/massDissolved: "
-          //      << setw(3) << right << midx << " / "
-          //      << setw(15) << left << phaseKineticModel_[midx]->getName() 
-          //      << " / " << scaledMassIni_[midx] << " / " << scaledMass << " / "
-          //      << massDissolved;
+          if (doNotModif) {
+            // cout << "    KineticController::calculateKineticStep - 1 - cyc = " << cyc
+            //      << " :  doNotModif = true <-> doNotModif = " << doNotModif
+            //      << "   midx = " << midx << "   phName = " << phaseKineticModel_[midx]->getName()
+            //      << "   DCId = " << DCId << "   scaledMass = " << scaledMass
+            //      << "   massDissolved = " << massDissolved
+            //      << "   keepDCLowerLimit = " << chemSys_->getKeepDCLowerLimit(DCId)
+            //      << "   DCMoles_ = " << DCMoles_[DCId]
+            //      << "   DCMoles_cs = " << chemSys_->getDCMoles(DCId)
+            //      << endl;
+            continue;
+          // } else {
+          //   cout << "    KineticController::calculateKineticStep - 2 - cyc = " << cyc
+          //        << " :  doNotModif = false <-> doNotModif = " << doNotModif
+          //        << "   midx = " << midx << "   phName = " << phaseKineticModel_[midx]->getName()
+          //        << "   DCId = " << DCId << "   scaledMass = " << scaledMass
+          //        << "   massDissolved = " << massDissolved
+          //        << "   keepDCLowerLimit = " << chemSys_->getKeepDCLowerLimit(DCId)
+          //        << "   DCMoles_ = " << DCMoles_[DCId]
+          //        << "   DCMoles_cs = " << chemSys_->getDCMoles(DCId)
+          //        << endl;
+          }
 
           chemSys_->updateMicroPhaseMasses(phaseDissolvedId[midx], scaledMass, 0);
 
@@ -1119,6 +1148,7 @@ void KineticController::calculateKineticStep(double time, const double timestep,
             numDCMolesDissolved = (massDissolved - totMassImpurity) /
                                    chemSys_->getDCMolarMass(DCId);
             keepNumDCMoles = DCMoles_[DCId] - numDCMolesDissolved;
+
             if (keepNumDCMoles < 0) {
               cout << endl
                    << "KineticController::calculateKineticStep error for cyc = "

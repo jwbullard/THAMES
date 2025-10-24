@@ -62,9 +62,10 @@ protected:
 
   This provides a ranking of dissolution potential only.
   */
-  double wmc_;       /**< total porosity ("surface curvature") at this site */
-  double wmc0_;      /**< this site internal porosity
+  int wmc_;          /**< total porosity ("surface curvature") at this site */
+  int wmc0_;         /**< this site internal porosity
                           (its own contribution at wmc_ value) */
+
   double expstrain_; /**< Assigned expansion strain by phase
                           constrained transformation or an applied load */
 
@@ -403,7 +404,7 @@ public:
 
   @return the relative potential for dissolution at this site
   */
-  double getWmc(void) const { return wmc_; }
+  int getWmc(void) const { return wmc_; }
 
   /**
   @brief get the internal porosity, wmc0_, of this site i.e. its contribution to
@@ -411,7 +412,7 @@ public:
 
   @return the value of wmc0_ corresponding to the microPhase occupying this site
   */
-  double getWmc0(void) const { return wmc0_; }
+  int getWmc0(void) const { return wmc0_; }
 
   /**
   @brief Determine if a site is occupied by a porous solid
@@ -422,7 +423,7 @@ public:
   @return true if the phase occupying this site is a porous solid
   */
   bool isPorousSolid(void) {
-    if (wmc0_ > 1.0e-9 && wmc0_ < 9.9999e-1)
+    if ((wmc0_ > 0) && (microPhaseId_ > ELECTROLYTEID))
       return (true);
     return (false);
   }
@@ -432,7 +433,7 @@ public:
 
   @param wmcval is the value of wmc_ to assign to the site
   */
-  void setWmc(double wmcval) { wmc_ = wmcval; }
+  void setWmc(int wmcval) { wmc_ = wmcval; }
 
   /**
   @brief set the internal porosity, wmc0_, of this site i.e. its contribution to
@@ -440,17 +441,20 @@ public:
 
   @param wmcval is the value of wmc0_ to assign to the site
   */
-  void setWmc0(double wmcval) { wmc0_ = wmcval; }
+  void setWmc0(int wmcval) { wmc0_ = wmcval; }
 
   /**
   @brief Increment the "weighted mean curvature" of the site.
 
   @param dwmcval is the increment to make to the existing value of wmc
   */
-  void dWmc(double dwmcval) {
+  void dWmc(int dwmcval) {
     wmc_ += dwmcval;
-    if (wmc_ < 0.0)
-      wmc_= 0.0;
+    if (wmc_ < 0) {
+      cout << endl << "Site::dWmc error :  wmc_ < 0! i.e. wmc_ = " << wmc_ << endl;
+      cout << endl << "exit" << endl;
+      exit(0);
+    }
   }
 
   /**
@@ -478,7 +482,7 @@ public:
 
   This provides a ranking of dissolution potential only.
   */
-  void calcWmc(void);
+  // void calcWmc(void);
 
   /**
   @brief Designate the site as a potential dissolution site for a particular
