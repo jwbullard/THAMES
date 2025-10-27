@@ -623,6 +623,7 @@ class ChemicalSystem {
                                       hemihydrate can belong to the clinker) */
 
   double totVolPors_;
+  double corPorCSHQ_;
 
   std::vector<double> keepDCLowerLimit_;
 
@@ -6511,6 +6512,8 @@ public:
            << DCLowerLimit_[i] << " / " << DCUpperLimit_[i] << endl;
     }
   }
+
+  void setCorPorCSHQ(double val) { corPorCSHQ_ = val; }
 
   void setKeepDCLowerLimit(int dcId) { keepDCLowerLimit_[dcId] = DCLowerLimit_[dcId]; }
 

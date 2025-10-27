@@ -81,6 +81,9 @@ int main(int argc, char **argv) {
        << setprecision(3) << elemTimeInterval
        << " hours (used in Parrot-Killoh model)" << endl;
 
+  double corPorCSHQ = 1.0;
+  cout << "correction CSHQ porrosity : corPorCSHQ = " << corPorCSHQ << endl;
+
   cout << scientific << setprecision(15) << endl;
 
   time_t lt = time(NULL);
@@ -170,6 +173,8 @@ int main(int argc, char **argv) {
                       AppliedStrainSolver, KController, Ctrl, starttime, lt,
                       errorProgram, outputFolder);
   }
+
+  ChemSys->setCorPorCSHQ(corPorCSHQ);
 
   //
   // Create the random number generator

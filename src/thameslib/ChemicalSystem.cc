@@ -662,6 +662,7 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   writeSatElectrolyteGasConditions();
 
   totVolPors_ = 0.0;
+  corPorCSHQ_ = 1.0;
 
   keepDCLowerLimit_.clear();
   keepDCLowerLimit_.resize(numDCs_, 0);
@@ -2190,6 +2191,14 @@ void ChemicalSystem::calcMicroPhasePorosity(const unsigned int idx) {
 
   int testPorInt;
   double testPorDbl = 0.0;
+
+  if (microPhaseName_[idx] == "CSHQ") {
+    cout << "    ChemicalSystem::calcMicroPhasePorosity - " << microPhaseName_[idx]
+         << " : initial porosity = " << porosity << "  &  corPorCSHQ_ = "
+         << corPorCSHQ_ << "   =>   final porosity = ";
+    porosity *= corPorCSHQ_;
+    cout << porosity << endl;
+  }
 
   testPorInt = porosity * convFactDbl2IntPor_;
   testPorDbl = testPorInt / static_cast<double>(convFactDbl2IntPor_);
