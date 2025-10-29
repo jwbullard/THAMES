@@ -202,6 +202,7 @@ int main(int argc, char **argv) {
     cout << "Y size of lattice is " << Mic->getYDim() << endl;
     cout << "Z size of lattice is " << Mic->getZDim() << endl;
     cout << "Total number of sites is " << Mic->getNumSites() << endl;
+
   } catch (bad_alloc &ba) {
     cout << "Bad memory allocation in Lattice constructor: " << ba.what()
          << endl;
@@ -222,6 +223,7 @@ int main(int argc, char **argv) {
     dex.printException();
     errorProgram = true;
   }
+
   if (errorProgram) {
     deleteDynAllocMem(ChemSys, Mic, RNG, ThermalStrainSolver,
                       AppliedStrainSolver, KController, Ctrl, starttime, lt,

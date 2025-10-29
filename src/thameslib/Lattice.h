@@ -42,13 +42,12 @@ struct chemElem {
 struct structGrowVect {
   int id;
   int posVect;
-  double affinity;
+  int affinityInt;
 };
 
 struct structDissVect {
   int id;
   int posVect;
-  // double wmc;
   int wmcInt;
 };
 
@@ -191,6 +190,10 @@ private:
   int electrolyteIntPorosity_;
   int voidIntPorosity_;
   int convFactDbl2IntPor_;
+
+  std::vector<std::vector<int>> affinityInt_;
+  std::vector<std::vector<bool>> growthTemplate_;
+  std::vector<int> microPhasePorosityInt_;
 
   // int DAMAGEID_;
 

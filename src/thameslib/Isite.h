@@ -23,7 +23,7 @@ class Isite {
 
 private:
   int id_;          /**< The id of the corresponding Site */
-  double affinity_; /**< The affinity for growth of a phase at the site */
+  int affinityInt_; /**< The affinity for growth of a phase at the site */
   bool verbose_;    /**< Flag for whether to produce verbose output */
   double prob_;     /**< The growth probability of a phase at this site (computed
                          according the affinity) */
@@ -44,7 +44,7 @@ public:
   @param aftyval is the prescribed value of the affinity to set
   @param verbose is the flag for verbose output
   */
-  Isite(int idval, double aftyval, const bool verbose = false, double prb = 0);
+  Isite(int idval, int aftyvalInt, const bool verbose = false, double prb = 0);
 
   /**
   @brief Copy constructor.
@@ -80,7 +80,7 @@ public:
 
   @return the growth affinity of this Isite object
   */
-  double getAffinity(void) const { return affinity_; }
+  int getAffinityInt(void) const { return affinityInt_; }
 
   /**
   @brief Set the growth affinity of this Isite object.
@@ -89,7 +89,7 @@ public:
 
   @param num is the growth affinity of this Isite object
   */
-  void setAffinity(double num) { affinity_ = num; }
+  void setAffinityInt(int num) { affinityInt_ = num; }
 
   /**
   @brief Update the growth affinity of this Isite object.
@@ -97,7 +97,7 @@ public:
   @param afty is the value that must be added to the already growth
   affinity value of this Isite object
   */
-  void updateAffinity(double afty) { affinity_ += afty; }
+  void updateAffinityInt(int afty) { affinityInt_ += afty; }
 
   /**
   @brief Set the verbose flag

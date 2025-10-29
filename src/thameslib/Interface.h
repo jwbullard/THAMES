@@ -49,6 +49,8 @@ private:
                                              self-dissolution */
   bool verbose_;                        /**< Flag for verbose output */
 
+  std::vector<int> affinityInt_;
+
 public:
   /**
   @brief The default constructor, initializing members to empty or zero values.
@@ -247,8 +249,8 @@ public:
   @param afty is the value that must be added to the already growth affinity
   value of the Isite object
   */
-  void updateAffinity(int pos, double afty) {
-    growthSites_[pos].updateAffinity(afty);
+  void updateAffinityInt(int pos, int afty) {
+    growthSites_[pos].updateAffinityInt(afty);
   }
 
   /**
@@ -260,7 +262,7 @@ public:
   @return the growth affinity of the Isite object placed on the positionv pos
   of this growth interface (belonging to this microPhase).
   */
-  double getAffinity(int pos) { return growthSites_[pos].getAffinity(); }
+  int getAffinityInt(int pos) { return growthSites_[pos].getAffinityInt(); }
 
 }; // End of Interface class
 

@@ -70,6 +70,7 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   microPhaseDCMembers_.clear();
   growthTemplate_.clear();
   affinity_.clear();
+  affinityInt_.clear();
   contactAngle_.clear();
   microPhasePorosity_.clear();
   microPhasePorosityInt_.clear();
@@ -604,6 +605,7 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   /// Set up the porosities for VOID and ELECTROLYTE microPhases
   ///
 
+  convFactDbl2IntAff_ = 1e5;
   convFactDbl2IntPor_ = 1e5;
   electrolyteIntPorosity_ = convFactDbl2IntPor_;
   voidIntPorosity_ = 0;
@@ -647,11 +649,12 @@ ChemicalSystem::ChemicalSystem(const string &GEMfilename, const string
   aluminateDCId_ = getDCId(AluminateDCName);
   ferriteDCId_ = getDCId(FerriteDCName);
 
+  // cout << endl << "ChemicalSystem::ChemicalSystem - affinities :" << endl;
   // for (int i = FIRST_SOLID; i < numMicroPhases_; i++) {
-  //   cout << endl << "   affinity for i = " << i << endl;
+  //   cout << endl << "    affinity for i = " << i << endl;
   //   for (int j = FIRST_SOLID; j < numMicroPhases_; j++) {
-  //     cout << "  " << j << "/" << affinity_[i][j] << "/" <<
-  //     contactAngle_[i][j];
+  //     cout << "  " << j << " / " << affinity_[i][j] << " / "
+  //          << affinityInt_[i][j] << " / " << contactAngle_[i][j] << endl;
   //   }
   //   cout << endl;
   // }
@@ -1076,6 +1079,7 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
 
     phaseData.growthTemplate.clear();
     phaseData.affinity.clear();
+    phaseData.affinityInt.clear();
     phaseData.contactAngle.clear();
 
     /// @note The affinity vector is always the same length, one entry for every
@@ -1095,6 +1099,7 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
     //
     phaseData.contactAngle.resize(numEntries, 180);
     phaseData.affinity.resize(numEntries, 0.0);
+    phaseData.affinityInt.resize(numEntries, 0);
     phaseData.k2o = 0.0;
     phaseData.na2o = 0.0;
     phaseData.mgo = 0.0;
@@ -1279,8 +1284,10 @@ void ChemicalSystem::parseMicroPhases(const json::iterator cdi, int numEntries,
       }
       cs = cos(phaseData.contactAngle[j] * Pi / 180.);
       phaseData.affinity[j] = 1.0 - (2. - 3 * cs + pow(cs, 3)) / 4.;
+      phaseData.affinityInt[j] = phaseData.affinity[j] * convFactDbl2IntAff_;
     }
     affinity_.push_back(phaseData.affinity);
+    affinityInt_.push_back(phaseData.affinityInt);
     contactAngle_.push_back(phaseData.contactAngle);
 
     /// Growth template is based on positive affinities only
@@ -1746,6 +1753,7 @@ ChemicalSystem::ChemicalSystem(const ChemicalSystem &obj) {
   DCMolarMass_ = obj.getDCMolarMass();
   growthTemplate_ = obj.getGrowthTemplate();
   affinity_ = obj.getAffinity();
+  affinityInt_ = obj.getAffinityInt();
   contactAngle_ = obj.getContactAngle();
   microPhaseMembers_ = obj.getMicroPhaseMembers();
   microPhaseMemberVolumeFraction_ = obj.getMicroPhaseMemberVolumeFraction();
@@ -1836,6 +1844,7 @@ ChemicalSystem::~ChemicalSystem(void) {
   DCCharge_.clear();
   growthTemplate_.clear();
   affinity_.clear();
+  affinityInt_.clear();
   contactAngle_.clear();
   microPhaseMembers_.clear();
   microPhaseMemberVolumeFraction_.clear();

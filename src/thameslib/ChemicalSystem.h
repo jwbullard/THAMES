@@ -117,6 +117,7 @@ struct PhaseData {
   std::vector<int> DCId;
   std::vector<int> growthTemplate;
   std::vector<double> affinity;
+  std::vector<int> affinityInt;
   std::vector<double> contactAngle;
   int growingSA;
   std::vector<int> shrinkingSA;
@@ -236,6 +237,7 @@ class ChemicalSystem {
   affinity and self-affinity can be modified supplying, in the simparams.json
   file, the desired values for the contact angle (see contactAngle_) */
   std::vector<std::vector<double>> affinity_;
+  std::vector<std::vector<int>> affinityInt_;
 
   /**< vector containing for each microPhase in the system the values for the
   contact angle between this microPhase and all the other microPhases in the
@@ -629,7 +631,8 @@ class ChemicalSystem {
 
   int electrolyteIntPorosity_;
   int voidIntPorosity_;
-  int convFactDbl2IntPor_;
+  int convFactDbl2IntPor_;  /**< conversion factor for porosity - from double to integer */
+  int convFactDbl2IntAff_;  /**< conversion factor for affinity - from double to integer */
 
 public:
 
@@ -2055,6 +2058,8 @@ public:
     //}
   }
 
+  std::vector<int> getAffinityInt(const int idx) { return affinityInt_[idx]; }
+
   /**
   @brief Get the affinitiy for growth of a microPhase on one of its templates.
 
@@ -2088,6 +2093,8 @@ public:
     return affinity_[idx][jdx];
   }
 
+  int getAffinityInt(const int idx, const int jdx) { return affinityInt_[idx][jdx]; }
+
   /**
   @brief Get the list of affinities for growth of every microPhase.
 
@@ -2105,6 +2112,8 @@ public:
   all microPhases
   */
   std::vector<std::vector<double>> getAffinity(void) const { return affinity_; }
+
+  std::vector<std::vector<int>> getAffinityInt(void) const { return affinityInt_; }
 
   /**
   @brief Get the list of contact angles for growth of every microPhase.

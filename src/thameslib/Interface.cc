@@ -10,7 +10,7 @@ using std::vector;
 bool cmp(const Site *s1, const Site *s2) { return s1->getWmc() < s2->getWmc(); }
 
 bool affinitySort(const Isite s1, const Isite s2) {
-  return s1.getAffinity() > s2.getAffinity();
+  return s1.getAffinityInt() > s2.getAffinityInt();
 }
 
 Interface::Interface() {
@@ -35,7 +35,7 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
                      vector<Site *> dv, unsigned int pid, const bool verbose) {
   int j;
   int i;
-  double afty;
+  int aftyInt;
 
 #ifdef DEBUG
   verbose_ = true;
@@ -46,6 +46,9 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
   microPhaseId_ = pid;
   chemSys_ = csys;
 
+  affinityInt_.clear();
+  affinityInt_ = chemSys_->getAffinityInt(microPhaseId_);
+
   dissolutionSites_.clear();
   growthSites_.clear();
 
@@ -55,9 +58,9 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
 
   int gvsize = gv.size();
   for (j = 0; j < gvsize; j++) {
-    afty = 0;
+    aftyInt = 0;
     for (i = 0; i < NN_NNN; i++) {
-      afty += chemSys_->getAffinity(pid, gv[j]->nb(i)->getMicroPhaseId());
+      aftyInt += affinityInt_[gv[j]->nb(i)->getMicroPhaseId()];
     }
 
     ///
@@ -65,7 +68,7 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
     /// of a pointer to a site and an affinity value
     ///
 
-    growthSites_.push_back(Isite(gv[j]->getId(), afty));
+    growthSites_.push_back(Isite(gv[j]->getId(), aftyInt));
   }
 
   ///
@@ -74,11 +77,11 @@ Interface::Interface(ChemicalSystem *csys, vector<Site *> gv,
 
   int dvsize = dv.size();
   for (j = 0; j < dvsize; j++) {
-    afty = 0;
+    aftyInt = 0;
     for (i = 0; i < NN_NNN; i++) {
-      afty += chemSys_->getAffinity(pid, dv[j]->nb(i)->getMicroPhaseId());
+      aftyInt += affinityInt_[dv[j]->nb(i)->getMicroPhaseId()];
     }
-    dissolutionSites_.push_back(Isite(dv[j]->getId(), afty));
+    dissolutionSites_.push_back(Isite(dv[j]->getId(), aftyInt));
   }
 
 } // End of constructors
@@ -94,11 +97,11 @@ void Interface::addGrowthSite(Site *loc) {
   // end = growthSites_.end();
 
   // loc->setInGrowInterfacePos(microPhaseId_, growthSitesSize_);
-  double afty = 0;
+  int aftyInt = 0;
   for (int i = 0; i < NN_NNN; i++) {
-    afty += chemSys_->getAffinity(microPhaseId_, loc->nb(i)->getMicroPhaseId());
+    aftyInt += affinityInt_[loc->nb(i)->getMicroPhaseId()];
   }
-  Isite tisite(loc->getId(), afty);
+  Isite tisite(loc->getId(), aftyInt);
   // q = lower_bound(start, end, tisite, affinitySort);
   // growthSites_.insert(q, tisite);
   growthSites_.push_back(tisite);

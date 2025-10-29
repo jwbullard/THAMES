@@ -8,15 +8,15 @@
 #include "Isite.h"
 
 Isite::Isite() {
-  affinity_ = 0;
+  affinityInt_ = 0;
   id_ = 0;
   verbose_ = false;
   prob_ = 0.;
 }
 
-Isite::Isite(int idval, double aftyval, const bool verbose, double prbval) {
+Isite::Isite(int idval, int aftyvalInt, const bool verbose, double prbval) {
   id_ = idval;
-  affinity_ = aftyval;
+  affinityInt_ = aftyvalInt;
   prob_ = prbval;
 
 #ifdef DEBUG
@@ -28,7 +28,7 @@ Isite::Isite(int idval, double aftyval, const bool verbose, double prbval) {
 
 Isite::Isite(const Isite &obj) {
   id_ = obj.id_;
-  affinity_ = obj.affinity_;
+  affinityInt_ = obj.affinityInt_;
   verbose_ = obj.verbose_;
   prob_ = obj.prob_;
 }
@@ -36,7 +36,7 @@ Isite::Isite(const Isite &obj) {
 Isite &Isite::operator=(const Isite &obj) { // copy assignment operator
 
   id_ = obj.id_;
-  affinity_ = obj.affinity_;
+  affinityInt_ = obj.affinityInt_;
   verbose_ = obj.verbose_;
   prob_ = obj.prob_;
 
