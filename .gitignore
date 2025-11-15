@@ -32,8 +32,8 @@ MANIFEST
 *.manifest
 *.spec
 # But track our platform-specific spec files
-!vcctl-macos.spec
-!vcctl-windows.spec
+!thames-macos.spec
+!thames-windows.spec
 
 # Installer logs
 pip-log.txt
@@ -188,9 +188,14 @@ src/data/database/*.sqlite3
 logs/
 *.log
 
-# VCCTL Operations folder - contains user-generated mix designs and simulation outputs
+# THAMES Operations folder - contains user-generated mix designs and simulation outputs
 backend/bin/*
 Operations/
+
+# THAMES-Hydration submodule build artifacts
+backend/thames-hydration/build/
+backend/thames-hydration/build-mingw/
+backend/thames-hydration/build-linux/
 
 # Additional venv directories
 venv-pyvista/
