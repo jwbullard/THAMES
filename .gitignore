@@ -200,6 +200,7 @@ backend/thames-hydration/build-linux/
 # Additional venv directories
 venv-pyvista/
 venv-win-pyv/
+thames-env/
 # SQLite temporary files
 *.db-shm
 *.db-wal
