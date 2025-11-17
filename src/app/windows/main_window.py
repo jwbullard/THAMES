@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-VCCTL Main Window
+THAMES Main Window
 
-The primary application window for the VCCTL GTK3 desktop application.
+The primary application window for the THAMES GTK3 desktop application.
 """
 
 import gi
@@ -31,7 +31,7 @@ from app.utils.icon_utils import set_image_custom_icon
 
 
 class VCCTLMainWindow(Gtk.ApplicationWindow):
-    """Main application window for VCCTL."""
+    """Main application window for THAMES."""
     
     def __init__(self, app: 'VCCTLApplication'):
         """Initialize the main window."""
@@ -56,10 +56,25 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         self.panels = {}
         
         # Window properties
-        self.set_title("VCCTL - Virtual Cement and Concrete Testing Laboratory")
+        self.set_title("THAMES - Thermodynamic Hydration And Microstructure Evolution Simulator")
         self.set_default_size(900, 600)  # 1.5 aspect ratio with resizable layout
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_resizable(True)
+
+        # Set window icon
+        try:
+            from pathlib import Path
+            import sys
+            # Handle both development and PyInstaller bundle
+            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+                icon_path = Path(sys._MEIPASS) / "icons" / "thames-icon.png"
+            else:
+                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "thames-icon.png"
+            icon_path = icon_path.resolve()
+            if icon_path.exists():
+                self.set_icon_from_file(str(icon_path))
+        except Exception as e:
+            self.logger.warning(f"Could not set window icon: {e}")
         
         # Force remove any window manager constraints that might prevent resizing
         # This is a GTK3-specific fix for some window managers that restrict resizing
@@ -149,8 +164,8 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         """Create and setup the header bar."""
         self.header_bar = Gtk.HeaderBar()
         self.header_bar.set_show_close_button(True)
-        self.header_bar.set_title("VCCTL")
-        self.header_bar.set_subtitle("Virtual Cement and Concrete Testing Laboratory")
+        self.header_bar.set_title("THAMES")
+        self.header_bar.set_subtitle("Thermodynamic Hydration And Microstructure Evolution Simulator")
         
         # Add menu button to header bar
         menu_button = Gtk.MenuButton()
@@ -282,8 +297,8 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         help_submenu.append(troubleshooting_item)
 
         help_submenu.append(Gtk.SeparatorMenuItem())
-        
-        about_item = Gtk.MenuItem(label="About VCCTL")
+
+        about_item = Gtk.MenuItem(label="About THAMES")
         about_item.connect('activate', self._on_about_clicked)
         help_submenu.append(about_item)
         
@@ -489,18 +504,18 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         """Handle open project menu item."""
         # TODO: Implement open project dialog
         dialog = Gtk.FileChooserDialog(
-            title="Open VCCTL Project",
+            title="Open THAMES Project",
             parent=self,
             action=Gtk.FileChooserAction.OPEN
         )
         dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
         dialog.add_button(Gtk.STOCK_OPEN, Gtk.ResponseType.OK)
-        
+
         # Add file filters
-        filter_vcctl = Gtk.FileFilter()
-        filter_vcctl.set_name("VCCTL Projects")
-        filter_vcctl.add_pattern("*.vcctl")
-        dialog.add_filter(filter_vcctl)
+        filter_thames = Gtk.FileFilter()
+        filter_thames.set_name("THAMES Projects")
+        filter_thames.add_pattern("*.thames")
+        dialog.add_filter(filter_thames)
         
         filter_all = Gtk.FileFilter()
         filter_all.set_name("All Files")
@@ -543,10 +558,10 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
     def _gather_project_data(self) -> Dict[str, Any]:
         """Gather comprehensive project data for export."""
         project_data = {
-            'project_name': 'VCCTL Project',
-            'vcctl_version': '1.0.0',
-            'author': 'VCCTL User',
-            'project_description': 'VCCTL simulation project with cement microstructure analysis.',
+            'project_name': 'THAMES Project',
+            'thames_version': '10.0.0',
+            'author': 'THAMES User',
+            'project_description': 'THAMES simulation project with cement hydration and microstructure analysis.',
             'generated_timestamp': datetime.now().isoformat(),
             'materials': {},
             'mix_design': {},
@@ -587,7 +602,7 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
             project_data['parameters'] = {
                 'simulation_type': 'microstructure_analysis',
                 'analysis_date': datetime.now().strftime('%Y-%m-%d'),
-                'software_version': project_data['vcctl_version']
+                'software_version': project_data['thames_version']
             }
             
             # Mock results for demonstration
@@ -840,9 +855,9 @@ Services:"""
         placeholder.set_margin_right(50)
         
         # Add loading message
-        loading_label = Gtk.Label("Loading VCCTL...")
+        loading_label = Gtk.Label("Loading THAMES...")
         loading_label.set_name("loading-label")
-        loading_label.set_markup('<span size="large">Loading VCCTL Application...</span>')
+        loading_label.set_markup('<span size="large">Loading THAMES Application...</span>')
         placeholder.pack_start(loading_label, True, True, 0)
         
         # Add progress indicator
@@ -925,39 +940,39 @@ Services:"""
         welcome_box.set_margin_left(50)
         welcome_box.set_margin_right(50)
         
-        # VCCTL header with icon and title
+        # THAMES header with icon and title
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
         header_box.set_halign(Gtk.Align.CENTER)
-        
-        # VCCTL logo icon
+
+        # THAMES logo icon
         try:
             from pathlib import Path
             import sys
             # Handle both development and PyInstaller bundle
             if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-                icon_path = Path(sys._MEIPASS) / "icons" / "vcctl-icon-maroon.png"
+                icon_path = Path(sys._MEIPASS) / "icons" / "thames-icon.png"
             else:
-                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "vcctl-icon-maroon.png"
+                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "thames-icon.png"
             icon_path = icon_path.resolve()  # Make absolute path to avoid working directory issues
             if icon_path.exists():
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(icon_path), 80, 80, True)
-                vcctl_icon = Gtk.Image.new_from_pixbuf(pixbuf)
-                vcctl_icon.set_valign(Gtk.Align.CENTER)  # Vertically center the icon
-                header_box.pack_start(vcctl_icon, False, False, 0)
+                thames_icon = Gtk.Image.new_from_pixbuf(pixbuf)
+                thames_icon.set_valign(Gtk.Align.CENTER)  # Vertically center the icon
+                header_box.pack_start(thames_icon, False, False, 0)
         except Exception as e:
-            self.logger.warning(f"Could not load VCCTL icon: {e}")
+            self.logger.warning(f"Could not load THAMES icon: {e}")
         
         # Title and subtitle in vertical box
         title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         title_box.set_valign(Gtk.Align.CENTER)  # Center the text box vertically
         
         title_label = Gtk.Label()
-        title_label.set_markup('<span size="30000" weight="bold">VCCTL</span>')  # Increased from xx-large
+        title_label.set_markup('<span size="30000" weight="bold">THAMES</span>')  # Increased from xx-large
         title_label.set_halign(Gtk.Align.START)  # Left-align the title
         title_box.pack_start(title_label, False, False, 0)
-        
+
         subtitle_label = Gtk.Label()
-        subtitle_label.set_markup('<span size="18000">Virtual Cement and Concrete Testing Laboratory</span>')  # Increased from large
+        subtitle_label.set_markup('<span size="18000">Thermodynamic Hydration And Microstructure Evolution Simulator</span>')  # Increased from large
         subtitle_label.set_halign(Gtk.Align.START)  # Left-align the subtitle
         title_box.pack_start(subtitle_label, False, False, 0)
         
@@ -968,7 +983,7 @@ Services:"""
         desc_label = Gtk.Label()
         desc_label.set_markup("""
 <span size="14000">Developed by Texas A&amp;M University,
-VCCTL is a comprehensive toolkit for cement and concrete materials modeling.
+THAMES is an advanced cement hydration simulator using GEMS thermodynamic database.
 
 This GTK3 desktop application provides an intuitive interface for:</span>
         """)
@@ -1157,7 +1172,7 @@ This GTK3 desktop application provides an intuitive interface for:</span>
             'file_management_panel', self.file_management_panel,
             {
                 'name': 'File Management Panel',
-                'description': 'Panel for importing, exporting, and managing VCCTL project files',
+                'description': 'Panel for importing, exporting, and managing THAMES project files',
                 'tooltip': 'Browse files, import data, export results, and manage project resources'
             }
         )
@@ -1350,33 +1365,33 @@ This GTK3 desktop application provides an intuitive interface for:</span>
         about_dialog.set_modal(True)
         about_dialog.set_destroy_with_parent(True)
         
-        # Set VCCTL logo icon
+        # Set THAMES logo icon
         try:
             import sys
             # Handle both development and PyInstaller bundle
             if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-                icon_path = Path(sys._MEIPASS) / "icons" / "vcctl-icon-maroon.png"
+                icon_path = Path(sys._MEIPASS) / "icons" / "thames-icon.png"
             else:
-                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "vcctl-icon-maroon.png"
+                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "thames-icon.png"
             icon_path = icon_path.resolve()  # Make absolute path to avoid working directory issues
             if icon_path.exists():
                 pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(icon_path), 128, 128, True)
                 about_dialog.set_logo(pixbuf)
         except Exception as e:
-            self.logger.warning(f"Could not load VCCTL icon for About dialog: {e}")
+            self.logger.warning(f"Could not load THAMES icon for About dialog: {e}")
         
         # Set basic program info
-        about_dialog.set_program_name("VCCTL")
+        about_dialog.set_program_name("THAMES")
         about_dialog.set_version("10.0.0")
-        about_dialog.set_comments("Virtual Cement and Concrete Testing Laboratory")
-        about_dialog.set_website("https://github.com/jwbullard/VCCTL-GTK")
-        about_dialog.set_website_label("VCCTL GitHub Repository")
+        about_dialog.set_comments("Thermodynamic Hydration And Microstructure Evolution Simulator")
+        about_dialog.set_website("https://github.com/jwbullard/THAMES")
+        about_dialog.set_website_label("THAMES GitHub Repository")
         
         # Set authors using plain text (no HTML encoding needed)
         authors_list = [
             "Texas A&M University",
-            "Jeffrey W. Bullard", 
-            "Development Team"
+            "Jeffrey W. Bullard",
+            "THAMES Development Team"
         ]
         about_dialog.set_authors(authors_list)
         

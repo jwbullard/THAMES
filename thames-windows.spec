@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-VCCTL PyInstaller Specification File
+THAMES PyInstaller Specification File
 Cross-platform packaging for Windows, macOS, and Linux
 """
 
@@ -181,7 +181,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='VCCTL',
+    name='THAMES',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -203,19 +203,19 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='VCCTL',
+    name='THAMES',
 )
 
 # macOS .app bundle (only on macOS)
 if IS_MACOS:
     app = BUNDLE(
         coll,
-        name='VCCTL.app',
+        name='THAMES.app',
         icon='src/app/resources/icon.icns' if os.path.exists('src/app/resources/icon.icns') else None,
-        bundle_identifier='edu.tamu.vcctl',
+        bundle_identifier='edu.tamu.thames',
         info_plist={
-            'CFBundleName': 'VCCTL',
-            'CFBundleDisplayName': 'VCCTL',
+            'CFBundleName': 'THAMES',
+            'CFBundleDisplayName': 'Thermodynamic Hydration And Microstructure Evolution Simulator',
             'CFBundleVersion': '10.0.0',
             'CFBundleShortVersionString': '10.0.0',
             'NSHighResolutionCapable': True,

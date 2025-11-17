@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PyInstaller specification file for VCCTL
+PyInstaller specification file for THAMES
 Creates standalone executables for all platforms
 """
 
@@ -29,7 +29,7 @@ a = Analysis(
         str(project_root)
     ],
     binaries=[
-        # Include C executables for VCCTL operations (macOS builds from backend/build/)
+        # Include C executables for THAMES operations (macOS builds from backend/build/)
         ('backend/build/genmic', 'backend/bin/'),
         ('backend/build/disrealnew', 'backend/bin/'),
         ('backend/build/elastic', 'backend/bin/'),
@@ -170,28 +170,28 @@ coll = COLLECT(
 if sys.platform == 'darwin':
     app = BUNDLE(
         coll,
-        name='VCCTL.app',
+        name='THAMES.app',
         icon='icons/vcctl.icns',
-        bundle_identifier='edu.tamu.vcctl',
+        bundle_identifier='edu.tamu.thames',
         version='10.0.0',
         info_plist={
-            'CFBundleName': 'VCCTL',
-            'CFBundleDisplayName': 'Virtual Cement and Concrete Testing Laboratory',
+            'CFBundleName': 'THAMES',
+            'CFBundleDisplayName': 'Thermodynamic Hydration And Microstructure Evolution Simulator',
             'CFBundleVersion': '10.0.0',
             'CFBundleShortVersionString': '10.0.0',
-            'CFBundleIdentifier': 'edu.tamu.vcctl',
+            'CFBundleIdentifier': 'edu.tamu.thames',
             'CFBundleExecutable': 'vcctl',
             'CFBundleIconFile': 'vcctl.icns',
             'CFBundlePackageType': 'APPL',
-            'CFBundleSignature': 'VCCT',
+            'CFBundleSignature': 'THMS',
             'NSHighResolutionCapable': True,
             'NSRequiresAquaSystemAppearance': False,
             'LSMinimumSystemVersion': '10.14',
             'LSApplicationCategoryType': 'public.app-category.education',
             'CFBundleDocumentTypes': [
                 {
-                    'CFBundleTypeName': 'VCCTL Project',
-                    'CFBundleTypeExtensions': ['vcctl'],
+                    'CFBundleTypeName': 'THAMES Project',
+                    'CFBundleTypeExtensions': ['thames'],
                     'CFBundleTypeRole': 'Editor',
                     'CFBundleTypeIconFile': 'vcctl.icns',
                 }

@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
-THAMES UI Widgets
+VCCTL Widget Components
+
+Contains reusable widget components for the VCCTL application.
 """
 
-from app.widgets.tag_chip_input import TagChipInput
+from .material_table import MaterialTable
+from .grading_curve import GradingCurveWidget
+from .file_browser import FileBrowserWidget
 
 __all__ = [
-    'TagChipInput',
+    'MaterialTable', 
+    'GradingCurveWidget',
+    'FileBrowserWidget'
 ]

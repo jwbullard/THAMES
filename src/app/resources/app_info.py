@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-VCCTL Application Information and Metadata
+THAMES Application Information and Metadata
 
 Contains application constants, metadata, and resource paths.
 """
@@ -9,12 +9,12 @@ import os
 from pathlib import Path
 
 # Application metadata
-APP_NAME = "VCCTL"
-APP_ID = "edu.tamu.vcctl.gtk"
+APP_NAME = "THAMES"
+APP_ID = "edu.tamu.thames.gtk"
 APP_VERSION = "10.0.0"
-APP_TITLE = "Virtual Cement and Concrete Testing Laboratory"
-APP_DESCRIPTION = "Desktop application for cement and concrete materials modeling"
-APP_WEBSITE = "https://github.com/jwbullard/VCCTL-GTK"
+APP_TITLE = "Thermodynamic Hydration And Microstructure Evolution Simulator"
+APP_DESCRIPTION = "Desktop application for advanced cement hydration simulation using GEMS thermodynamic database"
+APP_WEBSITE = "https://github.com/jwbullard/THAMES"
 
 # Organization info
 ORG_NAME = "Texas A&M University"
@@ -48,24 +48,24 @@ for directory in [USER_DATA_DIR, DATABASE_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # Copy seed database on first launch (if user database doesn't exist)
-USER_DB_PATH = DATABASE_DIR / "vcctl.db"
-SEED_DB_PATH = DATA_DIR / "database" / "vcctl.db"
+USER_DB_PATH = DATABASE_DIR / "thames.db"
+SEED_DB_PATH = DATA_DIR / "database" / "thames.db"
 if not USER_DB_PATH.exists() and SEED_DB_PATH.exists():
     import shutil
     shutil.copy2(SEED_DB_PATH, USER_DB_PATH)
 
 # Icon paths (will be used when we have actual icon files)
 ICON_PATHS = {
-    'app_icon': ICONS_DIR / "vcctl-app.png",
-    'app_icon_svg': ICONS_DIR / "vcctl-app.svg",
-    'window_icon': ICONS_DIR / "vcctl-window.png"
+    'app_icon': ICONS_DIR / "thames-app.png",
+    'app_icon_svg': ICONS_DIR / "thames-app.svg",
+    'window_icon': ICONS_DIR / "thames-window.png"
 }
 
 # Application authors and contributors
 AUTHORS = [
     "Texas A&M University",
     "Jeffrey W. Bullard",
-    "VCCTL Development Team"
+    "THAMES Development Team"
 ]
 
 # License information

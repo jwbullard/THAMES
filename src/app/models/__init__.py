@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-THAMES Models Package
+VCCTL Models Package
 
-Contains all SQLAlchemy models for the THAMES application.
-Includes both legacy VCCTL models and new THAMES models.
+Contains all SQLAlchemy models for the VCCTL application.
+Converted from Java JPA entities to Python SQLAlchemy models.
 """
 
 # Import all models to make them available
@@ -16,6 +16,8 @@ from app.models.filler import Filler, FillerCreate, FillerUpdate, FillerResponse
 from app.models.silica_fume import SilicaFume, SilicaFumeCreate, SilicaFumeUpdate, SilicaFumeResponse
 from app.models.limestone import Limestone, LimestoneCreate, LimestoneUpdate, LimestoneResponse
 from app.models.psd_data import PSDData, PSDDataCreate, PSDDataUpdate, PSDDataResponse
+from app.models.material import Material, MaterialCreate, MaterialUpdate, MaterialResponse, Tag
+from app.models.material_phase import MaterialPhase, MaterialPhaseCreate, MaterialPhaseUpdate, MaterialPhaseResponse
 from app.models.particle_shape_set import ParticleShapeSet, ParticleShapeSetCreate, ParticleShapeSetUpdate, ParticleShapeSetResponse
 from app.models.grading import Grading, GradingCreate, GradingUpdate, GradingResponse, GradingType
 from app.models.operation import Operation, Result, OperationStatus, OperationType, ResultType
@@ -30,13 +32,9 @@ from app.models.microstructure_operation import MicrostructureOperation
 from app.models.hydration_operation import HydrationOperation
 from app.models.saved_hydration_operation import SavedHydrationOperation, SavedHydrationOperationCreate, SavedHydrationOperationUpdate, SavedHydrationOperationResponse
 
-# THAMES new models - tag-based material system
-from app.models.material import Material, Tag, MaterialCreate, MaterialUpdate, MaterialResponse
-from app.models.material_phase import MaterialPhase, MaterialPhaseCreate, MaterialPhaseUpdate, MaterialPhaseResponse
-
 # Export all models for easy importing
 __all__ = [
-    # SQLAlchemy Models (Legacy VCCTL)
+    # SQLAlchemy Models
     'Cement',
     'FlyAsh',
     'Slag',
@@ -46,6 +44,9 @@ __all__ = [
     'SilicaFume',
     'Limestone',
     'PSDData',
+    'Material',
+    'MaterialPhase',
+    'Tag',
     'ParticleShapeSet',
     'Grading',
     'Operation',
@@ -60,11 +61,6 @@ __all__ = [
     'MicrostructureOperation',
     'HydrationOperation',
     'SavedHydrationOperation',
-
-    # THAMES new models
-    'Material',
-    'Tag',
-    'MaterialPhase',
     
     # Pydantic Create Models
     'CementCreate',
@@ -75,6 +71,8 @@ __all__ = [
     'FillerCreate',
     'SilicaFumeCreate',
     'LimestoneCreate',
+    'MaterialCreate',
+    'MaterialPhaseCreate',
     'ParticleShapeSetCreate',
     'GradingCreate',
     'DbFileCreate',
@@ -82,8 +80,6 @@ __all__ = [
     'MixDesignCreate',
     'HydrationParameterSetCreate',
     'SavedHydrationOperationCreate',
-    'MaterialCreate',
-    'MaterialPhaseCreate',
     
     # Pydantic Update Models
     'CementUpdate',
@@ -94,6 +90,8 @@ __all__ = [
     'FillerUpdate',
     'SilicaFumeUpdate',
     'LimestoneUpdate',
+    'MaterialUpdate',
+    'MaterialPhaseUpdate',
     'ParticleShapeSetUpdate',
     'GradingUpdate',
     'DbFileUpdate',
@@ -101,8 +99,6 @@ __all__ = [
     'MixDesignUpdate',
     'HydrationParameterSetUpdate',
     'SavedHydrationOperationUpdate',
-    'MaterialUpdate',
-    'MaterialPhaseUpdate',
     
     # Pydantic Response Models
     'CementResponse',
@@ -113,6 +109,8 @@ __all__ = [
     'FillerResponse',
     'SilicaFumeResponse',
     'LimestoneResponse',
+    'MaterialResponse',
+    'MaterialPhaseResponse',
     'ParticleShapeSetResponse',
     'GradingResponse',
     'DbFileResponse',
@@ -120,8 +118,6 @@ __all__ = [
     'MixDesignResponse',
     'HydrationParameterSetResponse',
     'SavedHydrationOperationResponse',
-    'MaterialResponse',
-    'MaterialPhaseResponse',
     
     # Enumerations
     'GradingType',
@@ -135,7 +131,6 @@ __all__ = [
 def get_all_models():
     """Get list of all SQLAlchemy model classes."""
     return [
-        # Legacy VCCTL models
         Cement,
         FlyAsh,
         Slag,
@@ -144,6 +139,9 @@ def get_all_models():
         Filler,
         SilicaFume,
         Limestone,
+        Material,
+        MaterialPhase,
+        Tag,
         ParticleShapeSet,
         Grading,
         Operation,
@@ -158,18 +156,12 @@ def get_all_models():
         MicrostructureOperation,
         HydrationOperation,
         SavedHydrationOperation,
-        # THAMES new models
-        Material,
-        Tag,
-        MaterialPhase,
-        PSDData,
     ]
 
 
 def get_model_by_name(model_name: str):
     """Get model class by name."""
     model_map = {
-        # Legacy VCCTL models
         'cement': Cement,
         'fly_ash': FlyAsh,
         'slag': Slag,
@@ -177,6 +169,8 @@ def get_model_by_name(model_name: str):
         'filler': Filler,
         'silica_fume': SilicaFume,
         'limestone': Limestone,
+        'material': Material,
+        'material_phase': MaterialPhase,
         'particle_shape_set': ParticleShapeSet,
         'grading': Grading,
         'operation': Operation,
@@ -186,11 +180,6 @@ def get_model_by_name(model_name: str):
         'elastic_moduli_operation': ElasticModuliOperation,
         'microstructure_operation': MicrostructureOperation,
         'hydration_operation': HydrationOperation,
-        # THAMES new models
-        'material': Material,
-        'tag': Tag,
-        'material_phase': MaterialPhase,
-        'psd_data': PSDData,
     }
     return model_map.get(model_name.lower())
 
@@ -205,13 +194,11 @@ def get_create_model_by_name(model_name: str):
         'filler': FillerCreate,
         'silica_fume': SilicaFumeCreate,
         'limestone': LimestoneCreate,
+        'material': MaterialCreate,
         'particle_shape_set': ParticleShapeSetCreate,
         'grading': GradingCreate,
+        'operation': OperationCreate,
         'mix_design': MixDesignCreate,
-        # THAMES new models
-        'material': MaterialCreate,
-        'material_phase': MaterialPhaseCreate,
-        'psd_data': PSDDataCreate,
     }
     return create_model_map.get(model_name.lower())
 
@@ -226,13 +213,11 @@ def get_update_model_by_name(model_name: str):
         'filler': FillerUpdate,
         'silica_fume': SilicaFumeUpdate,
         'limestone': LimestoneUpdate,
+        'material': MaterialUpdate,
         'particle_shape_set': ParticleShapeSetUpdate,
         'grading': GradingUpdate,
+        'operation': OperationUpdate,
         'mix_design': MixDesignUpdate,
-        # THAMES new models
-        'material': MaterialUpdate,
-        'material_phase': MaterialPhaseUpdate,
-        'psd_data': PSDDataUpdate,
     }
     return update_model_map.get(model_name.lower())
 
@@ -247,12 +232,10 @@ def get_response_model_by_name(model_name: str):
         'filler': FillerResponse,
         'silica_fume': SilicaFumeResponse,
         'limestone': LimestoneResponse,
+        'material': MaterialResponse,
         'particle_shape_set': ParticleShapeSetResponse,
         'grading': GradingResponse,
+        'operation': OperationResponse,
         'mix_design': MixDesignResponse,
-        # THAMES new models
-        'material': MaterialResponse,
-        'material_phase': MaterialPhaseResponse,
-        'psd_data': PSDDataResponse,
     }
     return response_model_map.get(model_name.lower())
