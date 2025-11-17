@@ -22,7 +22,30 @@ class DependentComponent:
     name: str
     index: int  # 0-based index in DCNL list
     molar_mass: float  # kg/mol
+    molar_volume: float  # m³/mol (V0 from GEMS database)
     class_code: str  # 'S', 'I', 'J', 'M', 'O', 'G', 'T', 'W'
+
+    @property
+    def density(self) -> float:
+        """
+        Calculate DC density from molar mass and molar volume.
+
+        Returns:
+            Density in kg/m³
+        """
+        if self.molar_volume == 0:
+            return 0.0
+        return self.molar_mass / self.molar_volume
+
+    @property
+    def specific_gravity(self) -> float:
+        """
+        Calculate DC specific gravity (density relative to water at 4°C).
+
+        Returns:
+            Specific gravity (dimensionless)
+        """
+        return self.density / 1000.0  # kg/m³ to g/cm³
 
 
 @dataclass
@@ -64,6 +87,7 @@ class GEMSParserService:
         self.phase_names: List[str] = []
 
         self.dc_molar_masses: List[float] = []
+        self.dc_molar_volumes: List[float] = []  # V0 in m³/mol
         self.dc_class_codes: List[str] = []
         self.phase_class_codes: List[str] = []
 
@@ -111,6 +135,8 @@ class GEMSParserService:
                     self.phase_names = self._parse_name_list(lines, i)
                 elif key == 'DCmm':
                     self.dc_molar_masses = self._parse_float_array(lines, i)
+                elif key == 'V0':
+                    self.dc_molar_volumes = self._parse_float_array(lines, i)
                 elif key == 'ccDC':
                     self.dc_class_codes = self._parse_name_list(lines, i)
                 elif key == 'ccPH':
@@ -254,12 +280,14 @@ class GEMSParserService:
         # Build DC objects
         for i, dc_name in enumerate(self.dc_names):
             molar_mass = self.dc_molar_masses[i] if i < len(self.dc_molar_masses) else 0.0
+            molar_volume = self.dc_molar_volumes[i] if i < len(self.dc_molar_volumes) else 0.0
             class_code = self.dc_class_codes[i] if i < len(self.dc_class_codes) else ''
 
             self.dcs[dc_name] = DependentComponent(
                 name=dc_name,
                 index=i,
                 molar_mass=molar_mass,
+                molar_volume=molar_volume,
                 class_code=class_code
             )
 
@@ -350,6 +378,120 @@ class GEMSParserService:
             return False, f"Invalid DCs for phase '{phase_name}': {invalid_dcs}"
 
         return True, ""
+
+    def get_dc_density(self, dc_name: str) -> Optional[float]:
+        """
+        Get the density of a Dependent Component.
+
+        Args:
+            dc_name: Name of the DC
+
+        Returns:
+            Density in kg/m³, or None if DC not found or has zero molar volume
+        """
+        dc = self.dcs.get(dc_name)
+        if not dc or dc.molar_volume == 0:
+            return None
+        return dc.density
+
+    def get_phase_density(self, phase_name: str) -> Optional[float]:
+        """
+        Get the density of a GEM phase.
+
+        For solid phases with a single DC, returns that DC's density.
+        For phases with multiple DCs, this is a simplified calculation
+        assuming equal mole fractions (future: use GEMS equilibrium data).
+
+        Args:
+            phase_name: Name of the GEM phase
+
+        Returns:
+            Density in kg/m³, or None if phase not found
+
+        Note:
+            For solution phases (aqueous, gas), densities vary with composition.
+            This method provides an approximation only.
+        """
+        phase = self.phases.get(phase_name)
+        if not phase:
+            return None
+
+        # For single-DC phases (most solid phases), use that DC's density
+        if phase.num_dcs == 1:
+            dc_name = phase.dc_names[0]
+            return self.get_dc_density(dc_name)
+
+        # For multi-DC phases, calculate weighted average
+        # (Simplified: assuming equal mole fractions - not accurate for solution phases)
+        densities = []
+        for dc_name in phase.dc_names:
+            density = self.get_dc_density(dc_name)
+            if density is not None and density > 0:
+                densities.append(density)
+
+        if not densities:
+            return None
+
+        # Simple average (future enhancement: use actual mole fractions from GEMS)
+        return sum(densities) / len(densities)
+
+    def calculate_material_density(self, phase_mass_fractions: Dict[str, float]) -> Optional[float]:
+        """
+        Calculate material density from phase mass fractions.
+
+        Args:
+            phase_mass_fractions: Dictionary mapping GEM phase names to mass fractions
+                                 Example: {"Alite": 0.60, "Belite": 0.15, ...}
+
+        Returns:
+            Material density in kg/m³, or None if calculation fails
+
+        Formula:
+            density_material = 1 / Σ(w_i / ρ_i)
+            where w_i is mass fraction of phase i, ρ_i is density of phase i
+        """
+        if not phase_mass_fractions:
+            return None
+
+        # Calculate inverse density (specific volume)
+        specific_volume = 0.0
+        total_mass_fraction = 0.0
+
+        for phase_name, mass_fraction in phase_mass_fractions.items():
+            if mass_fraction <= 0:
+                continue
+
+            phase_density = self.get_phase_density(phase_name)
+            if phase_density is None or phase_density <= 0:
+                # Skip phases with unknown or invalid densities
+                continue
+
+            specific_volume += mass_fraction / phase_density
+            total_mass_fraction += mass_fraction
+
+        if specific_volume == 0 or total_mass_fraction == 0:
+            return None
+
+        # Normalize if total mass fraction != 1.0
+        if abs(total_mass_fraction - 1.0) > 0.01:
+            specific_volume = specific_volume / total_mass_fraction
+
+        return 1.0 / specific_volume
+
+    def calculate_material_specific_gravity(self, phase_mass_fractions: Dict[str, float]) -> Optional[float]:
+        """
+        Calculate material specific gravity from phase mass fractions.
+
+        Args:
+            phase_mass_fractions: Dictionary mapping GEM phase names to mass fractions
+
+        Returns:
+            Specific gravity (dimensionless), or None if calculation fails
+        """
+        density = self.calculate_material_density(phase_mass_fractions)
+        if density is None:
+            return None
+        return density / 1000.0  # Convert kg/m³ to g/cm³
 
     def get_summary(self) -> str:
         """Get a summary of the GEMS database."""

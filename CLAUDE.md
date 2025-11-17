@@ -104,6 +104,125 @@ November 15, 2025 (Afternoon)
 
 ---
 
+### Session 3: Material System + UI Phase 1
+November 16, 2025 (Full Day)
+
+**Context**: Implemented complete material management system with tag-based architecture, automatic density calculations, VCCTL migration, service layer, and basic UI.
+
+**Key Accomplishments**:
+
+1. **Material Database Schema** (Tag-based, Flexible)
+   - Created 4 tables: `material`, `tag`, `material_tags`, `material_phase`
+   - PSD data required for all materials (consistent with VCCTL)
+   - Materials store composition only; kinetics defined in Mix Design
+   - Immutable flag for migrated VCCTL materials
+   - Files: `src/app/models/material.py`, `src/app/models/material_phase.py`
+
+2. **Automatic Density Calculation from GEMS**
+   - Enhanced GEMSParserService with molar volume (V0) parsing
+   - Calculate material SG from phase composition: ρ = 1 / Σ(w_i / ρ_i)
+   - Methods: `get_dc_density()`, `get_phase_density()`, `calculate_material_specific_gravity()`
+   - Validated: <1% error on known materials (C3S: 3.120 vs 3.15 g/cm³)
+   - Optional feature - users can override with measured values
+
+3. **VCCTL to THAMES Migration**
+   - **37 materials migrated** (36 cements + 1 limestone)
+   - **183 phase entries** created
+   - **3 tags** created (cement, limestone, migrated-vcctl)
+   - 100% success rate, all materials marked immutable
+   - Phase name mappings: C3S→Alite, C2S→Belite, C3A→Aluminate, etc.
+   - Script: `scripts/migrate_vcctl_materials.py` (440 lines)
+   - Database: `~/Library/Application Support/VCCTL/database/thames.db` (252 KB)
+
+4. **Material Service Layer**
+   - Complete CRUD operations (~800 lines)
+   - CRUD: `get_all()`, `get_by_name()`, `create()`, `update()`, `delete()`
+   - Tag management: `add_tag()`, `remove_tag()`, `get_all_tags()`, `search_by_tags()`
+   - Phase management: `add_phase()`, `update_phase()`, `remove_phase()`
+   - Search: `search_by_tags()`, `search_by_phase()`
+   - GEMS integration for validation and auto-SG calculation
+   - Immutable material protection
+   - File: `src/app/services/material_service.py`
+   - Tests: 10/10 passed
+
+5. **Materials UI - Phase 1** (~1,070 lines)
+
+   **MaterialsPanel** (`src/app/windows/panels/materials_panel.py` - 409 lines)
+   - Unified list view showing all materials (tag-based, no type tabs)
+   - Columns: Name, Tags, SG, Phase Count, Read-only status
+   - Toolbar: Add Material, Delete, Refresh buttons
+   - Double-click to edit, delete with confirmation
+   - Protection for immutable materials
+   - Connected to MaterialService
+
+   **TagChipInput Widget** (`src/app/widgets/tag_chip_input.py` - 220 lines)
+   - Visual "chips" for tags (Material Design style)
+   - Enter or comma to add tag, × button to remove
+   - Duplicate detection, lowercase normalization
+   - API: `get_tags()`, `set_tags()`, `add_tag()`, `clear()`
+
+   **MaterialDialog** (`src/app/windows/dialogs/material_dialog.py` - 440 lines)
+   - Create and edit modes
+   - Fields: Name, Tags (chip input), SG, SSA, PSD ID, Description
+   - Form validation (name required, PSD ID ≥ 1)
+   - Save via MaterialService
+   - Immutable material protection (disables form)
+   - **Note**: Phase composition editing NOT in Phase 1 (deferred to Phase 2)
+
+**Testing Results**:
+- MaterialService: 10/10 tests passed
+- Density Calculation: All tests passed
+- Migration: 100% success (37/37 materials)
+- UI Phase 1: 6/6 automated tests passed
+- **Total: 16/16 tests passed (100%)**
+
+**Files Created**: 20+ files
+- Models: `material.py`, `material_phase.py`
+- Services: `material_service.py` (enhanced `gems_parser_service.py`)
+- Scripts: `init_thames_tables.py`, `migrate_vcctl_materials.py`
+- UI: `materials_panel.py`, `tag_chip_input.py`, `material_dialog.py`
+- Tests: `test_material_service.py`, `test_density_calculation.py`, `test_materials_ui.py`
+- Docs: `material_database_schema.md`, `MIGRATION_SUMMARY.md`, `MATERIALS_UI_PHASE1.md`, `MATERIALS_UI_PHASE1_TEST_REPORT.md`
+
+**Total Code Written**: ~4,240 lines
+- Backend: ~2,400 lines (models, services, migration)
+- UI: ~1,070 lines (panels, widgets, dialogs)
+- Tests: ~770 lines
+
+**Database Status**:
+- Location: `~/Library/Application Support/VCCTL/database/thames.db`
+- Size: 252 KB
+- Records: 297 total (37 materials + 3 tags + 74 associations + 183 phases)
+
+**Next Steps** (for next session):
+1. **Manual GUI Testing** (5-10 minutes)
+   - Launch THAMES, navigate to Materials tab
+   - Test Add/Edit/Delete operations
+   - Verify tag display and immutable protection
+
+2. **Materials UI - Phase 2** (2-3 days)
+   - PhaseCompositionEditor widget (~400-500 lines)
+   - GEMS phase selector with autocomplete (~150-200 lines)
+   - Add/edit/remove phases in MaterialDialog
+   - Tag filtering in MaterialsPanel
+   - Enhanced PSD data selection
+   - Auto-calculate SG button
+
+3. **Mix Design Service & UI**
+   - Combine materials into mixes
+   - Define kinetic parameters per material
+   - Water/cement ratio management
+
+**Critical Files for Next Session**:
+- Materials UI: `src/app/windows/panels/materials_panel.py`
+- Material Dialog: `src/app/windows/dialogs/material_dialog.py`
+- Material Service: `src/app/services/material_service.py`
+- GEMS Parser: `src/app/services/gems_parser_service.py`
+- Database: `~/Library/Application Support/VCCTL/database/thames.db`
+- Test Report: `MATERIALS_UI_PHASE1_TEST_REPORT.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

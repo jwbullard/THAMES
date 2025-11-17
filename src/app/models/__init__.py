@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-VCCTL Models Package
+THAMES Models Package
 
-Contains all SQLAlchemy models for the VCCTL application.
-Converted from Java JPA entities to Python SQLAlchemy models.
+Contains all SQLAlchemy models for the THAMES application.
+Includes both legacy VCCTL models and new THAMES models.
 """
 
 # Import all models to make them available
@@ -30,13 +30,17 @@ from app.models.microstructure_operation import MicrostructureOperation
 from app.models.hydration_operation import HydrationOperation
 from app.models.saved_hydration_operation import SavedHydrationOperation, SavedHydrationOperationCreate, SavedHydrationOperationUpdate, SavedHydrationOperationResponse
 
+# THAMES new models - tag-based material system
+from app.models.material import Material, Tag, MaterialCreate, MaterialUpdate, MaterialResponse
+from app.models.material_phase import MaterialPhase, MaterialPhaseCreate, MaterialPhaseUpdate, MaterialPhaseResponse
+
 # Export all models for easy importing
 __all__ = [
-    # SQLAlchemy Models
+    # SQLAlchemy Models (Legacy VCCTL)
     'Cement',
     'FlyAsh',
     'Slag',
-    'Aggregate', 
+    'Aggregate',
     'InertFiller',
     'Filler',
     'SilicaFume',
@@ -56,6 +60,11 @@ __all__ = [
     'MicrostructureOperation',
     'HydrationOperation',
     'SavedHydrationOperation',
+
+    # THAMES new models
+    'Material',
+    'Tag',
+    'MaterialPhase',
     
     # Pydantic Create Models
     'CementCreate',
@@ -73,6 +82,8 @@ __all__ = [
     'MixDesignCreate',
     'HydrationParameterSetCreate',
     'SavedHydrationOperationCreate',
+    'MaterialCreate',
+    'MaterialPhaseCreate',
     
     # Pydantic Update Models
     'CementUpdate',
@@ -90,6 +101,8 @@ __all__ = [
     'MixDesignUpdate',
     'HydrationParameterSetUpdate',
     'SavedHydrationOperationUpdate',
+    'MaterialUpdate',
+    'MaterialPhaseUpdate',
     
     # Pydantic Response Models
     'CementResponse',
@@ -107,6 +120,8 @@ __all__ = [
     'MixDesignResponse',
     'HydrationParameterSetResponse',
     'SavedHydrationOperationResponse',
+    'MaterialResponse',
+    'MaterialPhaseResponse',
     
     # Enumerations
     'GradingType',
@@ -120,6 +135,7 @@ __all__ = [
 def get_all_models():
     """Get list of all SQLAlchemy model classes."""
     return [
+        # Legacy VCCTL models
         Cement,
         FlyAsh,
         Slag,
@@ -142,12 +158,18 @@ def get_all_models():
         MicrostructureOperation,
         HydrationOperation,
         SavedHydrationOperation,
+        # THAMES new models
+        Material,
+        Tag,
+        MaterialPhase,
+        PSDData,
     ]
 
 
 def get_model_by_name(model_name: str):
     """Get model class by name."""
     model_map = {
+        # Legacy VCCTL models
         'cement': Cement,
         'fly_ash': FlyAsh,
         'slag': Slag,
@@ -164,6 +186,11 @@ def get_model_by_name(model_name: str):
         'elastic_moduli_operation': ElasticModuliOperation,
         'microstructure_operation': MicrostructureOperation,
         'hydration_operation': HydrationOperation,
+        # THAMES new models
+        'material': Material,
+        'tag': Tag,
+        'material_phase': MaterialPhase,
+        'psd_data': PSDData,
     }
     return model_map.get(model_name.lower())
 
@@ -180,8 +207,11 @@ def get_create_model_by_name(model_name: str):
         'limestone': LimestoneCreate,
         'particle_shape_set': ParticleShapeSetCreate,
         'grading': GradingCreate,
-        'operation': OperationCreate,
         'mix_design': MixDesignCreate,
+        # THAMES new models
+        'material': MaterialCreate,
+        'material_phase': MaterialPhaseCreate,
+        'psd_data': PSDDataCreate,
     }
     return create_model_map.get(model_name.lower())
 
@@ -198,8 +228,11 @@ def get_update_model_by_name(model_name: str):
         'limestone': LimestoneUpdate,
         'particle_shape_set': ParticleShapeSetUpdate,
         'grading': GradingUpdate,
-        'operation': OperationUpdate,
         'mix_design': MixDesignUpdate,
+        # THAMES new models
+        'material': MaterialUpdate,
+        'material_phase': MaterialPhaseUpdate,
+        'psd_data': PSDDataUpdate,
     }
     return update_model_map.get(model_name.lower())
 
@@ -216,7 +249,10 @@ def get_response_model_by_name(model_name: str):
         'limestone': LimestoneResponse,
         'particle_shape_set': ParticleShapeSetResponse,
         'grading': GradingResponse,
-        'operation': OperationResponse,
         'mix_design': MixDesignResponse,
+        # THAMES new models
+        'material': MaterialResponse,
+        'material_phase': MaterialPhaseResponse,
+        'psd_data': PSDDataResponse,
     }
     return response_model_map.get(model_name.lower())
