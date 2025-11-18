@@ -199,25 +199,30 @@ class MaterialsPanel(Gtk.Box):
         filter_box.set_margin_left(15)
         filter_box.set_margin_right(15)
         
-        # Material type filter
-        type_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        type_label = Gtk.Label("Material Type:")
-        type_label.set_halign(Gtk.Align.START)
-        type_box.pack_start(type_label, False, False, 0)
-        
-        self.type_combo = Gtk.ComboBoxText()
-        self.type_combo.append("all", "All Types")
-        self.type_combo.append("cement", "Cement")
-        self.type_combo.append("aggregate", "Aggregate")
-        self.type_combo.append("fly_ash", "Fly Ash")
-        self.type_combo.append("slag", "Slag")
-        self.type_combo.append("filler", "Filler")
-        self.type_combo.append("silica_fume", "Silica Fume")
-        self.type_combo.append("limestone", "Limestone")
-        self.type_combo.set_active(0)
-        type_box.pack_start(self.type_combo, False, False, 0)
-        
-        filter_box.pack_start(type_box, False, False, 0)
+        # Tag filter
+        tag_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        tag_label = Gtk.Label("Filter by Tag:")
+        tag_label.set_halign(Gtk.Align.START)
+        tag_box.pack_start(tag_label, False, False, 0)
+
+        self.tag_combo = Gtk.ComboBoxText()
+        self.tag_combo.append("all", "All Tags")
+
+        # Load tags from THAMES MaterialService
+        if self.material_service:
+            try:
+                tags = self.material_service.get_all_tags()
+                for tag in sorted(tags):
+                    # tags are strings, not objects
+                    self.tag_combo.append(tag, tag.capitalize())
+                self.logger.info(f"Loaded {len(tags)} tags for filter")
+            except Exception as e:
+                self.logger.warning(f"Could not load tags for filter: {e}")
+
+        self.tag_combo.set_active(0)
+        tag_box.pack_start(self.tag_combo, False, False, 0)
+
+        filter_box.pack_start(tag_box, False, False, 0)
         
         # Specific gravity range
         sg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -395,7 +400,7 @@ class MaterialsPanel(Gtk.Box):
         self.export_button.connect('clicked', self._on_export_clicked)
         
         # Filter controls
-        self.type_combo.connect('changed', self._on_filter_changed)
+        self.tag_combo.connect('changed', self._on_filter_changed)
         self.sg_min_spin.connect('value-changed', self._on_filter_changed)
         self.sg_max_spin.connect('value-changed', self._on_filter_changed)
         
@@ -417,16 +422,16 @@ class MaterialsPanel(Gtk.Box):
     def _on_filter_changed(self, widget) -> None:
         """Handle filter control changes."""
         filters = {
-            'type': self.type_combo.get_active_id(),
+            'tag': self.tag_combo.get_active_id(),
             'sg_min': self.sg_min_spin.get_value(),
             'sg_max': self.sg_max_spin.get_value()
         }
         self.material_table.apply_filters(filters)
-    
+
     def _on_clear_filters_clicked(self, button) -> None:
         """Handle clear filters button click."""
         # Reset filter controls
-        self.type_combo.set_active(0)
+        self.tag_combo.set_active(0)
         self.sg_min_spin.set_value(1.0)
         self.sg_max_spin.set_value(5.0)
         self.search_entry.set_text("")
@@ -455,7 +460,7 @@ class MaterialsPanel(Gtk.Box):
 
             if response == Gtk.ResponseType.OK:
                 # Material was created successfully, refresh the table
-                self.material_table.load_materials()
+                self.material_table._load_materials()
                 self.main_window.update_status(f"Material '{dialog.material_name}' created successfully", "success", 3)
                 self.logger.info(f"Material '{dialog.material_name}' created successfully")
 
@@ -549,7 +554,7 @@ class MaterialsPanel(Gtk.Box):
 
                 if response == Gtk.ResponseType.OK:
                     # Material was updated, refresh the table
-                    self.material_table.load_materials()
+                    self.material_table._load_materials()
                     self.main_window.update_status(f"Material '{material_data.name}' updated successfully", "success", 3)
 
                 dialog.destroy()
@@ -587,7 +592,36 @@ class MaterialsPanel(Gtk.Box):
         """Handle edit material button click."""
         if self.selected_material:
             material_type = self._get_material_type(self.selected_material)
-            
+
+            # Handle THAMES materials with new MaterialDialog
+            if material_type == 'thames':
+                try:
+                    # Re-fetch fresh material data with relationships
+                    fresh_material = self.material_service.get_by_name(self.selected_material.name)
+                    if not fresh_material:
+                        fresh_material = self.selected_material
+
+                    dialog = MaterialDialog(
+                        parent=self.main_window,
+                        material_service=self.material_service,
+                        mode='edit',
+                        material=fresh_material
+                    )
+
+                    response = dialog.run()
+
+                    if response == Gtk.ResponseType.OK:
+                        # Material was updated, refresh the table
+                        self.material_table._load_materials()
+                        self.main_window.update_status(f"Material '{fresh_material.name}' updated successfully", "success", 3)
+
+                    dialog.destroy()
+                except Exception as e:
+                    self.logger.error(f"Error editing THAMES material: {e}")
+                    self.main_window.update_status(f"Error: {str(e)}", "error", 5)
+                return
+
+            # Handle VCCTL materials with old dialog system
             # Re-fetch the material to get fresh data from database
             service = self._get_service_for_type(material_type)
             if service:
@@ -602,7 +636,7 @@ class MaterialsPanel(Gtk.Box):
                     else:
                         # Other materials with integer IDs
                         fresh_material = service.get_by_name(self.selected_material.name)
-                    
+
                     if fresh_material:
                         self._show_material_dialog(material_type, fresh_material)
                     else:
@@ -1461,7 +1495,20 @@ class MaterialsPanel(Gtk.Box):
                 # Ensure duplicate is always mutable (even if original was immutable)
                 duplicate_data['immutable'] = False
                 material_create = MaterialCreate(**duplicate_data)
-                service.create(material_create)
+
+                # Copy phase composition if the original has phases
+                phase_compositions = None
+                if hasattr(original_material, 'phases') and original_material.phases:
+                    phase_compositions = [
+                        {
+                            'gem_phase_name': p.gem_phase_name,
+                            'mass_fraction': p.mass_fraction
+                        }
+                        for p in original_material.phases
+                    ]
+
+                # Create material with phases
+                service.create(material_create, phase_compositions=phase_compositions)
             elif material_type == 'cement':
                 from app.models.cement import CementCreate
                 cement_create = CementCreate(**duplicate_data)

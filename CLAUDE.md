@@ -223,6 +223,90 @@ November 16, 2025 (Full Day)
 
 ---
 
+### Session 4: Clinker/Cement Material System
+November 18, 2025
+
+**Context**: Implemented the clinker-to-cement workflow where clinker is the special material type with surface area fractions and correlation functions. Cements are created by adding phases from clinker materials plus additional phases (sulfates, etc.).
+
+**Key Accomplishments**:
+
+1. **Clinker Extension Database Schema**
+   - Created `ClinkerExtension` model with 6 surface area fractions (C3S, C2S, C3A, C4AF, K2SO4, Na2SO4)
+   - Added 7 correlation function BLOB columns (sil, c3s, alu, c3a, c4af, k2o, n2o)
+   - Created `MaterialComponent` model for future composite support
+   - Added `is_clinker`, `has_clinker`, `clinker_source_id` fields to Material model
+   - Fixed SQLite autoincrement issue by overriding inherited `id` column
+
+2. **MaterialService Clinker Methods** (~740 lines added)
+   - `set_clinker_surface_fractions()` / `get_clinker_surface_fractions()`
+   - `set_clinker_correlation()` / `get_clinker_correlation()`
+   - `get_clinker_for_composite()` - retrieve clinker source for a cement
+   - Full CRUD for clinker extension data
+
+3. **MaterialDialog Clinker UI**
+   - Material type selector: Simple Material / Clinker (removed Composite)
+   - Clinker surface fraction editor with 6 spinbuttons
+   - Real-time total calculation with color-coded validation
+   - Clinker surface fractions saved to ClinkerExtension table
+
+4. **"Add from Material" Feature** (PhaseCompositionEditor)
+   - New button in phase editor toolbar
+   - Dialog shows all materials with phases, highlights clinkers in blue
+   - Scales phases by user-specified mass fraction
+   - Automatically merges duplicate phases (adds fractions together)
+   - Emits `clinker-source-added` signal when clinker is added
+
+5. **Automatic Clinker Tracking**
+   - When phases from a clinker material are added, `clinker_source_id` is set
+   - Materials with clinker phases get `has_clinker=True`
+   - Enables THAMES-Hydration to access correlation functions during simulation
+
+**Workflow for Creating Cement**:
+1. Create Clinker material with phases and surface area fractions
+2. Create Simple material
+3. Click "Add from Material" → select clinker (e.g., 0.95 fraction)
+4. Click "Add Phase" → add gypsum, hemihydrate at remaining fractions
+5. Save - system automatically tracks clinker source
+
+**Files Created/Modified**:
+- `src/app/models/clinker_extension.py` (NEW - 164 lines)
+- `src/app/models/material_component.py` (NEW - 50 lines)
+- `src/app/models/material.py` (updated with clinker fields + Pydantic models)
+- `src/app/services/material_service.py` (added ~740 lines clinker methods)
+- `src/app/widgets/phase_composition_editor.py` (added AddFromMaterialDialog)
+- `src/app/windows/dialogs/thames_material_dialog.py` (clinker UI, removed composite)
+- `scripts/init_thames_tables.py` (updated for new tables)
+
+**Database Status**:
+- Location: `~/Library/Application Support/THAMES/database/thames.db`
+- New tables: `clinker_extension`, `material_component`
+- New columns on `material`: `is_clinker`, `has_clinker`, `clinker_source_id`
+- 42 materials loaded successfully
+
+**Next Steps** (for next session):
+1. **Correlation Function Import/Edit UI** (CRITICAL)
+   - Add UI to import 7 correlation files (.sil, .c3s, .alu, .c3a, .c4af, .k2o, .n2o)
+   - File browser for each correlation type
+   - Display correlation data status in clinker editor
+   - Store as BLOBs in ClinkerExtension table
+
+2. **Mix Design Service & UI**
+   - Combine materials into mixes
+   - Define kinetic parameters per material
+   - Water/cement ratio management
+
+3. **VCCTL Migration Update**
+   - Re-migrate VCCTL cements as clinker materials with proper surface fractions
+
+**Critical Files for Next Session**:
+- Clinker Extension: `src/app/models/clinker_extension.py`
+- Material Dialog: `src/app/windows/dialogs/thames_material_dialog.py`
+- Phase Editor: `src/app/widgets/phase_composition_editor.py`
+- Material Service: `src/app/services/material_service.py`
+- Database: `~/Library/Application Support/THAMES/database/thames.db`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
@@ -256,6 +340,9 @@ November 16, 2025 (Full Day)
 ## Git commands
 - Do not run a git command unless you are requested to do so
 - Use "git add -A" to stage changes before committing to the git repository
+- ALWAYS include both co-authors in commit messages:
+  - Co-Authored-By: Jeffrey W. Bullard <jwbullard@tamu.edu>
+  - Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## Responses
 - Do not use the phrase "You're absolutely right!". Instead, use the phrase

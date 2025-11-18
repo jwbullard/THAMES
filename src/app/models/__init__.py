@@ -18,6 +18,8 @@ from app.models.limestone import Limestone, LimestoneCreate, LimestoneUpdate, Li
 from app.models.psd_data import PSDData, PSDDataCreate, PSDDataUpdate, PSDDataResponse
 from app.models.material import Material, MaterialCreate, MaterialUpdate, MaterialResponse, Tag
 from app.models.material_phase import MaterialPhase, MaterialPhaseCreate, MaterialPhaseUpdate, MaterialPhaseResponse
+from app.models.clinker_extension import ClinkerExtension
+from app.models.material_component import MaterialComponent
 from app.models.particle_shape_set import ParticleShapeSet, ParticleShapeSetCreate, ParticleShapeSetUpdate, ParticleShapeSetResponse
 from app.models.grading import Grading, GradingCreate, GradingUpdate, GradingResponse, GradingType
 from app.models.operation import Operation, Result, OperationStatus, OperationType, ResultType
@@ -39,13 +41,14 @@ __all__ = [
     'FlyAsh',
     'Slag',
     'Aggregate',
-    'InertFiller',
     'Filler',
     'SilicaFume',
     'Limestone',
     'PSDData',
     'Material',
     'MaterialPhase',
+    'MaterialComponent',
+    'ClinkerExtension',
     'Tag',
     'ParticleShapeSet',
     'Grading',
@@ -67,7 +70,6 @@ __all__ = [
     'FlyAshCreate',
     'SlagCreate',
     'AggregateCreate',
-    'InertFillerCreate',
     'FillerCreate',
     'SilicaFumeCreate',
     'LimestoneCreate',
@@ -86,7 +88,6 @@ __all__ = [
     'FlyAshUpdate',
     'SlagUpdate',
     'AggregateUpdate',
-    'InertFillerUpdate',
     'FillerUpdate',
     'SilicaFumeUpdate',
     'LimestoneUpdate',
@@ -105,7 +106,6 @@ __all__ = [
     'FlyAshResponse',
     'SlagResponse',
     'AggregateResponse',
-    'InertFillerResponse',
     'FillerResponse',
     'SilicaFumeResponse',
     'LimestoneResponse',
@@ -135,12 +135,13 @@ def get_all_models():
         FlyAsh,
         Slag,
         Aggregate,
-        InertFiller,
         Filler,
         SilicaFume,
         Limestone,
         Material,
         MaterialPhase,
+        MaterialComponent,
+        ClinkerExtension,
         Tag,
         ParticleShapeSet,
         Grading,

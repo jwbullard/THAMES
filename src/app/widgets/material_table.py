@@ -648,11 +648,20 @@ class MaterialTable(Gtk.Box):
                 if text_filter not in name and text_filter not in tags:
                     return False
             
-            # Type filter
-            type_filter = self.current_filters.get('type', 'all')
-            if type_filter != 'all':
-                if material.get('type', '') != type_filter:
-                    return False
+            # Tag filter (for THAMES materials)
+            tag_filter = self.current_filters.get('tag', 'all')
+            if tag_filter != 'all':
+                # Check if material has the selected tag
+                material_type = material.get('type', '')
+                if material_type == 'thames':
+                    # For THAMES materials, check tags list
+                    tags = material.get('tags', '').lower()
+                    if tag_filter.lower() not in tags:
+                        return False
+                else:
+                    # For non-THAMES materials, check the type field
+                    if material.get('type', '') != tag_filter:
+                        return False
             
             # Specific gravity filter
             sg = material.get('specific_gravity', 0.0) or 0.0

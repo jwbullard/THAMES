@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from sqlalchemy import create_engine, inspect
 from app.database.base import Base
-from app.models import Material, Tag, MaterialPhase, PSDData
+from app.models import Material, Tag, MaterialPhase, PSDData, ClinkerExtension, MaterialComponent
 
 
 def init_thames_tables(db_path: Path, force: bool = False) -> None:
@@ -43,22 +43,32 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
 
-    thames_tables = ['material', 'tag', 'material_tags', 'material_phase']
+    thames_tables = ['material', 'tag', 'material_tags', 'material_phase', 'clinker_extension', 'material_component']
     existing_thames_tables = [t for t in thames_tables if t in existing_tables]
+    missing_tables = [t for t in thames_tables if t not in existing_tables]
 
     if existing_thames_tables:
-        print(f"\n⚠ Found existing THAMES tables: {existing_thames_tables}")
+        print(f"\nFound existing THAMES tables: {existing_thames_tables}")
         if force:
             print("\n⚠ WARNING: Force mode enabled - dropping existing tables!")
             # Drop tables in reverse order due to foreign keys
+            ClinkerExtension.__table__.drop(engine, checkfirst=True)
+            MaterialComponent.__table__.drop(engine, checkfirst=True)
+            MaterialPhase.__table__.drop(engine, checkfirst=True)
             Material.__table__.drop(engine, checkfirst=True)
             Tag.__table__.drop(engine, checkfirst=True)
-            MaterialPhase.__table__.drop(engine, checkfirst=True)
             print("  ✓ Dropped existing tables")
-        else:
-            print("  → Tables already exist, skipping creation")
-            print("     (Use --force to recreate tables - WARNING: destroys data!)")
+        elif not missing_tables:
+            print("  ✓ All tables already exist")
+            print("\nVerification:")
+            for table in thames_tables:
+                print(f"  ✓ {table}")
+            print("\n" + "=" * 70)
+            print("NO CHANGES NEEDED")
+            print("=" * 70)
             return
+        else:
+            print(f"\nMissing tables to create: {missing_tables}")
 
     # Create tables
     print("\nCreating THAMES material tables:")
@@ -66,6 +76,8 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
     print("  - tag")
     print("  - material_tags (association table)")
     print("  - material_phase")
+    print("  - clinker_extension")
+    print("  - material_component")
 
     # Get the specific tables we want to create from Base.metadata
     tables_to_create = [
@@ -73,6 +85,8 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
         Base.metadata.tables['tag'],
         Base.metadata.tables['material_tags'],
         Base.metadata.tables['material_phase'],
+        Base.metadata.tables['clinker_extension'],
+        Base.metadata.tables['material_component'],
     ]
 
     # Create the tables

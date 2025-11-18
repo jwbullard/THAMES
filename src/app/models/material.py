@@ -79,6 +79,25 @@ class Material(Base):
     immutable = Column(Boolean, nullable=False, default=False,
                       doc="Whether this material is read-only (migrated from VCCTL)")
 
+    # Clinker and composite material flags
+    is_clinker = Column(Boolean, nullable=False, default=False,
+                       doc="Whether this material is a clinker (has correlation functions, surface fractions)")
+    has_clinker = Column(Boolean, nullable=False, default=False,
+                        doc="Whether this composite material contains clinker")
+    clinker_source_id = Column(Integer, ForeignKey('material.id'), nullable=True,
+                               doc="ID of the clinker material this composite contains")
+
+    # Relationship to clinker source (for composites)
+    clinker_source = relationship('Material', remote_side=[id], foreign_keys=[clinker_source_id])
+
+    # Relationship to clinker extension data (for clinker materials)
+    clinker_data = relationship('ClinkerExtension', uselist=False, back_populates='material',
+                                cascade='all, delete-orphan')
+
+    # Relationship to components (for composite materials)
+    components = relationship('MaterialComponent', foreign_keys='MaterialComponent.parent_material_id',
+                              back_populates='parent_material', cascade='all, delete-orphan')
+
     def __repr__(self) -> str:
         """String representation of the material."""
         tag_str = ",".join([t.name for t in self.tags]) if self.tags else "no-tags"
@@ -112,6 +131,16 @@ class Material(Base):
         if self.specific_gravity is not None:
             return self.specific_gravity * 1000  # kg/m³
         return None
+
+    @property
+    def is_composite(self) -> bool:
+        """Check if material is a composite (has component materials)."""
+        return len(self.components) > 0 if self.components else False
+
+    @property
+    def component_count(self) -> int:
+        """Get number of component materials."""
+        return len(self.components) if self.components else 0
 
     def validate_phase_fractions(self) -> tuple[bool, str]:
         """
@@ -253,6 +282,11 @@ class MaterialCreate(BaseModel):
     notes: Optional[str] = Field(None, description="Additional notes")
     immutable: Optional[bool] = Field(False, description="Whether this material is read-only")
 
+    # Clinker flags
+    is_clinker: Optional[bool] = Field(False, description="Whether this material is a clinker")
+    has_clinker: Optional[bool] = Field(False, description="Whether this material contains clinker phases")
+    clinker_source_id: Optional[int] = Field(None, description="ID of the clinker material this was derived from")
+
     @field_validator('name')
     @classmethod
     def validate_name(cls, v):
@@ -300,6 +334,11 @@ class MaterialUpdate(BaseModel):
     notes: Optional[str] = Field(None, description="Additional notes")
     immutable: Optional[bool] = Field(None, description="Whether this material is read-only")
 
+    # Clinker flags
+    is_clinker: Optional[bool] = Field(None, description="Whether this material is a clinker")
+    has_clinker: Optional[bool] = Field(None, description="Whether this material contains clinker phases")
+    clinker_source_id: Optional[int] = Field(None, description="ID of the clinker material this was derived from")
+
 
 class MaterialResponse(BaseModel):
     """Pydantic model for material API responses."""
@@ -320,6 +359,11 @@ class MaterialResponse(BaseModel):
     source: Optional[str]
     notes: Optional[str]
     immutable: bool
+
+    # Clinker and composite flags
+    is_clinker: bool
+    has_clinker: bool
+    is_composite: bool
 
     # Calculated properties
     has_phase_data: bool
