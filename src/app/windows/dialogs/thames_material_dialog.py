@@ -12,8 +12,10 @@ import logging
 from typing import Optional, List, Dict
 
 from app.services.material_service import MaterialService
-from app.models import MaterialCreate, MaterialUpdate
+from app.services.psd_data_service import PSDDataService
+from app.models import MaterialCreate, MaterialUpdate, PSDDataCreate
 from app.widgets.phase_composition_editor import PhaseCompositionEditor
+from app.widgets.unified_psd_widget import UnifiedPSDWidget
 
 
 class MaterialDialog(Gtk.Dialog):
@@ -40,6 +42,7 @@ class MaterialDialog(Gtk.Dialog):
         super().__init__(title=title, transient_for=parent, flags=0)
 
         self.material_service = material_service
+        self.psd_data_service = PSDDataService(material_service.db_service)
         self.mode = mode
         self.material = material
         self.material_name = None
@@ -67,12 +70,23 @@ class MaterialDialog(Gtk.Dialog):
 
     def _build_ui(self):
         """Build the dialog UI."""
-        content = self.get_content_area()
-        content.set_spacing(10)
+        content_area = self.get_content_area()
+
+        # Create scrolled window for the form
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_min_content_height(400)
+        scrolled.set_max_content_height(600)
+
+        # Create box to hold all form fields
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         content.set_margin_top(20)
         content.set_margin_bottom(20)
         content.set_margin_left(20)
         content.set_margin_right(20)
+
+        scrolled.add(content)
+        content_area.pack_start(scrolled, True, True, 0)
 
         # Name
         name_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -119,17 +133,13 @@ class MaterialDialog(Gtk.Dialog):
         ssa_box.pack_start(self.ssa_spinner, True, True, 0)
         content.pack_start(ssa_box, False, False, 0)
 
-        # PSD ID
-        psd_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        psd_label = Gtk.Label(label="PSD Data ID:")
-        psd_label.set_width_chars(20)
-        psd_label.set_halign(Gtk.Align.START)
-        self.psd_spinner = Gtk.SpinButton()
-        self.psd_spinner.set_adjustment(Gtk.Adjustment(value=1, lower=1, upper=1000, step_increment=1, page_increment=10))
-        self.psd_spinner.set_digits(0)
-        psd_box.pack_start(psd_label, False, False, 0)
-        psd_box.pack_start(self.psd_spinner, True, True, 0)
-        content.pack_start(psd_box, False, False, 0)
+        # PSD Widget (UnifiedPSDWidget) - in collapsible expander
+        psd_expander = Gtk.Expander(label="Particle Size Distribution")
+        psd_expander.set_expanded(False)  # Collapsed by default to save space
+        self.psd_widget = UnifiedPSDWidget('generic')
+        self.psd_widget.set_change_callback(self._on_psd_changed)
+        psd_expander.add(self.psd_widget)
+        content.pack_start(psd_expander, False, False, 0)
 
         # Material Type Selector
         type_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -146,6 +156,24 @@ class MaterialDialog(Gtk.Dialog):
         type_box.pack_start(type_label, False, False, 0)
         type_box.pack_start(self.type_combo, True, True, 0)
         content.pack_start(type_box, False, False, 0)
+
+        # Clinker Source field (hidden by default, shown for cement materials)
+        self.clinker_source_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.clinker_source_box.set_margin_top(5)
+        clinker_source_label = Gtk.Label(label="Clinker Source:")
+        clinker_source_label.set_width_chars(15)
+        clinker_source_label.set_halign(Gtk.Align.END)
+
+        self.clinker_source_entry = Gtk.Entry()
+        self.clinker_source_entry.set_editable(False)
+        self.clinker_source_entry.set_can_focus(False)
+        self.clinker_source_entry.set_placeholder_text("(not derived from clinker)")
+        self.clinker_source_entry.get_style_context().add_class("read-only")
+
+        self.clinker_source_box.pack_start(clinker_source_label, False, False, 0)
+        self.clinker_source_box.pack_start(self.clinker_source_entry, True, True, 0)
+        content.pack_start(self.clinker_source_box, False, False, 0)
+        self.clinker_source_box.set_no_show_all(True)  # Hide by default
 
         # Clinker Surface Fractions Section (hidden by default)
         self.clinker_frame = Gtk.Frame(label="Clinker Surface Area Fractions")
@@ -194,6 +222,76 @@ class MaterialDialog(Gtk.Dialog):
         content.pack_start(self.clinker_frame, False, False, 0)
         self.clinker_frame.set_no_show_all(True)  # Hide by default
 
+        # Correlation Functions Section (hidden by default, shown for clinker)
+        self.correlation_frame = Gtk.Frame(label="Correlation Functions")
+        correlation_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        correlation_box.set_margin_top(10)
+        correlation_box.set_margin_bottom(10)
+        correlation_box.set_margin_left(15)
+        correlation_box.set_margin_right(15)
+
+        # Info label
+        info_label = Gtk.Label()
+        info_label.set_markup("<small>Import correlation function files for two-point statistics</small>")
+        info_label.set_halign(Gtk.Align.START)
+        correlation_box.pack_start(info_label, False, False, 0)
+
+        # Grid for correlation file browsers
+        corr_grid = Gtk.Grid()
+        corr_grid.set_row_spacing(6)
+        corr_grid.set_column_spacing(8)
+        corr_grid.set_margin_top(5)
+
+        # Define correlation types
+        self.correlation_types = [
+            ('sil', 'SIL (Silicate)'),
+            ('c3s', 'C3S (Alite)'),
+            ('alu', 'ALU (Aluminate)'),
+            ('c3a', 'C3A (Aluminate C3A)'),
+            ('c4af', 'C4AF (Ferrite)'),
+            ('k2o', 'K2O (Potassium)'),
+            ('n2o', 'N2O (Sodium)')
+        ]
+
+        self.correlation_entries = {}
+        self.correlation_status_labels = {}
+        self.correlation_file_paths = {}  # Store loaded file paths
+
+        for i, (key, label_text) in enumerate(self.correlation_types):
+            # Label
+            label = Gtk.Label(label=f"{label_text}:")
+            label.set_halign(Gtk.Align.END)
+            label.set_width_chars(20)
+            corr_grid.attach(label, 0, i, 1, 1)
+
+            # Entry showing file path or status
+            entry = Gtk.Entry()
+            entry.set_text("Not loaded")
+            entry.set_editable(False)
+            entry.set_width_chars(30)
+            self.correlation_entries[key] = entry
+            corr_grid.attach(entry, 1, i, 1, 1)
+
+            # Browse button
+            browse_btn = Gtk.Button(label="Browse...")
+            browse_btn.connect('clicked', self._on_browse_correlation_clicked, key)
+            corr_grid.attach(browse_btn, 2, i, 1, 1)
+
+            # Status indicator
+            status_label = Gtk.Label()
+            status_label.set_markup('<span foreground="gray">○</span>')
+            status_label.set_width_chars(2)
+            self.correlation_status_labels[key] = status_label
+            corr_grid.attach(status_label, 3, i, 1, 1)
+
+            # Initialize file path storage
+            self.correlation_file_paths[key] = None
+
+        correlation_box.pack_start(corr_grid, False, False, 0)
+        self.correlation_frame.add(correlation_box)
+        content.pack_start(self.correlation_frame, False, False, 0)
+        self.correlation_frame.set_no_show_all(True)  # Hide by default
+
         # Description
         desc_label = Gtk.Label(label="Description:")
         desc_label.set_halign(Gtk.Align.START)
@@ -211,6 +309,9 @@ class MaterialDialog(Gtk.Dialog):
         self.clinker_source_id = None
         if self.material:
             self.clinker_source_id = getattr(self.material, 'clinker_source_id', None)
+
+        # Track last directory used for correlation files
+        self.last_correlation_directory = None
 
         # Phase Composition Editor (in expander)
         expander = Gtk.Expander(label="Phase Composition")
@@ -244,8 +345,21 @@ class MaterialDialog(Gtk.Dialog):
             self.sg_spinner.set_value(material.specific_gravity)
         if material.specific_surface_area:
             self.ssa_spinner.set_value(material.specific_surface_area)
-        if material.psd_data_id:
-            self.psd_spinner.set_value(material.psd_data_id)
+
+        # Load PSD data into widget
+        if material.psd_data:
+            psd_dict = {
+                'psd_mode': material.psd_data.psd_mode,
+                'psd_d50': material.psd_data.psd_d50,
+                'psd_n': material.psd_data.psd_n,
+                'psd_dmax': material.psd_data.psd_dmax,
+                'psd_median': material.psd_data.psd_median,
+                'psd_spread': material.psd_data.psd_spread,
+                'psd_exponent': material.psd_data.psd_exponent,
+                'psd_custom_points': material.psd_data.psd_custom_points
+            }
+            self.psd_widget.load_from_material_data(psd_dict)
+
         if material.description:
             buffer = self.desc_textview.get_buffer()
             buffer.set_text(material.description)
@@ -258,6 +372,23 @@ class MaterialDialog(Gtk.Dialog):
             ]
             self.phase_editor.set_composition(phases)
 
+        # Show clinker source if material has one
+        if material.has_clinker and material.clinker_source_id:
+            clinker = self.material_service.get_by_id(material.clinker_source_id)
+            if clinker:
+                self.clinker_source_entry.set_text(clinker.name)
+                self.clinker_source_box.set_no_show_all(False)
+                self.clinker_source_box.show_all()
+
+                # Restore clinker tracking in phase editor
+                clinker_phase_names = [p.gem_phase_name for p in clinker.phases]
+                self.phase_editor.set_clinker_source(
+                    clinker_material_id=clinker.id,
+                    clinker_material_name=clinker.name,
+                    clinker_phase_names=clinker_phase_names
+                )
+                self.logger.info(f"Restored clinker tracking for material: {clinker.name}")
+
         # Determine and set material type
         if material.is_clinker:
             self.type_combo.set_active_id("clinker")
@@ -268,6 +399,20 @@ class MaterialDialog(Gtk.Dialog):
                     if key in self.clinker_spinners:
                         self.clinker_spinners[key].set_value(value)
                 self._on_clinker_fraction_changed(None)  # Update total
+
+            # Load correlation functions
+            for corr_key in self.correlation_file_paths.keys():
+                correlation_data = self.material_service.get_clinker_correlation(material.id, corr_key)
+                if correlation_data:
+                    # Store the data
+                    self.correlation_file_paths[corr_key] = correlation_data
+                    # Update UI
+                    size_kb = len(correlation_data) / 1024
+                    self.correlation_entries[corr_key].set_text(f"Loaded ({size_kb:.1f} KB)")
+                    self.correlation_status_labels[corr_key].set_markup(
+                        f'<span foreground="green">✓</span>'
+                    )
+                    self.logger.info(f"Loaded {corr_key} correlation from database ({len(correlation_data)} bytes)")
         else:
             self.type_combo.set_active_id("simple")
 
@@ -276,11 +421,22 @@ class MaterialDialog(Gtk.Dialog):
         self.sg_spinner.set_value(sg_value)
         self.logger.info(f"Updated SG field to calculated value: {sg_value:.3f}")
 
+    def _on_psd_changed(self):
+        """Handle PSD data changes from the PSD widget."""
+        # PSD data will be saved when the material is saved
+        self.logger.debug("PSD data changed")
+
     def _on_clinker_source_added(self, widget, clinker_material_id):
         """Handle clinker-source-added signal from phase editor."""
         self.clinker_source_id = clinker_material_id
         clinker = self.material_service.get_by_id(clinker_material_id)
         clinker_name = clinker.name if clinker else f"ID {clinker_material_id}"
+
+        # Update clinker source display
+        self.clinker_source_entry.set_text(clinker_name)
+        self.clinker_source_box.set_no_show_all(False)
+        self.clinker_source_box.show_all()
+
         self.logger.info(f"Clinker source set: {clinker_name} (id={clinker_material_id})")
 
     def _on_material_type_changed(self, combo):
@@ -291,8 +447,11 @@ class MaterialDialog(Gtk.Dialog):
         if material_type == "clinker":
             self.clinker_frame.set_no_show_all(False)
             self.clinker_frame.show_all()
+            self.correlation_frame.set_no_show_all(False)
+            self.correlation_frame.show_all()
         else:  # simple
             self.clinker_frame.hide()
+            self.correlation_frame.hide()
 
     def _on_clinker_fraction_changed(self, spinner):
         """Update total when clinker fraction changes."""
@@ -304,6 +463,69 @@ class MaterialDialog(Gtk.Dialog):
             self.clinker_total_label.set_markup(f'<span foreground="green">{total:.4f}</span>')
         else:
             self.clinker_total_label.set_markup(f'<span foreground="red">{total:.4f}</span>')
+
+    def _on_browse_correlation_clicked(self, button, correlation_key):
+        """Handle browse button click for correlation function."""
+        dialog = Gtk.FileChooserDialog(
+            title=f"Select {correlation_key.upper()} Correlation File",
+            transient_for=self,
+            action=Gtk.FileChooserAction.OPEN
+        )
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Open", Gtk.ResponseType.OK)
+
+        # Set current folder to last used directory if available
+        if self.last_correlation_directory:
+            dialog.set_current_folder(self.last_correlation_directory)
+
+        # Add file filter
+        filter_text = Gtk.FileFilter()
+        filter_text.set_name("Correlation files (*.dat, *.txt, *.*)")
+        filter_text.add_pattern("*.dat")
+        filter_text.add_pattern("*.txt")
+        filter_text.add_pattern(f"*.{correlation_key}")
+        filter_text.add_pattern("*")
+        dialog.add_filter(filter_text)
+
+        response = dialog.run()
+        file_path = None
+        if response == Gtk.ResponseType.OK:
+            file_path = dialog.get_filename()
+
+        dialog.destroy()
+
+        if file_path:
+            try:
+                # Read and validate correlation file
+                with open(file_path, 'rb') as f:
+                    correlation_data = f.read()
+
+                # Basic validation - check if it's not empty
+                if not correlation_data:
+                    self._show_error("Correlation file is empty")
+                    return
+
+                # Store the data
+                self.correlation_file_paths[correlation_key] = correlation_data
+
+                # Remember the directory for next time
+                import os
+                file_directory = os.path.dirname(file_path)
+                self.last_correlation_directory = file_directory
+                self.logger.info(f"Remembered directory for future file selections: {file_directory}")
+
+                # Update UI
+                filename = os.path.basename(file_path)
+                self.correlation_entries[correlation_key].set_text(filename)
+                self.correlation_status_labels[correlation_key].set_markup(
+                    f'<span foreground="green">✓</span>'
+                )
+
+                self.logger.info(f"Loaded {correlation_key} correlation: {filename} ({len(correlation_data)} bytes)")
+
+            except Exception as e:
+                self.logger.error(f"Error loading correlation file: {e}")
+                self._show_error(f"Error loading correlation file: {str(e)}")
 
     def _apply_immutable_protection(self):
         """Disable all form fields for immutable materials."""
@@ -331,7 +553,7 @@ class MaterialDialog(Gtk.Dialog):
         self.tags_entry.set_sensitive(False)
         self.sg_spinner.set_sensitive(False)
         self.ssa_spinner.set_sensitive(False)
-        self.psd_spinner.set_sensitive(False)
+        self.psd_widget.set_sensitive(False)
         self.type_combo.set_sensitive(False)
         self.desc_textview.set_editable(False)
         self.desc_textview.set_cursor_visible(False)
@@ -339,6 +561,16 @@ class MaterialDialog(Gtk.Dialog):
         # Disable clinker spinners
         for spinner in self.clinker_spinners.values():
             spinner.set_sensitive(False)
+
+        # Disable correlation browse buttons (they're inside the correlation_frame)
+        # Find all browse buttons in the correlation frame and disable them
+        def disable_buttons(widget):
+            if isinstance(widget, Gtk.Button):
+                widget.set_sensitive(False)
+            if isinstance(widget, Gtk.Container):
+                for child in widget.get_children():
+                    disable_buttons(child)
+        disable_buttons(self.correlation_frame)
 
     def run(self):
         """Run the dialog and save if OK."""
@@ -367,8 +599,16 @@ class MaterialDialog(Gtk.Dialog):
             tags = [t.strip() for t in tags_text.split(',') if t.strip()] if tags_text else []
             sg = self.sg_spinner.get_value()
             ssa = self.ssa_spinner.get_value()
-            psd_id = int(self.psd_spinner.get_value())
             material_type = self.type_combo.get_active_id()
+
+            # Save PSD data and get ID
+            psd_dict = self.psd_widget.get_material_data_dict()
+            psd_create = PSDDataCreate(**psd_dict)
+            psd_response = self.psd_data_service.create_psd_data(psd_create)
+            if not psd_response:
+                self._show_error("Failed to save PSD data")
+                return False
+            psd_id = psd_response.id
 
             buffer = self.desc_textview.get_buffer()
             desc = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), False)
@@ -421,6 +661,15 @@ class MaterialDialog(Gtk.Dialog):
                     self.material_service.set_clinker_surface_fractions(
                         created_material.id, surface_fractions
                     )
+
+                    # Save correlation functions
+                    for corr_key, corr_data in self.correlation_file_paths.items():
+                        if corr_data:
+                            self.material_service.set_clinker_correlation(
+                                created_material.id, corr_key, corr_data
+                            )
+                            self.logger.info(f"Saved {corr_key} correlation ({len(corr_data)} bytes)")
+
                     self.material_name = created_material.name
                 else:
                     # Create simple material
@@ -473,7 +722,7 @@ class MaterialDialog(Gtk.Dialog):
                             phase_comp['mass_fraction']
                         )
 
-                # Update clinker surface fractions
+                # Update clinker surface fractions and correlations
                 if material_type == "clinker":
                     surface_fractions = {
                         key: spinner.get_value()
@@ -482,6 +731,14 @@ class MaterialDialog(Gtk.Dialog):
                     self.material_service.set_clinker_surface_fractions(
                         self.material.id, surface_fractions
                     )
+
+                    # Update correlation functions
+                    for corr_key, corr_data in self.correlation_file_paths.items():
+                        if corr_data:
+                            self.material_service.set_clinker_correlation(
+                                self.material.id, corr_key, corr_data
+                            )
+                            self.logger.info(f"Updated {corr_key} correlation ({len(corr_data)} bytes)")
 
                 self.material_name = updated_material.name
                 self.logger.info(f"Updated {material_type} material: {self.material_name}")

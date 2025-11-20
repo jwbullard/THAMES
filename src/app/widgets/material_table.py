@@ -32,6 +32,7 @@ class MaterialTableColumn(Enum):
     CREATED_DATE = 3
     MODIFIED_DATE = 4
     TAGS = 5
+    CLINKER_SOURCE = 6
 
 
 class MaterialTable(Gtk.Box):
@@ -199,8 +200,8 @@ class MaterialTable(Gtk.Box):
         self.tree_view.set_rubber_banding(True)
         
         # Create list store model
-        # Columns: name, type, specific_gravity, created_date, modified_date, description, material_data
-        self.list_store = Gtk.ListStore(str, str, float, str, str, str, object)
+        # Columns: name, type, specific_gravity, created_date, modified_date, tags, clinker_source, material_data
+        self.list_store = Gtk.ListStore(str, str, float, str, str, str, str, object)
         
         # Create filter model
         self.filter_model = self.list_store.filter_new()
@@ -234,7 +235,8 @@ class MaterialTable(Gtk.Box):
             ("Specific Gravity", MaterialTableColumn.SPECIFIC_GRAVITY, 120, True),
             ("Created", MaterialTableColumn.CREATED_DATE, 120, True),
             ("Modified", MaterialTableColumn.MODIFIED_DATE, 120, True),
-            ("Tags", MaterialTableColumn.TAGS, 250, True)
+            ("Tags", MaterialTableColumn.TAGS, 200, True),
+            ("Clinker Source", MaterialTableColumn.CLINKER_SOURCE, 150, True)
         ]
         
         self.columns = {}
@@ -432,6 +434,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': cement.created_at.strftime('%Y-%m-%d') if cement.created_at else '',
                         'modified_date': cement.updated_at.strftime('%Y-%m-%d') if cement.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': cement.description or '',
                         'data': cement
                     })
@@ -451,6 +454,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': fly_ash.created_at.strftime('%Y-%m-%d') if fly_ash.created_at else '',
                         'modified_date': fly_ash.updated_at.strftime('%Y-%m-%d') if fly_ash.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': fly_ash.description or '',
                         'data': fly_ash
                     })
@@ -470,6 +474,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': slag.created_at.strftime('%Y-%m-%d') if slag.created_at else '',
                         'modified_date': slag.updated_at.strftime('%Y-%m-%d') if slag.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': slag.description or '',
                         'data': slag
                     })
@@ -489,6 +494,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': filler.created_at.strftime('%Y-%m-%d') if filler.created_at else '',
                         'modified_date': filler.updated_at.strftime('%Y-%m-%d') if filler.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': filler.description or '',
                         'data': filler
                     })
@@ -508,6 +514,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': silica_fume.created_at.strftime('%Y-%m-%d') if silica_fume.created_at else '',
                         'modified_date': silica_fume.updated_at.strftime('%Y-%m-%d') if silica_fume.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': silica_fume.description or '',
                         'data': silica_fume
                     })
@@ -527,6 +534,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': limestone.created_at.strftime('%Y-%m-%d') if limestone.created_at else '',
                         'modified_date': limestone.updated_at.strftime('%Y-%m-%d') if limestone.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': limestone.description or '',
                         'data': limestone
                     })
@@ -546,6 +554,7 @@ class MaterialTable(Gtk.Box):
                         'created_date': aggregate.created_at.strftime('%Y-%m-%d') if aggregate.created_at else '',
                         'modified_date': aggregate.updated_at.strftime('%Y-%m-%d') if aggregate.updated_at else '',
                         'tags': '',  # VCCTL materials don't have tags
+                        'clinker_source': '',  # VCCTL materials don't have clinker source
                         'description': getattr(aggregate, 'description', '') or '',
                         'data': aggregate
                     })
@@ -564,6 +573,16 @@ class MaterialTable(Gtk.Box):
                         created_date = material.created_at.strftime('%Y-%m-%d') if material.created_at else ''
                         modified_date = material.updated_at.strftime('%Y-%m-%d') if material.updated_at else ''
 
+                        # Get clinker source name if this material has a clinker source
+                        clinker_source_str = ''
+                        if material.has_clinker and material.clinker_source_id:
+                            try:
+                                clinker_material = self.material_service.get_by_id(material.clinker_source_id)
+                                if clinker_material:
+                                    clinker_source_str = clinker_material.name
+                            except Exception as e:
+                                self.logger.warning(f"Error loading clinker source for material {material.name}: {e}")
+
                         materials.append({
                             'id': str(material.id),  # Use numeric ID as string
                             'name': material.name,
@@ -572,6 +591,7 @@ class MaterialTable(Gtk.Box):
                             'created_date': created_date,
                             'modified_date': modified_date,
                             'tags': tags_str,  # Display tags in Tags column
+                            'clinker_source': clinker_source_str,  # Display clinker source
                             'description': material.description or '',
                             'data': material
                         })
@@ -634,6 +654,7 @@ class MaterialTable(Gtk.Box):
                 material['created_date'],
                 material['modified_date'],
                 material['tags'],  # Display tags instead of description
+                material['clinker_source'],  # Display clinker source
                 material['data']
             ])
     
@@ -903,7 +924,7 @@ class MaterialTable(Gtk.Box):
         
         for path in tree_paths:
             tree_iter = model.get_iter(path)
-            material_data = model.get_value(tree_iter, 6)  # material data column
+            material_data = model.get_value(tree_iter, 7)  # material data column
             if material_data:
                 # Use the correct identifier based on material type
                 if hasattr(material_data, '__tablename__'):
@@ -927,15 +948,15 @@ class MaterialTable(Gtk.Box):
         # Emit selection signal
         if len(tree_paths) == 1:
             tree_iter = model.get_iter(tree_paths[0])
-            material_data = model.get_value(tree_iter, 6)
+            material_data = model.get_value(tree_iter, 7)
             self.emit('material-selected', material_data)
     
     def _on_row_activated(self, tree_view, path, column) -> None:
         """Handle row activation (double-click)."""
         model = tree_view.get_model()
         tree_iter = model.get_iter(path)
-        material_data = model.get_value(tree_iter, 6)
-        
+        material_data = model.get_value(tree_iter, 7)
+
         if material_data:
             self.emit('material-activated', material_data)
     
@@ -993,10 +1014,10 @@ class MaterialTable(Gtk.Box):
         """Handle context menu edit action."""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
-        
+
         if tree_paths:
             tree_iter = model.get_iter(tree_paths[0])
-            material_data = model.get_value(tree_iter, 6)
+            material_data = model.get_value(tree_iter, 7)
             if material_data:
                 self.emit('material-activated', material_data)
     
@@ -1004,10 +1025,10 @@ class MaterialTable(Gtk.Box):
         """Handle context menu duplicate action."""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
-        
+
         if tree_paths:
             tree_iter = model.get_iter(tree_paths[0])
-            material_data = model.get_value(tree_iter, 6)
+            material_data = model.get_value(tree_iter, 7)
             if material_data:
                 # Use the parent's duplicate functionality
                 try:
@@ -1031,7 +1052,7 @@ class MaterialTable(Gtk.Box):
 
         if tree_paths:
             tree_iter = model.get_iter(tree_paths[0])
-            material_data = model.get_value(tree_iter, 6)
+            material_data = model.get_value(tree_iter, 7)
             if material_data:
                 # Use the correct identifier based on material type
                 if hasattr(material_data, '__tablename__'):
@@ -1053,10 +1074,10 @@ class MaterialTable(Gtk.Box):
         """Handle context menu export action."""
         selection = self.tree_view.get_selection()
         model, tree_paths = selection.get_selected_rows()
-        
+
         if tree_paths:
             tree_iter = model.get_iter(tree_paths[0])
-            material_data = model.get_value(tree_iter, 6)
+            material_data = model.get_value(tree_iter, 7)
             if material_data:
                 # Use the correct identifier based on material type
                 if hasattr(material_data, '__tablename__'):

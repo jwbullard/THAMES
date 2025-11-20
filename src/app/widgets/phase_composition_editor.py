@@ -58,6 +58,11 @@ class PhaseCompositionEditor(Gtk.Box):
         # Phase data: List of {phase_name: str, mass_fraction: float}
         self.phases: List[Dict[str, float]] = []
 
+        # Clinker tracking (set when phases from a clinker are added)
+        self.clinker_source_id: Optional[int] = None
+        self.clinker_source_name: Optional[str] = None
+        self.clinker_phase_names: List[str] = []  # Names of the 6 clinker phases
+
         # Build UI
         self._build_ui()
 
@@ -100,6 +105,51 @@ class PhaseCompositionEditor(Gtk.Box):
             calc_sg_btn.set_sensitive(False)
 
         self.pack_start(toolbar, False, False, 0)
+
+        # Clinker fraction editor (initially hidden)
+        self.clinker_editor = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        self.clinker_editor.set_margin_top(5)
+        self.clinker_editor.set_margin_bottom(5)
+
+        clinker_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        self.clinker_label = Gtk.Label()
+        self.clinker_label.set_markup("<b>Clinker from:</b> (none)")
+        self.clinker_label.set_halign(Gtk.Align.START)
+        clinker_header.pack_start(self.clinker_label, False, False, 0)
+
+        # Spacer
+        clinker_header.pack_start(Gtk.Label(), True, True, 0)
+
+        fraction_label = Gtk.Label(label="Total Clinker Fraction:")
+        clinker_header.pack_start(fraction_label, False, False, 0)
+
+        self.clinker_fraction_spinner = Gtk.SpinButton()
+        self.clinker_fraction_spinner.set_adjustment(
+            Gtk.Adjustment(value=0.0, lower=0.0, upper=1.0, step_increment=0.01, page_increment=0.1)
+        )
+        self.clinker_fraction_spinner.set_digits(4)
+        self.clinker_fraction_spinner.set_width_chars(10)
+        self.clinker_fraction_spinner.set_tooltip_text(
+            "Edit the total clinker mass fraction.\n"
+            "All clinker phases will be scaled proportionally."
+        )
+        self.clinker_fraction_spinner.connect('value-changed', self._on_clinker_fraction_changed)
+        if not self.editable:
+            self.clinker_fraction_spinner.set_sensitive(False)
+        clinker_header.pack_start(self.clinker_fraction_spinner, False, False, 0)
+
+        self.clinker_editor.pack_start(clinker_header, False, False, 0)
+
+        # Separator
+        separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        self.clinker_editor.pack_start(separator, False, False, 0)
+
+        self.pack_start(self.clinker_editor, False, False, 0)
+
+        # Initially hide clinker editor
+        self.clinker_editor.set_no_show_all(True)
+        self.clinker_editor.hide()
 
         # TreeView for phase list
         scrolled = Gtk.ScrolledWindow()
@@ -196,6 +246,8 @@ class PhaseCompositionEditor(Gtk.Box):
             return
 
         added_count = 0
+        clinker_phase_names = []  # Track phases added from this clinker
+
         for phase in material.phases:
             scaled_fraction = phase.mass_fraction * mass_fraction
             phase_name = phase.gem_phase_name
@@ -223,15 +275,47 @@ class PhaseCompositionEditor(Gtk.Box):
                 self.store.append([phase_name, scaled_fraction])
                 self.logger.info(f"Added phase from material: {phase_name} ({scaled_fraction:.4f})")
 
+            # Track clinker phases
+            if material.is_clinker:
+                clinker_phase_names.append(phase_name)
+
             added_count += 1
 
         self._update_total_label()
         self.emit('composition-changed')
 
-        # If the material is a clinker, emit the clinker-source-added signal
+        # If the material is a clinker, set up clinker tracking and show editor
         if material.is_clinker:
+            # If this is the first clinker or a different clinker, set source
+            if not self.clinker_source_id or self.clinker_source_id == material.id:
+                self.clinker_source_id = material.id
+                self.clinker_source_name = material.name
+
+                # Add new clinker phases to tracking (avoid duplicates)
+                for phase_name in clinker_phase_names:
+                    if phase_name not in self.clinker_phase_names:
+                        self.clinker_phase_names.append(phase_name)
+            else:
+                # Different clinker being added - warn user
+                self.logger.warning(f"Adding phases from different clinker {material.name} - original was {self.clinker_source_name}")
+
+            # Calculate total clinker fraction from all clinker phases
+            total_clinker = sum(
+                p['mass_fraction'] for p in self.phases
+                if p['phase_name'] in self.clinker_phase_names
+            )
+
+            # Update clinker editor UI
+            self.clinker_label.set_markup(f"<b>Clinker from:</b> {material.name}")
+            self.clinker_fraction_spinner.set_value(total_clinker)
+
+            # Show clinker editor (use show_all to show all children)
+            self.clinker_editor.set_no_show_all(False)  # Allow show_all to work
+            self.clinker_editor.show_all()
+
+            # Emit the clinker-source-added signal
             self.emit('clinker-source-added', material.id)
-            self.logger.info(f"Clinker source detected: {material.name} (id={material.id})")
+            self.logger.info(f"Clinker source detected: {material.name} (id={material.id}, total={total_clinker:.4f})")
 
         self.logger.info(f"Added {added_count} phases from material '{material.name}'")
 
@@ -276,11 +360,69 @@ class PhaseCompositionEditor(Gtk.Box):
                     phase['mass_fraction'] = new_fraction
                     break
 
+            # If this is a clinker phase, update the clinker total
+            if self.clinker_source_id and phase_name in self.clinker_phase_names:
+                self._update_clinker_total_from_phases()
+
             self._update_total_label()
             self.emit('composition-changed')
 
         except ValueError:
             self._show_error("Invalid number format")
+
+    def _on_clinker_fraction_changed(self, spinner):
+        """Handle clinker fraction spinner change - rescale all clinker phases."""
+        if not self.clinker_source_id or not self.clinker_phase_names:
+            return
+
+        new_total = spinner.get_value()
+
+        # Calculate current total of clinker phases
+        current_total = sum(
+            p['mass_fraction'] for p in self.phases
+            if p['phase_name'] in self.clinker_phase_names
+        )
+
+        if current_total == 0:
+            self.logger.warning("Cannot rescale clinker phases: current total is 0")
+            return
+
+        # Calculate scaling factor
+        scale_factor = new_total / current_total
+
+        # Update all clinker phases
+        for phase in self.phases:
+            if phase['phase_name'] in self.clinker_phase_names:
+                phase['mass_fraction'] *= scale_factor
+
+        # Update store
+        for row in self.store:
+            if row[0] in self.clinker_phase_names:
+                row[1] *= scale_factor
+
+        self._update_total_label()
+        self.emit('composition-changed')
+
+        self.logger.info(f"Rescaled clinker phases by {scale_factor:.4f} to total {new_total:.4f}")
+
+    def _update_clinker_total_from_phases(self):
+        """Update the clinker fraction spinner based on current phase fractions."""
+        if not self.clinker_source_id or not self.clinker_phase_names:
+            return
+
+        # Block signal to prevent recursive updates
+        self.clinker_fraction_spinner.handler_block_by_func(self._on_clinker_fraction_changed)
+
+        # Calculate current total
+        current_total = sum(
+            p['mass_fraction'] for p in self.phases
+            if p['phase_name'] in self.clinker_phase_names
+        )
+
+        self.clinker_fraction_spinner.set_value(current_total)
+
+        # Unblock signal
+        self.clinker_fraction_spinner.handler_unblock_by_func(self._on_clinker_fraction_changed)
 
     def _on_calculate_sg_clicked(self, button):
         """Handle auto-calculate SG button click."""
@@ -383,6 +525,17 @@ class PhaseCompositionEditor(Gtk.Box):
                 self.store.remove(row.iter)
                 break
 
+        # If this was a clinker phase, remove from tracking
+        if self.clinker_source_id and phase_name in self.clinker_phase_names:
+            self.clinker_phase_names.remove(phase_name)
+
+            # If all clinker phases are removed, hide the clinker editor
+            if not self.clinker_phase_names:
+                self._clear_clinker_tracking()
+            else:
+                # Update clinker total
+                self._update_clinker_total_from_phases()
+
         self._update_total_label()
         self.emit('composition-changed')
 
@@ -414,8 +567,55 @@ class PhaseCompositionEditor(Gtk.Box):
         """Clear all phases."""
         self.phases = []
         self.store.clear()
+        self._clear_clinker_tracking()
         self._update_total_label()
         self.emit('composition-changed')
+
+    def _clear_clinker_tracking(self):
+        """Clear clinker tracking and hide clinker editor."""
+        self.clinker_source_id = None
+        self.clinker_source_name = None
+        self.clinker_phase_names = []
+
+        # Hide clinker editor
+        self.clinker_editor.hide()
+        self.clinker_editor.set_no_show_all(True)  # Prevent show_all from showing it
+
+        # Reset UI
+        self.clinker_label.set_markup("<b>Clinker from:</b> (none)")
+        self.clinker_fraction_spinner.set_value(0.0)
+
+    def set_clinker_source(self, clinker_material_id: int, clinker_material_name: str,
+                           clinker_phase_names: List[str]):
+        """
+        Set clinker source information for an existing material.
+
+        This is used when loading a material that was created from a clinker source.
+
+        Args:
+            clinker_material_id: ID of the clinker material
+            clinker_material_name: Name of the clinker material
+            clinker_phase_names: List of phase names that came from the clinker
+        """
+        self.clinker_source_id = clinker_material_id
+        self.clinker_source_name = clinker_material_name
+        self.clinker_phase_names = clinker_phase_names
+
+        # Calculate total clinker fraction
+        clinker_total = sum(
+            p['mass_fraction'] for p in self.phases
+            if p['phase_name'] in clinker_phase_names
+        )
+
+        # Update UI
+        self.clinker_label.set_markup(f"<b>Clinker from:</b> {clinker_material_name}")
+        self.clinker_fraction_spinner.set_value(clinker_total)
+
+        # Show clinker editor (use show_all to show all children)
+        self.clinker_editor.set_no_show_all(False)  # Allow show_all to work
+        self.clinker_editor.show_all()
+
+        self.logger.info(f"Restored clinker tracking: {clinker_material_name} (total={clinker_total:.4f})")
 
     def get_total_mass_fraction(self) -> float:
         """Get the sum of all mass fractions."""

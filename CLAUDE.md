@@ -307,6 +307,86 @@ November 18, 2025
 
 ---
 
+### Session 5: Clinker Re-migration + PSD UI + Clinker Fraction Editor
+November 20, 2025
+
+**Context**: Completed three major tasks: (1) re-migrated VCCTL cements with clinker data, (2) integrated VCCTL's PSD UI widget, (3) implemented editable aggregate clinker fraction in phase editor.
+
+**Key Accomplishments**:
+
+1. **VCCTL Cement Re-migration with Clinker Data**
+   - Updated migration script to create ClinkerExtension records
+   - Migrated 36 cements with surface area fractions and 161 correlation functions
+   - Fixed column name mappings (c4f → correlation_c4af)
+   - Added missing database columns: `is_clinker`, `has_clinker`, `clinker_source_id`
+   - 100% success rate, all correlation BLOBs stored correctly
+
+2. **PSD UI Integration**
+   - Replaced confusing "PSD Data ID" spinner with VCCTL's UnifiedPSDWidget
+   - Made MaterialDialog scrollable (max height 600px) to prevent overflow
+   - PSD section in collapsible Expander (collapsed by default)
+   - All 5 distribution types available: Rosin-Rammler, Log-Normal, Fuller-Thompson, Custom, Discrete
+   - CSV import/export working
+   - Fixed: `material_service.database_service` → `material_service.db_service`
+
+3. **Clinker Fraction Editor** (NEW FEATURE)
+   - Added "Clinker from: [Material Name]" section in PhaseCompositionEditor
+   - Editable "Total Clinker Fraction" spinner appears when clinker phases added
+   - Proportional scaling: edit total → all 6 phases scale, maintaining ratios
+   - Bidirectional sync: edit individual phase → total updates
+   - Handles adding same clinker multiple times (sums fractions correctly)
+   - Restores clinker tracking when loading existing materials
+   - Fixed visibility bug: `set_no_show_all(False)` before `show_all()`
+
+**Workflow Example**:
+1. Create Simple Material
+2. "Add from Material" → Cement 116 at 0.95
+3. See "Clinker from: Cement 116" with "Total Clinker Fraction: 0.9500"
+4. Edit spinner to 0.90 → all 6 phases scale proportionally
+5. Add gypsum, hemihydrate at remaining fractions
+6. Save - clinker tracking preserved
+
+**Files Modified**:
+- `scripts/migrate_vcctl_materials.py` - added clinker migration methods (~100 lines)
+- `src/app/windows/dialogs/thames_material_dialog.py` - PSD widget + clinker restoration (~150 lines)
+- `src/app/widgets/phase_composition_editor.py` - clinker fraction editor (~150 lines)
+
+**Database Status**:
+- Location: `~/Library/Application Support/THAMES/database/thames.db`
+- 39 materials (36 cements + 1 limestone + 2 test)
+- 36 clinker extensions with surface fractions
+- 161 correlation functions (BLOBs)
+
+**Testing Status**: ✓ All manual tests passed
+- ✓ Cement migration: 36/36 with clinker data
+- ✓ PSD widget: All distributions work, CSV import/export
+- ✓ Clinker editor: Scaling, summing, persistence all verified
+
+**User Feedback**: "That is definitely working now. I like it a lot. I don't immediately see anything else that needs to be done with the Materials page."
+
+**Next Steps** (for next session):
+1. **Mix Design Service & UI** (HIGH PRIORITY)
+   - Design MixDesign database schema
+   - Create MixDesignService with CRUD operations
+   - Basic UI for creating mixes from materials
+   - Water/cement ratio calculator
+   - Kinetic parameter inputs per material
+
+2. **Materials Testing** (MEDIUM PRIORITY)
+   - Create test materials (fly ash, slag, limestone filler)
+   - Verify phase composition validation
+   - Test auto-SG calculation
+
+**Critical Files for Next Session**:
+- Material Service: `src/app/services/material_service.py`
+- GEMS Parser: `src/app/services/gems_parser_service.py`
+- VCCTL Mix Design (reference): `vcctl-gtk/src/app/windows/panels/mix_design_panel.py`
+- VCCTL Mix Service (reference): `vcctl-gtk/src/app/services/mix_design_service.py`
+- Database: `~/Library/Application Support/THAMES/database/thames.db`
+- Session 5 Summary: `docs/SESSION_5_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

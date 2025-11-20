@@ -44,7 +44,8 @@ from app.models import (
     Material,
     Tag,
     MaterialPhase,
-    PSDData
+    PSDData,
+    ClinkerExtension
 )
 from app.config.phase_mappings import VCCTL_TO_GEMS_CEMENT
 from app.services.gems_parser_service import GEMSParserService
@@ -97,6 +98,8 @@ class MaterialMigrator:
             'materials_created': 0,
             'tags_created': 0,
             'phases_created': 0,
+            'clinkers_created': 0,
+            'correlations_migrated': 0,
             'errors': []
         }
 
@@ -139,6 +142,89 @@ class MaterialMigrator:
                 self.stats['phases_created'] += 1
 
         return phases
+
+    def _create_clinker_extension(
+        self,
+        material: Material,
+        vcctl_cement: VCCTLCement
+    ) -> Optional[ClinkerExtension]:
+        """
+        Create ClinkerExtension for a cement material.
+
+        Args:
+            material: Material instance
+            vcctl_cement: VCCTL Cement instance with surface fractions and correlations
+
+        Returns:
+            ClinkerExtension instance or None if no data
+        """
+        try:
+            # Check if we have surface fractions or correlation data
+            has_surface_fractions = any([
+                vcctl_cement.c3s_surface_fraction,
+                vcctl_cement.c2s_surface_fraction,
+                vcctl_cement.c3a_surface_fraction,
+                vcctl_cement.c4af_surface_fraction,
+                vcctl_cement.k2so4_surface_fraction,
+                vcctl_cement.na2so4_surface_fraction
+            ])
+
+            has_correlations = any([
+                vcctl_cement.sil,
+                vcctl_cement.c3s,
+                vcctl_cement.alu,
+                vcctl_cement.c3a,
+                vcctl_cement.c4f,  # Note: VCCTL uses c4f
+                vcctl_cement.k2o,
+                vcctl_cement.n2o
+            ])
+
+            if not has_surface_fractions and not has_correlations:
+                return None
+
+            # Create clinker extension
+            clinker_ext = ClinkerExtension(
+                material_id=material.id,
+                # Surface area fractions
+                c3s_surface_fraction=vcctl_cement.c3s_surface_fraction,
+                c2s_surface_fraction=vcctl_cement.c2s_surface_fraction,
+                c3a_surface_fraction=vcctl_cement.c3a_surface_fraction,
+                c4af_surface_fraction=vcctl_cement.c4af_surface_fraction,
+                k2so4_surface_fraction=vcctl_cement.k2so4_surface_fraction,
+                na2so4_surface_fraction=vcctl_cement.na2so4_surface_fraction,
+                # Correlation functions (note: use correlation_ prefix)
+                correlation_sil=vcctl_cement.sil,
+                correlation_c3s=vcctl_cement.c3s,
+                correlation_alu=vcctl_cement.alu,
+                correlation_c3a=vcctl_cement.c3a,
+                correlation_c4af=vcctl_cement.c4f,  # Map c4f to c4af
+                correlation_k2o=vcctl_cement.k2o,
+                correlation_n2o=vcctl_cement.n2o
+            )
+
+            if not self.dry_run:
+                self.thames_session.add(clinker_ext)
+
+            self.stats['clinkers_created'] += 1
+
+            # Count correlations migrated
+            correlation_count = sum([
+                1 for corr in [vcctl_cement.sil, vcctl_cement.c3s, vcctl_cement.alu,
+                               vcctl_cement.c3a, vcctl_cement.c4f, vcctl_cement.k2o,
+                               vcctl_cement.n2o]
+                if corr is not None
+            ])
+            self.stats['correlations_migrated'] += correlation_count
+
+            print(f"    ✓ Clinker extension created: {correlation_count} correlations")
+
+            return clinker_ext
+
+        except Exception as e:
+            error_msg = f"Error creating clinker extension for {material.name}: {e}"
+            print(f"    ⚠ {error_msg}")
+            self.stats['errors'].append(error_msg)
+            return None
 
     def _calculate_specific_gravity(
         self,
@@ -227,7 +313,7 @@ class MaterialMigrator:
             )
             print(f"    Specific gravity: {specific_gravity:.3f}")
 
-            # Create Material
+            # Create Material (mark as clinker)
             material = Material(
                 name=vcctl_cement.name,
                 specific_gravity=specific_gravity,
@@ -236,7 +322,8 @@ class MaterialMigrator:
                 description=vcctl_cement.description,
                 source=vcctl_cement.source,
                 notes=vcctl_cement.notes,
-                immutable=True  # Mark as read-only migrated material
+                immutable=True,  # Mark as read-only migrated material
+                is_clinker=True  # Mark as clinker material
             )
 
             # Add tags
@@ -251,6 +338,9 @@ class MaterialMigrator:
             # Create phase entries
             phases = self._create_material_phases(material, phase_fractions)
             print(f"    ✓ Created {len(phases)} phase entries")
+
+            # Create clinker extension (surface fractions + correlations)
+            clinker_ext = self._create_clinker_extension(material, vcctl_cement)
 
             self.stats['materials_created'] += 1
             self.stats['cements_migrated'] += 1
@@ -414,6 +504,8 @@ class MaterialMigrator:
         print(f"  - Limestones:         {self.stats['limestones_migrated']}")
         print(f"Tags created:           {self.stats['tags_created']}")
         print(f"Phase entries created:  {self.stats['phases_created']}")
+        print(f"Clinkers created:       {self.stats['clinkers_created']}")
+        print(f"Correlations migrated:  {self.stats['correlations_migrated']}")
 
         if self.stats['errors']:
             print(f"\n⚠ Errors encountered:   {len(self.stats['errors'])}")
