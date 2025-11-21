@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Initialize THAMES Material Database Tables
+Initialize THAMES Database Tables
 
-Creates the new THAMES material tables (material, tag, material_tags, material_phase)
-in the existing database without affecting legacy VCCTL tables.
+Creates the THAMES database tables (material, tag, material_tags, material_phase,
+clinker_extension, material_component, mix_design) in the existing database.
 
 This script is idempotent - safe to run multiple times.
 
@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from sqlalchemy import create_engine, inspect
 from app.database.base import Base
 from app.models import Material, Tag, MaterialPhase, PSDData, ClinkerExtension, MaterialComponent
+from app.models.mix_design import MixDesign
 
 
 def init_thames_tables(db_path: Path, force: bool = False) -> None:
@@ -32,7 +33,7 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
         force: If True, drop existing tables first (DANGEROUS!)
     """
     print("=" * 70)
-    print("THAMES MATERIAL TABLES INITIALIZATION")
+    print("THAMES DATABASE TABLES INITIALIZATION")
     print("=" * 70)
     print(f"\nDatabase: {db_path}")
 
@@ -43,7 +44,7 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
     inspector = inspect(engine)
     existing_tables = inspector.get_table_names()
 
-    thames_tables = ['material', 'tag', 'material_tags', 'material_phase', 'clinker_extension', 'material_component']
+    thames_tables = ['material', 'tag', 'material_tags', 'material_phase', 'clinker_extension', 'material_component', 'mix_design']
     existing_thames_tables = [t for t in thames_tables if t in existing_tables]
     missing_tables = [t for t in thames_tables if t not in existing_tables]
 
@@ -71,13 +72,14 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
             print(f"\nMissing tables to create: {missing_tables}")
 
     # Create tables
-    print("\nCreating THAMES material tables:")
+    print("\nCreating THAMES tables:")
     print("  - material")
     print("  - tag")
     print("  - material_tags (association table)")
     print("  - material_phase")
     print("  - clinker_extension")
     print("  - material_component")
+    print("  - mix_design")
 
     # Get the specific tables we want to create from Base.metadata
     tables_to_create = [
@@ -87,6 +89,7 @@ def init_thames_tables(db_path: Path, force: bool = False) -> None:
         Base.metadata.tables['material_phase'],
         Base.metadata.tables['clinker_extension'],
         Base.metadata.tables['material_component'],
+        Base.metadata.tables['mix_design'],
     ]
 
     # Create the tables

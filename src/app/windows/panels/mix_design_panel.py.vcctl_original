@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """
-Mix Design Panel for THAMES
+Mix Design Panel for VCCTL
 
 Provides comprehensive mix design interface with material selection, composition calculations,
 water-binder ratio optimization, and real-time validation.
-
-Based on VCCTL v10.0.0 with THAMES-specific extensions for dynamic phase ID mapping.
 """
 
 import gi
@@ -46,7 +44,7 @@ class MixDesignPanel(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         
         self.main_window = main_window
-        self.logger = logging.getLogger('THAMES.MixDesignPanel')
+        self.logger = logging.getLogger('VCCTL.MixDesignPanel')
         self.service_container = get_service_container()
         self.mix_service = MixService(self.service_container.database_service)
         self.microstructure_service = self.service_container.microstructure_service
@@ -193,7 +191,7 @@ class MixDesignPanel(Gtk.Box):
         # Left column: Mix composition (existing)
         left_column = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
         
-        left_frame = Gtk.Frame(label="Binder Components")
+        left_frame = Gtk.Frame(label="Cement Paste Components")
         self._create_composition_section(left_frame)
         left_column.pack_start(left_frame, False, False, 0)
         
@@ -587,187 +585,107 @@ class MixDesignPanel(Gtk.Box):
         self.micro_air_content_spin.connect('value-changed', self._on_volume_fraction_changed)
     
     def _create_component_row(self) -> Dict[str, Any]:
-        """Create a new component row widget.
-
-        THAMES simplified version: Uses MaterialSelector with autocomplete and tag filtering.
-        """
-        from app.widgets.material_selector import MaterialSelector
-
+        """Create a new component row widget."""
+        import traceback
+        self.logger.info(f"DEBUG: _create_component_row called from:")
+        stack_lines = traceback.format_stack()
+        for line in stack_lines[-3:-1]:  # Show last 2 stack frames
+            self.logger.info(f"DEBUG: {line.strip()}")
         row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         row_box.set_margin_top(2)
         row_box.set_margin_bottom(2)
-
-        # THAMES: Material selector with autocomplete and optional tag filter
-        material_service = self.service_container.material_service
-        material_selector = MaterialSelector(
-            material_service,
-            show_tag_filter=True,
-            placeholder="Type to search materials..."
-        )
-        row_box.pack_start(material_selector, False, False, 0)
-
+        
+        # Material type combo (exclude aggregate - it's not a powder component)
+        type_combo = Gtk.ComboBoxText()
+        type_combo.set_size_request(120, -1)
+        # Populate with available material types (will be filtered dynamically)
+        self._populate_material_type_combo(type_combo)
+        row_box.pack_start(type_combo, False, False, 0)
+        
+        # Material name combo
+        name_combo = Gtk.ComboBoxText()
+        name_combo.set_size_request(150, -1)
+        row_box.pack_start(name_combo, False, False, 0)
+        
         # Mass (kg) spin button
         mass_spin = Gtk.SpinButton.new_with_range(0.0, 10000.0, 0.001)
         mass_spin.set_digits(3)
         mass_spin.set_value(1.000)  # Default to 1.000 kg
         mass_spin.set_size_request(80, -1)
         row_box.pack_start(mass_spin, False, False, 0)
-
+        
         # kg label
         kg_label = Gtk.Label("kg")
         row_box.pack_start(kg_label, False, False, 0)
-
-        # Grading button (hidden for binder components)
+        
+        # Specific gravity display
+        sg_label = Gtk.Label("SG: 2.650")
+        sg_label.set_size_request(80, -1)
+        sg_label.get_style_context().add_class("dim-label")
+        sg_label.set_tooltip_text("Specific Gravity - ratio of material density to water density")
+        row_box.pack_start(sg_label, False, False, 0)
+        
+        # Grading button (only for aggregates)
         grading_button = Gtk.Button()
         grading_icon = create_icon_image("settings", 16)
         grading_button.set_image(grading_icon)
         grading_button.set_relief(Gtk.ReliefStyle.NONE)
         grading_button.set_tooltip_text("Edit grading curve")
-        grading_button.set_sensitive(False)
-        grading_button.set_no_show_all(True)  # Hide for binder components
-        grading_button.hide()
+        grading_button.set_sensitive(False)  # Enable only for aggregates
         row_box.pack_start(grading_button, False, False, 0)
-
+        
         # Remove button
         remove_button = Gtk.Button()
         remove_icon = create_icon_image("subtract", 16)
         remove_button.set_image(remove_icon)
         remove_button.set_relief(Gtk.ReliefStyle.NONE)
         row_box.pack_start(remove_button, False, False, 0)
-
+        
         # Store references in row data
-        # Keep 'type_combo' and 'name_combo' keys for backwards compatibility
         row_data = {
             'box': row_box,
-            'type_combo': None,  # THAMES: No longer used
-            'name_combo': None,  # THAMES: Replaced by material_selector
-            'material_selector': material_selector,  # THAMES: New autocomplete selector
+            'type_combo': type_combo,
+            'name_combo': name_combo,
             'mass_spin': mass_spin,
-            'sg_label': material_selector.sg_label,  # THAMES: SG label is inside selector
+            'sg_label': sg_label,
             'grading_button': grading_button,
             'remove_button': remove_button,
-            'grading_data': [],  # Store grading curve data
-            'material_id': None  # THAMES: Store selected material ID
+            'grading_data': []  # Store grading curve data
         }
-
+        
         # Connect signals
-        material_selector.connect('material-selected', self._on_material_selector_changed, row_data)
-        material_selector.connect('material-cleared', self._on_material_selector_cleared, row_data)
+        type_combo.connect('changed', self._on_component_type_changed, row_data)
+        name_combo.connect('changed', self._on_component_name_changed, row_data)
         mass_spin.connect('value-changed', self._on_component_mass_changed, row_data)
         grading_button.connect('clicked', self._on_grading_button_clicked, row_data)
         remove_button.connect('clicked', self._on_remove_component_clicked, row_data)
-
+        
+        # Update material names based on initial type
+        self._update_material_names(row_data)
+        
         return row_data
-
-    def _on_material_selector_changed(self, selector, material_id: int, material_name: str, sg: float, row_data: Dict[str, Any]) -> None:
-        """Handle material selection from MaterialSelector widget."""
-        row_data['material_id'] = material_id
-        self.logger.debug(f"Material selected: {material_name} (ID: {material_id}, SG: {sg})")
-
-        # Trigger recalculation
-        if self.auto_calculate_enabled:
-            self._trigger_calculation()
-
-    def _on_material_selector_cleared(self, selector, row_data: Dict[str, Any]) -> None:
-        """Handle material cleared from MaterialSelector widget."""
-        row_data['material_id'] = None
-
-        # Trigger recalculation
-        if self.auto_calculate_enabled:
-            self._trigger_calculation()
-
-    # THAMES-specific methods for simplified material selection
-    def _populate_thames_material_combo(self, combo: Gtk.ComboBoxText) -> None:
-        """Populate combo with all THAMES materials.
-
-        THAMES uses a unified material system with tags instead of rigid categories.
-        All materials are shown in a single alphabetically-sorted dropdown.
-        """
-        combo.remove_all()
-        combo.append("", "-- Select Material --")
-
-        try:
-            # Get MaterialService from service container
-            material_service = self.service_container.material_service
-
-            # Get all THAMES materials
-            materials = material_service.get_all()
-
-            # Sort by name and add to combo
-            for material in sorted(materials, key=lambda m: m.name.lower()):
-                # Store material ID as the combo ID for easy lookup
-                combo.append(str(material.id), material.name)
-
-            self.logger.debug(f"Populated material combo with {len(materials)} materials")
-
-        except Exception as e:
-            self.logger.error(f"Failed to populate THAMES material combo: {e}")
-
-    def _on_thames_material_changed(self, combo: Gtk.ComboBoxText, row_data: Dict[str, Any]) -> None:
-        """Handle THAMES material selection change.
-
-        Updates the specific gravity display and triggers recalculation.
-        """
-        material_id_str = combo.get_active_id()
-        sg_label = row_data['sg_label']
-
-        if not material_id_str:
-            sg_label.set_text("SG: --")
-            row_data['material_id'] = None
-            return
-
-        try:
-            material_id = int(material_id_str)
-            row_data['material_id'] = material_id
-
-            # Get material from service
-            material_service = self.service_container.material_service
-            material = material_service.get_by_id(material_id)
-
-            if material and material.specific_gravity:
-                sg_label.set_text(f"SG: {material.specific_gravity:.3f}")
-            else:
-                sg_label.set_text("SG: --")
-
-            # Trigger recalculation
-            if self.auto_calculate_enabled:
-                self._trigger_calculation()
-
-        except Exception as e:
-            self.logger.error(f"Failed to handle material change: {e}")
-            sg_label.set_text("SG: --")
-
+    
     def _update_material_names(self, row_data: Dict[str, Any]) -> None:
-        """Update material names combo based on selected type.
-
-        THAMES: This method is kept for backwards compatibility but is not used
-        in the simplified single-dropdown mode. The combo is populated directly
-        in _create_component_row via _populate_thames_material_combo.
-        """
-        type_combo = row_data.get('type_combo')
-        name_combo = row_data.get('name_combo')
-
-        # THAMES mode: type_combo is None, combo is already populated
-        if type_combo is None:
-            return
-
-        # Legacy VCCTL mode (kept for reference)
+        """Update material names combo based on selected type."""
+        type_combo = row_data['type_combo']
+        name_combo = row_data['name_combo']
+        
         # Clear existing items
         name_combo.remove_all()
-
+        
         # Get selected material type
         material_type_str = type_combo.get_active_id()
         if not material_type_str:
             return
-
+        
         try:
             material_type = MaterialType(material_type_str)
             materials = self.material_lists.get(material_type, [])
-
+            
             # Populate name combo in alphabetical order
             for material_name in sorted(materials):
                 name_combo.append(material_name, material_name)
-
+            
             # Set smart defaults based on material type
             default_selected = False
             if materials:
@@ -778,11 +696,11 @@ class MixDesignPanel(Gtk.Box):
                             name_combo.set_active(i)
                             default_selected = True
                             break
-
+                
                 # If no specific default found, use first item
                 if not default_selected:
                     name_combo.set_active(0)
-
+        
         except Exception as e:
             self.logger.warning(f"Failed to update material names: {e}")
     
@@ -939,14 +857,7 @@ class MixDesignPanel(Gtk.Box):
         return 0
 
     def _on_component_type_changed(self, combo, row_data) -> None:
-        """Handle component type change.
-
-        THAMES: This method is not used in THAMES mode where type_combo is None.
-        """
-        # THAMES mode: type_combo is None, use _on_thames_material_changed instead
-        if row_data.get('type_combo') is None:
-            return
-
+        """Handle component type change."""
         # Skip constraint checking if we're loading from database
         loading_flag = getattr(self, '_loading_in_progress', False)
         
@@ -1662,14 +1573,8 @@ class MixDesignPanel(Gtk.Box):
         try:
             self.logger.info(f"DEBUG: _create_mix_design_from_ui - found {len(self.component_rows)} UI component rows")
             for i, row in enumerate(self.component_rows):
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_id = row.get('material_id')
-                    name = row['material_selector'].get_selected_material_name()
-                    type_str = 'thames_material'  # THAMES uses unified materials
-                else:
-                    type_str = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                type_str = row['type_combo'].get_active_id()
+                name = row['name_combo'].get_active_id()
                 mass_kg = row['mass_spin'].get_value()
                 self.logger.info(f"DEBUG: UI Row {i+1}: type='{type_str}', name='{name}', mass={mass_kg}")
             mix_name = self.mix_name_entry.get_text().strip()
@@ -1699,41 +1604,22 @@ class MixDesignPanel(Gtk.Box):
             
             # Create components with mass fractions (relative to total solid mass, excluding water)
             for row in self.component_rows:
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_id = row.get('material_id')
-                    name = row['material_selector'].get_selected_material_name()
-                    type_str = 'thames_material'
-                else:
-                    type_str = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                type_str = row['type_combo'].get_active_id()
+                name = row['name_combo'].get_active_id()
                 mass_kg = row['mass_spin'].get_value()
-
-                if name and mass_kg > 0 and total_solid_mass > 0:
-                    # THAMES mode: get SG from material_selector or material_service
-                    if row.get('material_selector'):
-                        # Get SG from the material selector's SG label
-                        sg = 3.15  # Default
-                        try:
-                            sg_text = row['material_selector'].sg_label.get_text()
-                            if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
-                                sg = float(sg_text.replace("SG: ", ""))
-                        except (ValueError, TypeError):
-                            pass
-                        material_type = MaterialType.CEMENT  # Use CEMENT as default for THAMES materials
-                        self.logger.info(f"COMPONENT DEBUG (THAMES): {name} - mass={mass_kg}, sg={sg}")
-                    else:
-                        material_type = MaterialType(type_str)
-                        try:
-                            sg = self.mix_service._get_material_specific_gravity(name, material_type)
-                            self.logger.info(f"COMPONENT DEBUG: {name} ({material_type}) - mass={mass_kg}, sg={sg}")
-                        except Exception as e:
-                            self.logger.error(f"COMPONENT ERROR: Failed to get SG for {name} ({material_type}): {e}")
-                            continue  # Skip this component
-
+                
+                if type_str and name and mass_kg > 0 and total_solid_mass > 0:
+                    material_type = MaterialType(type_str)
+                    try:
+                        sg = self.mix_service._get_material_specific_gravity(name, material_type)
+                        self.logger.info(f"COMPONENT DEBUG: {name} ({material_type}) - mass={mass_kg}, sg={sg}")
+                    except Exception as e:
+                        self.logger.error(f"COMPONENT ERROR: Failed to get SG for {name} ({material_type}): {e}")
+                        continue  # Skip this component
+                    
                     # Convert kg to mass fraction (relative to total solid mass, excluding water)
                     mass_fraction = mass_kg / total_solid_mass
-
+                    
                     component = MixComponent(
                         material_name=name,
                         material_type=material_type,
@@ -1856,32 +1742,23 @@ class MixDesignPanel(Gtk.Box):
         """Get current components in format suitable for validation."""
         try:
             components = []
-
+            
             # Get powder components
             for row in self.component_rows:
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_type = 'thames_material'
-                    material_name = row['material_selector'].get_selected_material_name()
-                else:
-                    material_type = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    material_name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                material_type = row['type_combo'].get_active_id()
+                material_name = row['name_combo'].get_active_id()
                 mass_kg = row['mass_spin'].get_value()
-
-                if material_name and mass_kg > 0:
+                
+                if material_type and material_name and mass_kg > 0:
                     # Get specific gravity
                     specific_gravity = 3.15  # Default
                     try:
                         sg_text = row['sg_label'].get_text()
                         if sg_text and sg_text != "—":
-                            # THAMES mode: SG label format is "SG: X.XXX"
-                            if sg_text.startswith("SG: ") and sg_text != "SG: --":
-                                specific_gravity = float(sg_text.replace("SG: ", ""))
-                            else:
-                                specific_gravity = float(sg_text)
-                    except (ValueError, TypeError, AttributeError):
+                            specific_gravity = float(sg_text)
+                    except (ValueError, TypeError):
                         pass
-
+                    
                     components.append(ComponentData(
                         material_name=material_name,
                         material_type=material_type,

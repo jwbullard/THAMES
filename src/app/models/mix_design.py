@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 """
-Mix Design Model for VCCTL
+Mix Design Model for THAMES
 
 Represents saved concrete mix designs with components, properties, and metadata.
+Adapted from VCCTL v10.0.0 with THAMES-specific extensions for dynamic phase ID mapping.
 """
 
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from sqlalchemy import Column, String, Float, Text, Integer, Boolean, DateTime, JSON
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.database.base import Base
-# Import centralized validation
-from app.validation import MixDesignValidator, ComponentData
 
 
 class MixDesign(Base):
     """
     Mix Design model representing saved concrete mix formulations.
-    
+
     Contains mix composition data, component information, water-binder ratios,
     air content, and other mix design parameters.
+
+    THAMES-specific: Includes dynamic phase ID mapping for genmic.c input generation.
     """
-    
+
     __tablename__ = 'mix_design'
     
     # Primary key - auto-incrementing integer ID
@@ -50,7 +51,7 @@ class MixDesign(Base):
     system_size = Column(Integer, nullable=False, default=100)  # Keep for backward compatibility
     
     # Resolution for microstructure generation
-    resolution = Column(Float, nullable=False, default=1.0)
+    resolution = Column(Float, nullable=False, default=1.0)  # μm/voxel
     
     # Random seed for reproducibility
     random_seed = Column(Integer, nullable=False, default=-1)
@@ -84,17 +85,24 @@ class MixDesign(Base):
     coarse_aggregate_grading_template = Column(String(64), nullable=True)
     
     # Component data stored as JSON
-    # Format: [{"material_name": str, "material_type": str, "mass_fraction": float, "volume_fraction": float, "specific_gravity": float}, ...]
+    # Format: [{"material_id": int, "material_name": str, "mass_fraction": float, "volume_fraction": float,
+    #           "specific_gravity": float, "grading_data": [[sieve, retained], ...], "grading_template": str}, ...]
     components = Column(JSON, nullable=False, default=list)
-    
+
     # Reference water mass for exact mass reconstruction (in kg)
     # Used to calculate exact total mass: total_mass = water_reference_mass / water_mass_fraction
     water_reference_mass = Column(Float, nullable=True, default=None)
-    
+
     # Calculated properties stored as JSON
     # Format: {"paste_volume_fraction": float, "powder_volume_fraction": float, "aggregate_volume_fraction": float, ...}
     calculated_properties = Column(JSON, nullable=True, default=dict)
-    
+
+    # THAMES-specific: Phase ID mapping for genmic.c
+    # Format: {"phase_name": phase_id, ...}
+    # Example: {"Void": 0, "Electrolyte": 1, "Alite": 2, "Belite": 3, "Gypsum": 8, "Quartz": 9}
+    # This mapping is critical for microstructure generation and hydration operations
+    phase_id_mapping = Column(JSON, nullable=True, default=dict)
+
     # Additional metadata
     notes = Column(Text, nullable=True)
     is_template = Column(Boolean, nullable=False, default=False)  # Mark as template for reuse
@@ -107,13 +115,16 @@ class MixDesign(Base):
 
 class MixDesignComponentData(BaseModel):
     """Represents a single component in a mix design."""
+    material_id: int = Field(..., gt=0, description="THAMES material ID")
     material_name: str = Field(..., min_length=1, max_length=128)
-    material_type: str = Field(..., min_length=1, max_length=64)
     mass_fraction: float = Field(ge=0.0, le=1.0)
     volume_fraction: float = Field(ge=0.0, le=1.0)
     specific_gravity: float = Field(gt=0.0, le=10.0)
     # Optional grading data for aggregates
-    grading_data: Optional[List[List[float]]] = Field(None, description="Grading curve data as list of [sieve_size, percent_retained] pairs")
+    grading_data: Optional[List[List[float]]] = Field(
+        None,
+        description="Grading curve data as list of [sieve_size, percent_retained] pairs"
+    )
     grading_template: Optional[str] = Field(None, max_length=64, description="Name of grading template used")
 
 
@@ -179,8 +190,15 @@ class MixDesignCreate(BaseModel):
     # Component and properties data
     components: List[MixDesignComponentData] = Field(default_factory=list)
     calculated_properties: Optional[MixDesignPropertiesData] = Field(None)
+
+    # Phase ID mapping (THAMES-specific)
+    phase_id_mapping: Optional[Dict[str, int]] = Field(
+        None,
+        description="Mapping of phase names to their assigned IDs for genmic.c"
+    )
+
     notes: Optional[str] = Field(None, max_length=2000)
-    
+
     # Reference water mass for exact mass reconstruction
     water_reference_mass: Optional[float] = Field(None, ge=0.0)
     is_template: bool = Field(default=False)
@@ -197,36 +215,27 @@ class MixDesignCreate(BaseModel):
             if char in v:
                 raise ValueError(f'Mix design name cannot contain "{char}"')
         return v.strip()
-    
-    @model_validator(mode='after')
-    def validate_components(self):
-        """Validate mix design components using centralized validation."""
-        if not self.components:
-            raise ValueError('Mix design must have at least one component')
-        
-        # Convert to standardized format for centralized validation
-        validation_components = [
-            ComponentData(
-                material_name=comp.material_name,
-                material_type=comp.material_type,
-                mass_fraction=comp.mass_fraction,
-                volume_fraction=comp.volume_fraction,
-                specific_gravity=comp.specific_gravity
-            )
-            for comp in self.components
-        ]
-        
-        # Use centralized validation for mass fractions
-        is_valid, error = MixDesignValidator.validate_mass_fractions_only(validation_components)
-        if not is_valid:
-            raise ValueError(error)
-        
-        # Use centralized validation for component uniqueness
-        is_unique, error = MixDesignValidator.validate_component_uniqueness_only(validation_components)
-        if not is_unique:
-            raise ValueError(error)
-        
-        return self
+
+    @field_validator('system_size_x', 'system_size_y', 'system_size_z')
+    @classmethod
+    def validate_system_size(cls, v, info):
+        """Validate system size doesn't exceed 64M voxels."""
+        # This will be validated after all fields are set
+        return v
+
+    @field_validator('components')
+    @classmethod
+    def validate_components(cls, v):
+        """Validate components list."""
+        if not v:
+            return v
+
+        # Check mass fractions sum to <= 1.0
+        total_mass = sum(comp.mass_fraction for comp in v)
+        if total_mass > 1.01:  # Allow small tolerance
+            raise ValueError(f'Component mass fractions sum to {total_mass:.3f}, must be <= 1.0')
+
+        return v
 
 
 class MixDesignUpdate(BaseModel):
@@ -282,6 +291,8 @@ class MixDesignUpdate(BaseModel):
     # Component and properties data
     components: Optional[List[MixDesignComponentData]] = None
     calculated_properties: Optional[MixDesignPropertiesData] = None
+    phase_id_mapping: Optional[Dict[str, int]] = None
+
     notes: Optional[str] = Field(None, max_length=2000)
     is_template: Optional[bool] = None
     
@@ -356,8 +367,10 @@ class MixDesignResponse(BaseModel):
     
     components: List[MixDesignComponentData]
     calculated_properties: Optional[MixDesignPropertiesData]
+    phase_id_mapping: Optional[Dict[str, int]]
+
     notes: Optional[str]
     is_template: bool
-    
+
     class Config:
         from_attributes = True

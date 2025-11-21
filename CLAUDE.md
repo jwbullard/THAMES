@@ -387,6 +387,103 @@ November 20, 2025
 
 ---
 
+### Session 6: Mix Design Validation + Phase ID Mapping System
+November 21, 2025
+
+**Context**: Fixed Mix Design validation for THAMES mode (MaterialSelector vs type_combo), suppressed concrete-specific validation warnings, and designed/implemented dynamic Phase ID Mapping system.
+
+**Key Accomplishments**:
+
+1. **Mix Design Validation Fix for THAMES Mode**
+   - Fixed `_create_mix_design_from_ui` to handle THAMES MaterialSelector widget
+   - Fixed `_get_current_components_for_validation` similarly
+   - Added conditional checks: `row.get('material_selector')` before accessing `type_combo`/`name_combo`
+   - Fixed SG label parsing (format "SG: X.XXX" vs just number)
+   - Validate button now works correctly in THAMES mode
+
+2. **Concrete-Specific Warning Suppression**
+   - Added `thames_mode: bool = True` flag to `MixDesignValidator` class
+   - Added early-return checks in 4 validation methods:
+     - `_validate_aggregate_content` - "Very high aggregate content" warning
+     - `_validate_water_binder_ratio` - workability/durability warnings
+     - `_validate_air_content` - strength reduction warning
+     - `_validate_binder_content` - "uneconomical" warning
+   - Warnings suppressed by default for THAMES (materials beyond portland cement)
+
+3. **Phase ID Mapping Service** (NEW - ~385 lines)
+   - Dynamic phase ID assignment based on mix composition
+   - **THAMES Phase ID Rules**:
+     - ID 0: VOID (empty pores, gas phase)
+     - ID 1: ELECTROLYTE (aqueous solution, "aq_gen")
+     - IDs 2-7: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite, thenardite)
+     - IDs 8+: Other phases (sulfates, pozzolans, hydration products)
+   - For mixes WITHOUT clinker: IDs start at 2
+   - Key classes:
+     - `PhaseIdMapping` dataclass with bidirectional lookups
+     - `PhaseIdMappingService` with `create_mapping_from_mix()` method
+   - Phase priority sorting: sulfates → carbonates → pozzolans → others
+   - Optional hydration products (Portite, CSHQ, ettr, etc.)
+   - Validation method for mapping consistency
+
+4. **Comprehensive Test Suite** (NEW - ~367 lines)
+   - 10 test cases covering all scenarios:
+     - `test_reserved_ids_constants` - VOID=0, ELECTROLYTE=1, FIRST_SOLID=2
+     - `test_clinker_phases_list` - 6 phases in correct order
+     - `test_portland_cement_mix` - IDs 2-7 for clinker, 8+ for others
+     - `test_pozzolanic_mix_without_clinker` - IDs start at 2
+     - `test_blended_cement_mix` - Clinker IDs reserved
+     - `test_bidirectional_mapping_consistency` - gem_to_micro ↔ micro_to_gem
+     - `test_validation` - Mapping validity checks
+     - `test_hydration_products_included` - Optional products added
+     - `test_to_dict_serialization` - JSON-ready output
+     - `test_partial_clinker` - All 6 slots reserved even if partial
+   - **All 10 tests pass**
+
+**Files Created**:
+- `src/app/services/phase_id_mapping_service.py` (NEW - 385 lines)
+- `tests/test_phase_id_mapping_service.py` (NEW - 367 lines)
+
+**Files Modified**:
+- `src/app/windows/panels/mix_design_panel.py` - THAMES MaterialSelector handling
+- `src/app/validation/mix_design_validator.py` - thames_mode flag
+
+**Testing Status**: ✓ All tests passed
+- ✓ Validate button works in THAMES mode
+- ✓ Concrete warnings suppressed
+- ✓ Phase ID mapping: 10/10 tests pass
+
+**Run Tests**:
+```bash
+source thames-env/bin/activate
+python -m pytest tests/test_phase_id_mapping_service.py -v
+# Or simply:
+python tests/test_phase_id_mapping_service.py
+```
+
+**BLOCKED**: Microstructure input file generation
+- User needs to modify C program (genmic) first
+- Exact input requirements unknown until C modifications complete
+
+**Next Steps** (for next session):
+1. **Microstructure Input File Generation** (when C program ready)
+   - Integrate PhaseIdMappingService with input generation
+   - Generate phase ID mapping file for THAMES-Hydration
+   - Create microstructure input file format
+
+2. **PhaseIdMappingService Integration**
+   - Connect to Mix Design UI
+   - Display phase ID assignments to user
+   - Export mapping with simulation inputs
+
+**Critical Files for Next Session**:
+- Phase ID Mapping: `src/app/services/phase_id_mapping_service.py`
+- Tests: `tests/test_phase_id_mapping_service.py`
+- Mix Design Panel: `src/app/windows/panels/mix_design_panel.py`
+- Mix Design Validator: `src/app/validation/mix_design_validator.py`
+- THAMES global.h: `thames-hydration/src/THAMES/global.h`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

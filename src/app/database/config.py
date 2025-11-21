@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database Configuration for VCCTL
+Database Configuration for THAMES
 
 Provides database configuration settings and connection parameters.
 """
@@ -16,7 +16,7 @@ from app.resources.app_info import DATABASE_DIR
 class DatabaseConfig:
     """Database configuration settings."""
     
-    def __init__(self, db_name: str = "vcctl.db"):
+    def __init__(self, db_name: str = "thames.db"):
         """Initialize database configuration."""
         self.db_name = db_name
         self.db_path = DATABASE_DIR / db_name
@@ -67,7 +67,7 @@ class DatabaseConfig:
         """Create a backup of the database."""
         if backup_path is None:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = DATABASE_DIR / f"vcctl_backup_{timestamp}.db"
+            backup_path = DATABASE_DIR / f"thames_backup_{timestamp}.db"
         
         if self.database_exists():
             import shutil

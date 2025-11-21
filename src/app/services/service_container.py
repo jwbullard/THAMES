@@ -28,6 +28,9 @@ from app.services.file_operations_service import FileOperationsService
 from app.services.operation_service import OperationService
 from app.services.export_service import ExportService
 from app.config.config_manager import ConfigManager
+# THAMES-specific services
+from app.services.material_service import MaterialService
+from app.services.mix_design_service import MixDesignService
 
 
 class ServiceContainer:
@@ -75,6 +78,9 @@ class ServiceContainer:
         self._hydration_executor_service = None
         self._hydration_parameters_service = None
         self._grading_service = None
+        # THAMES-specific services
+        self._material_service = None
+        self._mix_design_service = None
         
         self._initialized = True
         self.logger.info("Service container initialized")
@@ -234,7 +240,25 @@ class ServiceContainer:
             self._grading_service = GradingService(self.db_service)
             self.logger.debug("Grading service created")
         return self._grading_service
-    
+
+    @property
+    def material_service(self) -> MaterialService:
+        """Get material service instance (THAMES)."""
+        if self._material_service is None:
+            from pathlib import Path
+            gems_data_dir = Path(__file__).parent.parent / "data" / "gems"
+            self._material_service = MaterialService(self.db_service, gems_data_dir)
+            self.logger.debug("Material service created")
+        return self._material_service
+
+    @property
+    def mix_design_service(self) -> MixDesignService:
+        """Get mix design service instance (THAMES)."""
+        if self._mix_design_service is None:
+            self._mix_design_service = MixDesignService(self.db_service)
+            self.logger.debug("Mix design service created")
+        return self._mix_design_service
+
     def get_all_services(self) -> dict:
         """Get all available services."""
         return {

@@ -1086,7 +1086,7 @@ This GTK3 desktop application provides an intuitive interface for:</span>
     
     def _create_mix_design_tab(self) -> None:
         """Create the mix design tab."""
-        # Create mix design panel
+        # Create mix design panel (THAMES version - uses VCCTL layout with THAMES extensions)
         self.mix_design_panel = MixDesignPanel(self)
         self.panels['mix_design'] = self.mix_design_panel
         

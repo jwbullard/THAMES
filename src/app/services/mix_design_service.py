@@ -1,32 +1,37 @@
 #!/usr/bin/env python3
 """
-Mix Design Service for VCCTL
+Mix Design Service for THAMES
 
 Provides business logic for mix design management and CRUD operations.
+Adapted from VCCTL v10.0.0 with THAMES-specific phase ID mapping support.
 """
 
 import logging
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.database.service import DatabaseService
-from app.models.mix_design import MixDesign, MixDesignCreate, MixDesignUpdate, MixDesignResponse, MixDesignComponentData, MixDesignPropertiesData
-from app.services.base_service import BaseService, ServiceError, NotFoundError, AlreadyExistsError, ValidationError
+from app.models.mix_design import (
+    MixDesign, MixDesignCreate, MixDesignUpdate, MixDesignResponse,
+    MixDesignComponentData, MixDesignPropertiesData
+)
+from app.services.base_service import BaseService, ServiceError, NotFoundError, AlreadyExistsError
 
 
 class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate]):
     """
     Service for managing mix designs.
-    
+
     Provides CRUD operations, validation, and business logic
-    for concrete mix designs in the VCCTL system.
+    for concrete mix designs in the THAMES system.
+
+    THAMES-specific: Handles dynamic phase ID mapping for genmic.c input generation.
     """
-    
+
     def __init__(self, db_service: DatabaseService):
         super().__init__(MixDesign, db_service)
-        self.logger = logging.getLogger('VCCTL.MixDesignService')
+        self.logger = logging.getLogger('THAMES.MixDesignService')
     
     def get_all(self) -> List[MixDesign]:
         """Get all mix designs ordered by creation date (newest first)."""
@@ -72,7 +77,8 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
             # Convert components and properties to JSON format
             components_json = [comp.model_dump() for comp in mix_design_data.components]
             properties_json = mix_design_data.calculated_properties.model_dump() if mix_design_data.calculated_properties else {}
-            
+            phase_id_mapping_json = mix_design_data.phase_id_mapping if mix_design_data.phase_id_mapping else {}
+
             # Create database object with ALL fields
             mix_design = MixDesign(
                 name=mix_design_data.name,
@@ -82,56 +88,57 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 air_content=mix_design_data.air_content,
                 water_volume_fraction=mix_design_data.water_volume_fraction,
                 air_volume_fraction=mix_design_data.air_volume_fraction,
-                
+
                 # System size parameters (individual X, Y, Z dimensions)
                 system_size_x=mix_design_data.system_size_x,
                 system_size_y=mix_design_data.system_size_y,
                 system_size_z=mix_design_data.system_size_z,
                 system_size=mix_design_data.system_size,  # Keep for backward compatibility
-                
+
                 # Resolution parameter
                 resolution=mix_design_data.resolution,
-                
+
                 # Random seed
                 random_seed=mix_design_data.random_seed,
-                
+
                 # Shape set parameters
                 cement_shape_set=mix_design_data.cement_shape_set,
                 fine_aggregate_shape_set=mix_design_data.fine_aggregate_shape_set,
                 coarse_aggregate_shape_set=mix_design_data.coarse_aggregate_shape_set,
                 aggregate_shape_set=mix_design_data.aggregate_shape_set,  # Keep for backward compatibility
-                
+
                 # Flocculation parameters
                 flocculation_enabled=mix_design_data.flocculation_enabled,
                 flocculation_degree=mix_design_data.flocculation_degree,
-                
+
                 # Dispersion parameters
                 dispersion_factor=mix_design_data.dispersion_factor,
-                
+
                 # Auto-calculation setting
                 auto_calculation_enabled=mix_design_data.auto_calculation_enabled,
-                
+
                 # Fine aggregate parameters
                 fine_aggregate_name=mix_design_data.fine_aggregate_name,
                 fine_aggregate_mass=mix_design_data.fine_aggregate_mass,
-                
+
                 # Coarse aggregate parameters
                 coarse_aggregate_name=mix_design_data.coarse_aggregate_name,
                 coarse_aggregate_mass=mix_design_data.coarse_aggregate_mass,
-                
+
                 # Grading template associations
                 fine_aggregate_grading_template=mix_design_data.fine_aggregate_grading_template,
                 coarse_aggregate_grading_template=mix_design_data.coarse_aggregate_grading_template,
-                
+
                 # Component and properties data
                 components=components_json,
                 calculated_properties=properties_json,
+                phase_id_mapping=phase_id_mapping_json,  # THAMES-specific
                 notes=mix_design_data.notes,
                 is_template=mix_design_data.is_template,
-                
+
                 # Reference water mass for exact mass reconstruction
                 water_reference_mass=mix_design_data.water_reference_mass,
-                
+
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )
@@ -159,7 +166,7 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
             original = self.get_by_id(mix_design_id)
             if not original:
                 raise NotFoundError(f"Mix design with ID {mix_design_id} not found")
-            
+
             # Create duplicate data
             duplicate_data = MixDesignCreate(
                 name=new_name,
@@ -169,12 +176,45 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 air_content=original.air_content,
                 water_volume_fraction=original.water_volume_fraction,
                 air_volume_fraction=original.air_volume_fraction,
+
+                # System size parameters
+                system_size_x=original.system_size_x,
+                system_size_y=original.system_size_y,
+                system_size_z=original.system_size_z,
                 system_size=original.system_size,
+
+                # Resolution and seed
+                resolution=original.resolution,
                 random_seed=original.random_seed,
+
+                # Shape set parameters
                 cement_shape_set=original.cement_shape_set,
+                fine_aggregate_shape_set=original.fine_aggregate_shape_set,
+                coarse_aggregate_shape_set=original.coarse_aggregate_shape_set,
                 aggregate_shape_set=original.aggregate_shape_set,
+
+                # Flocculation and dispersion
+                flocculation_enabled=original.flocculation_enabled,
+                flocculation_degree=original.flocculation_degree,
+                dispersion_factor=original.dispersion_factor,
+
+                # Auto-calculation
+                auto_calculation_enabled=original.auto_calculation_enabled,
+
+                # Aggregate parameters
+                fine_aggregate_name=original.fine_aggregate_name,
+                fine_aggregate_mass=original.fine_aggregate_mass,
+                coarse_aggregate_name=original.coarse_aggregate_name,
+                coarse_aggregate_mass=original.coarse_aggregate_mass,
+
+                # Grading templates
+                fine_aggregate_grading_template=original.fine_aggregate_grading_template,
+                coarse_aggregate_grading_template=original.coarse_aggregate_grading_template,
+
+                # Component and properties data
                 components=[MixDesignComponentData(**comp) for comp in original.components],
                 calculated_properties=MixDesignPropertiesData(**original.calculated_properties) if original.calculated_properties else None,
+                phase_id_mapping=dict(original.phase_id_mapping) if original.phase_id_mapping else None,  # THAMES-specific
                 notes=original.notes,
                 is_template=make_template,
                 water_reference_mass=original.water_reference_mass
@@ -278,16 +318,21 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 
                 # Handle special JSON fields
                 if 'components' in update_dict:
-                    components_json = [comp.model_dump() if hasattr(comp, 'model_dump') else comp 
+                    components_json = [comp.model_dump() if hasattr(comp, 'model_dump') else comp
                                      for comp in update_dict['components']]
                     update_dict['components'] = components_json
-                
+
                 if 'calculated_properties' in update_dict and update_dict['calculated_properties']:
-                    properties_json = (update_dict['calculated_properties'].model_dump() 
-                                     if hasattr(update_dict['calculated_properties'], 'model_dump') 
+                    properties_json = (update_dict['calculated_properties'].model_dump()
+                                     if hasattr(update_dict['calculated_properties'], 'model_dump')
                                      else update_dict['calculated_properties'])
                     update_dict['calculated_properties'] = properties_json
-                
+
+                # Handle phase_id_mapping (THAMES-specific)
+                if 'phase_id_mapping' in update_dict and update_dict['phase_id_mapping']:
+                    # Already a dict, just pass through
+                    pass
+
                 # Update timestamp
                 update_dict['updated_at'] = datetime.utcnow()
                 
@@ -324,31 +369,18 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 mix_design = session.query(MixDesign).filter(MixDesign.id == mix_design_id).first()
                 if not mix_design:
                     raise NotFoundError(f"Mix design with ID {mix_design_id} not found")
-                
+
                 name = mix_design.name  # Store name for logging
-                
-                # Check for foreign key constraints - find any MicrostructureOperations that reference this mix design
-                from app.models.microstructure_operation import MicrostructureOperation
-                referencing_operations = session.query(MicrostructureOperation).filter(
-                    MicrostructureOperation.mix_design_id == mix_design_id
-                ).all()
-                
-                if referencing_operations:
-                    # Delete referencing operations first to avoid foreign key constraint
-                    operation_names = [op.operation.name if op.operation else f"Operation {op.id}" 
-                                     for op in referencing_operations]
-                    self.logger.info(f"Deleting {len(referencing_operations)} MicrostructureOperations referencing mix design '{name}': {operation_names}")
-                    
-                    for micro_op in referencing_operations:
-                        session.delete(micro_op)
-                
-                # Now delete the mix design
+
+                # Delete the mix design
+                # Note: In THAMES, we don't have MicrostructureOperation foreign key constraints yet
+                # If we add them later, we'll need to handle cascade deletes or prevent deletion
                 session.delete(mix_design)
                 session.commit()
-                
+
             self.logger.info(f"Deleted mix design: {name}")
             return True
-            
+
         except NotFoundError:
             raise
         except Exception as e:
@@ -360,9 +392,9 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
         try:
             # Convert JSON components back to Pydantic models
             components = [MixDesignComponentData(**comp) for comp in mix_design.components]
-            properties = (MixDesignPropertiesData(**mix_design.calculated_properties) 
+            properties = (MixDesignPropertiesData(**mix_design.calculated_properties)
                          if mix_design.calculated_properties else None)
-            
+
             return MixDesignResponse(
                 id=mix_design.id,
                 name=mix_design.name,
@@ -374,46 +406,51 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 air_content=mix_design.air_content,
                 water_volume_fraction=mix_design.water_volume_fraction,
                 air_volume_fraction=mix_design.air_volume_fraction,
-                
+
                 # System size parameters (individual X, Y, Z dimensions)
                 system_size_x=mix_design.system_size_x,
                 system_size_y=mix_design.system_size_y,
                 system_size_z=mix_design.system_size_z,
                 system_size=mix_design.system_size,  # Keep for backward compatibility
-                
+
                 # Resolution parameter
                 resolution=mix_design.resolution,
-                
+
                 # Random seed
                 random_seed=mix_design.random_seed,
-                
+
                 # Shape set parameters
                 cement_shape_set=mix_design.cement_shape_set,
                 fine_aggregate_shape_set=mix_design.fine_aggregate_shape_set,
                 coarse_aggregate_shape_set=mix_design.coarse_aggregate_shape_set,
                 aggregate_shape_set=mix_design.aggregate_shape_set,  # Keep for backward compatibility
-                
+
                 # Flocculation parameters
                 flocculation_enabled=mix_design.flocculation_enabled,
                 flocculation_degree=mix_design.flocculation_degree,
-                
+
                 # Dispersion parameters
                 dispersion_factor=mix_design.dispersion_factor,
-                
+
                 # Auto-calculation setting
                 auto_calculation_enabled=mix_design.auto_calculation_enabled,
-                
+
                 # Fine aggregate parameters
                 fine_aggregate_name=mix_design.fine_aggregate_name,
                 fine_aggregate_mass=mix_design.fine_aggregate_mass,
-                
+
                 # Coarse aggregate parameters
                 coarse_aggregate_name=mix_design.coarse_aggregate_name,
                 coarse_aggregate_mass=mix_design.coarse_aggregate_mass,
-                
+
+                # Grading template associations
+                fine_aggregate_grading_template=mix_design.fine_aggregate_grading_template,
+                coarse_aggregate_grading_template=mix_design.coarse_aggregate_grading_template,
+
                 # Component and properties data
                 components=components,
                 calculated_properties=properties,
+                phase_id_mapping=mix_design.phase_id_mapping,  # THAMES-specific
                 notes=mix_design.notes,
                 is_template=mix_design.is_template
             )

@@ -35,13 +35,16 @@ class ComponentData:
 class MixDesignValidator:
     """
     Centralized validation logic for mix designs.
-    
+
     This class contains all validation rules and is used by:
     - Pydantic models (data structure validation)
-    - Service layer (business logic validation)  
+    - Service layer (business logic validation)
     - UI components (real-time validation)
+
+    THAMES mode: When thames_mode=True, concrete-specific warnings are suppressed
+    since THAMES applies to materials beyond portland cement concrete.
     """
-    
+
     # Engineering constraints
     MIN_WATER_BINDER_RATIO = 0.25
     MAX_WATER_BINDER_RATIO = 0.65
@@ -49,6 +52,9 @@ class MixDesignValidator:
     MIN_POWDER_CONTENT = 0.10
     MAX_BINDER_CONTENT = 0.50
     MASS_FRACTION_TOLERANCE = 0.001
+
+    # THAMES mode flag - suppresses concrete-specific warnings
+    thames_mode: bool = True
     
     # Powder material types
     POWDER_TYPES = {
@@ -172,25 +178,33 @@ class MixDesignValidator:
     
     @classmethod
     def _validate_aggregate_content(
-        cls, 
-        components: List[ComponentData], 
+        cls,
+        components: List[ComponentData],
         result: ValidationResult
     ) -> None:
         """Validate aggregate content."""
+        # Skip concrete-specific warnings in THAMES mode
+        if cls.thames_mode:
+            return
+
         aggregate_components = [c for c in components if c.material_type == 'aggregate']
         total_aggregate = sum(c.mass_fraction for c in aggregate_components)
-        
+
         # This is informational - no hard constraints on aggregate content
         if total_aggregate > 0.8:
             result.warnings.append(f"Very high aggregate content ({total_aggregate:.1%})")
     
     @classmethod
     def _validate_water_binder_ratio(
-        cls, 
-        water_binder_ratio: float, 
+        cls,
+        water_binder_ratio: float,
         result: ValidationResult
     ) -> None:
         """Validate water-binder ratio is in acceptable range."""
+        # Skip concrete-specific warnings in THAMES mode
+        if cls.thames_mode:
+            return
+
         if water_binder_ratio < cls.MIN_WATER_BINDER_RATIO:
             result.warnings.append(
                 f"Very low water-binder ratio ({water_binder_ratio:.3f}) may cause workability issues"
@@ -202,11 +216,15 @@ class MixDesignValidator:
     
     @classmethod
     def _validate_air_content(
-        cls, 
-        air_content: float, 
+        cls,
+        air_content: float,
         result: ValidationResult
     ) -> None:
         """Validate air content."""
+        # Skip concrete-specific warnings in THAMES mode
+        if cls.thames_mode:
+            return
+
         if air_content > cls.MAX_AIR_CONTENT:
             result.warnings.append(
                 f"High air content ({air_content:.1%}) may significantly reduce strength"
@@ -225,12 +243,16 @@ class MixDesignValidator:
     
     @classmethod
     def _validate_binder_content(
-        cls, 
-        components: List[ComponentData], 
-        total_water_content: float, 
+        cls,
+        components: List[ComponentData],
+        total_water_content: float,
         result: ValidationResult
     ) -> None:
         """Validate total binder content."""
+        # Skip concrete-specific warnings in THAMES mode
+        if cls.thames_mode:
+            return
+
         # Calculate powder content
         powder_components = []
         for comp in components:
@@ -241,13 +263,13 @@ class MixDesignValidator:
             except ValueError:
                 if comp.material_type.upper() in [mt.value.upper() for mt in cls.POWDER_TYPES]:
                     powder_components.append(comp)
-        
+
         total_powder = sum(c.mass_fraction for c in powder_components)
 
         # Convert both powder and water from solids-basis to total-mass-basis for binder calculation
         # Formula: (powder + water) / (1 + water) gives fraction of total mass that is binder
         total_binder = (total_powder + total_water_content) / (1.0 + total_water_content) if (1.0 + total_water_content) > 0 else 0.0
-        
+
         if total_binder > cls.MAX_BINDER_CONTENT:
             result.warnings.append(
                 f"Very high binder content ({total_binder:.1%}) may be uneconomical"
