@@ -192,6 +192,15 @@ logs/
 backend/bin/*
 Operations/
 
+# C/C++ build artifacts in backend
+backend/*.o
+backend/*.obj
+backend/build/
+backend/CMakeFiles/
+backend/CMakeCache.txt
+backend/cmake_install.cmake
+backend/Makefile
+
 # THAMES-Hydration submodule build artifacts
 backend/thames-hydration/build/
 backend/thames-hydration/build-mingw/

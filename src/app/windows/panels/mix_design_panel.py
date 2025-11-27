@@ -20,6 +20,7 @@ import numpy as np
 from typing import TYPE_CHECKING, Optional, Dict, Any, List, Tuple
 from decimal import Decimal
 from datetime import timedelta, datetime
+from pathlib import Path
 
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject, Pango, Gdk, GLib
@@ -33,6 +34,9 @@ from app.services.service_container import get_service_container
 from app.services.mix_service import MixService, MixComponent, MixDesign
 from app.models.material_types import MaterialType
 from app.services.microstructure_service import MicrostructureParams, PhaseType
+from app.services.micgen_input_service import MicgenInputService
+from app.services.material_service import MaterialService
+from app.services.psd_data_service import PSDDataService
 # Import centralized validation
 from app.validation import MixDesignValidator, ComponentData
 from app.widgets import GradingCurveWidget
@@ -50,6 +54,11 @@ class MixDesignPanel(Gtk.Box):
         self.service_container = get_service_container()
         self.mix_service = MixService(self.service_container.database_service)
         self.microstructure_service = self.service_container.microstructure_service
+
+        # Initialize material and PSD services for micgen input generation
+        self.material_service = MaterialService(self.service_container.database_service)
+        self.psd_service = PSDDataService(self.service_container.database_service)
+        self.micgen_input_service = MicgenInputService(self.material_service, self.psd_service)
         
         # Panel state
         self.current_mix = None
@@ -2246,15 +2255,47 @@ class MixDesignPanel(Gtk.Box):
             
             # Step 4: Create mix folder and generate correlation files
             self._create_mix_folder_and_correlation_files(mix_design)
-            
-            # Step 5: Get microstructure parameters
-            microstructure_params = self._get_microstructure_parameters()
-            
-            # Step 6: Generate input file
-            input_file_content = self._generate_genmic_input_file(mix_design, microstructure_params)
-            
-            # Step 7: Save input file and execute genmic
-            self._save_input_file(input_file_content, mix_design.name, saved_mix_design_id)
+
+            # Step 5: Load database MixDesign model for input generation
+            if not saved_mix_design_id:
+                self.logger.error("No saved mix design ID - cannot generate input file")
+                self.main_window.update_status("Mix design must be saved before generating microstructure", "error", 5)
+                return
+
+            from app.models.mix_design import MixDesign as MixDesignModel
+            with self.service_container.database_service.get_read_only_session() as session:
+                db_mix_design = session.query(MixDesignModel).filter_by(id=saved_mix_design_id).first()
+                if not db_mix_design:
+                    self.logger.error(f"Could not load mix design {saved_mix_design_id} from database")
+                    self.main_window.update_status("Failed to load mix design from database", "error", 5)
+                    return
+
+            # Step 6: Generate input file using MicgenInputService
+            operations_dir = str(self.service_container.config_manager.directories.operations_path)
+            mix_name_safe = "".join(c for c in mix_design.name if c.isalnum() or c in ['_', '-'])
+            mix_folder_path = os.path.join(operations_dir, mix_name_safe)
+            input_file_path = Path(mix_folder_path) / f"{mix_name_safe}_input.txt"
+
+            try:
+                self.logger.info(f"Generating micgen input file: {input_file_path}")
+                phase_mapping = self.micgen_input_service.generate_input_file(
+                    mix_design=db_mix_design,
+                    output_path=input_file_path,
+                    microstructure_filename=f"{mix_name_safe}_microstructure.img",
+                    particle_id_filename=f"{mix_name_safe}_particle_ids.img",
+                    add_aggregate_slab=False,  # TODO: Check if aggregates present
+                    add_void_phase=False
+                )
+                self.logger.info(f"Successfully generated input file with {len(phase_mapping.micgen_to_gem)} phases")
+
+                # Step 7: Execute genmic (reuse existing execution logic)
+                self._execute_genmic_program(input_file_path, mix_design.name, saved_mix_design_id)
+
+            except Exception as e:
+                self.logger.error(f"Failed to generate micgen input: {e}")
+                import traceback
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
+                self.main_window.update_status(f"Error generating input file: {e}", "error", 5)
             
         except Exception as e:
             self.logger.error(f"Failed to create microstructure input file: {e}")
@@ -3135,6 +3176,40 @@ class MixDesignPanel(Gtk.Box):
         else:
             return 1  # Default to C3S
     
+    def _execute_genmic_program(self, input_file_path: Path, mix_name: str, saved_mix_design_id: Optional[int] = None) -> None:
+        """Execute genmic program with the generated input file."""
+        try:
+            mix_name_safe = "".join(c for c in mix_name if c.isalnum() or c in ['_', '-'])
+            operations_dir = str(self.service_container.config_manager.directories.operations_path)
+            mix_folder_path = os.path.join(operations_dir, mix_name_safe)
+
+            # Create cement PSD file for future elastic calculations
+            try:
+                self._create_cement_psd_file(mix_folder_path)
+                self.logger.info(f"Created cement PSD file for elastic calculations")
+            except Exception as e:
+                self.logger.error(f"Failed to create cement PSD file: {e}")
+                import traceback
+                self.logger.error(f"Cement PSD creation traceback: {traceback.format_exc()}")
+                # Continue with microstructure generation even if cement PSD creation fails
+
+            self.main_window.update_status(f"Input file created, starting 3D microstructure generation...", "info", 3)
+
+            # Execute genmic program immediately
+            self.logger.info(f"Starting genmic execution...")
+            try:
+                self.logger.info(f"DEBUG: About to call _execute_genmic with saved_mix_design_id={saved_mix_design_id}")
+                self._execute_genmic(str(input_file_path), mix_folder_path, saved_mix_design_id)
+            except Exception as e:
+                self.logger.error(f"Error in genmic execution: {e}")
+                import traceback
+                self.logger.error(f"Full traceback: {traceback.format_exc()}")
+                self.main_window.update_status(f"Error executing genmic: {e}", "error", 5)
+
+        except Exception as e:
+            self.logger.error(f"Failed to execute genmic: {e}")
+            self.main_window.update_status(f"Error executing genmic: {e}", "error", 5)
+
     def _save_input_file(self, content: str, mix_name: str, saved_mix_design_id: Optional[int] = None) -> None:
         """Save input file content to disk automatically and execute genmic program."""
         try:
@@ -3354,7 +3429,7 @@ class MixDesignPanel(Gtk.Box):
         try:
             self.logger.info(f"_execute_genmic called with input_file={input_file}, output_dir={output_dir}")
             
-            # Path to genmic executable
+            # Path to micgen executable (NOT genmic - they are different programs!)
             import sys
 
             # Detect if running in PyInstaller bundle
@@ -3367,15 +3442,15 @@ class MixDesignPanel(Gtk.Box):
                 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
             # Platform-specific executable name
-            genmic_exe = 'genmic.exe' if sys.platform == 'win32' else 'genmic'
-            genmic_path = os.path.join(project_root, 'backend', 'bin', genmic_exe)
-            
+            micgen_exe = 'micgen.exe' if sys.platform == 'win32' else 'micgen'
+            micgen_path = os.path.join(project_root, 'backend', 'bin', micgen_exe)
+
             self.logger.info(f"Project root: {project_root}")
-            self.logger.info(f"Genmic path: {genmic_path}")
-            self.logger.info(f"Genmic exists: {os.path.exists(genmic_path)}")
-            
-            if not os.path.exists(genmic_path):
-                raise FileNotFoundError(f"genmic executable not found at: {genmic_path}")
+            self.logger.info(f"Micgen path: {micgen_path}")
+            self.logger.info(f"Micgen exists: {os.path.exists(micgen_path)}")
+
+            if not os.path.exists(micgen_path):
+                raise FileNotFoundError(f"micgen executable not found at: {micgen_path}")
             
             # Register operation with Operations panel
             operations_panel = getattr(self.main_window, 'operations_panel', None)
@@ -3405,7 +3480,7 @@ class MixDesignPanel(Gtk.Box):
                     operation_id = operations_panel.start_real_process_operation(
                         name=operation_name,
                         operation_type=OperationType.MICROSTRUCTURE_GENERATION,
-                        command=[genmic_path, '-j', 'genmic_progress.json', '-w', '.'],
+                        command=[micgen_path, '-j', 'micgen_progress.json', '-w', '.'],
                         working_dir=output_dir,
                         input_data=input_content
                     )
@@ -3566,17 +3641,17 @@ class MixDesignPanel(Gtk.Box):
                         GLib.idle_add(operations_panel.update_operation_progress, 
                                     operation_id, 0.3, "Parsing input and setting up simulation...", 2)
                     
-                    # Run genmic with input redirection and stdout/stderr logging
-                    self.logger.info(f"About to run genmic: {genmic_path} with input file: {input_file}")
-                    self.logger.info(f"genmic will run in directory: {output_dir}")
-                    
+                    # Run micgen with input redirection and stdout/stderr logging
+                    self.logger.info(f"About to run micgen: {micgen_path} with input file: {input_file}")
+                    self.logger.info(f"micgen will run in directory: {output_dir}")
+
                     # Create log file names based on input file name
                     input_basename = os.path.splitext(os.path.basename(input_file))[0]
                     stdout_log = os.path.join(output_dir, f"{input_basename}_stdout.log")
                     stderr_log = os.path.join(output_dir, f"{input_basename}_stderr.log")
-                    
-                    self.logger.info(f"genmic stdout will be saved to: {stdout_log}")
-                    self.logger.info(f"genmic stderr will be saved to: {stderr_log}")
+
+                    self.logger.info(f"micgen stdout will be saved to: {stdout_log}")
+                    self.logger.info(f"micgen stderr will be saved to: {stderr_log}")
                     
                     # Use Popen for real-time progress monitoring
                     with open(input_file, 'r') as input_f, \
@@ -3596,7 +3671,7 @@ class MixDesignPanel(Gtk.Box):
                         if sys.platform == 'win32':
                             popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
 
-                        process = subprocess.Popen([genmic_path], **popen_kwargs)
+                        process = subprocess.Popen([micgen_path], **popen_kwargs)
                         
                         # Monitor progress in real-time
                         self._monitor_genmic_progress(process, stdout_f, stderr_f, operations_panel, operation_id, output_dir)
@@ -3605,16 +3680,16 @@ class MixDesignPanel(Gtk.Box):
                         result = process
                         result.returncode = process.returncode
                     
-                    self.logger.info(f"genmic execution completed with return code: {result.returncode}")
-                    self.logger.info(f"genmic stdout saved to: {stdout_log}")
-                    self.logger.info(f"genmic stderr saved to: {stderr_log}")
+                    self.logger.info(f"micgen execution completed with return code: {result.returncode}")
+                    self.logger.info(f"micgen stdout saved to: {stdout_log}")
+                    self.logger.info(f"micgen stderr saved to: {stderr_log}")
                     
                     # Check if stderr log has content (indicates potential issues)
                     try:
                         if os.path.exists(stderr_log) and os.path.getsize(stderr_log) > 0:
                             with open(stderr_log, 'r') as f:
                                 stderr_content = f.read(500)  # Read first 500 chars
-                                self.logger.warning(f"genmic stderr content: {stderr_content}")
+                                self.logger.warning(f"micgen stderr content: {stderr_content}")
                     except Exception as e:
                         self.logger.warning(f"Could not read stderr log: {e}")
                     

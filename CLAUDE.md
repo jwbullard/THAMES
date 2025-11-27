@@ -484,6 +484,125 @@ python tests/test_phase_id_mapping_service.py
 
 ---
 
+### Session 7: MicgenInputService Implementation & Testing
+November 26, 2025
+
+**Context**: Implemented complete MicgenInputService for generating properly formatted micgen.c input files, including PSD discretization, weighted combination, and UI integration.
+
+**Key Accomplishments**:
+
+1. **Debugged micgen.c C Program**
+   - Fixed stack overflow: `numparts[500][5000]` (9.5MB) → reduced to `[50][100]` (20KB)
+   - Fixed unallocated pointer: `int *Onepixnum;` → `int Onepixnum[MAXNUMPHASES];`
+   - micgen.c now runs simple examples successfully
+
+2. **Complete PSD System Implementation** (~400 lines)
+   - **Discretization methods for all 5 modes:**
+     - Rosin-Rammler: R = 1 - exp(-(d/d50)^n)
+     - Log-Normal: Using scipy.stats.lognorm
+     - Fuller-Thompson: P(d) = (d/dmax)^exponent
+     - Custom: JSON parsing with auto-normalization
+     - Default: Fallback log-normal
+   - **Conversion methods:**
+     - `_psd_to_dict()` - Handles all modes
+     - `_convert_psd_to_size_classes()` - μm→voxels, filters <0.5 voxels, renormalizes
+
+3. **Weighted PSD Combination** (TODO 1 - CRITICAL)
+   - Proper weighted averaging when multiple materials contribute to same phase
+   - Algorithm: Discretize → Union grid → Interpolate → Weight → Sum → Renormalize
+   - Handles edge cases (single contribution, different grids, negligible fractions)
+
+4. **Phase Data Collection System**
+   - `_aggregate_phases_by_name()` - Combines duplicate phases from materials
+   - `_calculate_solids_volume_fraction()` - Normalizes to solids basis
+   - `_collect_phase_data()` - Complete pipeline (aggregate → normalize → PSD → order)
+   - Volume fraction calculations for clinker, other solids, electrolyte, void
+
+5. **Clinker Distribution System**
+   - `_find_clinker_material()` - UI enforces ≤1 clinker per mix
+   - `_get_clinker_extension()` - Retrieves 6 surface fractions + 7 correlation BLOBs
+   - `_write_correlation_files()` - Writes .sil, .c3s, .alu, .c3a, .c4af, .k2o, .n2o to temp files
+   - `_get_clinker_phase_fractions()` - Extracts volume/surface fractions
+
+6. **Comprehensive Unit Tests** (~414 lines)
+   - **15/15 tests passing** ✅
+   - PSD Discretization (5 tests): All modes, normalization, ranges
+   - PSD Conversion (5 tests): Mode conversion, μm→voxel, filtering
+   - PSD Combination (3 tests): Single/multiple contributions, interpolation
+   - Utility Methods (2 tests): Volume fraction calculations
+
+7. **UI Integration Complete**
+   - Imported MicgenInputService, MaterialService, PSDDataService
+   - Modified `_create_microstructure_input_file()` to use service
+   - Loads database MixDesign model (using saved_mix_design_id)
+   - Calls `micgen_input_service.generate_input_file()`
+   - Created `_execute_genmic_program()` wrapper method
+
+8. **Fixed Critical Executable Name Issue**
+   - **IMPORTANT:** Changed all references from `genmic` → `micgen`
+   - micgen.c ≠ genmic.c (different programs, different input formats!)
+   - Executable location: `./backend/bin/micgen` (macOS), `./backend/bin/micgen.exe` (Windows)
+   - Verified menu numbers: SPECSIZE=2, ADDAGG=3, ADDPART=4 (micgen.c format)
+
+**Files Created**:
+- `src/app/services/micgen_input_service.py` (~1,100 lines)
+- `tests/test_micgen_input_service.py` (~414 lines)
+- `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md` (~350 lines)
+- `docs/SESSION_7_SUMMARY.md` (comprehensive documentation)
+
+**Files Modified**:
+- `src/app/windows/panels/mix_design_panel.py` (~50 lines changed)
+- `backend/src/micgen.c` (3 bug fixes)
+
+**Dependencies Installed**:
+```bash
+pip install scipy  # Required for scipy.stats.lognorm
+```
+
+**Testing Status**:
+- ✅ Unit tests: 15/15 passing
+- ⏳ Integration tests: Pending manual testing (user offline)
+- ⏳ End-to-end: Not started
+
+**Run Tests**:
+```bash
+source thames-env/bin/activate
+python -m pytest tests/test_micgen_input_service.py -v
+```
+
+**Known Limitations** (Deferred):
+- ❌ Real-shape particles (TODO 4) - Infrastructure exists, needs Material model fields + UI
+- ❌ Aggregate slab auto-detection - Currently hardcoded to False
+- ❌ Void phase handling - Currently hardcoded to False
+
+**Next Steps** (for next session):
+1. **Manual Testing** - Follow `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md`
+   - Create simple single-cement mix
+   - Verify input file generation
+   - Run micgen.c executable
+   - Check output files
+
+2. **Debug & Iterate** - Based on test results
+   - Check logs if errors occur
+   - Verify input file format matches micgen-input.md
+   - Test micgen.c manually if needed
+
+3. **Future Enhancements** (After successful test)
+   - Real-shape particles implementation
+   - Aggregate slab auto-detection
+   - Void phase based on air content
+   - Additional testing (multi-material, different PSD modes, larger systems)
+
+**Critical Files for Next Session**:
+- Test Procedure: `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md`
+- Service: `src/app/services/micgen_input_service.py`
+- Tests: `tests/test_micgen_input_service.py`
+- UI Integration: `src/app/windows/panels/mix_design_panel.py` (lines 2255-2297, 3178-3210)
+- Input Format: `micgen-input.md`
+- Session Summary: `docs/SESSION_7_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
