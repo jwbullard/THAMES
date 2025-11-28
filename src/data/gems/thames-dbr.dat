@@ -109,9 +109,9 @@
 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 1000000 
 
 ## (6) Data for Phases
-#'aq_gen' 'gas_gen' 'C3(AF)S0.84H' 'CSHQ' 'ettr-AlFe' 'monosulf-AlFe' 'straet' 'ettr' 'SO4_CO3_AFt' 'hydrotalc-pyro' 'MSH' 'Al(OH)3am' 'Al(OH)3mic' 'Gibbsite' 'Mullite' 'Kaolinite' 'Graphite' 'Mayenite' 'Belite' 'Aluminate' 'Alite' 'Ferrite' 'C2AH75' 'C3AH6' 'C4AH11' 'C4AH13' 'C4AH19' 'CAH10' 'C4AsH105' 'C4AsH12' 'C4AsH14' 'C4AsH16' 'C4AsH9' 'Chabazite' 'ZeoliteP' 'C2ASH55' 'C4AcH9' 'C4Ac0.5H105' 'C4Ac0.5H12' 'C4Ac0.5H9' 
-#'C4AcH11' 'C6AsH13' 'C6AsH9' 'Aragonite' 'Calcite' 'C3FH6' 'C4FH13' 'C3FS0.84H4.32' 'C3FS1.34H3.32' 'C4Fc05H10' 'C4FcH12' 'Dolomite-dis' 'Dolomite-ord' 'lime' 'Portlandite' 'Anhydrite' 'Gypsum' 'hemihydrate' 'thaumasite' 'Iron' 'Fe-carbonate' 'Siderite' 'Hematite' 'Magnetite' 'Ferrihyd-am' 'Ferrihyd-mc' 'Goethite' 'Pyrrhotite' 'Troilite' 'Melanterite' 'C2AS(am)' 'CA' 'CA2' 'CA2S(am)' 'CAS(am)' 'CAS2(am)' 'K6A2S(am)' 'arcanite' 'syngenite' 'K-oxide' 
-#'Magnesite' 'periclase' 'Brucite' 'thenardite' 'Natrolite' 'ZeoliteX' 'ZeoliteY' 'Na-oxide' 'Sulphur' 'Quartz' 'Silica-amorph' 'Sfume' 
+#'Electrolyte' 'Das' 'C3(AF)S0.84H' 'CSHQ' 'ettr-AlFe' 'monosulf-AlFe' 'straet' 'ettr' 'SO4_CO3_AFt' 'hydrotalc-pyro' 'MSH' 'Al(OH)3am' 'Al(OH)3mic' 'Gibbsite' 'Mullite' 'Kaolinite' 'Graphite' 'Mayenite' 'Belite' 'Aluminate' 'Alite' 'Ferrite' 'C2AH75' 'C3AH6' 'C4AH11' 'C4AH13' 'C4AH19' 'CAH10' 'C4AsH105' 'C4AsH12' 'C4AsH14' 'C4AsH16' 'C4AsH9' 'Chabazite' 'ZeoliteP' 'C2ASH55' 'C4AcH9' 'C4Ac0.5H105' 'C4Ac0.5H12' 'C4Ac0.5H9' 
+#'C4AcH11' 'C6AsH13' 'C6AsH9' 'Aragonite' 'Calcite' 'C3FH6' 'C4FH13' 'C3FS0.84H4.32' 'C3FS1.34H3.32' 'C4Fc05H10' 'C4FcH12' 'Dolomite-dis' 'Dolomite-ord' 'lime' 'Portlandite' 'Anhydrite' 'Gypsum' 'Bassanite' 'Thaumasite' 'Iron' 'Fe-carbonate' 'Siderite' 'Hematite' 'Magnetite' 'Ferrihyd-am' 'Ferrihyd-mc' 'Goethite' 'Pyrrhotite' 'Troilite' 'Melanterite' 'C2AS(am)' 'CA' 'CA2' 'CA2S(am)' 'CAS(am)' 'CAS2(am)' 'K6A2S(am)' 'Arcanite' 'Syngenite' 'K-oxide' 
+#'Magnesite' 'Periclase' 'Brucite' 'Thenardite' 'Natrolite' 'ZeoliteX' 'ZeoliteY' 'Na-oxide' 'Sulphur' 'Quartz' 'Silica-amorph' 'Sfume' 
 # aPH: Specific surface areas of phases, m2/kg (GEM input) [nPHb]
 <aPH>
 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 

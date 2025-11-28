@@ -90,6 +90,14 @@ class Material(Base):
     # Relationship to clinker source (for composites)
     clinker_source = relationship('Material', remote_side=[id], foreign_keys=[clinker_source_id])
 
+    # Particle shape settings
+    # shape_type: 0 = SPHERES (default), 1 = REALSHAPE
+    # shape_set: Name of the particle shape set (e.g., "cement116") if using real shapes
+    particle_shape_type = Column(Integer, nullable=False, default=0,
+                                  doc="Particle shape type: 0=spheres, 1=real shapes")
+    particle_shape_set = Column(String(128), nullable=True,
+                                 doc="Name of particle shape set for real shapes")
+
     # Relationship to clinker extension data (for clinker materials)
     clinker_data = relationship('ClinkerExtension', uselist=False, back_populates='material',
                                 cascade='all, delete-orphan')
@@ -287,6 +295,10 @@ class MaterialCreate(BaseModel):
     has_clinker: Optional[bool] = Field(False, description="Whether this material contains clinker phases")
     clinker_source_id: Optional[int] = Field(None, description="ID of the clinker material this was derived from")
 
+    # Particle shape settings
+    particle_shape_type: Optional[int] = Field(0, ge=0, le=1, description="Particle shape type: 0=spheres, 1=real shapes")
+    particle_shape_set: Optional[str] = Field(None, max_length=128, description="Name of particle shape set for real shapes")
+
     @field_validator('name')
     @classmethod
     def validate_name(cls, v):
@@ -339,6 +351,10 @@ class MaterialUpdate(BaseModel):
     has_clinker: Optional[bool] = Field(None, description="Whether this material contains clinker phases")
     clinker_source_id: Optional[int] = Field(None, description="ID of the clinker material this was derived from")
 
+    # Particle shape settings
+    particle_shape_type: Optional[int] = Field(None, ge=0, le=1, description="Particle shape type: 0=spheres, 1=real shapes")
+    particle_shape_set: Optional[str] = Field(None, max_length=128, description="Name of particle shape set for real shapes")
+
 
 class MaterialResponse(BaseModel):
     """Pydantic model for material API responses."""
@@ -364,6 +380,10 @@ class MaterialResponse(BaseModel):
     is_clinker: bool
     has_clinker: bool
     is_composite: bool
+
+    # Particle shape settings
+    particle_shape_type: int
+    particle_shape_set: Optional[str]
 
     # Calculated properties
     has_phase_data: bool

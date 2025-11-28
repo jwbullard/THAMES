@@ -313,7 +313,14 @@ class MaterialMigrator:
             )
             print(f"    Specific gravity: {specific_gravity:.3f}")
 
-            # Create Material (mark as clinker)
+            # Determine if material contains clinker phases based on actual composition
+            # Only the four main clinker minerals define a material as containing clinker
+            # (arcanite and thenardite are alkali sulfates that can appear but don't define clinker)
+            clinker_phase_names = {'Alite', 'Belite', 'Aluminate', 'Ferrite'}
+            has_clinker = bool(set(phase_fractions.keys()) & clinker_phase_names)
+            print(f"    Has clinker phases: {has_clinker}")
+
+            # Create Material
             material = Material(
                 name=vcctl_cement.name,
                 specific_gravity=specific_gravity,
@@ -323,7 +330,8 @@ class MaterialMigrator:
                 source=vcctl_cement.source,
                 notes=vcctl_cement.notes,
                 immutable=True,  # Mark as read-only migrated material
-                is_clinker=True  # Mark as clinker material
+                is_clinker=False,  # Cement is NOT pure clinker
+                has_clinker=has_clinker  # Determined by actual phase composition
             )
 
             # Add tags

@@ -73,11 +73,20 @@ class PSDDataService(BaseService):
         try:
             with self.database_service.get_read_only_session() as session:
                 db_psd = session.query(PSDData).filter(PSDData.id == psd_id).first()
-                
+
                 if db_psd:
                     return self._to_response(db_psd)
                 return None
-                
+
+        except SQLAlchemyError as e:
+            self.logger.error(f"Database error fetching PSD data {psd_id}: {e}")
+            return None
+
+    def get_by_id(self, psd_id: int) -> Optional[PSDData]:
+        """Get PSD data by ID (returns raw model, not response)."""
+        try:
+            with self.database_service.get_read_only_session() as session:
+                return session.query(PSDData).filter(PSDData.id == psd_id).first()
         except SQLAlchemyError as e:
             self.logger.error(f"Database error fetching PSD data {psd_id}: {e}")
             return None

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration Manager for VCCTL
+Configuration Manager for THAMES
 
 Provides centralized configuration management with YAML support,
 environment-specific configurations, and runtime updates.
@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Type, TypeVar
 from dataclasses import asdict
 
+from app.resources.app_info import APP_NAME
 from app.config.user_config import UserConfig
 from app.config.directories_config import DirectoriesConfig
 from app.config.materials_config import MaterialsConfig
@@ -31,14 +32,14 @@ class ConfigurationError(Exception):
 
 class ConfigManager:
     """
-    Central configuration manager for the VCCTL application.
-    
+    Central configuration manager for the THAMES application.
+
     Handles loading, saving, and validating configuration from YAML files
     with support for environment-specific overrides and runtime updates.
     """
-    
+
     def __init__(self):
-        self.logger = logging.getLogger('VCCTL.ConfigManager')
+        self.logger = logging.getLogger('THAMES.ConfigManager')
         
         # Configuration instances
         self._user_config: Optional[UserConfig] = None
@@ -70,11 +71,11 @@ class ConfigManager:
             import platform
 
             if platform.system() == 'Darwin':  # macOS
-                config_dir = PPath.home() / 'Library' / 'Application Support' / 'VCCTL' / 'config'
+                config_dir = PPath.home() / 'Library' / 'Application Support' / APP_NAME / 'config'
             elif platform.system() == 'Windows':
-                config_dir = PPath.home() / 'AppData' / 'Local' / 'VCCTL' / 'config'
+                config_dir = PPath.home() / 'AppData' / 'Local' / APP_NAME / 'config'
             else:  # Linux
-                config_dir = PPath.home() / '.config' / 'vcctl' / 'config'
+                config_dir = PPath.home() / '.config' / APP_NAME.lower() / 'config'
             return config_dir
         else:
             # Running in development mode - use config subdirectory relative to CWD

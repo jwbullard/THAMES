@@ -201,28 +201,35 @@ class TestPSDConversion:
         assert len(result['size_classes_um']) == 2
 
     def test_convert_psd_to_size_classes(self, service):
-        """Test converting micrometers to voxels."""
+        """Test converting micrometers to voxels.
+
+        The implementation:
+        1. Converts diameter_um to diameter_voxels = diameter_um / resolution
+        2. Rounds to nearest integer (micgen.c requires integer diameters)
+        3. Filters out particles with diameter < 1 voxel
+        4. Renormalizes volume fractions to sum to 1.0
+        """
         psd_dict = {
             'mode': 'log_normal',
             'size_classes_um': [
-                (1.0, 0.2),
-                (5.0, 0.3),
-                (10.0, 0.3),
-                (20.0, 0.2)
+                (2.0, 0.2),   # 2.0 / 2.0 = 1.0 voxels -> rounds to 1
+                (5.0, 0.3),   # 5.0 / 2.0 = 2.5 voxels -> rounds to 2
+                (10.0, 0.3),  # 10.0 / 2.0 = 5.0 voxels -> rounds to 5
+                (20.0, 0.2)   # 20.0 / 2.0 = 10.0 voxels -> rounds to 10
             ]
         }
         resolution = 2.0  # 2 um/voxel
 
         size_classes = service._convert_psd_to_size_classes(psd_dict, resolution)
 
-        # Check conversion: diameter_voxels = diameter_um / resolution
+        # Check conversion: diameter_voxels = round(diameter_um / resolution)
         assert len(size_classes) == 4
-        assert size_classes[0]['diameter_voxels'] == 0.5  # 1.0 / 2.0
-        assert size_classes[1]['diameter_voxels'] == 2.5  # 5.0 / 2.0
-        assert size_classes[2]['diameter_voxels'] == 5.0  # 10.0 / 2.0
-        assert size_classes[3]['diameter_voxels'] == 10.0  # 20.0 / 2.0
+        assert size_classes[0]['diameter_voxels'] == 1   # round(2.0 / 2.0) = 1
+        assert size_classes[1]['diameter_voxels'] == 2   # round(5.0 / 2.0) = 2
+        assert size_classes[2]['diameter_voxels'] == 5   # round(10.0 / 2.0) = 5
+        assert size_classes[3]['diameter_voxels'] == 10  # round(20.0 / 2.0) = 10
 
-        # Check fractions are preserved
+        # Check fractions are preserved (renormalized to 1.0)
         total = sum(sc['volume_fraction'] for sc in size_classes)
         assert abs(total - 1.0) < 0.01
 

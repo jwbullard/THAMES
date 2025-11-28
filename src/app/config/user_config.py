@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-User Configuration for VCCTL
+User Configuration for THAMES
 
 Manages user-specific settings and preferences.
 """
@@ -9,6 +9,9 @@ import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Any, List
+
+# Import app name from central location
+from app.resources.app_info import APP_NAME
 
 
 @dataclass
@@ -85,19 +88,19 @@ class UserConfig:
     def _get_default_app_directory() -> Path:
         """Get default application directory using platform-specific user data directory."""
         # Use platform-specific user data directories
-        # macOS: ~/Library/Application Support/VCCTL
-        # Windows: %LOCALAPPDATA%\VCCTL
-        # Linux: ~/.local/share/vcctl
+        # macOS: ~/Library/Application Support/THAMES
+        # Windows: %LOCALAPPDATA%\THAMES
+        # Linux: ~/.local/share/thames
         import os
 
         if platform.system() == 'Darwin':  # macOS
-            return Path.home() / 'Library' / 'Application Support' / 'VCCTL'
+            return Path.home() / 'Library' / 'Application Support' / APP_NAME
         elif platform.system() == 'Windows':
             # Use LOCALAPPDATA environment variable for robustness (same as app_info.py)
             local_appdata = os.environ.get('LOCALAPPDATA', str(Path.home() / 'AppData' / 'Local'))
-            return Path(local_appdata) / 'VCCTL'
+            return Path(local_appdata) / APP_NAME
         else:  # Linux
-            return Path.home() / '.local' / 'share' / 'vcctl'
+            return Path.home() / '.local' / 'share' / APP_NAME.lower()
     
     @staticmethod
     def _get_default_thread_count() -> int:

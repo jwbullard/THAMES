@@ -840,6 +840,42 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
             self.logger.error(f"Failed to get clinker surface fractions: {e}")
             raise ServiceError(f"Failed to get surface fractions: {e}")
 
+    def get_clinker_extension(self, material_id: int) -> Optional[ClinkerExtension]:
+        """
+        Get the full ClinkerExtension object for a material.
+
+        Works for both pure clinker materials (is_clinker=True) and
+        self-contained cements that have clinker phases (has_clinker=True).
+
+        Args:
+            material_id: Material ID
+
+        Returns:
+            ClinkerExtension object or None if material has no clinker data
+        """
+        try:
+            with self.db_service.get_read_only_session() as session:
+                material = session.query(Material).options(
+                    joinedload(Material.clinker_data)
+                ).filter_by(id=material_id).first()
+
+                if not material:
+                    raise NotFoundError(f"Material ID {material_id} not found")
+
+                # Return clinker_data if available (works for both is_clinker and has_clinker)
+                if material.clinker_data:
+                    # Detach from session so it can be used after session closes
+                    session.expunge(material.clinker_data)
+                    return material.clinker_data
+
+                return None
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            self.logger.error(f"Failed to get clinker extension: {e}")
+            raise ServiceError(f"Failed to get clinker extension: {e}")
+
     def set_clinker_correlation(
         self,
         material_id: int,

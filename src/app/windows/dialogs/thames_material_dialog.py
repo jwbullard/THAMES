@@ -13,6 +13,7 @@ from typing import Optional, List, Dict
 
 from app.services.material_service import MaterialService
 from app.services.psd_data_service import PSDDataService
+from app.services.microstructure_service import MicrostructureService
 from app.models import MaterialCreate, MaterialUpdate, PSDDataCreate
 from app.widgets.phase_composition_editor import PhaseCompositionEditor
 from app.widgets.unified_psd_widget import UnifiedPSDWidget
@@ -21,7 +22,8 @@ from app.widgets.unified_psd_widget import UnifiedPSDWidget
 class MaterialDialog(Gtk.Dialog):
     """Simple dialog for creating/editing THAMES materials."""
 
-    def __init__(self, parent, material_service: MaterialService, mode='create', material=None):
+    def __init__(self, parent, material_service: MaterialService, mode='create', material=None,
+                 microstructure_service=None):
         """
         Initialize material dialog.
 
@@ -30,6 +32,7 @@ class MaterialDialog(Gtk.Dialog):
             material_service: MaterialService instance
             mode: 'create' or 'edit'
             material: Material object (for edit mode)
+            microstructure_service: MicrostructureService instance (optional, for shape sets)
         """
         # Check if material is immutable (read-only)
         self.is_immutable = material.immutable if (material and hasattr(material, 'immutable')) else False
@@ -43,6 +46,8 @@ class MaterialDialog(Gtk.Dialog):
 
         self.material_service = material_service
         self.psd_data_service = PSDDataService(material_service.db_service)
+        # Use provided microstructure_service or create a fallback one
+        self.microstructure_service = microstructure_service or MicrostructureService(material_service.db_service)
         self.mode = mode
         self.material = material
         self.material_name = None
@@ -140,6 +145,31 @@ class MaterialDialog(Gtk.Dialog):
         self.psd_widget.set_change_callback(self._on_psd_changed)
         psd_expander.add(self.psd_widget)
         content.pack_start(psd_expander, False, False, 0)
+
+        # Particle Shape Section
+        shape_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        shape_label = Gtk.Label(label="Particle Shape:")
+        shape_label.set_width_chars(20)
+        shape_label.set_halign(Gtk.Align.START)
+
+        self.shape_combo = Gtk.ComboBoxText()
+        # Add "Spheres" as default option
+        self.shape_combo.append("sphere", "Spheres")
+        # Add available real-shape sets from microstructure service
+        shape_sets = self.microstructure_service.get_supported_shape_sets()
+        for shape_id, shape_desc in shape_sets.items():
+            if shape_id.lower() not in ('sphere', 'spherical'):
+                self.shape_combo.append(shape_id, f"Real Shapes: {shape_desc}")
+        self.shape_combo.set_active(0)  # Default to spheres
+        self.shape_combo.set_tooltip_text(
+            "Select particle shape for microstructure generation.\n"
+            "Spheres: Particles are spherical (fastest computation).\n"
+            "Real Shapes: Uses spherical harmonic coefficients from shape database."
+        )
+
+        shape_box.pack_start(shape_label, False, False, 0)
+        shape_box.pack_start(self.shape_combo, True, True, 0)
+        content.pack_start(shape_box, False, False, 0)
 
         # Material Type Selector
         type_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -360,6 +390,20 @@ class MaterialDialog(Gtk.Dialog):
             }
             self.psd_widget.load_from_material_data(psd_dict)
 
+        # Load particle shape settings
+        shape_type = getattr(material, 'particle_shape_type', 0) or 0
+        shape_set = getattr(material, 'particle_shape_set', None)
+        if shape_type == 1 and shape_set:
+            # Real shapes - try to select the shape set in dropdown
+            self.shape_combo.set_active_id(shape_set)
+            if self.shape_combo.get_active_id() != shape_set:
+                # Shape set not found in dropdown, add it
+                self.shape_combo.append(shape_set, f"Real Shapes: {shape_set}")
+                self.shape_combo.set_active_id(shape_set)
+        else:
+            # Spheres
+            self.shape_combo.set_active_id("sphere")
+
         if material.description:
             buffer = self.desc_textview.get_buffer()
             buffer.set_text(material.description)
@@ -554,6 +598,7 @@ class MaterialDialog(Gtk.Dialog):
         self.sg_spinner.set_sensitive(False)
         self.ssa_spinner.set_sensitive(False)
         self.psd_widget.set_sensitive(False)
+        self.shape_combo.set_sensitive(False)
         self.type_combo.set_sensitive(False)
         self.desc_textview.set_editable(False)
         self.desc_textview.set_cursor_visible(False)
@@ -638,6 +683,15 @@ class MaterialDialog(Gtk.Dialog):
                     self._show_error(f"Clinker surface fractions must sum to 1.0 (currently {total:.4f})")
                     return False
 
+            # Get particle shape settings
+            shape_selection = self.shape_combo.get_active_id() or "sphere"
+            if shape_selection.lower() in ('sphere', 'spherical'):
+                particle_shape_type = 0  # SPHERES
+                particle_shape_set = None
+            else:
+                particle_shape_type = 1  # REALSHAPE
+                particle_shape_set = shape_selection
+
             if self.mode == 'create':
                 if material_type == "clinker":
                     # Create clinker material
@@ -648,7 +702,9 @@ class MaterialDialog(Gtk.Dialog):
                         specific_surface_area=ssa if ssa > 0 else None,
                         psd_data_id=psd_id,
                         description=desc if desc else None,
-                        is_clinker=True
+                        is_clinker=True,
+                        particle_shape_type=particle_shape_type,
+                        particle_shape_set=particle_shape_set
                     )
                     surface_fractions = {
                         key: spinner.get_value()
@@ -683,7 +739,9 @@ class MaterialDialog(Gtk.Dialog):
                         psd_data_id=psd_id,
                         description=desc if desc else None,
                         has_clinker=has_clinker,
-                        clinker_source_id=self.clinker_source_id
+                        clinker_source_id=self.clinker_source_id,
+                        particle_shape_type=particle_shape_type,
+                        particle_shape_set=particle_shape_set
                     )
                     created_material = self.material_service.create(
                         material_data,
@@ -704,7 +762,9 @@ class MaterialDialog(Gtk.Dialog):
                     description=desc if desc else None,
                     is_clinker=(material_type == "clinker"),
                     has_clinker=has_clinker,
-                    clinker_source_id=self.clinker_source_id
+                    clinker_source_id=self.clinker_source_id,
+                    particle_shape_type=particle_shape_type,
+                    particle_shape_set=particle_shape_set
                 )
                 updated_material = self.material_service.update(self.material.id, material_data)
 

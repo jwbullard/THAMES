@@ -6,18 +6,21 @@ Dynamically assigns microstructure phase IDs based on the mix design composition
 This replaces VCCTL's hard-coded phase ID scheme with a flexible system that
 works with any combination of GEMS phases.
 
-THAMES Phase ID Rules:
+THAMES Phase ID Rules (ALWAYS reserved, regardless of mix composition):
 - ID 0: VOID (empty pores, gas phase)
 - ID 1: ELECTROLYTE (aqueous solution)
-- IDs 2+: Solid phases, dynamically assigned
+- ID 2: Alite (C3S)
+- ID 3: Belite (C2S)
+- ID 4: Aluminate (C3A)
+- ID 5: Ferrite (C4AF)
+- ID 6: arcanite (K2SO4)
+- ID 7: thenardite (Na2SO4)
+- ID 8: AGGREGATE (coarse/fine aggregate, ITZ boundary)
+- IDs 9+: Other phases (calcium sulfates, pozzolans, hydration products)
 
-For mixes containing clinker materials (portland cement):
-- IDs 2-7: Reserved for clinker phases (Alite, Belite, Aluminate, Ferrite,
-           arcanite, thenardite)
-- IDs 8+: Other phases (calcium sulfates, pozzolans, hydration products)
-
-For mixes without clinker:
-- IDs 2+: Assigned in order of appearance
+The reserved IDs (0-8) are ALWAYS assigned regardless of whether those phases
+are present in the mix. This ensures consistent phase ID mapping across all
+THAMES simulations and compatibility with the THAMES-Hydration C++ code.
 """
 
 import logging
@@ -37,8 +40,14 @@ FIRST_SOLID = 2
 
 # Clinker phase names (GEMS format) - must be in this order for THAMES compatibility
 # Includes the four main clinker minerals plus alkali sulfates
-CLINKER_PHASES = ["Alite", "Belite", "Aluminate", "Ferrite", "arcanite", "thenardite"]
+CLINKER_PHASES = ["Alite", "Belite", "Aluminate", "Ferrite", "Arcanite", "Thenardite"]
 NUM_CLINKER_PHASES = len(CLINKER_PHASES)
+
+# Aggregate phase ID - always reserved after clinker phases
+AGGREGATEID = FIRST_SOLID + NUM_CLINKER_PHASES  # ID 8
+
+# First ID available for other solid phases (after clinker + aggregate)
+FIRST_OTHER_SOLID = AGGREGATEID + 1  # ID 9
 
 
 @dataclass
@@ -131,8 +140,8 @@ class PhaseIdMappingService:
         # Always add void and electrolyte
         mapping.gem_to_micro["VOID"] = VOIDID
         mapping.micro_to_gem[VOIDID] = "VOID"
-        mapping.gem_to_micro["aq_gen"] = ELECTROLYTEID  # GEMS aqueous phase name
-        mapping.micro_to_gem[ELECTROLYTEID] = "aq_gen"
+        mapping.gem_to_micro["Electrolyte"] = ELECTROLYTEID  # GEMS aqueous phase name
+        mapping.micro_to_gem[ELECTROLYTEID] = "Electrolyte"
 
         # Collect all unique phases from materials
         all_phases: Set[str] = set()
@@ -146,19 +155,24 @@ class PhaseIdMappingService:
         clinker_in_mix = all_phases & set(CLINKER_PHASES)
         mapping.has_clinker = len(clinker_in_mix) > 0
 
-        if mapping.has_clinker:
-            # Reserve IDs 2-5 for clinker phases (even if not all present)
-            self.logger.info("Clinker phases detected, reserving IDs 2-5")
-            for i, clinker_phase in enumerate(CLINKER_PHASES):
-                phase_id = FIRST_SOLID + i
-                mapping.gem_to_micro[clinker_phase] = phase_id
-                mapping.micro_to_gem[phase_id] = clinker_phase
-                mapping.clinker_phase_ids[clinker_phase] = phase_id
-            mapping.next_available_id = FIRST_SOLID + NUM_CLINKER_PHASES
-        else:
-            mapping.next_available_id = FIRST_SOLID
+        # ALWAYS reserve IDs 2-7 for clinker phases (even if not present in mix)
+        # This ensures consistent phase ID mapping across all THAMES simulations
+        self.logger.info("Reserving IDs 2-7 for clinker phases")
+        for i, clinker_phase in enumerate(CLINKER_PHASES):
+            phase_id = FIRST_SOLID + i
+            mapping.gem_to_micro[clinker_phase] = phase_id
+            mapping.micro_to_gem[phase_id] = clinker_phase
+            mapping.clinker_phase_ids[clinker_phase] = phase_id
 
-        # Assign IDs to remaining phases
+        # ALWAYS reserve ID 8 for aggregate
+        self.logger.info("Reserving ID 8 for aggregate")
+        mapping.gem_to_micro["AGGREGATE"] = AGGREGATEID
+        mapping.micro_to_gem[AGGREGATEID] = "AGGREGATE"
+
+        # Set next available ID to 9 (after clinker + aggregate)
+        mapping.next_available_id = FIRST_OTHER_SOLID
+
+        # Assign IDs to remaining phases (excluding clinker phases which are already assigned)
         non_clinker_phases = all_phases - set(CLINKER_PHASES)
 
         # Sort phases for deterministic ordering
@@ -303,13 +317,13 @@ class PhaseIdMappingService:
         # VCCTL phase IDs (from vcctl2thames.h)
         vcctl_phases = {
             "VOID": 0,
-            "aq_gen": 0,  # VCCTL uses 0 for electrolyte
+            "Electrolyte": 0,  # VCCTL uses 0 for electrolyte
             "Alite": 1,      # C3S
             "Belite": 2,     # C2S
             "Aluminate": 3,  # C3A
             "Ferrite": 4,    # C4AF
-            "arcanite": 5,   # K2SO4
-            "thenardite": 6, # Na2SO4
+            "Arcanite": 5,   # K2SO4
+            "Thenardite": 6, # Na2SO4
             "Gypsum": 7,
             "hemihydrate": 8,
             "Anhydrite": 9,
@@ -358,16 +372,19 @@ class PhaseIdMappingService:
                     f"Inconsistent mapping: {phase_name} -> {phase_id} -> {reverse}"
                 )
 
-        # Check clinker phase IDs if clinker is present
-        if mapping.has_clinker:
-            for i, clinker_phase in enumerate(CLINKER_PHASES):
-                expected_id = FIRST_SOLID + i
-                actual_id = mapping.gem_to_micro.get(clinker_phase)
-                if actual_id != expected_id:
-                    errors.append(
-                        f"Clinker phase '{clinker_phase}' should have ID {expected_id}, "
-                        f"but has {actual_id}"
-                    )
+        # Check that clinker phase IDs are always reserved (IDs 2-7)
+        for i, clinker_phase in enumerate(CLINKER_PHASES):
+            expected_id = FIRST_SOLID + i
+            actual_id = mapping.gem_to_micro.get(clinker_phase)
+            if actual_id != expected_id:
+                errors.append(
+                    f"Clinker phase '{clinker_phase}' should have ID {expected_id}, "
+                    f"but has {actual_id}"
+                )
+
+        # Check that aggregate ID is reserved (ID 8)
+        if AGGREGATEID not in mapping.micro_to_gem:
+            errors.append(f"AGGREGATE phase (ID {AGGREGATEID}) not assigned")
 
         return len(errors) == 0, errors
 

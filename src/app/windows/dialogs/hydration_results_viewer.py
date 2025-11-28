@@ -29,6 +29,14 @@ except ImportError as e:
     import traceback
     traceback.print_exc()
 
+# Import phase color service for THAMES dynamic phase mappings
+try:
+    from app.services.phase_color_service import PhaseColorService
+    PHASE_COLOR_SERVICE_AVAILABLE = True
+except ImportError:
+    PhaseColorService = None
+    PHASE_COLOR_SERVICE_AVAILABLE = False
+
 
 class HydrationResultsViewer(Gtk.Dialog):
     """Dialog for viewing 3D microstructure evolution from hydration simulation."""
@@ -42,14 +50,20 @@ class HydrationResultsViewer(Gtk.Dialog):
         
         self.operation = operation
         self.logger = logging.getLogger(__name__)
-        
+
+        # Initialize phase color service for THAMES mappings
+        self.phase_color_service = PhaseColorService() if PHASE_COLOR_SERVICE_AVAILABLE else None
+
         # Time-series data
         self.microstructure_files: List[Tuple[float, str]] = []  # (time_hours, filepath)
         self.current_time_index = 0
-        
+
         # Cache colors to avoid re-reading CSV file every time
         self.cached_phase_mapping = None
         self.cached_phase_colors = None
+
+        # THAMES-specific phase mapping (loaded from operation folder)
+        self.thames_color_mapping = None  # PhaseColorMapping from operation folder
         
         # Cache microstructure data for fast time navigation
         self.cached_voxel_data: Dict[int, np.ndarray] = {}  # index -> voxel_data
@@ -252,25 +266,130 @@ class HydrationResultsViewer(Gtk.Dialog):
             
             # Sort by time
             self.microstructure_files.sort(key=lambda x: x[0])
-            
+
             # Update slider range
             if len(self.microstructure_files) > 1:
                 self.time_slider.set_range(0, len(self.microstructure_files) - 1)
                 self.time_slider.set_increments(1, 1)
-            
+
             self.logger.info(f"Loaded {len(self.microstructure_files)} microstructure files")
-            
+
+            # Try to load THAMES phase mapping from operation folder
+            thames_loaded = self._load_thames_phase_mapping(output_path)
+            mapping_source = "THAMES" if thames_loaded else "VCCTL"
+
             # Update info label
             if self.microstructure_files:
                 self.info_label.set_markup(
                     f"<b>Operation:</b> {self.operation.name}\n"
                     f"<b>Microstructures:</b> {len(self.microstructure_files)} time points\n"
+                    f"<b>Phase Colors:</b> {mapping_source}\n"
                     f"<b>Status:</b> <span color='orange'>Preloading data...</span>"
                 )
-            
+
         except Exception as e:
             self.logger.error(f"Error loading microstructure files: {e}")
-            
+
+    def _load_thames_phase_mapping(self, output_path: Path) -> bool:
+        """
+        Try to load THAMES phase mapping and colors from operation folder.
+
+        Args:
+            output_path: Path to operation output directory
+
+        Returns:
+            True if THAMES mapping was loaded successfully, False otherwise
+        """
+        if not self.phase_color_service:
+            self.logger.debug("PhaseColorService not available, skipping THAMES mapping")
+            return False
+
+        try:
+            # Look for THAMES phase color mapping files
+            # Pattern: <operation_name>_phase_colors.json
+            color_files = list(output_path.glob("*_phase_colors.json"))
+
+            if not color_files:
+                self.logger.debug(f"No THAMES phase color mapping found in {output_path}")
+                return False
+
+            # Load the first color mapping file found
+            color_file = color_files[0]
+            self.logger.info(f"Loading THAMES phase color mapping from: {color_file}")
+
+            self.thames_color_mapping = self.phase_color_service.load_color_mapping(color_file)
+
+            if self.thames_color_mapping:
+                self.logger.info(
+                    f"Loaded THAMES mapping: {len(self.thames_color_mapping.phase_id_to_name)} phases"
+                )
+                return True
+            else:
+                self.logger.warning(f"Failed to load color mapping from {color_file}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"Error loading THAMES phase mapping: {e}")
+            return False
+
+    def _get_phase_mapping(self, use_cache: bool = True) -> Tuple[Dict[int, str], Dict[int, Tuple[float, float, float]]]:
+        """
+        Get phase mapping and colors - tries THAMES mapping first, falls back to VCCTL.
+
+        This is the unified method for getting phase information that supports
+        both THAMES dynamic phase IDs and legacy VCCTL fixed phase IDs.
+
+        Returns:
+            Tuple of (phase_mapping dict, phase_colors dict)
+            - phase_mapping: {phase_id: phase_name}
+            - phase_colors: {phase_id: (r, g, b)} normalized 0-1
+        """
+        # Return cached colors if available and requested
+        if use_cache and self.cached_phase_mapping is not None and self.cached_phase_colors is not None:
+            return self.cached_phase_mapping, self.cached_phase_colors
+
+        # Try THAMES mapping first
+        if self.thames_color_mapping:
+            self.logger.info("Using THAMES phase mapping")
+            phase_mapping = dict(self.thames_color_mapping.phase_id_to_name)
+            phase_colors = {}
+
+            # Convert hex colors to normalized RGB tuples
+            for phase_id, hex_color in self.thames_color_mapping.phase_id_to_color.items():
+                if self.phase_color_service:
+                    rgb = self.phase_color_service.hex_to_rgb_normalized(hex_color)
+                    phase_colors[phase_id] = rgb
+                else:
+                    # Manual conversion if service not available
+                    hex_color = hex_color.lstrip('#')
+                    r = int(hex_color[0:2], 16) / 255.0
+                    g = int(hex_color[2:4], 16) / 255.0
+                    b = int(hex_color[4:6], 16) / 255.0
+                    phase_colors[phase_id] = (r, g, b)
+
+            # Always ensure VOID (phase ID 0) is in the mapping
+            if 0 not in phase_mapping:
+                phase_mapping[0] = "VOID"
+                phase_colors[0] = (0.0, 0.0, 0.0)  # Black
+                self.logger.info("Added VOID (phase 0) to phase mapping")
+
+            # Cache the results
+            self.cached_phase_mapping = phase_mapping
+            self.cached_phase_colors = phase_colors
+
+            self.logger.info(f"Loaded {len(phase_mapping)} THAMES phase colors")
+            return phase_mapping, phase_colors
+
+        # Fall back to THAMES default mapping (no longer use VCCTL colors.csv)
+        self.logger.info("THAMES JSON mapping not found, using THAMES default colors")
+        phase_mapping, phase_colors = self._get_default_phase_mapping()
+
+        # Cache the results
+        self.cached_phase_mapping = phase_mapping
+        self.cached_phase_colors = phase_colors
+
+        return phase_mapping, phase_colors
+
     def _load_initial_microstructure(self) -> None:
         """Load the initial microstructure in the 3D viewer."""
         if not self.microstructure_files:
@@ -293,10 +412,11 @@ class HydrationResultsViewer(Gtk.Dialog):
                 if voxel_data is not None:
                     print(f"Voxel shape: {voxel_data.shape}, unique phases: {np.unique(voxel_data)}")
 
-                    # VCCTL phase mapping with official colors - fresh read
-                    phase_mapping, phase_colors = self._get_vcctl_phase_mapping()
+                    # Get phase mapping - tries THAMES first, falls back to VCCTL
+                    phase_mapping, phase_colors = self._get_phase_mapping()
                     print(f"Phase mapping loaded: {len(phase_mapping)} phases, {len(phase_colors)} colors")
-                    self.logger.info(f"Loading {len(phase_colors)} colors from colors.csv for initial load")
+                    mapping_type = "THAMES" if self.thames_color_mapping else "VCCTL"
+                    self.logger.info(f"Loading {len(phase_colors)} colors ({mapping_type}) for initial load")
 
                     # Debug: log what phases and colors we actually loaded
                     for phase_id, phase_name in phase_mapping.items():
@@ -424,9 +544,11 @@ class HydrationResultsViewer(Gtk.Dialog):
         """Update UI to show preloading is complete (called on main thread)."""
         try:
             if self.info_label and self.operation:
+                mapping_source = "THAMES" if self.thames_color_mapping else "VCCTL"
                 self.info_label.set_markup(
                     f"<b>Operation:</b> {self.operation.name}\n"
                     f"<b>Microstructures:</b> {len(self.microstructure_files)} time points\n"
+                    f"<b>Phase Colors:</b> {mapping_source}\n"
                     f"<b>Status:</b> <span color='green'>Ready - All data cached</span>\n"
                     f"<i>Note: 3D visualization rebuilding takes ~2 seconds per time point</i>"
                 )
@@ -436,22 +558,36 @@ class HydrationResultsViewer(Gtk.Dialog):
         return False  # Don't repeat this idle callback
     
     def _read_microstructure_file(self, file_path: str) -> Optional[np.ndarray]:
-        """Read a VCCTL microstructure file and return voxel data."""
+        """Read a VCCTL or THAMES microstructure file and return voxel data.
+
+        Supports both formats:
+        - VCCTL: Header lines like "X_Size: 100"
+        - THAMES: Header lines like "#THAMES: X_Size: 100"
+        """
         try:
             from pathlib import Path
-            
+
             file_path = Path(file_path)
             self.logger.info(f"Reading microstructure file: {file_path}")
-            
+
             with open(file_path, 'r') as f:
                 lines = f.readlines()
-            
+
             # Parse header to get dimensions
+            # Support both VCCTL format (e.g., "X_Size: 100")
+            # and THAMES format (e.g., "#THAMES: X_Size: 100")
             x_size = y_size = z_size = None
             header_end = 0
-            
+            is_thames_format = False
+
             for i, line in enumerate(lines):
                 line = line.strip()
+
+                # Check for THAMES format and strip prefix if present
+                if line.startswith('#THAMES:'):
+                    is_thames_format = True
+                    line = line[8:].strip()  # Remove "#THAMES:" prefix
+
                 if line.startswith('X_Size:'):
                     x_size = int(line.split(':')[1].strip())
                 elif line.startswith('Y_Size:'):
@@ -462,6 +598,9 @@ class HydrationResultsViewer(Gtk.Dialog):
                     # This is typically the last header line
                     header_end = i + 1
                     break
+
+            if is_thames_format:
+                self.logger.info("Detected THAMES microstructure format")
                     
             if not all([x_size, y_size, z_size]):
                 self.logger.error(f"Could not parse dimensions from {file_path}")
@@ -582,38 +721,46 @@ class HydrationResultsViewer(Gtk.Dialog):
             return self._get_default_phase_mapping()
     
     def _get_default_phase_mapping(self) -> Tuple[Dict[int, str], Dict[int, Tuple[float, float, float]]]:
-        """Fallback phase mapping with default colors."""
+        """Fallback phase mapping with THAMES default colors and naming."""
+        # THAMES phase ID conventions (from phase_id_mapping_service.py):
+        # ID 0: VOID (empty pores)
+        # ID 1: Electrolyte (aqueous solution)
+        # ID 2-7: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite, thenardite)
+        # ID 8: AGGREGATE
+        # ID 9+: Other phases
         phase_mapping = {
-            0: "Porosity",
-            1: "C3S", 
-            2: "C2S",
-            3: "C3A",
-            4: "C4AF",
-            7: "Gypsum",
-            8: "Hemihydrate",
-            9: "Anhydrite",
-            19: "Portlandite",
-            20: "CSH",
-            22: "AFt",
-            24: "AFm"
+            0: "VOID",
+            1: "Electrolyte",
+            2: "Alite",
+            3: "Belite",
+            4: "Aluminate",
+            5: "Ferrite",
+            6: "Arcanite",
+            7: "Thenardite",
+            8: "AGGREGATE",
+            9: "Gypsum",
+            10: "hemihydrate",
+            11: "Anhydrite",
+            12: "Calcite",
         }
-        
-        # Default colors (basic scheme)
+
+        # Default colors using THAMES conventions (RGB normalized 0-1)
         phase_colors = {
-            0: (0.1, 0.1, 0.1),    # Dark grey for pores
-            1: (0.16, 0.16, 0.82), # Blue for C3S
-            2: (0.55, 0.31, 0.07), # Brown for C2S  
-            3: (0.7, 0.7, 0.7),    # Grey for C3A
-            4: (1.0, 1.0, 1.0),    # White for C4AF
-            7: (1.0, 1.0, 0.0),    # Yellow for Gypsum
-            8: (1.0, 0.94, 0.34),  # Light yellow
-            9: (1.0, 1.0, 0.5),    # Pale yellow
-            19: (0.03, 0.28, 0.56), # Blue for Portlandite
-            20: (0.96, 0.87, 0.7),  # Beige for CSH
-            22: (0.5, 0.0, 1.0),    # Purple for AFt
-            24: (0.96, 0.27, 0.8)   # Pink for AFm
+            0: (0.0, 0.0, 0.0),       # Black for VOID
+            1: (0.0, 0.078, 0.098),   # Dark blue for Electrolyte (0,20,25)
+            2: (0.165, 0.165, 0.824), # Blue for Alite (42,42,210)
+            3: (0.545, 0.31, 0.075),  # Brown for Belite (139,79,19)
+            4: (0.698, 0.698, 0.698), # Light gray for Aluminate (178,178,178)
+            5: (0.992, 0.992, 0.992), # White for Ferrite (253,253,253)
+            6: (1.0, 0.0, 0.0),       # Red for arcanite (255,0,0)
+            7: (1.0, 0.078, 0.0),     # Red-orange for thenardite (255,20,0)
+            8: (1.0, 0.753, 0.255),   # Gold for AGGREGATE (255,192,65)
+            9: (1.0, 1.0, 0.0),       # Yellow for Gypsum
+            10: (1.0, 0.94, 0.34),    # Light yellow for hemihydrate
+            11: (1.0, 1.0, 0.5),      # Pale yellow for Anhydrite
+            12: (0.0, 0.8, 0.0),      # Green for Calcite
         }
-        
+
         return phase_mapping, phase_colors
     
     def _apply_vcctl_colors(self, phase_colors: Dict[int, Tuple[float, float, float]]) -> None:
@@ -660,8 +807,8 @@ class HydrationResultsViewer(Gtk.Dialog):
                         self.cached_voxel_data[index] = voxel_data
                 
                 if voxel_data is not None and self.pyvista_viewer:
-                    # Use cached phase mapping and colors for speed
-                    phase_mapping, phase_colors = self._get_vcctl_phase_mapping(use_cache=True)
+                    # Use cached phase mapping and colors for speed (THAMES or VCCTL)
+                    phase_mapping, phase_colors = self._get_phase_mapping(use_cache=True)
                     
                     # Update time display immediately to show user we're responding
                     self.current_time_index = index

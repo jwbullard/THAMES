@@ -37,6 +37,7 @@ from app.services.microstructure_service import MicrostructureParams, PhaseType
 from app.services.micgen_input_service import MicgenInputService
 from app.services.material_service import MaterialService
 from app.services.psd_data_service import PSDDataService
+from app.services.phase_color_service import PhaseColorService
 # Import centralized validation
 from app.validation import MixDesignValidator, ComponentData
 from app.widgets import GradingCurveWidget
@@ -59,6 +60,7 @@ class MixDesignPanel(Gtk.Box):
         self.material_service = MaterialService(self.service_container.database_service)
         self.psd_service = PSDDataService(self.service_container.database_service)
         self.micgen_input_service = MicgenInputService(self.material_service, self.psd_service)
+        self.phase_color_service = PhaseColorService()
         
         # Panel state
         self.current_mix = None
@@ -281,26 +283,16 @@ class MixDesignPanel(Gtk.Box):
         scrolled.add(self.components_box)
         
         powder_box.pack_start(scrolled, True, True, 0)
-        
-        # Particle shape set selection
-        shape_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        powder_box.pack_start(shape_separator, False, False, 5)
-        
-        shape_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        
-        shape_label = Gtk.Label("Particle Shape Set:")
-        shape_label.set_halign(Gtk.Align.START)
-        shape_label.set_tooltip_text("Particle shape model for powder materials")
-        shape_box.pack_start(shape_label, False, False, 0)
-        
+
+        # Note: Particle shape selection has been moved to the Materials tab (per-material setting).
+        # The cement_shape_combo is hidden but kept for database compatibility.
+        # Create hidden cement_shape_combo for database compatibility
         self.cement_shape_combo = Gtk.ComboBoxText()
         shape_sets = self.microstructure_service.get_supported_shape_sets()
         for shape_id, shape_desc in shape_sets.items():
             self.cement_shape_combo.append(shape_id, shape_desc)
-        self.cement_shape_combo.set_active(0)
-        shape_box.pack_start(self.cement_shape_combo, True, True, 0)
-        
-        powder_box.pack_start(shape_box, False, False, 0)
+        self.cement_shape_combo.set_active(0)  # Default to spheres
+        # Don't pack into UI - kept hidden for save/load compatibility
         
         powder_frame.add(powder_box)
         parent.pack_start(powder_frame, True, True, 0)
@@ -474,9 +466,11 @@ class MixDesignPanel(Gtk.Box):
     def refresh_material_lists(self) -> None:
         """Refresh material lists and update all dropdowns."""
         self._load_material_lists()
-        # Also refresh all existing component dropdowns
+        # Refresh all existing MaterialSelector widgets
         for row_data in self.component_rows:
-            self._update_material_names(row_data)
+            material_selector = row_data.get('material_selector')
+            if material_selector is not None:
+                material_selector.refresh()
     
     def _load_material_lists(self) -> None:
         """Load available materials for each type."""
@@ -542,7 +536,7 @@ class MixDesignPanel(Gtk.Box):
             else:
                 self.cement_shape_combo.set_active(0)
 
-            self.logger.info(f"Refreshed cement shape combo with {len(shape_sets)} shape sets")
+            self.logger.debug(f"Refreshed hidden cement shape combo with {len(shape_sets)} shape sets")
 
         except Exception as e:
             self.logger.error(f"Failed to refresh shape sets: {e}")
@@ -586,7 +580,7 @@ class MixDesignPanel(Gtk.Box):
         self.coarse_agg_grading_button.connect('clicked', self._on_coarse_aggregate_grading_clicked)
         
         # Shape set controls
-        self.cement_shape_combo.connect('changed', self._on_parameter_changed)
+        # Note: cement_shape_combo signal not connected - shapes now set per-material in Materials tab
         self.fine_agg_shape_combo.connect('changed', self._on_parameter_changed)
         self.coarse_agg_shape_combo.connect('changed', self._on_parameter_changed)
         
@@ -645,18 +639,15 @@ class MixDesignPanel(Gtk.Box):
         row_box.pack_start(remove_button, False, False, 0)
 
         # Store references in row data
-        # Keep 'type_combo' and 'name_combo' keys for backwards compatibility
         row_data = {
             'box': row_box,
-            'type_combo': None,  # THAMES: No longer used
-            'name_combo': None,  # THAMES: Replaced by material_selector
-            'material_selector': material_selector,  # THAMES: New autocomplete selector
+            'material_selector': material_selector,
             'mass_spin': mass_spin,
-            'sg_label': material_selector.sg_label,  # THAMES: SG label is inside selector
+            'sg_label': material_selector.sg_label,
             'grading_button': grading_button,
             'remove_button': remove_button,
             'grading_data': [],  # Store grading curve data
-            'material_id': None  # THAMES: Store selected material ID
+            'material_id': None  # Store selected material ID
         }
 
         # Connect signals
@@ -746,55 +737,6 @@ class MixDesignPanel(Gtk.Box):
             self.logger.error(f"Failed to handle material change: {e}")
             sg_label.set_text("SG: --")
 
-    def _update_material_names(self, row_data: Dict[str, Any]) -> None:
-        """Update material names combo based on selected type.
-
-        THAMES: This method is kept for backwards compatibility but is not used
-        in the simplified single-dropdown mode. The combo is populated directly
-        in _create_component_row via _populate_thames_material_combo.
-        """
-        type_combo = row_data.get('type_combo')
-        name_combo = row_data.get('name_combo')
-
-        # THAMES mode: type_combo is None, combo is already populated
-        if type_combo is None:
-            return
-
-        # Legacy VCCTL mode (kept for reference)
-        # Clear existing items
-        name_combo.remove_all()
-
-        # Get selected material type
-        material_type_str = type_combo.get_active_id()
-        if not material_type_str:
-            return
-
-        try:
-            material_type = MaterialType(material_type_str)
-            materials = self.material_lists.get(material_type, [])
-
-            # Populate name combo in alphabetical order
-            for material_name in sorted(materials):
-                name_combo.append(material_name, material_name)
-
-            # Set smart defaults based on material type
-            default_selected = False
-            if materials:
-                if material_type == MaterialType.FILLER:
-                    # Prefer "quartz" as default for inert fillers
-                    for i, material_name in enumerate(materials):
-                        if material_name.lower() == "quartz":
-                            name_combo.set_active(i)
-                            default_selected = True
-                            break
-
-                # If no specific default found, use first item
-                if not default_selected:
-                    name_combo.set_active(0)
-
-        except Exception as e:
-            self.logger.warning(f"Failed to update material names: {e}")
-    
     # Signal handlers
     def _on_auto_calc_toggled(self, switch, pspec) -> None:
         """Handle auto-calculate toggle."""
@@ -865,161 +807,6 @@ class MixDesignPanel(Gtk.Box):
         """Handle normalize button click - not applicable for absolute masses."""
         self.main_window.update_status("Normalization not applicable for absolute masses (kg)", "info", 3)
     
-    def _populate_material_type_combo(self, type_combo: Gtk.ComboBoxText) -> None:
-        """Populate material type combo with available types (excluding already selected ones)."""
-        self._populate_material_type_combo_for_row(type_combo)
-    
-    def _populate_material_type_combo_for_row(self, type_combo: Gtk.ComboBoxText, keep_selection: str = None) -> None:
-        """Populate material type combo with all powder types. Constraint is enforced at selection time.
-        
-        ⚠️ PROTECTED METHOD - DO NOT MODIFY WITHOUT EXPLICIT REQUEST
-        This method populates combo boxes and triggers auto-selection logic.
-        Working correctly as of Session 6 (Aug 4, 2025).
-        """
-        # Clear and repopulate combo
-        type_combo.remove_all()
-        
-        # Add all powder material types (excluding aggregate)
-        # Constraint enforcement is now handled in _on_component_type_changed
-        for material_type in MaterialType:
-            if material_type != MaterialType.AGGREGATE:
-                type_value = material_type.value
-                display_name = material_type.value.replace("_", " ").title()
-                type_combo.append(type_value, display_name)  # append(id, text) where id=type_value, text=display_name
-        
-        # Auto-select highest unused material type if nothing is selected
-        # BUT skip auto-selection during loading to prevent interference
-        loading_flag = getattr(self, '_loading_in_progress', False)
-        if type_combo.get_active() == -1 and not keep_selection and not loading_flag:
-            selected_index = self._get_highest_unused_material_type_index(type_combo)
-            if selected_index >= 0:
-                # Get the type being auto-selected for debugging
-                type_combo.set_active(selected_index)
-                auto_selected_type = type_combo.get_active_id()
-                self.logger.info(f"DEBUG: Auto-selected material type: {auto_selected_type} (index {selected_index})")
-        elif loading_flag:
-            self.logger.info(f"DEBUG: Skipping auto-selection during loading")
-
-    def _get_highest_unused_material_type_index(self, current_combo: Gtk.ComboBoxText) -> int:
-        """Get the index of the highest priority unused material type.
-        
-        ⚠️ PROTECTED METHOD - DO NOT MODIFY WITHOUT EXPLICIT REQUEST
-        This method implements critical auto-selection logic that was working perfectly
-        in Session 4. Any changes risk breaking the user experience.
-        
-        Fixed in Session 6 (Aug 4, 2025): Corrected material type comparison logic
-        to handle GTK ComboBoxText parameter format mismatch.
-        """
-        # Define material type priority order (highest to lowest priority)
-        priority_order = [
-            MaterialType.CEMENT,
-            MaterialType.FLY_ASH, 
-            MaterialType.SLAG,
-            MaterialType.SILICA_FUME,
-            MaterialType.LIMESTONE,
-            MaterialType.FILLER
-        ]
-        
-        # Get currently used material types from other components
-        used_types = set()
-        for row in self.component_rows:
-            type_combo = row['type_combo']
-            if type_combo != current_combo:  # Don't check current combo
-                active_id = type_combo.get_active_id()
-                if active_id:
-                    # Convert display name back to type value for comparison
-                    # active_id contains display name like 'Cement', convert to 'cement'
-                    type_value = active_id.lower().replace(" ", "_")
-                    used_types.add(type_value)
-        
-        # Find highest priority unused type
-        for material_type in priority_order:
-            type_value = material_type.value
-            display_name = material_type.value.replace("_", " ").title()
-            if type_value not in used_types:
-                # Find this type's index in the current combo
-                model = current_combo.get_model()
-                for i in range(len(model)):
-                    # Look for the display_name in the ID field
-                    if model[i][0] == display_name:
-                        return i
-        
-        # Fallback to first item if all types are used
-        return 0
-
-    def _on_component_type_changed(self, combo, row_data) -> None:
-        """Handle component type change.
-
-        THAMES: This method is not used in THAMES mode where type_combo is None.
-        """
-        # THAMES mode: type_combo is None, use _on_thames_material_changed instead
-        if row_data.get('type_combo') is None:
-            return
-
-        # Skip constraint checking if we're loading from database
-        loading_flag = getattr(self, '_loading_in_progress', False)
-        
-        if loading_flag:
-            print("DEBUG: Skipping constraint check - loading in progress")
-        else:
-            # Check for duplicate material type selection
-            selected_type = combo.get_active_id()
-            self.logger.info(f"DEBUG: Component type changed to: {selected_type}")
-            print(f"DEBUG: Constraint check: selected_type='{selected_type}', total_rows={len(self.component_rows)}")
-            
-            if selected_type:
-                # Check if this type is already selected in another component
-                duplicate_found = False
-                for i, other_row in enumerate(self.component_rows):
-                    other_combo = other_row['type_combo']
-                    is_same_combo = (other_combo == combo)
-                    other_type = other_combo.get_active_id()
-                    
-                    print(f"DEBUG: Row {i}: other_type='{other_type}', same_combo={is_same_combo}")
-                    
-                    if not is_same_combo and other_type == selected_type:
-                        # Duplicate detected - show error and revert
-                        print(f"DEBUG: DUPLICATE DETECTED: {selected_type} is already used in row {i}")
-                        
-                        # Show popup dialog to make constraint violation visible
-                        import gi
-                        gi.require_version('Gtk', '3.0')
-                        from gi.repository import Gtk
-                        dialog = Gtk.MessageDialog(
-                            transient_for=self.main_window,
-                            flags=0,
-                            message_type=Gtk.MessageType.ERROR,
-                            buttons=Gtk.ButtonsType.OK,
-                            text=f"CONSTRAINT VIOLATION: Material type '{selected_type.replace('_', ' ').title()}' is already selected in another component"
-                        )
-                        dialog.run()
-                        dialog.destroy()
-                        
-                        self.main_window.update_status(f"Material type '{selected_type.replace('_', ' ').title()}' is already selected in another component", "error", 5)
-                        # Reset to no selection
-                        combo.set_active(-1)
-                        duplicate_found = True
-                        break
-                
-                if not duplicate_found:
-                    print(f"DEBUG: No duplicates found for '{selected_type}'")
-        
-        self._update_material_names(row_data)
-        
-        # Enable grading button only for aggregates
-        material_type_str = combo.get_active_id()
-        is_aggregate = material_type_str == MaterialType.AGGREGATE.value
-        row_data['grading_button'].set_sensitive(is_aggregate)
-        
-        if self.auto_calculate_enabled:
-            self._trigger_calculation()
-    
-    def _on_component_name_changed(self, combo, row_data) -> None:
-        """Handle component name change."""
-        # Update specific gravity display
-        self._update_component_specific_gravity(row_data)
-        if self.auto_calculate_enabled:
-            self._trigger_calculation()
     
     def _on_component_mass_changed(self, spin, row_data) -> None:
         """Handle component mass change."""
@@ -1378,27 +1165,6 @@ class MixDesignPanel(Gtk.Box):
             self.main_window.update_status(f"Error opening grading dialog: {e}", "error", 5)
     
     # Helper methods
-    def _update_component_specific_gravity(self, row_data: Dict[str, Any]) -> None:
-        """Update specific gravity display for a component."""
-        try:
-            type_combo = row_data['type_combo']
-            name_combo = row_data['name_combo']
-            sg_label = row_data['sg_label']
-            
-            material_type_str = type_combo.get_active_id()
-            material_name = name_combo.get_active_id()
-            
-            if material_type_str and material_name:
-                material_type = MaterialType(material_type_str)
-                sg = self.mix_service._get_material_specific_gravity(material_name, material_type)
-                sg_label.set_text(f"SG: {sg:.3f}")
-            else:
-                sg_label.set_text("SG: —")
-        
-        except Exception as e:
-            self.logger.warning(f"Failed to update specific gravity: {e}")
-            row_data['sg_label'].set_text("SG: —")
-    
     def _calculate_water_content_from_wb_ratio(self) -> None:
         """Calculate water mass (kg) from W/B ratio (water mass / powder mass)."""
         try:
@@ -1539,20 +1305,16 @@ class MixDesignPanel(Gtk.Box):
             self.logger.warning(f"Failed to calculate W/B ratio: {e}")
     
     def _calculate_total_powder_mass(self) -> float:
-        """Calculate total powder mass in kg (cement, fly ash, slag, inert filler, filler)."""
-        powder_types = {MaterialType.CEMENT, MaterialType.FLY_ASH, MaterialType.SLAG, MaterialType.FILLER, MaterialType.SILICA_FUME, MaterialType.LIMESTONE}
+        """Calculate total powder mass in kg (all materials from MaterialSelector are powder)."""
         total_powder = 0.0
-        
+
         for row in self.component_rows:
-            type_str = row['type_combo'].get_active_id()
-            if type_str:
-                try:
-                    material_type = MaterialType(type_str)
-                    if material_type in powder_types:
-                        total_powder += row['mass_spin'].get_value()
-                except ValueError:
-                    continue
-        
+            material_selector = row.get('material_selector')
+            if material_selector:
+                material_name = material_selector.get_selected_material_name()
+                if material_name:
+                    total_powder += row['mass_spin'].get_value()
+
         return total_powder
     
     def _calculate_total_paste_mass(self) -> float:
@@ -1567,26 +1329,28 @@ class MixDesignPanel(Gtk.Box):
     
     def _calculate_powder_specific_gravity(self) -> float:
         """Calculate mass-weighted average specific gravity of all powder components."""
-        powder_types = {MaterialType.CEMENT, MaterialType.FLY_ASH, MaterialType.SLAG, MaterialType.FILLER, MaterialType.SILICA_FUME, MaterialType.LIMESTONE}
         total_weighted_sg = 0.0
         total_powder_mass = 0.0
-        
+
         for row in self.component_rows:
-            type_str = row['type_combo'].get_active_id()
-            if type_str:
-                try:
-                    material_type = MaterialType(type_str)
-                    if material_type in powder_types:
+            material_selector = row.get('material_selector')
+            if material_selector:
+                material_name = material_selector.get_selected_material_name()
+                if material_name:
+                    try:
                         mass_kg = row['mass_spin'].get_value()
-                        sg_text = row['sg_label'].get_text()
-                        
-                        if mass_kg > 0 and sg_text != "—":
+                        # Get SG from the material_selector's sg_label
+                        sg_text = material_selector.sg_label.get_text()
+                        # Handle "SG: X.XXX" format
+                        if sg_text.startswith("SG:"):
+                            sg_text = sg_text.replace("SG:", "").strip()
+                        if mass_kg > 0 and sg_text and sg_text not in ("—", "--", "N/A"):
                             sg = float(sg_text)
                             total_weighted_sg += mass_kg * sg
                             total_powder_mass += mass_kg
-                except (ValueError, TypeError):
-                    continue
-        
+                    except (ValueError, TypeError):
+                        continue
+
         if total_powder_mass > 0:
             return total_weighted_sg / total_powder_mass
         else:
@@ -1671,16 +1435,10 @@ class MixDesignPanel(Gtk.Box):
         try:
             self.logger.info(f"DEBUG: _create_mix_design_from_ui - found {len(self.component_rows)} UI component rows")
             for i, row in enumerate(self.component_rows):
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_id = row.get('material_id')
-                    name = row['material_selector'].get_selected_material_name()
-                    type_str = 'thames_material'  # THAMES uses unified materials
-                else:
-                    type_str = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                material_selector = row.get('material_selector')
+                name = material_selector.get_selected_material_name() if material_selector else None
                 mass_kg = row['mass_spin'].get_value()
-                self.logger.info(f"DEBUG: UI Row {i+1}: type='{type_str}', name='{name}', mass={mass_kg}")
+                self.logger.info(f"DEBUG: UI Row {i+1}: name='{name}', mass={mass_kg}")
             mix_name = self.mix_name_entry.get_text().strip()
             if not mix_name:
                 mix_name = "Untitled Mix"
@@ -1708,37 +1466,24 @@ class MixDesignPanel(Gtk.Box):
             
             # Create components with mass fractions (relative to total solid mass, excluding water)
             for row in self.component_rows:
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_id = row.get('material_id')
-                    name = row['material_selector'].get_selected_material_name()
-                    type_str = 'thames_material'
-                else:
-                    type_str = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
+                name = material_selector.get_selected_material_name()
                 mass_kg = row['mass_spin'].get_value()
 
                 if name and mass_kg > 0 and total_solid_mass > 0:
-                    # THAMES mode: get SG from material_selector or material_service
-                    if row.get('material_selector'):
-                        # Get SG from the material selector's SG label
-                        sg = 3.15  # Default
-                        try:
-                            sg_text = row['material_selector'].sg_label.get_text()
-                            if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
-                                sg = float(sg_text.replace("SG: ", ""))
-                        except (ValueError, TypeError):
-                            pass
-                        material_type = MaterialType.CEMENT  # Use CEMENT as default for THAMES materials
-                        self.logger.info(f"COMPONENT DEBUG (THAMES): {name} - mass={mass_kg}, sg={sg}")
-                    else:
-                        material_type = MaterialType(type_str)
-                        try:
-                            sg = self.mix_service._get_material_specific_gravity(name, material_type)
-                            self.logger.info(f"COMPONENT DEBUG: {name} ({material_type}) - mass={mass_kg}, sg={sg}")
-                        except Exception as e:
-                            self.logger.error(f"COMPONENT ERROR: Failed to get SG for {name} ({material_type}): {e}")
-                            continue  # Skip this component
+                    # Get SG from the material selector's SG label
+                    sg = 3.15  # Default
+                    try:
+                        sg_text = material_selector.sg_label.get_text()
+                        if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
+                            sg = float(sg_text.replace("SG: ", ""))
+                    except (ValueError, TypeError):
+                        pass
+                    material_type = MaterialType.CEMENT  # Use CEMENT as default for THAMES materials
+                    self.logger.info(f"COMPONENT DEBUG: {name} - mass={mass_kg}, sg={sg}")
 
                     # Convert kg to mass fraction (relative to total solid mass, excluding water)
                     mass_fraction = mass_kg / total_solid_mass
@@ -1868,26 +1613,21 @@ class MixDesignPanel(Gtk.Box):
 
             # Get powder components
             for row in self.component_rows:
-                # THAMES mode: use material_selector instead of type_combo/name_combo
-                if row.get('material_selector'):
-                    material_type = 'thames_material'
-                    material_name = row['material_selector'].get_selected_material_name()
-                else:
-                    material_type = row['type_combo'].get_active_id() if row.get('type_combo') else None
-                    material_name = row['name_combo'].get_active_id() if row.get('name_combo') else None
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
+                material_type = 'thames_material'
+                material_name = material_selector.get_selected_material_name()
                 mass_kg = row['mass_spin'].get_value()
 
                 if material_name and mass_kg > 0:
-                    # Get specific gravity
+                    # Get specific gravity from the material selector's SG label
                     specific_gravity = 3.15  # Default
                     try:
-                        sg_text = row['sg_label'].get_text()
-                        if sg_text and sg_text != "—":
-                            # THAMES mode: SG label format is "SG: X.XXX"
-                            if sg_text.startswith("SG: ") and sg_text != "SG: --":
-                                specific_gravity = float(sg_text.replace("SG: ", ""))
-                            else:
-                                specific_gravity = float(sg_text)
+                        sg_text = material_selector.sg_label.get_text()
+                        if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
+                            specific_gravity = float(sg_text.replace("SG: ", ""))
                     except (ValueError, TypeError, AttributeError):
                         pass
 
@@ -2133,7 +1873,9 @@ class MixDesignPanel(Gtk.Box):
     def _show_grading_dialog(self, row_data: Dict[str, Any]) -> None:
         """Show grading curve dialog for aggregate component."""
         try:
-            material_name = row_data['name_combo'].get_active_id()
+            # Get material name from material_selector (THAMES) or use default
+            material_selector = row_data.get('material_selector')
+            material_name = material_selector.get_selected_material_name() if material_selector else None
             if not material_name:
                 material_name = "Aggregate"
             
@@ -2253,8 +1995,14 @@ class MixDesignPanel(Gtk.Box):
                 dialog.destroy()
                 return
             
-            # Step 4: Create mix folder and generate correlation files
-            self._create_mix_folder_and_correlation_files(mix_design)
+            # Step 4: Create mix folder (correlation files are generated by MicgenInputService)
+            # Note: The old _create_mix_folder_and_correlation_files() used VCCTL's Cement model
+            # which doesn't exist in THAMES. MicgenInputService handles correlation files properly.
+            operations_dir = str(self.service_container.config_manager.directories.operations_path)
+            mix_name_safe = "".join(c for c in mix_design.name if c.isalnum() or c in ['_', '-'])
+            mix_folder_path = os.path.join(operations_dir, mix_name_safe)
+            os.makedirs(mix_folder_path, exist_ok=True)
+            self.logger.info(f"Created mix folder: {mix_folder_path}")
 
             # Step 5: Load database MixDesign model for input generation
             if not saved_mix_design_id:
@@ -2276,17 +2024,66 @@ class MixDesignPanel(Gtk.Box):
             mix_folder_path = os.path.join(operations_dir, mix_name_safe)
             input_file_path = Path(mix_folder_path) / f"{mix_name_safe}_input.txt"
 
+            # Check if aggregates are present in the mix design
+            has_aggregate = (
+                (db_mix_design.fine_aggregate_mass or 0.0) > 0.0 or
+                (db_mix_design.coarse_aggregate_mass or 0.0) > 0.0
+            )
+            if has_aggregate:
+                self.logger.info("Aggregate detected in mix - will add aggregate slab to microstructure")
+
+            # Get shape database path for real-shape particles
+            # Check if any material in the mix uses real shapes (particle_shape_type = 1)
+            shape_database_path = None
+            has_real_shapes = False
+            for component in db_mix_design.components:
+                material_id = component.get('material_id')
+                if material_id and material_id > 0:
+                    material = self.material_service.get_by_id(material_id)
+                    if material and material.particle_shape_type == 1:
+                        has_real_shapes = True
+                        self.logger.info(f"Material '{material.name}' uses real shapes: {material.particle_shape_set}")
+                        break
+
+            if has_real_shapes:
+                # Real shapes detected - get the base path to the shape database
+                shape_database_path = Path(self.microstructure_service.particle_shape_base_path)
+                self.logger.info(f"Real-shape particles enabled, shape database path: {shape_database_path}")
+
             try:
                 self.logger.info(f"Generating micgen input file: {input_file_path}")
                 phase_mapping = self.micgen_input_service.generate_input_file(
                     mix_design=db_mix_design,
                     output_path=input_file_path,
-                    microstructure_filename=f"{mix_name_safe}_microstructure.img",
-                    particle_id_filename=f"{mix_name_safe}_particle_ids.img",
-                    add_aggregate_slab=False,  # TODO: Check if aggregates present
-                    add_void_phase=False
+                    microstructure_filename=f"{mix_name_safe}.thames.img",
+                    particle_id_filename=f"{mix_name_safe}.thames.pimg",
+                    add_aggregate_slab=has_aggregate,
+                    add_void_phase=False,
+                    shape_database_path=shape_database_path
                 )
-                self.logger.info(f"Successfully generated input file with {len(phase_mapping.micgen_to_gem)} phases")
+                self.logger.info(f"Successfully generated input file with {len(phase_mapping.micro_to_gem)} phases")
+
+                # Step 6b: Save phase mapping and color mapping for Results page
+                mix_folder = Path(mix_folder_path)
+
+                # Save phase ID mapping (for later use in hydration, visualization)
+                self.phase_color_service.save_phase_id_mapping(
+                    phase_mapping=phase_mapping,
+                    operation_name=mix_name_safe,
+                    output_dir=mix_folder
+                )
+                self.logger.info(f"Saved phase ID mapping to {mix_folder}")
+
+                # Create and save color mapping (colors based on phase names)
+                color_mapping = self.phase_color_service.create_color_mapping(
+                    operation_name=mix_name_safe,
+                    phase_id_mapping=phase_mapping
+                )
+                self.phase_color_service.save_color_mapping(
+                    color_mapping=color_mapping,
+                    output_dir=mix_folder
+                )
+                self.logger.info(f"Saved phase color mapping to {mix_folder}")
 
                 # Step 7: Execute genmic (reuse existing execution logic)
                 self._execute_genmic_program(input_file_path, mix_design.name, saved_mix_design_id)
@@ -2592,22 +2389,29 @@ class MixDesignPanel(Gtk.Box):
             # Calculate total powder absolute volume (mass/sg)
             total_powder_absolute_volume = 0.0
             total_powder_mass_kg = 0.0
-            
+
             # Sum up powder masses from UI (in kg)
             for row in self.component_rows:
-                type_str = row['type_combo'].get_active_id()
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
                 mass_kg = row['mass_spin'].get_value()
-                
-                if type_str and mass_kg > 0:
-                    material_type = MaterialType(type_str)
-                    if material_type in powder_types:
-                        name = row['name_combo'].get_active_id()
-                        if name:
-                            sg = self.mix_service._get_material_specific_gravity(name, material_type)
-                            absolute_volume = mass_kg / sg if sg > 0 else 0.0
-                            
-                            total_powder_absolute_volume += absolute_volume
-                            total_powder_mass_kg += mass_kg
+                if mass_kg > 0:
+                    name = material_selector.get_selected_material_name()
+                    if name:
+                        # Get SG from the material selector's SG label
+                        sg = 3.15  # Default
+                        try:
+                            sg_text = material_selector.sg_label.get_text()
+                            if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
+                                sg = float(sg_text.replace("SG: ", ""))
+                        except (ValueError, TypeError):
+                            pass
+                        absolute_volume = mass_kg / sg if sg > 0 else 0.0
+
+                        total_powder_absolute_volume += absolute_volume
+                        total_powder_mass_kg += mass_kg
             
             # Calculate water mass from W/B ratio and powder mass
             wb_ratio = params['water_binder_ratio']
@@ -2732,56 +2536,62 @@ class MixDesignPanel(Gtk.Box):
 
     def _calculate_component_binder_solid_fraction(self, component, mix_design: MixDesign) -> float:
         """Calculate component's volume fraction on BINDER SOLID basis (fraction of total powder volume).
-        
-        This is for genmic input where each powder component's volume fraction 
+
+        This is for genmic input where each powder component's volume fraction
         is relative to the total powder (binder solid) volume, NOT total concrete volume.
         """
         try:
-            powder_types = {MaterialType.CEMENT, MaterialType.FLY_ASH, MaterialType.SLAG, MaterialType.FILLER, MaterialType.SILICA_FUME, MaterialType.LIMESTONE}
-            
             # Calculate total powder absolute volume from UI (paste-only basis)
             total_powder_absolute_volume = 0.0
-            
+
             for row in self.component_rows:
-                type_str = row['type_combo'].get_active_id()
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
                 mass_kg = row['mass_spin'].get_value()
-                
-                if type_str and mass_kg > 0:
-                    material_type = MaterialType(type_str)
-                    if material_type in powder_types:
-                        name = row['name_combo'].get_active_id()
-                        if name:
-                            sg = self.mix_service._get_material_specific_gravity(name, material_type)
-                            absolute_volume = mass_kg / sg if sg > 0 else 0.0
-                            total_powder_absolute_volume += absolute_volume
-            
+                if mass_kg > 0:
+                    name = material_selector.get_selected_material_name()
+                    if name:
+                        # Get SG from the material selector's SG label
+                        sg = 3.15  # Default
+                        try:
+                            sg_text = material_selector.sg_label.get_text()
+                            if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
+                                sg = float(sg_text.replace("SG: ", ""))
+                        except (ValueError, TypeError):
+                            pass
+                        absolute_volume = mass_kg / sg if sg > 0 else 0.0
+                        total_powder_absolute_volume += absolute_volume
+
             # Find this component's mass from UI
             component_mass_kg = 0.0
             for row in self.component_rows:
-                type_str = row['type_combo'].get_active_id()
-                name = row['name_combo'].get_active_id()
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
+                name = material_selector.get_selected_material_name()
                 mass_kg = row['mass_spin'].get_value()
-                
-                if (type_str and name and 
-                    MaterialType(type_str) == component.material_type and 
-                    name == component.material_name):
+
+                if name and name == component.material_name:
                     component_mass_kg = mass_kg
                     break
-            
+
             # Calculate this component's absolute volume
             component_absolute_volume = component_mass_kg / component.specific_gravity if component.specific_gravity > 0 else 0.0
-            
+
             # Calculate component's fraction of total binder solid volume
             if total_powder_absolute_volume > 0:
                 component_fraction = component_absolute_volume / total_powder_absolute_volume
             else:
                 component_fraction = 0.0
-            
+
             self.logger.debug(f"Component {component.material_name}: mass={component_mass_kg:.3f}kg, "
                             f"abs_vol={component_absolute_volume:.6f}, fraction={component_fraction:.6f}")
-            
+
             return component_fraction
-            
+
         except Exception as e:
             self.logger.error(f"Failed to calculate component binder solid fraction: {e}")
             return 0.1  # Default fallback
@@ -4676,44 +4486,42 @@ class MixDesignPanel(Gtk.Box):
             total_solid_mass = powder_mass + fine_agg_mass + coarse_agg_mass
             
             for row in self.component_rows:
-                material_type = row['type_combo'].get_active_id()
-                material_name = row['name_combo'].get_active_id()
-                mass_kg = row['mass_spin'].get_value()
-                
-                if material_type and material_name and mass_kg > 0:
-                    # Get specific gravity from label
-                    specific_gravity = 3.15  # Default
-                    try:
-                        sg_text = row['sg_label'].get_text()
-                        if sg_text and sg_text != "—":
-                            specific_gravity = float(sg_text)
-                    except (ValueError, TypeError):
-                        self.logger.warning(f"Could not parse specific gravity for {material_name}")
-                    
-                    # Calculate Type 3 mass fractions using total_concrete_mass (including water)
-                    mass_fraction = mass_kg / total_concrete_mass if total_concrete_mass > 0 else 0.0
-                    self.logger.info(f"VALIDATION DEBUG: {material_name} - mass_kg={mass_kg}, total_concrete_mass={total_concrete_mass}, mass_fraction={mass_fraction}")
-                    
-                    # Simple volume fraction calculation (more accurate calculation done in service)
-                    volume_fraction = mass_fraction / specific_gravity
-                    
-                    # Include grading data for aggregates
-                    component_data = {
-                        'material_name': material_name,
-                        'material_type': material_type,
-                        'mass_fraction': mass_fraction,
-                        'volume_fraction': volume_fraction,
-                        'specific_gravity': specific_gravity
-                    }
-                    
-                    # Add grading data if this is an aggregate with grading data
-                    if material_type == 'aggregate' and row.get('grading_data'):
-                        component_data['grading_data'] = row['grading_data']
-                        # Include template name if available
-                        if row.get('grading_template'):
-                            component_data['grading_template'] = row['grading_template']
-                    
-                    components.append(component_data)
+                material_selector = row.get('material_selector')
+                if material_selector:
+                    material_name = material_selector.get_selected_material_name()
+                    material_id = material_selector.get_selected_material_id()
+                    material_type = 'thames_material'  # All THAMES materials are treated as powder
+                    mass_kg = row['mass_spin'].get_value()
+
+                    if material_name and mass_kg > 0:
+                        # Get specific gravity from material_selector's sg_label
+                        specific_gravity = 3.15  # Default
+                        try:
+                            sg_text = row['material_selector'].sg_label.get_text()
+                            # Handle "SG: X.XXX" format
+                            if sg_text.startswith("SG:"):
+                                sg_text = sg_text.replace("SG:", "").strip()
+                            if sg_text and sg_text != "—":
+                                specific_gravity = float(sg_text)
+                        except (ValueError, TypeError):
+                            self.logger.warning(f"Could not parse specific gravity for {material_name}")
+
+                        # Calculate Type 3 mass fractions using total_concrete_mass (including water)
+                        mass_fraction = mass_kg / total_concrete_mass if total_concrete_mass > 0 else 0.0
+                        self.logger.info(f"VALIDATION DEBUG: {material_name} - mass_kg={mass_kg}, total_concrete_mass={total_concrete_mass}, mass_fraction={mass_fraction}")
+
+                        # Simple volume fraction calculation (more accurate calculation done in service)
+                        volume_fraction = mass_fraction / specific_gravity
+
+                        component_data = {
+                            'material_id': material_id,
+                            'material_name': material_name,
+                            'material_type': material_type,
+                            'mass_fraction': mass_fraction,
+                            'volume_fraction': volume_fraction,
+                            'specific_gravity': specific_gravity
+                        }
+                        components.append(component_data)
             
             # Add aggregate components if they exist
             fine_agg_name = self.fine_agg_combo.get_active_id()
@@ -4911,32 +4719,32 @@ class MixDesignPanel(Gtk.Box):
         try:
             total_volume = 0.0
             total_mass = 0.0
-            
+
             # Add powder components
             for row in self.component_rows:
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
                 mass_kg = row['mass_spin'].get_value()
                 if mass_kg > 0:
-                    material_type = row['type_combo'].get_active_id()
-                    material_name = row['name_combo'].get_active_id()
-                    
-                    # Get specific gravity
+                    # Get specific gravity from the material selector's SG label
                     specific_gravity = 3.15  # Default
                     try:
-                        material_type_enum = MaterialType(material_type)
-                        sg = self.mix_service.get_specific_gravity(material_name, material_type_enum)
-                        if sg:
-                            specific_gravity = sg
-                    except Exception:
+                        sg_text = material_selector.sg_label.get_text()
+                        if sg_text and sg_text.startswith("SG: ") and sg_text != "SG: --":
+                            specific_gravity = float(sg_text.replace("SG: ", ""))
+                    except (ValueError, TypeError):
                         pass
-                    
+
                     total_volume += mass_kg / specific_gravity
                     total_mass += mass_kg
-            
+
             # Add water (specific gravity = 1.0)
             water_mass = self.water_content_spin.get_value()
             total_volume += water_mass / 1.0
             total_mass += water_mass
-            
+
             return total_volume / total_mass if total_mass > 0 else 0.0
         except Exception:
             return 0.0
@@ -5264,129 +5072,38 @@ class MixDesignPanel(Gtk.Box):
                 self.component_rows.append(row_data)
                 self.components_box.pack_start(row_data['box'], False, False, 0)
                 self.components_box.show_all()
-                
+
                 # Get the last added row
                 if self.component_rows:
                     row = self.component_rows[-1]
                     self.logger.info(f"Setting up component row with {len(self.component_rows)} total rows")
-                    
-                    # Set material type (convert to lowercase to match enum values)
-                    material_type = comp_data.get('material_type', '').lower()
+
                     material_name = comp_data.get('material_name', '')
-                    
-                    type_combo = row['type_combo']
-                    type_model = type_combo.get_model()
-                    
-                    # Convert stored lowercase material type to UI format
-                    # Database stores: 'cement', 'filler', 'silica_fume'
-                    # UI expects: 'Cement', 'Filler', 'Silica Fume'
-                    type_conversion = {
-                        'cement': 'Cement',
-                        'fly_ash': 'Fly Ash', 
-                        'slag': 'Slag',
-                        'filler': 'Filler',
-                        'silica_fume': 'Silica Fume',
-                        'limestone': 'Limestone'
-                    }
-                    
-                    ui_material_type = type_conversion.get(material_type, material_type)
-                    
-                    type_found = False
-                    # Need to find by ID (column 0), not by display text
-                    for i in range(len(type_model)):
-                        model_row = type_model[i]
-                        combo_id = model_row[0] if model_row else None
-                        if combo_id == ui_material_type:
-                            type_combo.set_active(i)
-                            type_found = True
-                            break
-                    
-                    if not type_found:
-                        continue  # Skip this component if type not found
-                    
-                    # Update material names for this type
-                    self._update_material_names(row)
-                    
-                    # Set material name - try to find exact match first
-                    self.logger.info(f"Setting material name: {material_name}")
-                    name_combo = row['name_combo']
-                    name_model = name_combo.get_model()
-                    
-                    name_found = False
-                    for i in range(len(name_model)):
-                        if name_model[i][0] == material_name:
-                            name_combo.set_active(i)
-                            name_found = True
-                            self.logger.info(f"Found and set material name '{material_name}' at index {i}")
-                            break
-                    
-                    if not name_found:
-                        # If material not found, try to add it to the dropdown if it exists in database
-                        self.logger.warning(f"Material name '{material_name}' not found in current dropdown")
-                        
-                        # Try to verify the material exists in the database
-                        try:
-                            from app.enums.material_type import MaterialType
-                            # Use UI material type for enum lookup (uppercase format)
-                            material_type_enum = MaterialType(ui_material_type.upper().replace(' ', '_'))
-                            
-                            # Get the appropriate service for this material type
-                            service = None
-                            if material_type_enum == MaterialType.CEMENT:
-                                service = self.service_container.cement_service
-                            elif material_type_enum == MaterialType.FLY_ASH:
-                                service = self.service_container.fly_ash_service
-                            elif material_type_enum == MaterialType.SLAG:
-                                service = self.service_container.slag_service
-                            elif material_type_enum == MaterialType.FILLER:
-                                service = self.service_container.filler_service
-                            elif material_type_enum == MaterialType.SILICA_FUME:
-                                service = self.service_container.silica_fume_service
-                            elif material_type_enum == MaterialType.LIMESTONE:
-                                service = self.service_container.limestone_service
-                            
-                            if service:
-                                material = service.get_by_name(material_name)
-                                if material:
-                                    # Material exists in database, add it to dropdown and select it
-                                    name_combo.append(material_name, material_name)
-                                    # Set to the newly added item (last item)
-                                    name_combo.set_active(len(name_model))
-                                    name_found = True
-                                    self.logger.info(f"Added missing material '{material_name}' to dropdown and selected it")
-                                else:
-                                    self.logger.error(f"Material '{material_name}' not found in database for type '{material_type}'")
-                            else:
-                                self.logger.error(f"No service available for material type '{material_type}'")
-                        except Exception as e:
-                            self.logger.error(f"Error checking for material '{material_name}': {e}")
-                        
-                        if not name_found:
-                            self.logger.error(f"Could not restore material '{material_name}' - using default instead")
-                            # Keep the default selection from _update_material_names()
-                    
+                    material_id = comp_data.get('material_id')
+
+                    # THAMES: Use material_selector to set the material
+                    material_selector = row.get('material_selector')
+                    if material_selector and material_name:
+                        self.logger.info(f"Setting material via MaterialSelector: {material_name}")
+                        # Try to set by ID first (more reliable), then by name
+                        if material_id:
+                            material_selector.set_material_by_id(material_id)
+                        else:
+                            material_selector.set_material_by_name(material_name)
+
+                        # Store material_id in row_data for later use
+                        row['material_id'] = material_selector.get_selected_material_id()
+                        self.logger.info(f"Material set: {material_name} (ID: {row['material_id']})")
+
                     # Calculate mass from mass fraction (Type 3: use total_mass including water)
                     # Mass fractions in database are Type 3: all components including water sum to 1.0
                     mass_fraction = comp_data.get('mass_fraction', 0.0)
                     component_mass = mass_fraction * total_mass
-                    self.logger.info(f"Setting component mass: {component_mass} kg (from fraction {mass_fraction} * solid mass {total_powder_mass})")
-                    
+                    self.logger.info(f"Setting component mass: {component_mass} kg (from fraction {mass_fraction} * total mass {total_mass})")
+
                     # Set mass
                     row['mass_spin'].set_value(component_mass)
-                    
-                    # Restore grading data for aggregate components
-                    if material_type == 'aggregate':
-                        grading_data = comp_data.get('grading_data')
-                        grading_template = comp_data.get('grading_template')
-                        if grading_data:
-                            row['grading_data'] = grading_data
-                            if grading_template:
-                                row['grading_template'] = grading_template
-                            # Update button tooltip
-                            tooltip_text = f"Grading template: {grading_template} ({len(grading_data)} points)" if grading_template else f"Grading curve set ({len(grading_data)} points)"
-                            row['grading_button'].set_tooltip_text(tooltip_text)
-                            self.logger.info(f"Restored grading data for component aggregate {material_name}: {len(grading_data)} points" + (f" from template: {grading_template}" if grading_template else ""))
-                    
+
                     self.logger.info(f"Component row setup complete")
             
             # Skip calculation during loading to prevent phantom components
@@ -5647,9 +5364,22 @@ class MixDesignPanel(Gtk.Box):
             # Convert component dictionaries to MixDesignComponentData objects
             component_objects = []
             for comp_dict in mix_design_data.get('components', []):
+                # Get material_id - required for THAMES materials
+                material_id = comp_dict.get('material_id')
+                if material_id is None:
+                    # Try to look up material by name if ID not provided
+                    material_name = comp_dict.get('material_name')
+                    if material_name and hasattr(self, 'material_service'):
+                        material = self.material_service.get_by_name(material_name)
+                        if material:
+                            material_id = material.id
+                    if material_id is None:
+                        self.logger.warning(f"Skipping component without material_id: {comp_dict.get('material_name')}")
+                        continue
+
                 component_objects.append(MixDesignComponentData(
+                    material_id=material_id,
                     material_name=comp_dict['material_name'],
-                    material_type=comp_dict['material_type'],
                     mass_fraction=comp_dict['mass_fraction'],
                     volume_fraction=comp_dict['volume_fraction'],
                     specific_gravity=comp_dict['specific_gravity'],
@@ -5839,10 +5569,14 @@ class MixDesignPanel(Gtk.Box):
             
             # Capture component data
             for i, row in enumerate(self.component_rows):
+                material_selector = row.get('material_selector')
+                material_name = material_selector.get_selected_material_name() if material_selector else None
+                material_id = material_selector.get_selected_material_id() if material_selector else None
                 component = {
                     'index': i,
-                    'type': row['type_combo'].get_active_id(),
-                    'name': row['name_combo'].get_active_id(), 
+                    'type': 'thames_material',
+                    'name': material_name,
+                    'material_id': material_id,
                     'mass_kg_m3': row['mass_spin'].get_value(),
                     'volume_fraction': row.get('volume_fraction_label', {}).get('text', '0.0')
                 }
@@ -5983,20 +5717,25 @@ class MixDesignPanel(Gtk.Box):
             # Capture powder component masses
             powder_masses = []
             for row in self.component_rows:
-                type_str = row['type_combo'].get_active_id()
-                name = row['name_combo'].get_active_id()
+                material_selector = row.get('material_selector')
+                if not material_selector:
+                    continue
+
+                name = material_selector.get_selected_material_name()
+                material_id = material_selector.get_selected_material_id()
                 mass_kg = row['mass_spin'].get_value()
-                
-                if type_str and name and mass_kg > 0:
+
+                if name and mass_kg > 0:
                     powder_masses.append({
                         'name': name,
-                        'type': type_str,
+                        'material_id': material_id,
+                        'type': 'thames_material',
                         'mass_kg': mass_kg
                     })
-            
+
             # Capture water mass
             water_mass_kg = self.water_content_spin.get_value()
-            
+
             # Return the raw values
             ui_values = {
                 'powder_masses': powder_masses,
@@ -6005,10 +5744,10 @@ class MixDesignPanel(Gtk.Box):
                 'fine_aggregate_mass_kg': self.fine_agg_mass_spin.get_value(),
                 'coarse_aggregate_mass_kg': self.coarse_agg_mass_spin.get_value()
             }
-            
+
             self.logger.info(f"Captured raw UI values: {ui_values}")
             return ui_values
-            
+
         except Exception as e:
             self.logger.error(f"Error capturing raw UI values: {e}")
             return {}
@@ -6017,7 +5756,7 @@ class MixDesignPanel(Gtk.Box):
         """Restore the exact UI mass values from saved data."""
         try:
             self.logger.info(f"Restoring UI mass values: {ui_mass_values}")
-            
+
             # Restore powder component masses
             powder_masses = ui_mass_values.get('powder_masses', [])
             for i, powder_data in enumerate(powder_masses):
@@ -6026,48 +5765,38 @@ class MixDesignPanel(Gtk.Box):
                 self.component_rows.append(row_data)
                 self.components_box.pack_start(row_data['box'], False, False, 0)
                 self.components_box.show_all()
-                
+
                 # Get the last added row
                 if self.component_rows:
                     row = self.component_rows[-1]
-                    
-                    # Set material type
-                    material_type = powder_data['type']
-                    type_combo = row['type_combo']
-                    type_model = type_combo.get_model()
-                    
-                    # Find and set the material type
-                    for j in range(len(type_model)):
-                        if type_model[j][0] == material_type:  # ID column
-                            type_combo.set_active(j)
-                            break
-                    
-                    # Update material names based on type selection
-                    self._update_material_names(row)
-                    
-                    # Set material name
-                    material_name = powder_data['name']
-                    name_combo = row['name_combo']
-                    name_model = name_combo.get_model()
-                    
-                    # Find and set the material name
-                    for j in range(len(name_model)):
-                        if name_model[j][0] == material_name:  # ID column
-                            name_combo.set_active(j)
-                            break
-                    
+
+                    material_name = powder_data.get('name', '')
+                    material_id = powder_data.get('material_id')
+
+                    # THAMES: Use material_selector to set the material
+                    material_selector = row.get('material_selector')
+                    if material_selector and material_name:
+                        # Try to set by ID first (more reliable), then by name
+                        if material_id:
+                            material_selector.set_material_by_id(material_id)
+                        else:
+                            material_selector.set_material_by_name(material_name)
+
+                        # Store material_id in row_data for later use
+                        row['material_id'] = material_selector.get_selected_material_id()
+
                     # Set the exact mass value
-                    mass_kg = powder_data['mass_kg']
+                    mass_kg = powder_data.get('mass_kg', 0.0)
                     row['mass_spin'].set_value(mass_kg)
-                    
-                    self.logger.info(f"Restored powder component: {material_name} ({material_type}) = {mass_kg} kg")
-            
+
+                    self.logger.info(f"Restored powder component: {material_name} = {mass_kg} kg")
+
             # Restore water mass
             water_mass_kg = ui_mass_values.get('water_mass_kg', 0.0)
             if water_mass_kg > 0:
                 self.water_content_spin.set_value(water_mass_kg)
                 self.logger.info(f"Restored water mass: {water_mass_kg} kg")
-            
+
             self.logger.info("UI mass values restoration completed successfully")
             
         except Exception as e:

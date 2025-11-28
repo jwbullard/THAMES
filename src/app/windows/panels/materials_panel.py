@@ -453,7 +453,8 @@ class MaterialsPanel(Gtk.Box):
             dialog = MaterialDialog(
                 parent=self.main_window,
                 material_service=self.material_service,
-                mode='create'
+                mode='create',
+                microstructure_service=self.service_container.microstructure_service
             )
 
             response = dialog.run()
@@ -547,7 +548,8 @@ class MaterialsPanel(Gtk.Box):
                     parent=self.main_window,
                     material_service=self.material_service,
                     mode='edit',
-                    material=material_data
+                    material=material_data,
+                    microstructure_service=self.service_container.microstructure_service
                 )
 
                 response = dialog.run()
@@ -605,7 +607,8 @@ class MaterialsPanel(Gtk.Box):
                         parent=self.main_window,
                         material_service=self.material_service,
                         mode='edit',
-                        material=fresh_material
+                        material=fresh_material,
+                        microstructure_service=self.service_container.microstructure_service
                     )
 
                     response = dialog.run()

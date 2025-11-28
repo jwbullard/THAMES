@@ -297,7 +297,7 @@ int Onepixnum[MAXNUMPHASES];
 /***
  *    Volume fraction and surface area fractions for distrib3d
  ***/
-float *Volf, *Surff;
+float Volf[MAXNUMPHASES], Surff[MAXNUMPHASES];
 
 /***
  *    System resolution (micrometers per voxel edge)
@@ -594,7 +594,7 @@ int main(int argc, char *argv[]) {
 
     read_string(instring, sizeof(instring));
     userc = atoi(instring);
-    fprintf(Logfile, "\n%d", userc);
+    fprintf(Logfile, "%d\n", userc);
     fflush(Logfile);
 
     switch (userc) {
@@ -3181,11 +3181,7 @@ void create(void) {
 
     /* All the particles will be spheres */
 
-    fprintf(Logfile, "Made it 01\n");
-    fflush(Logfile);
     Int3darray(&Bbox, BoxXsize, BoxYsize, BoxZsize);
-    fprintf(Logfile, "Made it 02, NUMSIZES = %d\n", NUMSIZES);
-    fflush(Logfile);
 
     if (Bbox.val == NULL) {
       freemicgen();

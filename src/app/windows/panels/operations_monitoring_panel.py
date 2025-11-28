@@ -1677,7 +1677,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                             if os.path.exists(operations_dir):
                                 # Check for both stdout files and progress files
                                 stdout_files = glob.glob(os.path.join(operations_dir, "proc_*_stdout.txt"))
-                                progress_file = os.path.join(operations_dir, "genmic_progress.txt")
+                                progress_file = os.path.join(operations_dir, "micgen_progress.txt")
 
                                 if stdout_files or os.path.exists(progress_file):
                                     can_monitor_progress = True
@@ -1865,20 +1865,34 @@ class OperationsMonitoringPanel(Gtk.Box):
 
                 self.logger.info(f"Verifying microstructure completion in: {output_dir}")
 
-                # Check for expected output files (.img and .pimg)
-                # Files are named with the operation name
+                # Check for expected output files
+                # THAMES micgen uses: {name}.thames.img and {name}.thames.pimg
+                # VCCTL genmic uses: {name}.img and {name}.pimg
                 operation_name = operation.name
-                img_file = os.path.join(output_dir, f"{operation_name}.img")
-                pimg_file = os.path.join(output_dir, f"{operation_name}.pimg")
 
-                img_exists = os.path.exists(img_file)
-                pimg_exists = os.path.exists(pimg_file)
+                # Try THAMES naming convention first
+                thames_img_file = os.path.join(output_dir, f"{operation_name}.thames.img")
+                thames_pimg_file = os.path.join(output_dir, f"{operation_name}.thames.pimg")
 
-                if img_exists and pimg_exists:
-                    self.logger.info(f"Operation {operation.name} verified complete - output files exist")
+                thames_img_exists = os.path.exists(thames_img_file)
+                thames_pimg_exists = os.path.exists(thames_pimg_file)
+
+                if thames_img_exists and thames_pimg_exists:
+                    self.logger.info(f"Operation {operation.name} verified complete - THAMES output files exist")
+                    return True
+
+                # Fall back to VCCTL naming convention
+                vcctl_img_file = os.path.join(output_dir, f"{operation_name}.img")
+                vcctl_pimg_file = os.path.join(output_dir, f"{operation_name}.pimg")
+
+                vcctl_img_exists = os.path.exists(vcctl_img_file)
+                vcctl_pimg_exists = os.path.exists(vcctl_pimg_file)
+
+                if vcctl_img_exists and vcctl_pimg_exists:
+                    self.logger.info(f"Operation {operation.name} verified complete - VCCTL output files exist")
                     return True
                 else:
-                    self.logger.info(f"Operation {operation.name} not complete - img:{img_exists}, pimg:{pimg_exists}")
+                    self.logger.info(f"Operation {operation.name} not complete - thames_img:{thames_img_exists}, thames_pimg:{thames_pimg_exists}, vcctl_img:{vcctl_img_exists}, vcctl_pimg:{vcctl_pimg_exists}")
                     return False
             
             # For hydration operations, check for actual completion indicators
@@ -1960,16 +1974,16 @@ class OperationsMonitoringPanel(Gtk.Box):
                         # For non-microstructure operations, use name as-is
                         folder_name = operation_name
                         
-                        # Look for genmic_progress.txt file (single-line, always same name)
+                        # Look for micgen_progress.txt file (single-line, always same name)
                         import os
                         operations_dir = os.path.join("Operations", folder_name)
                         if os.path.exists(operations_dir):
-                            progress_file = os.path.join(operations_dir, "genmic_progress.txt")
+                            progress_file = os.path.join(operations_dir, "micgen_progress.txt")
                             if os.path.exists(progress_file):
                                 stdout_path = progress_file
-                                self.logger.info(f"Found genmic progress file: {progress_file}")
+                                self.logger.info(f"Found micgen progress file: {progress_file}")
                             else:
-                                self.logger.info(f"No genmic_progress.txt file found in {operations_dir}")
+                                self.logger.info(f"No micgen_progress.txt file found in {operations_dir}")
                         else:
                             self.logger.info(f"Operations directory not found: {operations_dir}")
                 
@@ -2117,10 +2131,10 @@ class OperationsMonitoringPanel(Gtk.Box):
                 self.logger.debug(f"DEBUG Microstructure Progress: No directory found for operation '{operation.name}'")
                 return
 
-            # Look for genmic_progress.json file (new JSON format from genmic -j flag)
+            # Look for micgen_progress.json file (JSON format from micgen -j flag)
             import os
             import json
-            progress_file = os.path.join(operation_dir, "genmic_progress.json")
+            progress_file = os.path.join(operation_dir, "micgen_progress.json")
 
             self.logger.debug(f"DEBUG Microstructure Progress: Looking for {progress_file}")
 
@@ -2189,9 +2203,9 @@ class OperationsMonitoringPanel(Gtk.Box):
                 # Only fall back to old format if JSON file truly doesn't exist
                 # Check if we should use old format (no JSON file but has old progress file)
                 import os
-                old_progress_file = os.path.join(operation_dir, "genmic_progress.txt")
+                old_progress_file = os.path.join(operation_dir, "micgen_progress.txt")
                 if os.path.exists(old_progress_file):
-                    self.logger.debug(f"No genmic_progress.json found, using old text format for {operation.name}")
+                    self.logger.debug(f"No micgen_progress.json found, using old text format for {operation.name}")
                     self._parse_operation_stdout(operation)
                 else:
                     self.logger.debug(f"No progress files found for {operation.name}")
@@ -3160,26 +3174,45 @@ class OperationsMonitoringPanel(Gtk.Box):
         """
         if not operation.working_directory:
             return False
-        
+
         working_dir = Path(operation.working_directory)
         if not working_dir.exists():
             return False
-        
-        # Check for common genmic output files that indicate successful completion
-        success_indicators = [
-            f"{working_dir.name}.img",      # Main microstructure file
-            f"{working_dir.name}.pimg",     # Particle ID file
-            f"{working_dir.name}.img.struct"  # Structure file
+
+        # Check for output files that indicate successful completion
+        # THAMES micgen uses: {name}.thames.img and {name}.thames.pimg
+        # VCCTL genmic uses: {name}.img and {name}.pimg
+        thames_indicators = [
+            f"{working_dir.name}.thames.img",        # THAMES microstructure file
+            f"{working_dir.name}.thames.pimg",       # THAMES particle ID file
+            f"{working_dir.name}.thames.img.struct"  # THAMES structure file
         ]
-        
-        success_count = 0
-        for indicator in success_indicators:
+
+        vcctl_indicators = [
+            f"{working_dir.name}.img",      # VCCTL microstructure file
+            f"{working_dir.name}.pimg",     # VCCTL particle ID file
+            f"{working_dir.name}.img.struct"  # VCCTL structure file
+        ]
+
+        # Check THAMES naming first
+        thames_count = 0
+        for indicator in thames_indicators:
             file_path = working_dir / indicator
             if file_path.exists() and file_path.stat().st_size > 0:
-                success_count += 1
-        
+                thames_count += 1
+
+        if thames_count >= 2:
+            return True
+
+        # Fall back to VCCTL naming
+        vcctl_count = 0
+        for indicator in vcctl_indicators:
+            file_path = working_dir / indicator
+            if file_path.exists() and file_path.stat().st_size > 0:
+                vcctl_count += 1
+
         # If at least 2 of the 3 key output files exist, consider it successful
-        return success_count >= 2
+        return vcctl_count >= 2
     
     def _on_settings_clicked(self, button: Gtk.Button) -> None:
         """Handle settings button click."""
@@ -5238,8 +5271,8 @@ class OperationsMonitoringPanel(Gtk.Box):
                     continue
 
                 # Try JSON file first (new format), then fall back to text
-                json_progress_file = op_folder / "genmic_progress.json"
-                txt_progress_file = op_folder / "genmic_progress.txt"
+                json_progress_file = op_folder / "micgen_progress.json"
+                txt_progress_file = op_folder / "micgen_progress.txt"
 
                 progress_val = None
                 message = None

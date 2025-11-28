@@ -603,6 +603,125 @@ python -m pytest tests/test_micgen_input_service.py -v
 
 ---
 
+### Session 8: Results Page Adaptation & Phase Color System
+November 27, 2025
+
+**Context**: Adapted the Results page for THAMES with dynamic phase ID mappings, created a comprehensive phase color service, and standardized phase naming conventions across the codebase.
+
+**Key Accomplishments**:
+
+1. **Phase Color Service** (NEW - `src/app/services/phase_color_service.py`)
+   - Created ~400 line service for managing phase colors
+   - `PHASE_COLORS` dictionary mapping ~90 GEMS phase names to hex colors
+   - Colors derived from VCCTL `colors.csv` where applicable
+   - `PhaseColorMapping` dataclass for storing phase-to-color mappings
+   - Key methods:
+     - `get_color_for_phase(phase_name)` - returns hex color
+     - `create_color_mapping(operation_name, phase_id_mapping)` - creates complete mapping
+     - `save_color_mapping()` / `load_color_mapping()` - JSON persistence
+     - `save_phase_id_mapping()` / `load_phase_id_mapping()` - JSON persistence
+     - `hex_to_rgb()` / `hex_to_rgb_normalized()` - color format conversion
+
+2. **Phase Mapping Integration in Mix Design**
+   - Updated `mix_design_panel.py` to save phase mappings during microstructure generation
+   - After `generate_input_file()`, now saves:
+     - `<operation_name>_phase_mapping.json` - phase ID to name mapping
+     - `<operation_name>_phase_colors.json` - phase ID to color mapping
+   - Colors linked to phase **names** (not IDs) for consistency across simulations
+
+3. **Results Viewer Updates** (`hydration_results_viewer.py`)
+   - Added `_load_thames_phase_mapping()` to load JSON mappings from operation folder
+   - Added unified `_get_phase_mapping()` that tries THAMES JSON first, falls back to defaults
+   - Updated `_get_default_phase_mapping()` to use THAMES conventions (not VCCTL)
+   - VOID (phase ID 0) always included in phase list, even if not in microstructure
+   - Added support for THAMES microstructure header format (`#THAMES:` prefix)
+   - Info label now shows "Phase Colors: THAMES" or "Phase Colors: VCCTL"
+
+4. **THAMES Microstructure File Format Support**
+   - Updated `_read_microstructure_file()` to handle both formats:
+     - VCCTL: `X_Size: 100`
+     - THAMES: `#THAMES: X_Size: 100`
+   - Voxel ordering (z fastest, then y, then x) remains the same
+
+5. **Phase Name Standardization**
+   - Renamed `aq_gen` → `Electrolyte` throughout codebase
+   - Renamed `arcanite` → `Arcanite` (capitalized)
+   - Renamed `thenardite` → `Thenardite` (capitalized)
+   - Legacy aliases kept in `phase_color_service.py` for backward compatibility
+   - Updated files:
+     - `phase_id_mapping_service.py` - CLINKER_PHASES list, mapping methods
+     - `phase_color_service.py` - PHASE_COLORS dictionary
+     - `phase_mappings.py` - VCCTL_TO_GEMS mappings
+     - `hydration_results_viewer.py` - default mappings
+
+6. **Color Corrections**
+   - VOID: RGB(0,0,0) - Black
+   - Electrolyte: RGB(0,20,25) - Dark blue (`#001419`)
+
+7. **Operations Page Progress Fix** (from conversation context)
+   - Fixed filename mismatch: `genmic_progress.json` → `micgen_progress.json`
+   - Progress tracking now works correctly on Operations page
+
+**THAMES Phase ID Convention** (Standardized):
+| Phase ID | Name | Color |
+|----------|------|-------|
+| 0 | VOID | Black (0,0,0) |
+| 1 | Electrolyte | Dark blue (0,20,25) |
+| 2 | Alite | Blue (42,42,210) |
+| 3 | Belite | Brown (139,79,19) |
+| 4 | Aluminate | Light gray (178,178,178) |
+| 5 | Ferrite | White (253,253,253) |
+| 6 | Arcanite | Red (255,0,0) |
+| 7 | Thenardite | Red-orange (255,20,0) |
+| 8 | AGGREGATE | Gold (255,192,65) |
+| 9+ | Other phases | Dynamic assignment |
+
+**Files Created**:
+- `src/app/services/phase_color_service.py` (~400 lines)
+
+**Files Modified**:
+- `src/app/windows/panels/mix_design_panel.py` - Added phase mapping saving
+- `src/app/windows/dialogs/hydration_results_viewer.py` - THAMES phase support
+- `src/app/services/phase_id_mapping_service.py` - Electrolyte/Arcanite/Thenardite naming
+- `src/app/services/phase_color_service.py` - Color corrections
+- `src/app/config/phase_mappings.py` - Phase name updates
+- `src/app/windows/panels/operations_monitoring_panel.py` - Progress file fix
+- `src/data/gems/thames-dch.dat` - User updated PHNL list
+
+**GEMS Database Updates** (User-modified):
+- Changed `aq_gen` → `Electrolyte` in PHNL list
+- Changed `arcanite` → `Arcanite` in PHNL list
+- Changed `thenardite` → `Thenardite` in PHNL list
+
+**Testing Status**:
+- ✅ Phase color service imports correctly
+- ✅ Results viewer loads THAMES microstructures
+- ✅ Phase names display correctly (user verified)
+- ✅ Colors display correctly (user verified)
+- ✅ VOID always appears in phase list
+
+**User Feedback**: "It looks very good now. All the phase names are specific and the colors too."
+
+**Next Steps** (for next session):
+1. **Hydration Simulation Integration**
+   - Connect THAMES-Hydration C++ engine
+   - Use saved phase mappings for hydration output
+   - Time-series microstructure visualization
+
+2. **Additional Results Features**
+   - Phase volume fraction plots over time
+   - Export phase statistics to CSV
+   - Compare multiple simulations
+
+**Critical Files for Next Session**:
+- Phase Color Service: `src/app/services/phase_color_service.py`
+- Phase ID Mapping: `src/app/services/phase_id_mapping_service.py`
+- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
+- GEMS Database: `src/data/gems/thames-dch.dat`
+- Mix Design Panel: `src/app/windows/panels/mix_design_panel.py`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

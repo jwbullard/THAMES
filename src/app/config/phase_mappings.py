@@ -13,8 +13,8 @@ VCCTL_TO_GEMS_CEMENT: Dict[str, str] = {
     "C2S": "Belite",
     "C3A": "Aluminate",
     "C4AF": "Ferrite",
-    "K2SO4": "arcanite",
-    "NA2SO4": "thenardite",
+    "K2SO4": "Arcanite",
+    "NA2SO4": "Thenardite",
     "GYPSUM": "Gypsum",
     "HEMIHYD": "hemihydrate",
     "ANHYDRITE": "Anhydrite",
@@ -204,8 +204,8 @@ PHASE_CATEGORIES: Dict[str, List[str]] = {
         "Anhydrite",    # CaSO4
     ],
     "Cement Alkalis": [
-        "arcanite",    # K2SO4
-        "thenardite",  # Na2SO4
+        "Arcanite",    # K2SO4
+        "Thenardite",  # Na2SO4
     ],
     "Limestone": [
         "Calcite",       # CaCO3

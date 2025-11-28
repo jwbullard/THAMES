@@ -1227,7 +1227,7 @@ This GTK3 desktop application provides an intuitive interface for:</span>
             tab_name = tab_names[page_num]
             self.update_status(f"Switched to {tab_name} tab")
             self.logger.debug(f"Switched to tab: {tab_name}")
-            
+
             # Handle specific tab activations
             if tab_name == "Results" and hasattr(self, 'results_panel'):
                 # Refresh the results panel when it becomes visible
@@ -1235,6 +1235,10 @@ This GTK3 desktop application provides an intuitive interface for:</span>
             elif tab_name == "Elastic Moduli" and hasattr(self, 'panels') and 'elastic_moduli' in self.panels:
                 # Refresh the elastic moduli panel when it becomes visible
                 self.panels['elastic_moduli'].refresh()
+            elif tab_name == "Mix Design" and hasattr(self, 'mix_design_panel'):
+                # Refresh material lists when Mix Design tab becomes visible
+                # This ensures newly created materials appear in dropdowns
+                self.mix_design_panel.refresh_material_lists()
     
     def switch_to_tab(self, tab_name: str) -> bool:
         """Switch to a specific tab by name."""

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Directories Service for VCCTL
+Directories Service for THAMES
 
 Manages directory operations and path handling for simulations and operations.
 """
@@ -11,6 +11,7 @@ import shutil
 from pathlib import Path
 from typing import Optional, Dict, Any
 from ..config.config_manager import ConfigManager
+from ..resources.app_info import APP_NAME
 
 
 class DirectoriesService:
@@ -22,7 +23,7 @@ class DirectoriesService:
     def __init__(self, config_manager: ConfigManager):
         """Initialize directories service with configuration manager."""
         self.config_manager = config_manager
-        self.logger = logging.getLogger('VCCTL.Services.Directories')
+        self.logger = logging.getLogger('THAMES.Services.Directories')
         self._ensure_base_directories()
     
     def _ensure_base_directories(self) -> None:
@@ -262,7 +263,7 @@ class DirectoriesService:
             from gi.repository import Gtk, GLib
 
             # Create a simple dialog
-            dialog = Gtk.Window(title="VCCTL - First Launch")
+            dialog = Gtk.Window(title=f"{APP_NAME} - First Launch")
             dialog.set_border_width(20)
             dialog.set_default_size(400, 150)
             dialog.set_position(Gtk.WindowPosition.CENTER)
@@ -275,7 +276,7 @@ class DirectoriesService:
 
             # Title label
             title_label = Gtk.Label()
-            title_label.set_markup("<b>Welcome to VCCTL</b>")
+            title_label.set_markup(f"<b>Welcome to {APP_NAME}</b>")
             vbox.pack_start(title_label, False, False, 0)
 
             # Message label (will be updated during extraction)
@@ -464,7 +465,7 @@ class DirectoriesService:
         directories_config = self.config_manager.directories
         return directories_config.operations_path
     
-    def create_temp_file(self, prefix: str = "vcctl_", suffix: str = ".tmp") -> Path:
+    def create_temp_file(self, prefix: str = "thames_", suffix: str = ".tmp") -> Path:
         """
         Create a temporary file and return its path.
         
