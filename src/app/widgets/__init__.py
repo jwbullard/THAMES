@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-VCCTL Widget Components
+THAMES Widget Components
 
-Contains reusable widget components for the VCCTL application.
+Contains reusable widget components for the THAMES application.
 """
 
 from .material_table import MaterialTable
 from .grading_curve import GradingCurveWidget
 from .file_browser import FileBrowserWidget
+from .hydration_product_selector import HydrationProductSelectorWidget
 
 __all__ = [
-    'MaterialTable', 
+    'MaterialTable',
     'GradingCurveWidget',
-    'FileBrowserWidget'
+    'FileBrowserWidget',
+    'HydrationProductSelectorWidget',
 ]

@@ -47,7 +47,7 @@ class TestPhaseIdMappingService(unittest.TestCase):
 
     def test_clinker_phases_list(self):
         """Test that clinker phases list is complete."""
-        expected = ["Alite", "Belite", "Aluminate", "Ferrite", "arcanite", "thenardite"]
+        expected = ["Alite", "Belite", "Aluminate", "Ferrite", "Arcanite", "Thenardite"]
         self.assertEqual(CLINKER_PHASES, expected)
         self.assertEqual(NUM_CLINKER_PHASES, 6)
 
@@ -61,8 +61,8 @@ class TestPhaseIdMappingService(unittest.TestCase):
                     {'gem_phase_name': 'Belite', 'mass_fraction': 0.18},
                     {'gem_phase_name': 'Aluminate', 'mass_fraction': 0.08},
                     {'gem_phase_name': 'Ferrite', 'mass_fraction': 0.10},
-                    {'gem_phase_name': 'arcanite', 'mass_fraction': 0.01},
-                    {'gem_phase_name': 'thenardite', 'mass_fraction': 0.01},
+                    {'gem_phase_name': 'Arcanite', 'mass_fraction': 0.01},
+                    {'gem_phase_name': 'Thenardite', 'mass_fraction': 0.01},
                     {'gem_phase_name': 'Gypsum', 'mass_fraction': 0.05},
                     {'gem_phase_name': 'hemihydrate', 'mass_fraction': 0.02},
                 ]
@@ -79,15 +79,15 @@ class TestPhaseIdMappingService(unittest.TestCase):
 
         # Check reserved IDs
         self.assertEqual(mapping.get_phase_id("VOID"), 0)
-        self.assertEqual(mapping.get_phase_id("aq_gen"), 1)
+        self.assertEqual(mapping.get_phase_id("Electrolyte"), 1)
 
         # Check clinker phase IDs (must be 2-7 in order)
         self.assertEqual(mapping.get_phase_id("Alite"), 2)
         self.assertEqual(mapping.get_phase_id("Belite"), 3)
         self.assertEqual(mapping.get_phase_id("Aluminate"), 4)
         self.assertEqual(mapping.get_phase_id("Ferrite"), 5)
-        self.assertEqual(mapping.get_phase_id("arcanite"), 6)
-        self.assertEqual(mapping.get_phase_id("thenardite"), 7)
+        self.assertEqual(mapping.get_phase_id("Arcanite"), 6)
+        self.assertEqual(mapping.get_phase_id("Thenardite"), 7)
 
         # Check non-clinker phases get IDs >= 8
         gypsum_id = mapping.get_phase_id("Gypsum")
@@ -96,7 +96,7 @@ class TestPhaseIdMappingService(unittest.TestCase):
         self.assertGreaterEqual(hemihydrate_id, 8)
 
         print(f"✓ Portland cement mix test passed")
-        print(f"  Clinker IDs: Alite=2, Belite=3, Aluminate=4, Ferrite=5, arcanite=6, thenardite=7")
+        print(f"  Clinker IDs: Alite=2, Belite=3, Aluminate=4, Ferrite=5, Arcanite=6, Thenardite=7")
         print(f"  Gypsum={gypsum_id}, hemihydrate={hemihydrate_id}")
 
     def test_pozzolanic_mix_without_clinker(self):
@@ -122,7 +122,7 @@ class TestPhaseIdMappingService(unittest.TestCase):
 
         # Check reserved IDs still present
         self.assertEqual(mapping.get_phase_id("VOID"), 0)
-        self.assertEqual(mapping.get_phase_id("aq_gen"), 1)
+        self.assertEqual(mapping.get_phase_id("Electrolyte"), 1)
 
         # Phases should start at ID 2 (no clinker reservation)
         quartz_id = mapping.get_phase_id("Quartz")
@@ -324,8 +324,8 @@ class TestPhaseIdMappingService(unittest.TestCase):
         self.assertEqual(mapping.get_phase_id("Belite"), 3)
         self.assertEqual(mapping.get_phase_id("Aluminate"), 4)
         self.assertEqual(mapping.get_phase_id("Ferrite"), 5)
-        self.assertEqual(mapping.get_phase_id("arcanite"), 6)
-        self.assertEqual(mapping.get_phase_id("thenardite"), 7)
+        self.assertEqual(mapping.get_phase_id("Arcanite"), 6)
+        self.assertEqual(mapping.get_phase_id("Thenardite"), 7)
 
         # Gypsum should get ID >= 8
         gypsum_id = mapping.get_phase_id("Gypsum")

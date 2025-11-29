@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-VCCTL Dialog Components
+THAMES Dialog Components
 
 Contains dialog windows for various application functions.
 """
 
 from .material_dialog import (
     MaterialDialogBase,
-    CementDialog, 
+    CementDialog,
     AggregateDialog,
     SilicaFumeDialog,
     LimestoneDialog,
@@ -21,23 +21,27 @@ from .file_operations_dialog import (
 from .export_dialog import ExportDialog, show_export_dialog as show_advanced_export_dialog
 from .hydration_results_viewer import HydrationResultsViewer
 from .data_plotter import DataPlotter
+from .affinity_editor_dialog import AffinityEditorDialog
+from .csh_config_dialog import CSHConfigDialog
 
 __all__ = [
     'MaterialDialogBase',
     'CementDialog',
     'AggregateDialog',
     'SilicaFumeDialog',
-    'LimestoneDialog', 
+    'LimestoneDialog',
     'create_material_dialog',
     'FileOperationDialog',
     'OperationType',
     'FileFormat',
     'show_import_dialog',
-    'show_batch_import_dialog', 
+    'show_batch_import_dialog',
     'show_export_dialog',
     'show_batch_export_dialog',
     'ExportDialog',
     'show_advanced_export_dialog',
     'HydrationResultsViewer',
-    'DataPlotter'
+    'DataPlotter',
+    'AffinityEditorDialog',
+    'CSHConfigDialog',
 ]

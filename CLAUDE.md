@@ -722,6 +722,114 @@ November 27, 2025
 
 ---
 
+### Session 9: THAMES Hydration Panel UI Implementation
+November 28, 2025
+
+**Context**: Implemented the complete THAMES Hydration Panel UI, replacing the VCCTL hydration panel. This includes microstructure selection, hydration product configuration, electrolyte composition editor, and simulation parameter controls.
+
+**Key Accomplishments**:
+
+1. **THAMES Hydration Panel** (NEW - `src/app/windows/panels/thames_hydration_panel.py`)
+   - Complete replacement for VCCTL hydration panel (~850 lines)
+   - Sections:
+     - **Microstructure Selection**: Dropdown to select from completed microstructure operations
+     - **Hydration Products**: Tree view with category checkboxes for bulk selection
+     - **Electrolyte Composition**: New widget for aqueous species concentrations
+     - **Simulation Parameters**: Resolution, temperature, moisture conditions, time parameters
+     - **Simulation Controls**: Validate, Run, Stop buttons with progress log
+   - Integrated with HydrationInputService, THAMESExecutionService, HydrationProductsService
+
+2. **Electrolyte Composition Editor** (NEW - `src/app/widgets/electrolyte_composition_editor.py` ~420 lines)
+   - Lists aqueous DCs from GEMS Electrolyte phase
+   - Each entry: DC name dropdown, condition type (Initial/Fixed), concentration input
+   - Add/Remove buttons for managing species
+   - "Defaults" button loads standard cement pore solution composition
+   - **Real-time charge balance validation**:
+     - Displays "Charge balance: OK" (green) when balanced
+     - Shows warning with suggestion when unbalanced (e.g., "add anions")
+   - Charges defined for ~70 common aqueous ions (cations, anions, neutral species)
+
+3. **Hydration Product Tree Category Checkboxes** (FIXED)
+   - Modified `_on_product_toggled()` to handle category rows
+   - Added `_toggle_category()` - toggles all products in a category
+   - Added `_update_category_checkbox()` - updates category state based on children
+   - Clicking category header now selects/deselects all products in that family
+
+4. **Removed Duplicate Cement Type Dropdown**
+   - Removed redundant dropdown from `_create_products_section()`
+   - `HydrationProductSelectorWidget` already has its own cement type selector
+
+5. **Improved Simulation Parameters Layout**
+   - Added **"Moisture Conditions"** heading with radio buttons:
+     - "Saturated" - water continuously available
+     - "Sealed" - no external water, uses initial content only
+   - Added **"Time Parameters"** heading containing:
+     - Final Time (days)
+     - Output Times (comma-separated days)
+
+6. **Fixed GEMS Parser Path Issues**
+   - Fixed path in `hydration_input_service.py`: `parent.parent.parent` (not `parent.parent`)
+   - Fixed path in `service_container.py`: same correction
+   - GEMS data files at `src/data/gems/` (not `src/app/data/gems/`)
+
+7. **Fixed Test Suite Issues**
+   - Fixed import error: `get_gems_parser` doesn't exist → use `GEMSParserService()` directly
+   - Updated phase name tests to use capitalized names: "Arcanite", "Thenardite", "Electrolyte"
+   - All 31 hydration integration + phase ID mapping tests pass
+
+**Files Created**:
+- `src/app/widgets/electrolyte_composition_editor.py` (~420 lines)
+
+**Files Modified**:
+- `src/app/windows/panels/thames_hydration_panel.py` - Complete rewrite for THAMES
+- `src/app/windows/panels/__init__.py` - Import THAMESHydrationPanel as HydrationPanel
+- `src/app/widgets/hydration_product_selector.py` - Category checkbox functionality
+- `src/app/services/hydration_input_service.py` - Fixed GEMS path, use radio button
+- `src/app/services/service_container.py` - Fixed GEMS path
+- `tests/test_hydration_integration.py` - Fixed imports
+- `tests/test_phase_id_mapping_service.py` - Fixed phase name assertions
+
+**Testing Status**:
+- ✅ Application launches successfully
+- ✅ Hydration panel displays correctly
+- ✅ Category checkboxes work (bulk select/deselect)
+- ✅ Electrolyte editor displays with charge balance
+- ✅ Moisture conditions radio buttons work
+- ✅ All 31 unit tests pass
+- ⏳ simparams.json generation: User will test next session
+
+**Run Tests**:
+```bash
+source thames-env/bin/activate
+python -m pytest tests/test_hydration_integration.py tests/test_phase_id_mapping_service.py -v
+```
+
+**User Feedback**: "The UI for hydration looks good now."
+
+**Next Steps** (for next session):
+1. **Test simparams.json Generation**
+   - User will run hydration simulation and verify output
+   - Check that electrolyte conditions are properly included
+   - Verify phase mappings are correct
+
+2. **Debug Any Issues**
+   - Based on user testing feedback
+   - Fix any simparams.json format issues
+
+3. **THAMES-Hydration Execution**
+   - Test actual execution of THAMES-Hydration C++ engine
+   - Monitor progress and output
+
+**Critical Files for Next Session**:
+- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
+- Electrolyte Editor: `src/app/widgets/electrolyte_composition_editor.py`
+- Product Selector: `src/app/widgets/hydration_product_selector.py`
+- Hydration Input Service: `src/app/services/hydration_input_service.py`
+- SimParams Service: `src/app/services/simparams_service.py`
+- Session Summary: `docs/SESSION_9_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

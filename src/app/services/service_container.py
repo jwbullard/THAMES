@@ -246,7 +246,7 @@ class ServiceContainer:
         """Get material service instance (THAMES)."""
         if self._material_service is None:
             from pathlib import Path
-            gems_data_dir = Path(__file__).parent.parent / "data" / "gems"
+            gems_data_dir = Path(__file__).parent.parent.parent / "data" / "gems"
             self._material_service = MaterialService(self.db_service, gems_data_dir)
             self.logger.debug("Material service created")
         return self._material_service

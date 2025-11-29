@@ -34,6 +34,16 @@ from app.models.microstructure_operation import MicrostructureOperation
 from app.models.hydration_operation import HydrationOperation
 from app.models.saved_hydration_operation import SavedHydrationOperation, SavedHydrationOperationCreate, SavedHydrationOperationUpdate, SavedHydrationOperationResponse
 
+# Kinetic parameter dataclasses (not SQLAlchemy models)
+from app.models.kinetic_parameters import (
+    ParrotKillohKinetics,
+    StandardKinetics,
+    PozzolanicKinetics,
+    KineticParameters,
+    kinetics_from_dict,
+    get_kinetic_type_name,
+)
+
 # Export all models for easy importing
 __all__ = [
     # SQLAlchemy Models
@@ -125,6 +135,14 @@ __all__ = [
     'OperationType',
     'ResultType',
     'SieveType',
+
+    # Kinetic Parameter Dataclasses
+    'ParrotKillohKinetics',
+    'StandardKinetics',
+    'PozzolanicKinetics',
+    'KineticParameters',
+    'kinetics_from_dict',
+    'get_kinetic_type_name',
 ]
 
 
