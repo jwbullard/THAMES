@@ -29,6 +29,7 @@ from app.utils.icon_utils import create_button_with_icon
 from app.help.panel_help_button import create_panel_help_button
 from app.widgets.hydration_product_selector import HydrationProductSelectorWidget
 from app.widgets.electrolyte_composition_editor import ElectrolyteCompositionEditor
+from app.widgets.kinetic_model_editor import KineticModelEditorDialog
 from app.windows.dialogs.affinity_editor_dialog import AffinityEditorDialog
 from app.windows.dialogs.csh_config_dialog import CSHConfigDialog
 from app.services.hydration_input_service import (
@@ -104,7 +105,7 @@ class THAMESHydrationPanel(Gtk.Box):
         # Section 1: Microstructure Selection
         self._create_microstructure_section(content_box)
 
-        # Section 2: Hydration Products
+        # Section 2: Phases (unified list of microstructure phases + hydration products)
         self._create_products_section(content_box)
 
         # Section 3: Electrolyte Composition
@@ -222,9 +223,9 @@ class THAMESHydrationPanel(Gtk.Box):
         parent.pack_start(frame, False, False, 0)
 
     def _create_products_section(self, parent: Gtk.Box) -> None:
-        """Create the hydration products selection section."""
+        """Create the phases selection section (microstructure phases + hydration products)."""
         frame = Gtk.Frame()
-        frame.set_label("  Hydration Products  ")
+        frame.set_label("  Phases  ")
         frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -233,9 +234,20 @@ class THAMESHydrationPanel(Gtk.Box):
         content.set_margin_top(10)
         content.set_margin_bottom(10)
 
-        # Hydration product selector widget (it has its own cement type selector)
+        # Instruction label
+        instruction = Gtk.Label()
+        instruction.set_markup(
+            '<span size="small">Microstructure phases (blue, locked) cannot be removed. '
+            'Select additional hydration products and edit kinetic parameters as needed.</span>'
+        )
+        instruction.set_halign(Gtk.Align.START)
+        instruction.set_line_wrap(True)
+        content.pack_start(instruction, False, False, 0)
+
+        # Phase selector widget (includes microstructure phases + hydration products)
         self.product_selector = HydrationProductSelectorWidget()
-        self.product_selector.set_size_request(-1, 300)
+        self.product_selector.set_size_request(-1, 350)
+        self.product_selector.connect('configure-kinetics', self._on_configure_kinetics)
         content.pack_start(self.product_selector, True, True, 0)
 
         frame.add(content)
@@ -529,6 +541,8 @@ class THAMESHydrationPanel(Gtk.Box):
             self.selected_microstructure_path = None
             self.selected_operation_name = None
             self.micro_info_label.set_text("")
+            # Clear microstructure phases from product selector
+            self.product_selector.clear_microstructure_phases()
             return
 
         model = combo.get_model()
@@ -549,12 +563,32 @@ class THAMESHydrationPanel(Gtk.Box):
             if phase_mapping_path.exists():
                 with open(phase_mapping_path, 'r') as f:
                     mapping = json.load(f)
-                num_phases = len(mapping.get('micro_to_gem', {}))
+
+                # Extract phase names from the mapping (excluding VOID and Electrolyte)
+                # Handle nested structure: phase_id_mapping.micro_to_gem
+                phase_id_mapping = mapping.get('phase_id_mapping', mapping)
+                micro_to_gem = phase_id_mapping.get('micro_to_gem', {})
+                excluded = {'VOID', 'Electrolyte', 'AGGREGATE', 'aq_gen', 'gas_gen'}
+                microstructure_phases = [
+                    phase_name for phase_name in micro_to_gem.values()
+                    if phase_name not in excluded
+                ]
+
+                num_phases = len(microstructure_phases)
                 self.micro_info_label.set_text(
                     f"Selected: {self.selected_microstructure_path.name} ({size_str}, {num_phases} phases)"
                 )
+
+                # Load phases into the product selector
+                self.product_selector.set_microstructure_phases(microstructure_phases)
+                self._log_message(f"Loaded {num_phases} microstructure phases")
+            else:
+                # No phase mapping - clear microstructure phases
+                self.product_selector.clear_microstructure_phases()
+                self._log_message("Note: No phase mapping file found for this microstructure")
         except Exception as e:
             self.logger.warning(f"Error getting microstructure info: {e}")
+            self.product_selector.clear_microstructure_phases()
 
         self._log_message(f"Selected microstructure: {display_name}")
 
@@ -579,6 +613,31 @@ class THAMESHydrationPanel(Gtk.Box):
             new_affinity = dialog.get_affinity_data()
             self.product_selector.set_product_affinity(gems_name, new_affinity)
             self._log_message(f"Updated affinity for {gems_name}")
+
+        dialog.destroy()
+
+    def _on_configure_kinetics(self, widget: HydrationProductSelectorWidget, gems_name: str) -> None:
+        """Open kinetic model editor dialog for a phase."""
+        # Get current kinetic configuration
+        current_kinetics = self.product_selector.get_kinetic_configuration(gems_name)
+
+        dialog = KineticModelEditorDialog(
+            self.main_window,
+            gems_name,
+            current_params=current_kinetics
+        )
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            new_kinetics = dialog.get_kinetic_parameters()
+            if new_kinetics:
+                # User selected a kinetic model
+                self.product_selector.set_kinetic_configuration(gems_name, new_kinetics)
+                self._log_message(f"Updated kinetics for {gems_name}: {new_kinetics.get('type')}")
+            else:
+                # User selected "Thermodynamic" (no kinetics) - remove any existing configuration
+                self.product_selector.remove_kinetic_configuration(gems_name)
+                self._log_message(f"Removed kinetics for {gems_name} (now thermodynamic)")
 
         dialog.destroy()
 
@@ -643,6 +702,9 @@ class THAMESHydrationPanel(Gtk.Box):
         # Get electrolyte conditions
         electrolyte_conditions = self.electrolyte_editor.get_electrolyte_conditions()
 
+        # Get kinetic overrides from the product selector
+        kinetic_overrides = self.product_selector.get_all_kinetic_configurations()
+
         config = HydrationInputConfig(
             resolution=self.resolution_spin.get_value(),
             temperature=temp_kelvin,
@@ -653,6 +715,7 @@ class THAMESHydrationPanel(Gtk.Box):
             hydration_products=selected_products,
             product_configurations=product_configs,
             electrolyte_conditions=electrolyte_conditions,
+            kinetic_overrides=kinetic_overrides,
         )
 
         return config
@@ -699,10 +762,14 @@ class THAMESHydrationPanel(Gtk.Box):
                 self._log_message(f"  - {error}")
             self.status_label.set_text("Validation Failed")
         else:
+            # Get phase info
+            micro_phases = self.product_selector.get_microstructure_phases()
+            all_phases = self.product_selector.get_all_phases()
             self._log_message("Validation PASSED")
             self._log_message(f"  - Microstructure: {self.selected_microstructure_path.name}")
             self._log_message(f"  - Operation: {op_name}")
-            self._log_message(f"  - Products: {len(selected_products)}")
+            self._log_message(f"  - Microstructure phases: {len(micro_phases)}")
+            self._log_message(f"  - Total phases: {len(all_phases)}")
             self._log_message(f"  - Resolution: {self.resolution_spin.get_value()} μm/voxel")
             self._log_message(f"  - Temperature: {self.temperature_spin.get_value()}°C")
             self._log_message(f"  - Final time: {self.final_time_spin.get_value()} days")

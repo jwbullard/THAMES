@@ -2,14 +2,20 @@
 """
 Hydration Product Selector Widget
 
-GTK widget for selecting which hydration products to include in a THAMES simulation.
-Shows products grouped by category with checkboxes, and allows users to configure
-affinity and C-S-H special parameters.
+GTK widget for selecting which phases to include in a THAMES simulation.
+Shows phases grouped by category with checkboxes, and allows users to configure
+kinetic models, affinity, and C-S-H special parameters.
+
+Phases include:
+- Microstructure phases (from the input microstructure - always selected, non-removable)
+- Hydration products (user-selectable products that can form during hydration)
+
+All phases can have kinetic models edited (or set to "Thermodynamic" for no kinetics).
 """
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject, Pango
+from gi.repository import Gtk, GObject, Pango, GdkPixbuf
 import logging
 from typing import List, Dict, Optional, Any, Set
 
@@ -20,15 +26,22 @@ from app.services.hydration_products_service import (
     get_hydration_products_service,
     DEFAULT_CONTACT_ANGLE,
 )
+from app.services.kinetic_defaults_service import (
+    KineticDefaultsService,
+    get_kinetic_defaults_service,
+)
+from app.utils.icon_utils import load_carbon_icon
 
 
 class HydrationProductSelectorWidget(Gtk.Box):
     """
-    Widget for selecting hydration products for simulation.
+    Widget for selecting phases for THAMES hydration simulation.
 
     Features:
-    - Products grouped by category (C-S-H, CH, AFt, AFm, etc.)
+    - Microstructure phases shown at top (always selected, non-removable)
+    - Hydration products grouped by category (C-S-H, CH, AFt, AFm, etc.)
     - Checkbox selection with suggested products pre-selected
+    - Kinetic model display and editing for all phases
     - Double-click or button to configure affinity
     - Special configuration for C-S-H (PSD, Rd values)
     - Search/filter functionality
@@ -41,6 +54,8 @@ class HydrationProductSelectorWidget(Gtk.Box):
         'configure-affinity': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
         # Emitted when user wants to configure C-S-H special data
         'configure-csh': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
+        # Emitted when user wants to configure kinetic model
+        'configure-kinetics': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
     }
 
     def __init__(self, cement_type: str = "portland"):
@@ -56,10 +71,20 @@ class HydrationProductSelectorWidget(Gtk.Box):
         self.cement_type = cement_type
         self.logger = logging.getLogger('THAMES.HydrationProductSelector')
         self.service = get_hydration_products_service()
+        self.kinetic_defaults = get_kinetic_defaults_service()
 
         # Track selected products and their configurations
         self.selected_products: Set[str] = set()
         self.product_configurations: Dict[str, Dict[str, Any]] = {}
+
+        # Track microstructure phases (always selected, non-removable)
+        self.microstructure_phases: Set[str] = set()
+
+        # Track kinetic configurations for all phases
+        self.kinetic_configurations: Dict[str, Dict[str, Any]] = {}
+
+        # Load Carbon edit icon for the config column
+        self.edit_icon_pixbuf: Optional[GdkPixbuf.Pixbuf] = load_carbon_icon("edit", 16)
 
         # Build UI
         self._build_ui()
@@ -69,18 +94,11 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
     def _build_ui(self):
         """Build the widget UI."""
-        # Header with title and cement type selector
+        # Header with cement type selector (on the left)
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         header.set_margin_bottom(5)
 
-        title_label = Gtk.Label()
-        title_label.set_markup("<b>Hydration Products</b>")
-        title_label.set_halign(Gtk.Align.START)
-        header.pack_start(title_label, False, False, 0)
-
         # Cement type selector for suggested products
-        header.pack_start(Gtk.Label(), True, True, 0)  # Spacer
-
         cement_label = Gtk.Label(label="Cement Type:")
         header.pack_start(cement_label, False, False, 0)
 
@@ -103,7 +121,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
         search_box.pack_start(search_icon, False, False, 0)
 
         self.search_entry = Gtk.Entry()
-        self.search_entry.set_placeholder_text("Filter products...")
+        self.search_entry.set_placeholder_text("Filter phases...")
         self.search_entry.connect('changed', self._on_search_changed)
         search_box.pack_start(self.search_entry, True, True, 0)
 
@@ -128,8 +146,9 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
         # TreeView with checkboxes
         # Columns: selected (bool), gems_name (str), display_name (str),
-        #          category (str), description (str), has_csh_data (bool), is_suggested (bool)
-        self.store = Gtk.TreeStore(bool, str, str, str, str, bool, bool)
+        #          category (str), description (str), has_csh_data (bool), is_suggested (bool),
+        #          kinetic_type (str), is_from_microstructure (bool)
+        self.store = Gtk.TreeStore(bool, str, str, str, str, bool, bool, str, bool)
 
         self.treeview = Gtk.TreeView(model=self.store)
         self.treeview.set_headers_visible(True)
@@ -141,31 +160,32 @@ class HydrationProductSelectorWidget(Gtk.Box):
         renderer_toggle = Gtk.CellRendererToggle()
         renderer_toggle.connect('toggled', self._on_product_toggled)
         column_select = Gtk.TreeViewColumn("", renderer_toggle, active=0)
+        column_select.set_cell_data_func(renderer_toggle, self._checkbox_cell_data_func)
         column_select.set_min_width(30)
         self.treeview.append_column(column_select)
 
-        # Column 2: Display Name (with bold for suggested)
+        # Column 2: Display Name (with bold for suggested, italic for microstructure)
         renderer_name = Gtk.CellRendererText()
-        column_name = Gtk.TreeViewColumn("Product", renderer_name, text=2)
+        column_name = Gtk.TreeViewColumn("Phase", renderer_name, text=2)
         column_name.set_cell_data_func(renderer_name, self._name_cell_data_func)
         column_name.set_expand(True)
         column_name.set_sort_column_id(2)
         self.treeview.append_column(column_name)
 
-        # Column 3: GEMS Name
+        # Column 3: Kinetic Model Type
+        renderer_kinetic = Gtk.CellRendererText()
+        column_kinetic = Gtk.TreeViewColumn("Kinetics", renderer_kinetic, text=7)
+        column_kinetic.set_cell_data_func(renderer_kinetic, self._kinetic_cell_data_func)
+        column_kinetic.set_min_width(100)
+        self.treeview.append_column(column_kinetic)
+
+        # Column 4: GEMS Name
         renderer_gems = Gtk.CellRendererText()
         renderer_gems.set_property('foreground', 'gray')
         renderer_gems.set_property('style', Pango.Style.ITALIC)
         column_gems = Gtk.TreeViewColumn("GEMS Name", renderer_gems, text=1)
         column_gems.set_sort_column_id(1)
         self.treeview.append_column(column_gems)
-
-        # Column 4: Description
-        renderer_desc = Gtk.CellRendererText()
-        renderer_desc.set_property('ellipsize', Pango.EllipsizeMode.END)
-        column_desc = Gtk.TreeViewColumn("Description", renderer_desc, text=4)
-        column_desc.set_min_width(200)
-        self.treeview.append_column(column_desc)
 
         # Column 5: Configure button (icon)
         renderer_config = Gtk.CellRendererPixbuf()
@@ -192,15 +212,22 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
         toolbar.pack_start(Gtk.Label(), True, True, 0)  # Spacer
 
+        # Configure kinetics button
+        self.config_kinetics_btn = Gtk.Button(label="Edit Kinetics...")
+        self.config_kinetics_btn.set_tooltip_text("Edit kinetic model parameters for selected phase")
+        self.config_kinetics_btn.connect('clicked', self._on_configure_kinetics_clicked)
+        self.config_kinetics_btn.set_sensitive(False)
+        toolbar.pack_start(self.config_kinetics_btn, False, False, 0)
+
         # Configure affinity button
-        self.config_affinity_btn = Gtk.Button(label="Configure Affinity...")
-        self.config_affinity_btn.set_tooltip_text("Edit contact angles for selected product")
+        self.config_affinity_btn = Gtk.Button(label="Edit Affinity...")
+        self.config_affinity_btn.set_tooltip_text("Edit contact angles for selected phase")
         self.config_affinity_btn.connect('clicked', self._on_configure_affinity_clicked)
         self.config_affinity_btn.set_sensitive(False)
         toolbar.pack_start(self.config_affinity_btn, False, False, 0)
 
         # Configure C-S-H button
-        self.config_csh_btn = Gtk.Button(label="Configure C-S-H...")
+        self.config_csh_btn = Gtk.Button(label="Edit C-S-H...")
         self.config_csh_btn.set_tooltip_text("Edit C-S-H poresize distribution and Rd values")
         self.config_csh_btn.connect('clicked', self._on_configure_csh_clicked)
         self.config_csh_btn.set_sensitive(False)
@@ -212,12 +239,50 @@ class HydrationProductSelectorWidget(Gtk.Box):
         self.treeview.get_selection().connect('changed', self._on_selection_changed)
 
     def _populate_product_tree(self):
-        """Populate the tree with products grouped by category."""
+        """Populate the tree with phases grouped by category."""
         self.store.clear()
 
         # Get products by category
         products_by_category = self.service.get_products_by_category()
         suggested = set(self.service.get_suggested_products_for_cement_type(self.cement_type))
+
+        self.category_iters = {}  # Store category row iters for filtering
+
+        # First, add microstructure phases if any (always at top)
+        if self.microstructure_phases:
+            micro_iter = self.store.append(None, [
+                False,  # category not selectable
+                "",     # no gems_name
+                "Microstructure Phases",  # category name
+                "",     # no category column for parent
+                "",     # no description
+                False,  # no csh data
+                False,  # not suggested
+                "",     # no kinetic type for category
+                False,  # not from microstructure (it's a category row)
+            ])
+            self.category_iters['microstructure'] = micro_iter
+
+            for gems_name in sorted(self.microstructure_phases):
+                kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
+                has_csh = self.service.has_special_csh_data(gems_name)
+
+                # Get display name from service or use GEMS name
+                data = self.service.get_product_data(gems_name)
+                display_name = data.display_name if data else gems_name
+                description = data.description if data else "Phase from microstructure"
+
+                self.store.append(micro_iter, [
+                    True,   # always selected (from microstructure)
+                    gems_name,
+                    display_name,
+                    "Microstructure",
+                    description,
+                    has_csh,
+                    False,  # not suggested (it's required)
+                    kinetic_type,
+                    True,   # is from microstructure
+                ])
 
         # Sort categories for consistent ordering
         category_order = [
@@ -232,8 +297,6 @@ class HydrationProductSelectorWidget(Gtk.Box):
             ProductCategory.ZEOLITE,
             ProductCategory.OTHER,
         ]
-
-        self.category_iters = {}  # Store category row iters for filtering
 
         for category in category_order:
             if category not in products_by_category:
@@ -252,15 +315,22 @@ class HydrationProductSelectorWidget(Gtk.Box):
                 "",     # no description
                 False,  # no csh data
                 False,  # not suggested
+                "",     # no kinetic type for category
+                False,  # not from microstructure
             ])
             self.category_iters[category] = category_iter
 
             # Add products as children
             for gems_name in sorted(products):
+                # Skip if already in microstructure phases
+                if gems_name in self.microstructure_phases:
+                    continue
+
                 data = self.service.get_product_data(gems_name)
                 if data:
                     is_suggested = gems_name in suggested
                     has_csh = self.service.has_special_csh_data(gems_name)
+                    kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
 
                     self.store.append(category_iter, [
                         gems_name in self.selected_products,  # selected
@@ -270,21 +340,40 @@ class HydrationProductSelectorWidget(Gtk.Box):
                         data.description,
                         has_csh,
                         is_suggested,
+                        kinetic_type,
+                        False,  # not from microstructure
                     ])
 
         # Expand all categories
         self.treeview.expand_all()
 
-    def _name_cell_data_func(self, column, cell, model, iter, data):
-        """Format the name column - bold for suggested products."""
-        is_suggested = model.get_value(iter, 6)
-        display_name = model.get_value(iter, 2)
+    def _checkbox_cell_data_func(self, column, cell, model, iter, data):
+        """Make checkbox insensitive for microstructure phases (can't be deselected)."""
         gems_name = model.get_value(iter, 1)
+        is_from_micro = model.get_value(iter, 8) if gems_name else False
+
+        # Microstructure phases can't be deselected
+        cell.set_property('activatable', not is_from_micro)
+        # Dim the checkbox for microstructure phases to indicate it's locked
+        if is_from_micro:
+            cell.set_property('sensitive', False)
+        else:
+            cell.set_property('sensitive', True)
+
+    def _name_cell_data_func(self, column, cell, model, iter, data):
+        """Format the name column - bold for suggested, colored for microstructure."""
+        is_suggested = model.get_value(iter, 6)
+        gems_name = model.get_value(iter, 1)
+        is_from_micro = model.get_value(iter, 8) if gems_name else False
 
         # Category rows have no gems_name
         if not gems_name:
             cell.set_property('weight', Pango.Weight.BOLD)
             cell.set_property('foreground', None)
+        elif is_from_micro:
+            # Microstructure phases shown in blue/bold
+            cell.set_property('weight', Pango.Weight.BOLD)
+            cell.set_property('foreground', '#2060A0')
         elif is_suggested:
             cell.set_property('weight', Pango.Weight.BOLD)
             cell.set_property('foreground', None)
@@ -292,16 +381,30 @@ class HydrationProductSelectorWidget(Gtk.Box):
             cell.set_property('weight', Pango.Weight.NORMAL)
             cell.set_property('foreground', None)
 
+    def _kinetic_cell_data_func(self, column, cell, model, iter, data):
+        """Format the kinetic type column."""
+        gems_name = model.get_value(iter, 1)
+        kinetic_type = model.get_value(iter, 7)
+
+        if not gems_name:
+            # Category row
+            cell.set_property('text', '')
+        elif kinetic_type == "Thermodynamic":
+            cell.set_property('foreground', 'gray')
+            cell.set_property('style', Pango.Style.ITALIC)
+        else:
+            cell.set_property('foreground', None)
+            cell.set_property('style', Pango.Style.NORMAL)
+
     def _config_cell_data_func(self, column, cell, model, iter, data):
-        """Show configure icon for selected products with C-S-H data."""
+        """Show configure icon for selected phases using Carbon icon."""
         gems_name = model.get_value(iter, 1)
         is_selected = model.get_value(iter, 0)
-        has_csh = model.get_value(iter, 5)
 
-        if gems_name and is_selected and has_csh:
-            cell.set_property('icon-name', 'preferences-system-symbolic')
+        if gems_name and is_selected and self.edit_icon_pixbuf:
+            cell.set_property('pixbuf', self.edit_icon_pixbuf)
         else:
-            cell.set_property('icon-name', None)
+            cell.set_property('pixbuf', None)
 
     def _on_product_toggled(self, renderer, path):
         """Handle product checkbox toggle."""
@@ -311,6 +414,12 @@ class HydrationProductSelectorWidget(Gtk.Box):
         # Handle category rows (no gems_name) - toggle all children
         if not gems_name:
             self._toggle_category(iter)
+            return
+
+        # Don't allow toggling microstructure phases
+        is_from_micro = self.store.get_value(iter, 8)
+        if is_from_micro:
+            self.logger.debug(f"Cannot toggle microstructure phase: {gems_name}")
             return
 
         # Toggle individual product selection
@@ -438,11 +547,15 @@ class HydrationProductSelectorWidget(Gtk.Box):
             gems_name = model.get_value(iter, 1)
             is_selected = model.get_value(iter, 0)
             has_csh = model.get_value(iter, 5)
+            kinetic_type = model.get_value(iter, 7)
 
-            # Enable configure buttons if a product row is selected
+            # Enable configure buttons if a phase row is selected
+            # Allow editing kinetics for ANY selected phase (users can add kinetics to any phase)
+            self.config_kinetics_btn.set_sensitive(bool(gems_name) and is_selected)
             self.config_affinity_btn.set_sensitive(bool(gems_name) and is_selected)
             self.config_csh_btn.set_sensitive(bool(gems_name) and is_selected and has_csh)
         else:
+            self.config_kinetics_btn.set_sensitive(False)
             self.config_affinity_btn.set_sensitive(False)
             self.config_csh_btn.set_sensitive(False)
 
@@ -453,6 +566,8 @@ class HydrationProductSelectorWidget(Gtk.Box):
         self.cement_type = cement_types[index]
         # Re-populate to update suggested highlighting
         self._populate_product_tree()
+        # Auto-select suggested products for the new cement type
+        self._select_suggested_products()
         self.logger.info(f"Cement type changed to: {self.cement_type}")
 
     def _on_search_changed(self, entry):
@@ -504,7 +619,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
             # Add category
             category_iter = self.store.append(None, [
-                False, "", category.value, "", "", False, False
+                False, "", category.value, "", "", False, False, "", False
             ])
 
             # Add matching products
@@ -512,6 +627,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
                 data = self.service.get_product_data(gems_name)
                 is_suggested = gems_name in suggested
                 has_csh = self.service.has_special_csh_data(gems_name)
+                kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
 
                 self.store.append(category_iter, [
                     gems_name in self.selected_products,
@@ -521,6 +637,8 @@ class HydrationProductSelectorWidget(Gtk.Box):
                     data.description,
                     has_csh,
                     is_suggested,
+                    kinetic_type,
+                    False,  # not from microstructure
                 ])
 
         self.treeview.expand_all()
@@ -587,6 +705,15 @@ class HydrationProductSelectorWidget(Gtk.Box):
             gems_name = model.get_value(iter, 1)
             if gems_name:
                 self.emit('configure-csh', gems_name)
+
+    def _on_configure_kinetics_clicked(self, button):
+        """Open kinetics configuration for selected phase."""
+        selection = self.treeview.get_selection()
+        model, iter = selection.get_selected()
+        if iter:
+            gems_name = model.get_value(iter, 1)
+            if gems_name:
+                self.emit('configure-kinetics', gems_name)
 
     def _update_count_label(self):
         """Update the selection count label."""
@@ -714,6 +841,126 @@ class HydrationProductSelectorWidget(Gtk.Box):
             self.product_configurations[gems_name]['rd_values'] = rd_values
 
         self.logger.debug(f"Set C-S-H parameters for {gems_name}")
+
+    # =========================================================================
+    # Microstructure Phases API
+    # =========================================================================
+
+    def set_microstructure_phases(self, phases: List[str]) -> None:
+        """
+        Set the phases from the input microstructure.
+
+        These phases will be shown at the top of the list, always selected,
+        and cannot be deselected (they're required).
+
+        Args:
+            phases: List of GEMS phase names from the microstructure
+        """
+        self.microstructure_phases = set(phases)
+
+        # Initialize kinetic configurations with defaults for microstructure phases
+        for phase_name in phases:
+            if phase_name not in self.kinetic_configurations:
+                defaults = self.kinetic_defaults.get_kinetics_for_phase(phase_name)
+                if defaults:
+                    self.kinetic_configurations[phase_name] = defaults.to_dict()
+
+        # Re-populate tree to show microstructure phases section
+        self._populate_product_tree()
+        self._apply_selections_to_store()
+        self._update_count_label()
+
+        self.logger.info(f"Set {len(phases)} microstructure phases")
+
+    def get_microstructure_phases(self) -> List[str]:
+        """
+        Get the microstructure phase names.
+
+        Returns:
+            List of GEMS phase names from the microstructure
+        """
+        return list(self.microstructure_phases)
+
+    def clear_microstructure_phases(self) -> None:
+        """Clear all microstructure phases."""
+        self.microstructure_phases.clear()
+        self._populate_product_tree()
+        self._apply_selections_to_store()
+        self._update_count_label()
+
+    # =========================================================================
+    # Kinetics Configuration API
+    # =========================================================================
+
+    def get_kinetic_configuration(self, gems_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get kinetic parameters for a phase.
+
+        Args:
+            gems_name: GEMS phase name
+
+        Returns:
+            Kinetic parameters dict with 'type' field, or None
+        """
+        return self.kinetic_configurations.get(gems_name)
+
+    def set_kinetic_configuration(self, gems_name: str, kinetics: Dict[str, Any]) -> None:
+        """
+        Set kinetic parameters for a phase.
+
+        Args:
+            gems_name: GEMS phase name
+            kinetics: Kinetic parameters dict with 'type' field
+        """
+        self.kinetic_configurations[gems_name] = kinetics
+        # Update the TreeStore to reflect the new kinetic type
+        self._update_kinetic_type_in_store(gems_name, kinetics.get('type', 'Unknown'))
+        self.logger.debug(f"Set kinetics for {gems_name}: {kinetics.get('type')}")
+
+    def remove_kinetic_configuration(self, gems_name: str) -> None:
+        """
+        Remove kinetic configuration for a phase (set to thermodynamic control).
+
+        Args:
+            gems_name: GEMS phase name
+        """
+        if gems_name in self.kinetic_configurations:
+            del self.kinetic_configurations[gems_name]
+        # Update the TreeStore to show "Thermodynamic"
+        self._update_kinetic_type_in_store(gems_name, "Thermodynamic")
+        self.logger.debug(f"Removed kinetics for {gems_name}")
+
+    def _update_kinetic_type_in_store(self, gems_name: str, kinetic_type: str) -> None:
+        """Update the kinetic type display in the TreeStore for a phase."""
+        def update_iter(model, path, iter, data):
+            if model.get_value(iter, 1) == gems_name:
+                model.set_value(iter, 7, kinetic_type)
+                return True  # Stop iteration
+            return False
+
+        self.store.foreach(update_iter, None)
+
+    def get_all_kinetic_configurations(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get kinetic configurations for all phases (microstructure + selected products).
+
+        Returns:
+            Dict mapping GEMS name to kinetic parameters
+        """
+        # Include both microstructure phases and selected products that have kinetics
+        all_phases = self.microstructure_phases | self.selected_products
+        return {name: self.kinetic_configurations[name]
+                for name in all_phases
+                if name in self.kinetic_configurations}
+
+    def get_all_phases(self) -> List[str]:
+        """
+        Get all phase names (microstructure + selected products).
+
+        Returns:
+            List of all active GEMS phase names
+        """
+        return list(self.microstructure_phases | self.selected_products)
 
 
 # Register the signals

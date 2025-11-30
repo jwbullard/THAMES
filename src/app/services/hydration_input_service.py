@@ -432,11 +432,14 @@ class HydrationInputService:
 
     def _save_phase_colors(self, mapping: PhaseIdMapping, output_path: Path) -> None:
         """Save phase colors to JSON file."""
+        # Extract operation name from path (remove _phase_colors suffix)
+        operation_name = output_path.stem.replace("_phase_colors", "")
         color_mapping = self.phase_color_service.create_color_mapping(
-            output_path.stem,
+            operation_name,
             mapping
         )
-        self.phase_color_service.save_color_mapping(color_mapping, output_path)
+        # Pass the parent directory, not the full path, since save_color_mapping constructs the filename
+        self.phase_color_service.save_color_mapping(color_mapping, output_path.parent)
         self.logger.debug(f"Saved phase colors to {output_path}")
 
     def _save_hydration_config(self, config: HydrationInputConfig, output_path: Path) -> None:

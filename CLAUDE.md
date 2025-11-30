@@ -830,6 +830,67 @@ python -m pytest tests/test_hydration_integration.py tests/test_phase_id_mapping
 
 ---
 
+### Session 10: THAMES Hydration Panel Refinements
+November 29, 2025
+
+**Context**: Refined the THAMES Hydration Panel UI based on user testing feedback. Unified microstructure phases and hydration products, implemented full kinetic model editing, and fixed various UI issues.
+
+**Key Accomplishments**:
+
+1. **Unified Phase List Architecture**
+   - Merged microstructure phases and hydration products into single tree view
+   - Microstructure phases appear at top in "Microstructure Phases" category (blue, locked)
+   - All phases treated symmetrically - each can have kinetic models edited
+   - Fixed nested JSON parsing for `phase_id_mapping.micro_to_gem`
+
+2. **Full Kinetic Model Editing**
+   - Rewrote `KineticModelEditorDialog` with kinetic type dropdown
+   - Options: Thermodynamic (no kinetics), ParrotKilloh, Standard, Pozzolanic
+   - Users can add/remove/edit kinetics for ANY phase
+   - Added units to parameter labels (mol/m²/s, J/mol)
+   - Fixed "Reset to Defaults" button
+
+3. **UI Improvements**
+   - Renamed section from "Hydration Products" to "Phases"
+   - Removed redundant bold "Phases" heading
+   - Moved "Cement Type:" dropdown to left side
+   - Replaced grey rectangle icons with Carbon "edit" icon
+   - Limestone cement type auto-selects Carbonate AFm and Calcite
+
+4. **Kinetic Configuration Management**
+   - Added `remove_kinetic_configuration()` method
+   - Added `_update_kinetic_type_in_store()` for real-time display updates
+   - "Edit Kinetics..." button enabled for ALL selected phases
+
+**Files Modified**:
+- `src/app/widgets/hydration_product_selector.py` - Unified phase list, Carbon icon, UI layout
+- `src/app/widgets/kinetic_model_editor.py` - Full kinetic type selection, units, Reset fix
+- `src/app/windows/panels/thames_hydration_panel.py` - Phase mapping parsing, kinetics removal
+
+**Testing Status**:
+- ✅ Microstructure phases load correctly
+- ✅ Kinetic model editing (all types) works
+- ✅ Add/remove kinetics works
+- ✅ Reset to Defaults button works
+- ✅ Carbon edit icon displays properly
+- ✅ UI layout correct
+
+**User Feedback**: "Looks nice! I like the Carbon icon you chose." / "It looks great now and I think it is working pretty well."
+
+**Next Steps** (for next session):
+1. User testing of simparams.json generation
+2. Test actual THAMES-Hydration execution
+3. Debug any issues found during testing
+
+**Critical Files for Next Session**:
+- Phase Selector: `src/app/widgets/hydration_product_selector.py`
+- Kinetic Editor: `src/app/widgets/kinetic_model_editor.py`
+- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
+- Hydration Input Service: `src/app/services/hydration_input_service.py`
+- Session Summary: `docs/SESSION_10_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
