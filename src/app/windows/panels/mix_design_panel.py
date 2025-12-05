@@ -38,6 +38,7 @@ from app.services.micgen_input_service import MicgenInputService
 from app.services.material_service import MaterialService
 from app.services.psd_data_service import PSDDataService
 from app.services.phase_color_service import PhaseColorService
+from app.services.phase_id_mapping_service import PhaseIdMappingService
 # Import centralized validation
 from app.validation import MixDesignValidator, ComponentData
 from app.widgets import GradingCurveWidget
@@ -3720,8 +3721,12 @@ class MixDesignPanel(Gtk.Box):
                 self.logger.info(f"genmic execution completed successfully (return code {result.returncode} ignored due to known stack corruption issue)")
             else:
                 self.logger.info("genmic execution completed successfully")
+
+            # Note: Phase ID remapping is now handled by OperationsMonitoringPanel
+            # when the operation completes (see _on_microstructure_generation_completed)
+
             self.main_window.update_status("3D microstructure generated successfully", "success", 5)
-            
+
             # Complete operation in Operations panel
             if operations_panel and operation_id:
                 operations_panel.complete_operation(operation_id, success=True)
@@ -3814,7 +3819,98 @@ class MixDesignPanel(Gtk.Box):
         error_dialog.destroy()
         
         return False  # Remove from idle queue
-    
+
+    def _remap_phase_ids_to_sequential(self, output_dir: str, output_files: List[str]) -> None:
+        """
+        Remap phase IDs in generated microstructure files to be sequential.
+
+        This ensures phase IDs are 0, 1, 2, 3, ... with no gaps, which is
+        required by the THAMES-Hydration C++ code.
+
+        Args:
+            output_dir: Directory containing the generated files
+            output_files: List of generated .img files
+        """
+        try:
+            from pathlib import Path
+
+            output_path = Path(output_dir)
+
+            # Find the phase mapping JSON file
+            phase_mapping_files = list(output_path.glob("*_phase_mapping.json"))
+            if not phase_mapping_files:
+                self.logger.warning("No phase_mapping.json file found, skipping phase ID remapping")
+                return
+
+            phase_mapping_path = phase_mapping_files[0]
+            self.logger.info(f"Found phase mapping file: {phase_mapping_path}")
+
+            # Find the main microstructure file (not .pimg)
+            img_files = [f for f in output_files if f.endswith('.img') and not f.endswith('.pimg')]
+            if not img_files:
+                self.logger.warning("No .img microstructure file found, skipping phase ID remapping")
+                return
+
+            microstructure_path = Path(img_files[0])
+            self.logger.info(f"Remapping phase IDs in: {microstructure_path}")
+
+            # Perform the remapping
+            phase_id_service = PhaseIdMappingService()
+            old_to_new, new_mapping = phase_id_service.remap_to_sequential(
+                microstructure_path,
+                phase_mapping_path
+            )
+
+            # Also update the phase_colors.json if it exists
+            phase_colors_files = list(output_path.glob("*_phase_colors.json"))
+            if phase_colors_files:
+                self._remap_phase_colors(phase_colors_files[0], old_to_new)
+
+            # Log the remapping results
+            if any(old != new for old, new in old_to_new.items()):
+                self.logger.info(f"Phase ID remapping complete: {old_to_new}")
+            else:
+                self.logger.info("Phase IDs were already sequential, no changes needed")
+
+        except Exception as e:
+            self.logger.error(f"Error remapping phase IDs: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            # Don't fail the whole operation - remapping is an optimization
+
+    def _remap_phase_colors(self, colors_path: Path, old_to_new: Dict[int, int]) -> None:
+        """
+        Update phase colors JSON file with remapped IDs.
+
+        Args:
+            colors_path: Path to the _phase_colors.json file
+            old_to_new: Mapping from old IDs to new IDs
+        """
+        try:
+            import json
+
+            with open(colors_path, 'r') as f:
+                colors_data = json.load(f)
+
+            # Remap the colors
+            new_colors = {}
+            for old_id_str, color in colors_data.items():
+                old_id = int(old_id_str)
+                if old_id in old_to_new:
+                    new_id = old_to_new[old_id]
+                    new_colors[str(new_id)] = color
+                else:
+                    # Keep unmapped IDs as-is
+                    new_colors[old_id_str] = color
+
+            with open(colors_path, 'w') as f:
+                json.dump(new_colors, f, indent=2)
+
+            self.logger.info(f"Updated phase colors file: {colors_path}")
+
+        except Exception as e:
+            self.logger.warning(f"Could not update phase colors file: {e}")
+
     # =========================================================================
     # Microstructure Parameter Sections (moved from MicrostructurePanel)
     # =========================================================================

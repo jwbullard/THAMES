@@ -314,9 +314,10 @@ class MicgenInputService:
                 continue
 
             # Check if material is clinker or contains clinker phases
+            logger.info(f"Material '{material.name}': is_clinker={material.is_clinker}, has_clinker={material.has_clinker}")
             if material.is_clinker or material.has_clinker:
                 clinker_volume += component_volume
-                logger.debug(f"Clinker material '{material.name}': mass_fraction={mass_fraction:.4f}, "
+                logger.info(f"Clinker material '{material.name}': mass_fraction={mass_fraction:.4f}, "
                             f"SG={specific_gravity:.2f}, volume={component_volume:.6f}")
             else:
                 other_solid_volume += component_volume
@@ -1013,7 +1014,7 @@ class MicgenInputService:
         """
         Collect data for each solid phase in the mix.
 
-        IMPORTANT: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite, thenardite)
+        IMPORTANT: Clinker phases (Alite, Belite, Aluminate, Ferrite, Arcanite, Thenardite)
         are handled specially:
         - All 6 clinker phases are COMBINED into a single entry as "Alite" (phase ID 2)
         - The combined volume fraction includes all 6 phases
@@ -1437,6 +1438,10 @@ class MicgenInputService:
         """
         for component in mix_design.components:
             material = self.material_service.get_by_id(component['material_id'])
+            logger.info(f"_find_clinker_material: checking material_id={component['material_id']}, "
+                       f"name={material.name if material else 'NOT FOUND'}, "
+                       f"is_clinker={material.is_clinker if material else 'N/A'}, "
+                       f"has_clinker={material.has_clinker if material else 'N/A'}")
             if material and material.has_clinker:
                 if material.clinker_source_id:
                     # Case 1: Material references a separate clinker source
@@ -1590,11 +1595,11 @@ class MicgenInputService:
                 'volume': 0.0,
                 'surface': clinker_ext.c4af_surface_fraction or 0.0
             },
-            'arcanite': {
+            'Arcanite': {
                 'volume': 0.0,
                 'surface': clinker_ext.k2so4_surface_fraction or 0.0
             },
-            'thenardite': {
+            'Thenardite': {
                 'volume': 0.0,
                 'surface': clinker_ext.na2so4_surface_fraction or 0.0
             }
@@ -1623,7 +1628,7 @@ class MicgenInputService:
         Input format:
         - DISTRIB (6)
         - Path/root name of correlation function files
-        - For each of 6 clinker phases (alite, belite, aluminate, ferrite, arcanite, thenardite):
+        - For each of 6 clinker phases (Alite, Belite, Aluminate, Ferrite, Arcanite, Thenardite):
           - Volume fraction
           - Surface fraction
 
@@ -1657,8 +1662,8 @@ class MicgenInputService:
         phase_fractions = self._get_clinker_phase_fractions(clinker_ext)
 
         # Step 5: Add volume and surface fractions in the correct order
-        # Order must match: Alite, Belite, Aluminate, Ferrite, arcanite, thenardite
-        clinker_phase_order = ['Alite', 'Belite', 'Aluminate', 'Ferrite', 'arcanite', 'thenardite']
+        # Order must match: Alite, Belite, Aluminate, Ferrite, Arcanite, Thenardite
+        clinker_phase_order = ['Alite', 'Belite', 'Aluminate', 'Ferrite', 'Arcanite', 'Thenardite']
 
         for phase_name in clinker_phase_order:
             fractions = phase_fractions.get(phase_name, {'volume': 0.0, 'surface': 0.0})

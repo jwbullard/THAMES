@@ -174,8 +174,12 @@ class PhaseDataBuilder:
             List of gemphase_data entries, or None if phase not found
         """
         # Handle special cases
-        if gemphasename in ["VOID", "AGGREGATE"]:
+        if gemphasename == "VOID":
             return None
+
+        # Aggregate maps to Quartz for GEMS phase data
+        if gemphasename == "Aggregate":
+            gemphasename = "Quartz"
 
         # Look up phase in GEMS database
         phase = self.gems_parser.get_phase(gemphasename)

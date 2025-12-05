@@ -284,27 +284,36 @@ class MaterialMigrator:
             if vcctl_cement.c4af_mass_fraction:
                 phase_fractions['Ferrite'] = vcctl_cement.c4af_mass_fraction
 
-            # Gypsum forms
+            # Gypsum forms (using GEMS phase names)
             if vcctl_cement.dihyd:
                 phase_fractions['Gypsum'] = vcctl_cement.dihyd
             if vcctl_cement.hemihyd:
-                phase_fractions['hemihydrate'] = vcctl_cement.hemihyd
+                phase_fractions['Bassanite'] = vcctl_cement.hemihyd  # GEMS name for hemihydrate
             if vcctl_cement.anhyd:
                 phase_fractions['Anhydrite'] = vcctl_cement.anhyd
 
-            # Sulfates
+            # Alkali sulfates (using GEMS phase names - capitalized)
             if vcctl_cement.k2so4_mass_fraction:
-                phase_fractions['arcanite'] = vcctl_cement.k2so4_mass_fraction
+                phase_fractions['Arcanite'] = vcctl_cement.k2so4_mass_fraction
             if vcctl_cement.na2so4_mass_fraction:
-                phase_fractions['thenardite'] = vcctl_cement.na2so4_mass_fraction
+                phase_fractions['Thenardite'] = vcctl_cement.na2so4_mass_fraction
 
             if not phase_fractions:
                 print(f"    ⚠ No phase data, skipping")
                 return None
 
-            # Calculate total phase fraction
+            # Calculate total phase fraction and normalize to 1.0
+            # VCCTL stores clinker phases normalized to 1.0, then adds calcium sulfates
+            # as additional fractions. We need to normalize everything to sum to 1.0.
             total_fraction = sum(phase_fractions.values())
-            print(f"    Phase composition: {len(phase_fractions)} phases, total = {total_fraction:.3f}")
+            print(f"    Phase composition: {len(phase_fractions)} phases, total = {total_fraction:.4f}")
+
+            if abs(total_fraction - 1.0) > 0.001:
+                print(f"    Normalizing from {total_fraction:.4f} to 1.0")
+                phase_fractions = {
+                    phase: fraction / total_fraction
+                    for phase, fraction in phase_fractions.items()
+                }
 
             # Calculate specific gravity
             specific_gravity = self._calculate_specific_gravity(

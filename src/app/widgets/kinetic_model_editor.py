@@ -7,7 +7,7 @@ in THAMES-Hydration simulations.
 
 Supports three kinetic model types:
 - ParrotKilloh: For clinker phases (Alite, Belite, Aluminate, Ferrite)
-- Standard: For sulfate phases (Gypsum, Hemihydrate, Anhydrite)
+- Standard: For sulfate phases (Gypsum, Bassanite, Anhydrite)
 - Pozzolanic: For pozzolanic phases (Quartz, Mullite, fly ash glasses)
 """
 
@@ -114,8 +114,7 @@ class KineticModelEditor(Gtk.Box):
         min_val: float,
         max_val: float,
         step: float,
-        digits: int,
-        scientific: bool = False
+        digits: int
     ) -> Gtk.SpinButton:
         """Create a spin button with specified parameters."""
         spin = Gtk.SpinButton.new_with_range(min_val, max_val, step)
@@ -123,24 +122,8 @@ class KineticModelEditor(Gtk.Box):
         spin.set_digits(digits)
         spin.set_sensitive(self.editable)
         spin.set_width_chars(12)
-
-        if scientific:
-            # For scientific notation values, format the display
-            spin.connect('output', self._format_scientific)
-
         spin.connect('value-changed', self._on_value_changed)
         return spin
-
-    def _format_scientific(self, spin: Gtk.SpinButton) -> bool:
-        """Format spin button value in scientific notation."""
-        value = spin.get_value()
-        if value == 0:
-            spin.set_text("0")
-        elif abs(value) < 0.001 or abs(value) >= 10000:
-            spin.set_text(f"{value:.2e}")
-        else:
-            spin.set_text(f"{value:.6f}")
-        return True
 
     def _add_param_row(
         self,
@@ -215,21 +198,22 @@ class KineticModelEditor(Gtk.Box):
         defaults: StandardKinetics
     ) -> None:
         """Create fields for Standard kinetics."""
+        # Rate constants displayed in μmol/m²/s (multiply by 1e6 for display)
         row = 0
 
-        # Dissolution rate constant (scientific notation)
-        spin = self._create_spin_button(defaults.dissolutionRateConst, 0, 1, 1e-9, 12, scientific=True)
-        self._add_param_row(grid, row, "Diss. rate:", "Dissolution rate constant (mol/m²/s)", spin, "dissolutionRateConst")
+        # Dissolution rate constant
+        spin = self._create_spin_button(defaults.dissolutionRateConst * 1e6, 0, 1000, 0.1, 4)
+        self._add_param_row(grid, row, "Diss. rate (μmol/m²/s):", "Dissolution rate constant", spin, "dissolutionRateConst")
         row += 1
 
         # Early diffusion rate constant
-        spin = self._create_spin_button(defaults.diffusionRateConstEarly, 0, 1, 1e-9, 12, scientific=True)
-        self._add_param_row(grid, row, "Diff. early:", "Early diffusion rate constant", spin, "diffusionRateConstEarly")
+        spin = self._create_spin_button(defaults.diffusionRateConstEarly * 1e6, 0, 1000, 0.1, 4)
+        self._add_param_row(grid, row, "Diff. early (μmol/m²/s):", "Early diffusion rate constant", spin, "diffusionRateConstEarly")
         row += 1
 
         # Late diffusion rate constant
-        spin = self._create_spin_button(defaults.diffusionRateConstLate, 0, 1, 1e-9, 12, scientific=True)
-        self._add_param_row(grid, row, "Diff. late:", "Late diffusion rate constant", spin, "diffusionRateConstLate")
+        spin = self._create_spin_button(defaults.diffusionRateConstLate * 1e6, 0, 1000, 0.1, 4)
+        self._add_param_row(grid, row, "Diff. late (μmol/m²/s):", "Late diffusion rate constant", spin, "diffusionRateConstLate")
         row += 1
 
         # Dissolved units
@@ -267,21 +251,22 @@ class KineticModelEditor(Gtk.Box):
         defaults: PozzolanicKinetics
     ) -> None:
         """Create fields for Pozzolanic kinetics."""
+        # Rate constants displayed in μmol/m²/s (multiply by 1e6 for display)
         row = 0
 
-        # Dissolution rate constant (scientific notation)
-        spin = self._create_spin_button(defaults.dissolutionRateConst, 0, 1, 1e-12, 12, scientific=True)
-        self._add_param_row(grid, row, "Diss. rate:", "Dissolution rate constant (mol/m²/s)", spin, "dissolutionRateConst")
+        # Dissolution rate constant
+        spin = self._create_spin_button(defaults.dissolutionRateConst * 1e6, 0, 1000, 0.0001, 6)
+        self._add_param_row(grid, row, "Diss. rate (μmol/m²/s):", "Dissolution rate constant", spin, "dissolutionRateConst")
         row += 1
 
         # Early diffusion rate constant
-        spin = self._create_spin_button(defaults.diffusionRateConstEarly, 0, 1, 1e-12, 12, scientific=True)
-        self._add_param_row(grid, row, "Diff. early:", "Early diffusion rate constant", spin, "diffusionRateConstEarly")
+        spin = self._create_spin_button(defaults.diffusionRateConstEarly * 1e6, 0, 1000, 0.0001, 6)
+        self._add_param_row(grid, row, "Diff. early (μmol/m²/s):", "Early diffusion rate constant", spin, "diffusionRateConstEarly")
         row += 1
 
         # Late diffusion rate constant
-        spin = self._create_spin_button(defaults.diffusionRateConstLate, 0, 1, 1e-12, 12, scientific=True)
-        self._add_param_row(grid, row, "Diff. late:", "Late diffusion rate constant", spin, "diffusionRateConstLate")
+        spin = self._create_spin_button(defaults.diffusionRateConstLate * 1e6, 0, 1000, 0.0001, 6)
+        self._add_param_row(grid, row, "Diff. late (μmol/m²/s):", "Late diffusion rate constant", spin, "diffusionRateConstLate")
         row += 1
 
         # Dissolved units
@@ -338,12 +323,18 @@ class KineticModelEditor(Gtk.Box):
         if self.kinetic_type is None:
             return None
 
+        # Rate constant fields displayed in μmol/m²/s, need to convert back to mol/m²/s
+        rate_const_fields = {'dissolutionRateConst', 'diffusionRateConstEarly', 'diffusionRateConstLate'}
+
         params = {'type': self.kinetic_type}
         for key, spin in self.param_widgets.items():
             value = spin.get_value()
             # Convert dissolvedUnits to int
             if key == 'dissolvedUnits':
                 value = int(value)
+            # Convert rate constants from μmol/m²/s back to mol/m²/s
+            elif key in rate_const_fields and self.kinetic_type in ('Standard', 'Pozzolanic'):
+                value = value * 1e-6
             params[key] = value
 
         return params
@@ -355,9 +346,16 @@ class KineticModelEditor(Gtk.Box):
         Args:
             params: Dictionary with kinetic parameters
         """
+        # Rate constant fields stored in mol/m²/s, displayed in μmol/m²/s
+        rate_const_fields = {'dissolutionRateConst', 'diffusionRateConstEarly', 'diffusionRateConstLate'}
+
         for key, value in params.items():
             if key in self.param_widgets:
-                self.param_widgets[key].set_value(float(value))
+                display_value = float(value)
+                # Convert rate constants from mol/m²/s to μmol/m²/s for display
+                if key in rate_const_fields and self.kinetic_type in ('Standard', 'Pozzolanic'):
+                    display_value = display_value * 1e6
+                self.param_widgets[key].set_value(display_value)
 
     def reset_to_defaults(self) -> None:
         """Reset all parameters to their default values."""
@@ -404,7 +402,7 @@ class KineticModelEditorDialog(Gtk.Dialog):
     KINETIC_TYPES = [
         ("Thermodynamic", "No kinetic model - thermodynamically controlled"),
         ("ParrotKilloh", "Clinker phases (Alite, Belite, Aluminate, Ferrite)"),
-        ("Standard", "Sulfate phases (Gypsum, Hemihydrate, Anhydrite)"),
+        ("Standard", "Sulfate phases (Gypsum, Bassanite, Anhydrite)"),
         ("Pozzolanic", "Pozzolanic phases (Quartz, Fly ash, Silica fume)"),
     ]
 
@@ -584,30 +582,14 @@ class KineticModelEditorDialog(Gtk.Dialog):
         min_val: float,
         max_val: float,
         step: float,
-        digits: int,
-        scientific: bool = False
+        digits: int
     ) -> Gtk.SpinButton:
         """Create a spin button with specified parameters."""
         spin = Gtk.SpinButton.new_with_range(min_val, max_val, step)
-        spin.set_value(value)
         spin.set_digits(digits)
         spin.set_width_chars(12)
-
-        if scientific:
-            spin.connect('output', self._format_scientific)
-
+        spin.set_value(value)
         return spin
-
-    def _format_scientific(self, spin: Gtk.SpinButton) -> bool:
-        """Format spin button value in scientific notation."""
-        value = spin.get_value()
-        if value == 0:
-            spin.set_text("0")
-        elif abs(value) < 0.001 or abs(value) >= 10000:
-            spin.set_text(f"{value:.2e}")
-        else:
-            spin.set_text(f"{value:.6f}")
-        return True
 
     def _add_param_row(
         self,
@@ -658,15 +640,16 @@ class KineticModelEditorDialog(Gtk.Dialog):
 
     def _create_standard_fields(self, grid: Gtk.Grid, defaults) -> None:
         """Create fields for Standard kinetics."""
+        # Rate constants displayed in μmol/m²/s (multiply by 1e6 for display)
         row = 0
-        self._add_param_row(grid, row, "Diss. rate (mol/m²/s):", "Dissolution rate constant",
-                           self._create_spin_button(defaults.dissolutionRateConst, 0, 1, 1e-9, 12, scientific=True), "dissolutionRateConst")
+        self._add_param_row(grid, row, "Diss. rate (μmol/m²/s):", "Dissolution rate constant",
+                           self._create_spin_button(defaults.dissolutionRateConst * 1e6, 0, 1000, 0.1, 4), "dissolutionRateConst")
         row += 1
-        self._add_param_row(grid, row, "Diff. early (mol/m²/s):", "Early diffusion rate constant",
-                           self._create_spin_button(defaults.diffusionRateConstEarly, 0, 1, 1e-9, 12, scientific=True), "diffusionRateConstEarly")
+        self._add_param_row(grid, row, "Diff. early (μmol/m²/s):", "Early diffusion rate constant",
+                           self._create_spin_button(defaults.diffusionRateConstEarly * 1e6, 0, 1000, 0.1, 4), "diffusionRateConstEarly")
         row += 1
-        self._add_param_row(grid, row, "Diff. late (mol/m²/s):", "Late diffusion rate constant",
-                           self._create_spin_button(defaults.diffusionRateConstLate, 0, 1, 1e-9, 12, scientific=True), "diffusionRateConstLate")
+        self._add_param_row(grid, row, "Diff. late (μmol/m²/s):", "Late diffusion rate constant",
+                           self._create_spin_button(defaults.diffusionRateConstLate * 1e6, 0, 1000, 0.1, 4), "diffusionRateConstLate")
         row += 1
         self._add_param_row(grid, row, "Diss. units:", "Number of DC units per dissolution event",
                            self._create_spin_button(defaults.dissolvedUnits, 1, 20, 1, 0), "dissolvedUnits")
@@ -688,15 +671,16 @@ class KineticModelEditorDialog(Gtk.Dialog):
 
     def _create_pozzolanic_fields(self, grid: Gtk.Grid, defaults) -> None:
         """Create fields for Pozzolanic kinetics."""
+        # Rate constants displayed in μmol/m²/s (multiply by 1e6 for display)
         row = 0
-        self._add_param_row(grid, row, "Diss. rate (mol/m²/s):", "Dissolution rate constant",
-                           self._create_spin_button(defaults.dissolutionRateConst, 0, 1, 1e-12, 12, scientific=True), "dissolutionRateConst")
+        self._add_param_row(grid, row, "Diss. rate (μmol/m²/s):", "Dissolution rate constant",
+                           self._create_spin_button(defaults.dissolutionRateConst * 1e6, 0, 1000, 0.0001, 6), "dissolutionRateConst")
         row += 1
-        self._add_param_row(grid, row, "Diff. early (mol/m²/s):", "Early diffusion rate constant",
-                           self._create_spin_button(defaults.diffusionRateConstEarly, 0, 1, 1e-12, 12, scientific=True), "diffusionRateConstEarly")
+        self._add_param_row(grid, row, "Diff. early (μmol/m²/s):", "Early diffusion rate constant",
+                           self._create_spin_button(defaults.diffusionRateConstEarly * 1e6, 0, 1000, 0.0001, 6), "diffusionRateConstEarly")
         row += 1
-        self._add_param_row(grid, row, "Diff. late (mol/m²/s):", "Late diffusion rate constant",
-                           self._create_spin_button(defaults.diffusionRateConstLate, 0, 1, 1e-12, 12, scientific=True), "diffusionRateConstLate")
+        self._add_param_row(grid, row, "Diff. late (μmol/m²/s):", "Late diffusion rate constant",
+                           self._create_spin_button(defaults.diffusionRateConstLate * 1e6, 0, 1000, 0.0001, 6), "diffusionRateConstLate")
         row += 1
         self._add_param_row(grid, row, "Diss. units:", "Number of DC units per dissolution event",
                            self._create_spin_button(defaults.dissolvedUnits, 1, 20, 1, 0), "dissolvedUnits")
@@ -724,9 +708,16 @@ class KineticModelEditorDialog(Gtk.Dialog):
 
     def _set_parameters(self, params: Dict[str, Any]) -> None:
         """Set parameter values from a dictionary."""
+        # Rate constant fields stored in mol/m²/s, displayed in μmol/m²/s
+        rate_const_fields = {'dissolutionRateConst', 'diffusionRateConstEarly', 'diffusionRateConstLate'}
+
         for key, value in params.items():
             if key in self.param_widgets:
-                self.param_widgets[key].set_value(float(value))
+                display_value = float(value)
+                # Convert rate constants from mol/m²/s to μmol/m²/s for display
+                if key in rate_const_fields and self.current_kinetic_type in ('Standard', 'Pozzolanic'):
+                    display_value = display_value * 1e6
+                self.param_widgets[key].set_value(display_value)
 
     def _on_response(self, dialog: Gtk.Dialog, response_id: int) -> None:
         """Handle dialog response."""
@@ -757,12 +748,18 @@ class KineticModelEditorDialog(Gtk.Dialog):
         if self.current_kinetic_type == "Thermodynamic":
             return None
 
+        # Rate constant fields displayed in μmol/m²/s, need to convert back to mol/m²/s
+        rate_const_fields = {'dissolutionRateConst', 'diffusionRateConstEarly', 'diffusionRateConstLate'}
+
         params = {'type': self.current_kinetic_type}
         for key, spin in self.param_widgets.items():
             value = spin.get_value()
             # Convert dissolvedUnits to int
             if key == 'dissolvedUnits':
                 value = int(value)
+            # Convert rate constants from μmol/m²/s back to mol/m²/s
+            elif key in rate_const_fields and self.current_kinetic_type in ('Standard', 'Pozzolanic'):
+                value = value * 1e-6
             params[key] = value
 
         return params

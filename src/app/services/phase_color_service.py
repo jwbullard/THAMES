@@ -35,7 +35,7 @@ PHASE_COLORS: Dict[str, str] = {
     "ELECTROLYTE": "#001419",    # Alias for Electrolyte - RGB(0,20,25)
     "aq_gen": "#001419",         # Legacy alias for Electrolyte - RGB(0,20,25)
     "gas_gen": "#E8E8E8",        # Very light gray (gas phase)
-    "AGGREGATE": "#FFC041",      # Gold (from VCCTL Aggregate: 255,192,65)
+    "Aggregate": "#FFC041",      # Gold (from VCCTL Aggregate: 255,192,65)
 
     # ----- Clinker Phases (VCCTL IDs 1-6) -----
     "Alite": "#2A2AD2",          # Blue (from VCCTL C3S: 42,42,210)
@@ -49,7 +49,7 @@ PHASE_COLORS: Dict[str, str] = {
 
     # ----- Calcium Sulfates (VCCTL IDs 7-9) -----
     "Gypsum": "#FFFF00",         # Yellow (from VCCTL: 255,255,0)
-    "hemihydrate": "#FFF056",    # Light yellow (from VCCTL: 255,240,86)
+    "Bassanite": "#FFF056",      # Light yellow (from VCCTL hemihydrate: 255,240,86)
     "Anhydrite": "#FFFF80",      # Pale yellow (from VCCTL: 255,255,128)
 
     # ----- Calcium Hydroxide / Portlandite -----

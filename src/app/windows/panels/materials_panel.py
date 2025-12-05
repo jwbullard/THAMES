@@ -314,6 +314,7 @@ class MaterialsPanel(Gtk.Box):
         # Details content (scrollable)
         details_scrolled = Gtk.ScrolledWindow()
         details_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        details_scrolled.set_can_focus(True)  # Enable keyboard navigation
         
         self.details_content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         details_scrolled.add(self.details_content)
@@ -1342,6 +1343,7 @@ class MaterialsPanel(Gtk.Box):
             scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
             scrolled_window.set_size_request(-1, 200)  # Fixed height
             scrolled_window.set_margin_top(5)
+            scrolled_window.set_can_focus(True)  # Enable keyboard navigation
             
             # Text view with the full description
             text_view = Gtk.TextView()
@@ -1499,19 +1501,31 @@ class MaterialsPanel(Gtk.Box):
                 duplicate_data['immutable'] = False
                 material_create = MaterialCreate(**duplicate_data)
 
-                # Copy phase composition if the original has phases
+                # Fetch phases fresh from database to avoid lazy-loading issues
+                # Use get_phases_as_dicts which returns plain dicts, not ORM objects
                 phase_compositions = None
-                if hasattr(original_material, 'phases') and original_material.phases:
-                    phase_compositions = [
-                        {
-                            'gem_phase_name': p.gem_phase_name,
-                            'mass_fraction': p.mass_fraction
-                        }
-                        for p in original_material.phases
-                    ]
+                original_id = getattr(original_material, 'id', None)
+                if original_id:
+                    phase_compositions = service.get_phases_as_dicts(original_id)
+                    if phase_compositions:
+                        self.logger.info(f"Copying {len(phase_compositions)} phases from original material")
+                    else:
+                        self.logger.warning(f"No phases found for material ID {original_id}")
 
                 # Create material with phases
-                service.create(material_create, phase_compositions=phase_compositions)
+                new_material = service.create(material_create, phase_compositions=phase_compositions)
+
+                # If original has clinker data, copy clinker extension data
+                # Note: is_clinker=True for pure clinker materials, has_clinker=True for cements containing clinker
+                is_clinker = getattr(original_material, 'is_clinker', False)
+                has_clinker = getattr(original_material, 'has_clinker', False)
+                self.logger.info(f"Duplication clinker check: is_clinker={is_clinker}, has_clinker={has_clinker}, "
+                               f"new_material={new_material is not None}, original_id={original_id}")
+                if (is_clinker or has_clinker) and new_material and original_id:
+                    self.logger.info(f"Calling _copy_clinker_extension_data for material {original_id} -> {new_material.id}")
+                    self._copy_clinker_extension_data(service, original_id, new_material.id)
+                else:
+                    self.logger.info(f"Skipping clinker extension copy - condition not met")
             elif material_type == 'cement':
                 from app.models.cement import CementCreate
                 cement_create = CementCreate(**duplicate_data)
@@ -1648,8 +1662,40 @@ class MaterialsPanel(Gtk.Box):
             'source': original_material.source if hasattr(original_material, 'source') else None,
             'notes': original_material.notes if hasattr(original_material, 'notes') else None,
             'immutable': False,  # Duplicates are always mutable
+            # Clinker flags
+            'is_clinker': getattr(original_material, 'is_clinker', False),
+            'has_clinker': getattr(original_material, 'has_clinker', False),
+            'clinker_source_id': getattr(original_material, 'clinker_source_id', None),
+            # Particle shape settings
+            'particle_shape_type': getattr(original_material, 'particle_shape_type', 0),
+            'particle_shape_set': getattr(original_material, 'particle_shape_set', None),
         }
         return copy_data
+
+    def _copy_clinker_extension_data(self, service, source_material_id: int, target_material_id: int) -> None:
+        """Copy clinker extension data (surface fractions and correlations) from source to target material."""
+        self.logger.info(f"Copying clinker extension data from material {source_material_id} to {target_material_id}")
+        try:
+            # Copy surface fractions
+            surface_fractions = service.get_clinker_surface_fractions(source_material_id)
+            self.logger.info(f"Got surface fractions from source: {surface_fractions}")
+            if surface_fractions:
+                service.set_clinker_surface_fractions(target_material_id, surface_fractions)
+                self.logger.info(f"Copied clinker surface fractions to new material {target_material_id}")
+            else:
+                self.logger.warning(f"No surface fractions found for source material {source_material_id}")
+
+            # Copy correlation functions
+            correlation_types = ['sil', 'c3s', 'alu', 'c3a', 'c4af', 'k2o', 'n2o']
+            for corr_type in correlation_types:
+                corr_data = service.get_clinker_correlation(source_material_id, corr_type)
+                if corr_data:
+                    service.set_clinker_correlation(target_material_id, corr_type, corr_data)
+                    self.logger.info(f"Copied correlation '{corr_type}' to new material {target_material_id}")
+
+        except Exception as e:
+            self.logger.error(f"Error copying clinker extension data: {e}")
+            # Don't fail the whole duplication - material was already created
 
     def _copy_cement_data(self, original_cement, new_name: str) -> dict:
         """Create a copy of cement data."""

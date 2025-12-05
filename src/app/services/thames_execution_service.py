@@ -231,6 +231,7 @@ class THAMESExecutionService:
                 generated_files.get('simparams'),
                 micro_dest,
                 config.final_time,
+                config,  # Pass config for runtime options (verbose, xyz, etc.)
             )
 
             if not simulation_info:
@@ -268,6 +269,7 @@ class THAMESExecutionService:
         simparams_path: Path,
         microstructure_path: Path,
         final_time: float,
+        config: Optional[HydrationInputConfig] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Start the THAMES-Hydration process.
@@ -278,6 +280,7 @@ class THAMESExecutionService:
             simparams_path: Path to simparams.json
             microstructure_path: Path to microstructure file
             final_time: Target simulation time (days)
+            config: Hydration input configuration with runtime options
 
         Returns:
             Simulation info dict or None if failed
@@ -287,20 +290,47 @@ class THAMESExecutionService:
             stdout_log = operation_dir / f"{operation_name}_stdout.log"
             stderr_log = operation_dir / f"{operation_name}_stderr.log"
 
-            # THAMES command line arguments
-            # Format: thames <microstructure> <simparams.json>
+            # THAMES reads from stdin (input.in contains all interactive inputs)
+            # Format: thames [options] < input.in
+            # Options:
+            #   -o <folder>  Output folder (default "Result")
+            #   -v           Verbose output
+            #   -s           Suppress warnings
+            #   -x           Create 3D visualization files for Ovito
+            input_in_path = operation_dir / "input.in"
+            if not input_in_path.exists():
+                self.logger.error(f"input.in not found: {input_in_path}")
+                return None
+
+            # Build command with options from config
+            output_folder = "Result"
+            if config and config.output_folder:
+                output_folder = config.output_folder
+
             cmd = [
                 str(self.thames_binary),
-                str(microstructure_path.name),
-                str(simparams_path.name),
+                "-o", output_folder,
             ]
 
-            self.logger.info(f"Starting THAMES: {' '.join(cmd)}")
+            # Add optional flags based on config
+            if config:
+                if config.verbose:
+                    cmd.append("-v")
+                if config.suppress_warnings:
+                    cmd.append("-s")
+                if config.create_xyz_files:
+                    cmd.append("-x")
+
+            self.logger.info(f"Starting THAMES: {' '.join(cmd)} < input.in")
             self.logger.info(f"Working directory: {operation_dir}")
 
-            # Start process
+            # Open input.in for stdin
+            stdin_file = open(input_in_path, 'r')
+
+            # Start process with stdin from input.in
             popen_kwargs = {
                 'cwd': str(operation_dir),
+                'stdin': stdin_file,
                 'stdout': open(stdout_log, 'w'),
                 'stderr': open(stderr_log, 'w'),
                 'text': True,
@@ -327,12 +357,16 @@ class THAMESExecutionService:
                 'stderr_log': stderr_log,
                 'simparams_path': simparams_path,
                 'microstructure_path': microstructure_path,
+                'stdin_file': stdin_file,  # Keep handle to close later
             }
 
             return simulation_info
 
         except Exception as e:
             self.logger.error(f"Failed to start THAMES process: {e}")
+            # Clean up stdin file if opened
+            if 'stdin_file' in locals():
+                stdin_file.close()
             return None
 
     def _monitor_simulation(self, operation_name: str):
@@ -564,6 +598,14 @@ class THAMESExecutionService:
                             process.stderr.close()
                         except:
                             pass
+
+                # Close stdin file (input.in)
+                stdin_file = simulation_info.get('stdin_file')
+                if stdin_file:
+                    try:
+                        stdin_file.close()
+                    except:
+                        pass
 
                 del self.active_simulations[operation_name]
 

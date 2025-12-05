@@ -128,7 +128,9 @@ class ParrotKillohKinetics:
             New ParrotKillohKinetics instance with overridden values
         """
         current = asdict(self)
-        current.update(override)
+        # Filter out 'type' field if present (it's not a constructor parameter)
+        filtered_override = {k: v for k, v in override.items() if k != 'type'}
+        current.update(filtered_override)
         return ParrotKillohKinetics(**current)
 
 
@@ -232,7 +234,9 @@ class StandardKinetics:
             New StandardKinetics instance with overridden values
         """
         current = asdict(self)
-        current.update(override)
+        # Filter out 'type' field if present (it's not a constructor parameter)
+        filtered_override = {k: v for k, v in override.items() if k != 'type'}
+        current.update(filtered_override)
         return StandardKinetics(**current)
 
 
@@ -344,7 +348,9 @@ class PozzolanicKinetics:
             New PozzolanicKinetics instance with overridden values
         """
         current = asdict(self)
-        current.update(override)
+        # Filter out 'type' field if present (it's not a constructor parameter)
+        filtered_override = {k: v for k, v in override.items() if k != 'type'}
+        current.update(filtered_override)
         return PozzolanicKinetics(**current)
 
 

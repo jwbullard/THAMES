@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from app.windows.main_window import VCCTLMainWindow
 
 from app.services.service_container import get_service_container
+from app.services.phase_id_mapping_service import PhaseIdMappingService
 from app.utils.icon_utils import set_tool_button_custom_icon, create_button_with_icon
 from app.help.panel_help_button import create_panel_help_button
 
@@ -1704,11 +1705,16 @@ class OperationsMonitoringPanel(Gtk.Box):
                 # (_update_microstructure_progress, _update_hydration_progress, _update_elastic_progress)
                 # So we don't need to call _parse_operation_stdout here anymore
 
+                # For hydration operations, always update progress from file first
+                # (they may not have a process handle if loaded from database)
+                if operation.operation_type == OperationType.HYDRATION_SIMULATION:
+                    self._update_hydration_progress(operation)
+
                 # Check if process is still running (unless already marked complete by progress parser)
                 if operation.status == OperationStatus.COMPLETED:
                     # Already completed by progress parser, skip further processing
                     continue
-                    
+
                 if not operation.is_process_running():
                     # Process has ended, determine if it completed successfully
                     self.logger.info(f"Process {operation.id} ({operation.name}) has ended")
@@ -1770,9 +1776,14 @@ class OperationsMonitoringPanel(Gtk.Box):
                     
                     # Close output file handles
                     operation.close_output_files()
-                    
+
                     self._update_operation_in_database(operation)
-                    
+
+                    # Run post-completion tasks for microstructure operations
+                    if (operation.status == OperationStatus.COMPLETED and
+                        operation.operation_type == OperationType.MICROSTRUCTURE_GENERATION):
+                        self._on_microstructure_generation_completed(operation)
+
                 elif operation.status == OperationStatus.RUNNING:
                     # Update process resource usage for running operations
                     process_info = operation.get_process_info()
@@ -1816,12 +1827,18 @@ class OperationsMonitoringPanel(Gtk.Box):
             self._update_performance_metrics()
             
             # Update status bar
-            active_ops = len([op for op in self.operations.values() 
+            active_ops = len([op for op in self.operations.values()
                             if op.status in [OperationStatus.RUNNING, OperationStatus.PENDING]])
             self.status_bar.pop(self.status_context)
-            self.status_bar.push(self.status_context, 
+            self.status_bar.push(self.status_context,
                                f"Monitoring active - {active_ops} active operations")
-            
+
+            # Refresh details panel for currently displayed operation
+            if self._currently_displayed_operation:
+                op_id = self._currently_displayed_operation.id
+                if op_id in self.operations:
+                    self._update_operation_details(self.operations[op_id])
+
         except Exception as e:
             self.logger.error(f"Error updating UI: {e}")
     
@@ -1904,38 +1921,25 @@ class OperationsMonitoringPanel(Gtk.Box):
                     import os
                     import json
 
-                    # Check if there's a progress.json with completion status
+                    # Check for progress.json in operation directory (THAMES writes it there)
                     progress_file = os.path.join(operation_dir, "progress.json")
+
                     if os.path.exists(progress_file):
                         try:
                             with open(progress_file, 'r') as f:
-                                content = f.read().strip()
-                                if content.startswith("json "):
-                                    content = content[5:]
-                                data = json.loads(content)
+                                data = json.load(f)
 
-                                # Get current time and target time to determine completion
-                                current_time = data.get('time_hours', 0)
+                            # Get current time and target time to determine completion
+                            current_time = data.get('time_hours', 0)
+                            target_time_hours = data.get('target_time_hours', 168.0)  # Default 7 days
 
-                                # Get target time from stored parameters
-                                target_time = None
-                                if hasattr(operation, 'stored_ui_parameters') and operation.stored_ui_parameters:
-                                    try:
-                                        params = json.loads(operation.stored_ui_parameters) if isinstance(operation.stored_ui_parameters, str) else operation.stored_ui_parameters
-                                        target_time = params.get('max_time', None)
-                                    except:
-                                        pass
-
-                                if not target_time:
-                                    target_time = 168.0  # Default 7 days
-
-                                # Only consider complete if we've reached at least 95% of target time
-                                if current_time >= (target_time * 0.95):
-                                    self.logger.info(f"Hydration operation {operation.name} verified complete - reached {current_time:.2f}h of {target_time:.2f}h target")
-                                    return True
-                                else:
-                                    self.logger.info(f"Hydration operation {operation.name} not complete - only {current_time:.2f}h of {target_time:.2f}h target")
-                                    return False
+                            # Only consider complete if we've reached at least 95% of target time
+                            if current_time >= (target_time_hours * 0.95):
+                                self.logger.info(f"Hydration operation {operation.name} verified complete - reached {current_time:.2f}h of {target_time_hours:.2f}h target")
+                                return True
+                            else:
+                                self.logger.info(f"Hydration operation {operation.name} not complete - only {current_time:.2f}h of {target_time_hours:.2f}h target")
+                                return False
                         except Exception as e:
                             self.logger.warning(f"Error reading hydration progress for completion check: {e}")
                             return False
@@ -1951,6 +1955,120 @@ class OperationsMonitoringPanel(Gtk.Box):
             self.logger.error(f"Error verifying operation completion: {e}")
             # If verification fails, fall back to assuming completion
             return True
+
+    def _on_microstructure_generation_completed(self, operation) -> None:
+        """Handle post-completion tasks for microstructure generation operations.
+
+        This includes remapping phase IDs to be sequential (required by THAMES-Hydration).
+        """
+        try:
+            output_dir = self._get_operation_directory(operation)
+            if not output_dir:
+                self.logger.warning(f"Cannot remap phase IDs - no output directory for {operation.name}")
+                return
+
+            output_path = Path(output_dir)
+            self.logger.info(f"Running post-completion tasks for microstructure: {operation.name}")
+
+            # Find the phase mapping JSON file
+            phase_mapping_files = list(output_path.glob("*_phase_mapping.json"))
+            if not phase_mapping_files:
+                self.logger.warning(f"No phase_mapping.json file found in {output_dir}, skipping phase ID remapping")
+                return
+
+            phase_mapping_path = phase_mapping_files[0]
+            self.logger.info(f"Found phase mapping file: {phase_mapping_path}")
+
+            # Find the main microstructure file (not .pimg)
+            img_files = list(output_path.glob("*.thames.img")) + list(output_path.glob("*.img"))
+            img_files = [f for f in img_files if not str(f).endswith('.pimg')]
+            if not img_files:
+                self.logger.warning(f"No .img microstructure file found in {output_dir}, skipping phase ID remapping")
+                return
+
+            microstructure_path = img_files[0]
+            self.logger.info(f"Remapping phase IDs in: {microstructure_path}")
+
+            # Perform the remapping
+            phase_id_service = PhaseIdMappingService()
+            old_to_new, new_mapping = phase_id_service.remap_to_sequential(
+                microstructure_path,
+                phase_mapping_path
+            )
+
+            # Also update the phase_colors.json if it exists
+            phase_colors_files = list(output_path.glob("*_phase_colors.json"))
+            if phase_colors_files:
+                self._remap_phase_colors(phase_colors_files[0], old_to_new)
+
+            # Log the remapping results
+            if any(old != new for old, new in old_to_new.items()):
+                self.logger.info(f"Phase ID remapping complete: {old_to_new}")
+            else:
+                self.logger.info("Phase IDs were already sequential, no changes needed")
+
+        except Exception as e:
+            self.logger.error(f"Error in post-completion tasks for microstructure: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            # Don't fail the operation - these are post-processing optimizations
+
+    def _remap_phase_colors(self, colors_path: Path, old_to_new: Dict[int, int]) -> None:
+        """Update phase colors JSON file with remapped IDs."""
+        try:
+            with open(colors_path, 'r') as f:
+                colors_data = json.load(f)
+
+            # The phase_colors.json has nested structure:
+            # - phase_id_to_name: {id_str: name}
+            # - phase_id_to_color: {id_str: color}
+            # - phase_name_to_color: {name: color}
+
+            # Remap phase_id_to_name
+            if 'phase_id_to_name' in colors_data:
+                old_id_to_name = colors_data['phase_id_to_name']
+                new_id_to_name = {}
+                for old_id_str, name in old_id_to_name.items():
+                    try:
+                        old_id = int(old_id_str)
+                        if old_id in old_to_new:
+                            new_id = old_to_new[old_id]
+                            new_id_to_name[str(new_id)] = name
+                        # Skip IDs not in old_to_new (they weren't in the microstructure)
+                    except ValueError:
+                        pass  # Skip non-integer keys
+                colors_data['phase_id_to_name'] = new_id_to_name
+
+            # Remap phase_id_to_color
+            if 'phase_id_to_color' in colors_data:
+                old_id_to_color = colors_data['phase_id_to_color']
+                new_id_to_color = {}
+                for old_id_str, color in old_id_to_color.items():
+                    try:
+                        old_id = int(old_id_str)
+                        if old_id in old_to_new:
+                            new_id = old_to_new[old_id]
+                            new_id_to_color[str(new_id)] = color
+                        # Skip IDs not in old_to_new (they weren't in the microstructure)
+                    except ValueError:
+                        pass  # Skip non-integer keys
+                colors_data['phase_id_to_color'] = new_id_to_color
+
+            # Update phase_name_to_color to only include phases that exist
+            if 'phase_name_to_color' in colors_data and 'phase_id_to_name' in colors_data:
+                existing_names = set(colors_data['phase_id_to_name'].values())
+                colors_data['phase_name_to_color'] = {
+                    name: color for name, color in colors_data['phase_name_to_color'].items()
+                    if name in existing_names
+                }
+
+            with open(colors_path, 'w') as f:
+                json.dump(colors_data, f, indent=2)
+
+            self.logger.info(f"Updated phase colors file: {colors_path}")
+
+        except Exception as e:
+            self.logger.warning(f"Could not update phase colors file: {e}")
 
     def _parse_operation_stdout(self, operation) -> None:
         """Parse stdout output from running operation for progress updates."""
@@ -2221,9 +2339,10 @@ class OperationsMonitoringPanel(Gtk.Box):
             if not operation_dir:
                 return
 
-            # Look for progress.json file
             import os
             import json
+
+            # Look for progress.json in operation directory (THAMES writes it there)
             progress_file = os.path.join(operation_dir, "progress.json")
 
             if os.path.exists(progress_file):
@@ -2233,15 +2352,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                         return  # Skip empty files
 
                     with open(progress_file, 'r') as f:
-                        content = f.read().strip()
-                        if not content:
-                            return  # Skip files with only whitespace
-
-                        # Handle "json " prefix format if present
-                        if content.startswith("json "):
-                            content = content[5:]
-
-                        data = json.loads(content)
+                        data = json.load(f)
                 except (OSError, IOError, json.JSONDecodeError) as read_error:
                     # File might be being written to, or corrupted, just skip this update
                     self.logger.debug(f"Skipping hydration progress read for {operation.name}: {read_error}")
@@ -2253,36 +2364,31 @@ class OperationsMonitoringPanel(Gtk.Box):
                     cycle = data.get('cycle', 0)
                     doh = data.get('degree_of_hydration', 0.0)
 
-                    # Get target time from operation parameters (max_time)
-                    target_time = None
-                    if hasattr(operation, 'stored_ui_parameters') and operation.stored_ui_parameters:
-                        try:
-                            import json
-                            params = json.loads(operation.stored_ui_parameters) if isinstance(operation.stored_ui_parameters, str) else operation.stored_ui_parameters
-                            target_time = params.get('max_time', None)
-                        except:
-                            pass
+                    # Get target time directly from progress.json (preferred)
+                    target_time_hours = data.get('target_time_hours')
 
                     # Fallback to default simulation time if not available
-                    if not target_time:
-                        target_time = 168.0  # Default 7 days
+                    if target_time_hours is None:
+                        target_time_hours = 168.0  # Default 7 days in hours
 
                     # Calculate progress based on time
-                    if target_time > 0:
-                        progress = min(1.0, current_time / target_time)
+                    if target_time_hours > 0:
+                        progress = min(1.0, current_time / target_time_hours)
                         operation.progress = progress
+
+                        # Convert to days for display
+                        current_days = current_time / 24.0
+                        target_days = target_time_hours / 24.0
 
                         # Update current step description with hydration-specific info
                         if progress >= 1.0:
                             operation.current_step = f"Hydration complete - Cycle {cycle}, DOH: {doh:.3f}"
                         else:
-                            operation.current_step = f"Cycle {cycle}, Time: {current_time:.2f}h of {target_time:.2f}h, DOH: {doh:.3f}"
+                            operation.current_step = f"Cycle {cycle}, Time: {current_days:.2f}d of {target_days:.1f}d, DOH: {doh:.3f}"
 
                         # Update completed steps based on progress
                         if operation.total_steps > 0:
                             operation.completed_steps = int(operation.progress * operation.total_steps)
-
-                        self.logger.debug(f"Updated hydration progress for {operation.name}: {progress*100:.1f}% (cycle {cycle}, time {current_time:.2f}h/{target_time:.2f}h)")
 
         except Exception as e:
             self.logger.error(f"Error updating hydration progress for {operation.name}: {e}")

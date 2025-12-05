@@ -155,6 +155,7 @@ class PhaseCompositionEditor(Gtk.Box):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(200)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation
 
         # ListStore: phase_name (str), mass_fraction (float)
         self.store = Gtk.ListStore(str, float)
@@ -773,6 +774,7 @@ class AddFromMaterialDialog(Gtk.Dialog):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(250)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation
 
         # ListStore: id, name, is_clinker, phase_count
         self.store = Gtk.ListStore(int, str, bool, int)

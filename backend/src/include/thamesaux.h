@@ -27,7 +27,7 @@
  *	for identifying the version under which a
  *	particular file was created
  ***/
-#define VERSIONSTRING "Version:"
+#define VERSIONSTRING "#THAMES:Version:"
 #define VERSIONNUMBER "5.2"
 
 #define MAXSTRING 500 /* maximum length of strings */

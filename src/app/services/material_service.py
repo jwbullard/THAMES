@@ -8,7 +8,7 @@ Handles CRUD operations, tag management, phase validation, and GEMS integration.
 
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Set, Tuple
+from typing import List, Optional, Dict, Set, Tuple, Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_
@@ -130,6 +130,33 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
         except Exception as e:
             self.logger.error(f"Failed to get material ID {material_id}: {e}")
             raise ServiceError(f"Failed to retrieve material: {e}")
+
+    def get_phases_as_dicts(self, material_id: int) -> List[Dict[str, Any]]:
+        """
+        Get phases for a material as plain dictionaries.
+
+        This avoids lazy-loading issues by converting to dicts within the session.
+
+        Args:
+            material_id: Material ID
+
+        Returns:
+            List of phase dictionaries with gem_phase_name and mass_fraction
+        """
+        try:
+            with self.db_service.get_read_only_session() as session:
+                from app.models.material_phase import MaterialPhase
+                phases = session.query(MaterialPhase).filter_by(material_id=material_id).all()
+                return [
+                    {
+                        'gem_phase_name': p.gem_phase_name,
+                        'mass_fraction': p.mass_fraction
+                    }
+                    for p in phases
+                ]
+        except Exception as e:
+            self.logger.error(f"Failed to get phases for material {material_id}: {e}")
+            return []
 
     def create(
         self,
@@ -325,7 +352,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
         mass_fraction: float,
         volume_fraction: Optional[float] = None,
         surface_fraction: Optional[float] = None,
-        validate_gems: bool = True
+        validate_gems: bool = True,
+        validate_total: bool = True
     ) -> MaterialPhase:
         """
         Add a phase to a material's composition.
@@ -337,6 +365,7 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
             volume_fraction: Optional volume fraction
             surface_fraction: Optional surface fraction
             validate_gems: If True, validate phase name against GEMS database
+            validate_total: If True, validate total phase fractions sum to 1.0
 
         Returns:
             Created MaterialPhase instance
@@ -384,8 +413,9 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 session.add(phase)
                 session.flush()
 
-                # Validate total material composition
-                self._validate_material(material)
+                # Validate total material composition (skip during batch operations)
+                if validate_total:
+                    self._validate_material(material)
 
                 self.logger.info(f"Added phase '{gem_phase_name}' to material '{material.name}'")
                 return phase
@@ -750,6 +780,34 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
         if material.specific_gravity and (material.specific_gravity <= 0 or material.specific_gravity > 5.0):
             raise ServiceError(f"Specific gravity {material.specific_gravity} is out of range (0-5)")
 
+    def validate_material(self, material_id: int) -> Tuple[bool, str]:
+        """
+        Validate a material's total composition.
+
+        Call this after batch operations (adding multiple phases with validate_total=False).
+
+        Args:
+            material_id: Material ID to validate
+
+        Returns:
+            Tuple of (is_valid, message)
+        """
+        try:
+            with self.db_service.get_session() as session:
+                material = session.query(Material).options(
+                    joinedload(Material.phases)
+                ).filter_by(id=material_id).first()
+                if not material:
+                    return False, f"Material ID {material_id} not found"
+
+                self._validate_material(material)
+                return True, "Valid"
+        except ServiceError as e:
+            return False, str(e)
+        except Exception as e:
+            self.logger.error(f"Validation error for material {material_id}: {e}")
+            return False, str(e)
+
     # ========== Clinker Extension Management ==========
 
     def set_clinker_surface_fractions(
@@ -780,7 +838,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 if not material:
                     raise NotFoundError(f"Material ID {material_id} not found")
 
-                if not material.is_clinker:
+                # Allow both pure clinkers (is_clinker) and cements with clinker (has_clinker)
+                if not material.is_clinker and not material.has_clinker:
                     raise ServiceError(f"Material '{material.name}' is not marked as clinker")
 
                 if material.immutable:
@@ -829,7 +888,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 if not material:
                     raise NotFoundError(f"Material ID {material_id} not found")
 
-                if not material.is_clinker or not material.clinker_data:
+                # Check if material has clinker data (is_clinker for pure clinkers, has_clinker for cements)
+                if not material.clinker_data:
                     return None
 
                 return material.clinker_data.get_surface_fractions_dict()
@@ -908,7 +968,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 if not material:
                     raise NotFoundError(f"Material ID {material_id} not found")
 
-                if not material.is_clinker:
+                # Allow both pure clinkers (is_clinker) and cements with clinker (has_clinker)
+                if not material.is_clinker and not material.has_clinker:
                     raise ServiceError(f"Material '{material.name}' is not marked as clinker")
 
                 if material.immutable:
@@ -962,7 +1023,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 if correlation_name not in valid_names:
                     raise ServiceError(f"Invalid correlation name '{correlation_name}'. Must be one of: {valid_names}")
 
-                if not material.is_clinker or not material.clinker_data:
+                # Check if material has clinker data (works for both is_clinker and has_clinker)
+                if not material.clinker_data:
                     return None
 
                 attr_name = f"correlation_{correlation_name}"
@@ -993,7 +1055,8 @@ class MaterialService(BaseService[Material, MaterialCreate, MaterialUpdate]):
                 if not material:
                     raise NotFoundError(f"Material ID {material_id} not found")
 
-                if not material.is_clinker or not material.clinker_data:
+                # Check if material has clinker data (works for both is_clinker and has_clinker)
+                if not material.clinker_data:
                     return {}
 
                 clinker_data = material.clinker_data

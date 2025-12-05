@@ -725,8 +725,8 @@ class HydrationResultsViewer(Gtk.Dialog):
         # THAMES phase ID conventions (from phase_id_mapping_service.py):
         # ID 0: VOID (empty pores)
         # ID 1: Electrolyte (aqueous solution)
-        # ID 2-7: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite, thenardite)
-        # ID 8: AGGREGATE
+        # ID 2-7: Clinker phases (Alite, Belite, Aluminate, Ferrite, Arcanite, Thenardite)
+        # ID 8: Aggregate
         # ID 9+: Other phases
         phase_mapping = {
             0: "VOID",
@@ -737,9 +737,9 @@ class HydrationResultsViewer(Gtk.Dialog):
             5: "Ferrite",
             6: "Arcanite",
             7: "Thenardite",
-            8: "AGGREGATE",
+            8: "Aggregate",
             9: "Gypsum",
-            10: "hemihydrate",
+            10: "Bassanite",
             11: "Anhydrite",
             12: "Calcite",
         }
@@ -752,11 +752,11 @@ class HydrationResultsViewer(Gtk.Dialog):
             3: (0.545, 0.31, 0.075),  # Brown for Belite (139,79,19)
             4: (0.698, 0.698, 0.698), # Light gray for Aluminate (178,178,178)
             5: (0.992, 0.992, 0.992), # White for Ferrite (253,253,253)
-            6: (1.0, 0.0, 0.0),       # Red for arcanite (255,0,0)
-            7: (1.0, 0.078, 0.0),     # Red-orange for thenardite (255,20,0)
-            8: (1.0, 0.753, 0.255),   # Gold for AGGREGATE (255,192,65)
+            6: (1.0, 0.0, 0.0),       # Red for Arcanite (255,0,0)
+            7: (1.0, 0.078, 0.0),     # Red-orange for Thenardite (255,20,0)
+            8: (1.0, 0.753, 0.255),   # Gold for Aggregate (255,192,65)
             9: (1.0, 1.0, 0.0),       # Yellow for Gypsum
-            10: (1.0, 0.94, 0.34),    # Light yellow for hemihydrate
+            10: (1.0, 0.94, 0.34),    # Light yellow for Bassanite
             11: (1.0, 1.0, 0.5),      # Pale yellow for Anhydrite
             12: (0.0, 0.8, 0.0),      # Green for Calcite
         }

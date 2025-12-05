@@ -196,6 +196,7 @@ class ElectrolyteCompositionEditor(Gtk.Box):
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(150)
         scrolled.set_max_content_height(250)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation
 
         # ListBox for conditions
         self.listbox = Gtk.ListBox()

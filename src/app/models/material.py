@@ -166,10 +166,11 @@ class Material(Base):
                 if phase.mass_fraction < 0 or phase.mass_fraction > 1:
                     return False, f"Phase '{phase.gem_phase_name}' has invalid fraction: {phase.mass_fraction}"
 
-        # Check total doesn't exceed 1.0
+        # Check total is approximately 1.0 (with tolerance for floating-point precision)
         total = self.total_phase_fraction
-        if total is not None and total > 1.0:
-            return False, f"Total phase fraction exceeds 1.0: {total}"
+        TOLERANCE = 0.001  # Allow 0.1% tolerance for floating-point errors
+        if total is not None and abs(total - 1.0) > TOLERANCE:
+            return False, f"Total phase fraction must equal 1.0 (got {total:.6f})"
 
         return True, "Valid"
 

@@ -891,6 +891,79 @@ November 29, 2025
 
 ---
 
+### Session 11: Hydration Progress Tracking & Bug Fixes
+December 5, 2025
+
+**Context**: Implemented hydration progress tracking on the Operations page, fixed multiple bugs in microstructure generation and hydration simulation workflow.
+
+**Key Accomplishments**:
+
+1. **Fixed Arcanite/Thenardite Case Mismatch Bug**
+   - Problem: micgen.log showed 0 volume fractions for Arcanite/Thenardite despite non-zero surface fractions
+   - Cause: Dictionary keys used lowercase `'arcanite'`/`'thenardite'` but database stores capitalized names
+   - Fix: Updated `micgen_input_service.py` to use `'Arcanite'` and `'Thenardite'`
+
+2. **Fixed phase_colors.json Remapping Bug**
+   - Problem: After micgen phase ID remapping, Results viewer showed wrong phase names
+   - Cause: `_remap_phase_colors()` treated nested JSON as flat structure
+   - Fix: Properly handle `phase_id_to_name`, `phase_id_to_color`, and `phase_name_to_color` keys separately
+
+3. **THAMES C++ progress.json Format Fix** (User modified C++ code)
+   - Problem: THAMES wrote malformed JSON with missing commas: `{"cycle": 10 "time_hours": 0.24}`
+   - Fix: User corrected Controller.cc to write proper JSON with commas
+   - Added `target_time_hours` field for progress percentage calculation
+
+4. **Hydration Progress Tracking on Operations Page**
+   - Reads `progress.json` from operation directory
+   - Extracts `cycle`, `time_hours`, `target_time_hours` from JSON
+   - Calculates progress percentage: `current_time / target_time`
+   - Displays: "Cycle X, Time: Y.YYd of Z.Zd, DOH: 0.000"
+   - Auto-refreshes details panel during monitoring
+
+5. **Fixed "Simulation completed successfully!" Premature Message**
+   - Problem: Hydration panel showed completion immediately after starting
+   - Cause: `start_simulation()` returns success when process *starts*, not completes
+   - Fix: Added `_on_simulation_started()` method; completion detected via polling
+
+6. **Fixed Progress Callback Signature Mismatch**
+   - Problem: `THAMESHydrationPanel._on_progress_update() takes 2 positional arguments but 3 were given`
+   - Fix: Changed signature from `(self, progress)` to `(self, operation_name, progress)`
+
+7. **UI Improvements**
+   - Added always-visible scrollbars via CSS (`-gtk-overlay-scrolling: false`)
+   - Added keyboard navigation with `set_can_focus(True)` on ScrolledWindow widgets
+   - Operations details panel now auto-refreshes for currently displayed operation
+
+**Files Modified**:
+- `src/app/services/micgen_input_service.py` - Arcanite/Thenardite case fix
+- `src/app/windows/panels/operations_monitoring_panel.py` - Progress tracking, phase_colors remapping
+- `src/app/windows/panels/thames_hydration_panel.py` - Simulation start/complete handling
+- `src/app/ui/theme_manager.py` - Scrollbar CSS
+- Multiple files - Keyboard navigation focus
+
+**THAMES C++ Changes** (User modified):
+- `backend/thames-hydration/src/thameslib/Controller.cc` - Fixed progress.json format, added target_time_hours
+
+**Testing Status**:
+- ✅ Microstructures generate correctly with all phases including Arcanite/Thenardite
+- ✅ Hydration simulations run and complete successfully
+- ✅ Progress tracking works on Operations page
+- ✅ Progress bar and step message update automatically
+- ✅ Hydration panel shows correct running/completed status
+
+**Known Issues/Pending Todos**:
+1. **Fix bug on attaching a kinetic model to a phase** - User reported issue
+2. **Fix 3D visualization of hydration time sequence on Results Tab** - User reported issue
+
+**Critical Files for Next Session**:
+- Operations Panel: `src/app/windows/panels/operations_monitoring_panel.py`
+- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
+- Kinetic Editor: `src/app/widgets/kinetic_model_editor.py`
+- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
+- THAMES Controller: `backend/thames-hydration/src/thameslib/Controller.cc`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

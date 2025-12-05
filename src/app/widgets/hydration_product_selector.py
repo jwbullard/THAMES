@@ -50,11 +50,13 @@ class HydrationProductSelectorWidget(Gtk.Box):
     __gsignals__ = {
         # Emitted when selection changes
         'selection-changed': (GObject.SignalFlags.RUN_FIRST, None, ()),
-        # Emitted when user wants to configure a product's affinity
+        # Emitted when user double-clicks a phase to configure it (opens combined dialog)
+        'configure-phase': (GObject.SignalFlags.RUN_FIRST, None, (str, bool)),  # gems_name, has_csh_data
+        # Emitted when user wants to configure a product's affinity (button click)
         'configure-affinity': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
-        # Emitted when user wants to configure C-S-H special data
+        # Emitted when user wants to configure C-S-H special data (button click)
         'configure-csh': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
-        # Emitted when user wants to configure kinetic model
+        # Emitted when user wants to configure kinetic model (button click)
         'configure-kinetics': (GObject.SignalFlags.RUN_FIRST, None, (str,)),  # gems_name
     }
 
@@ -143,6 +145,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(350)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation
 
         # TreeView with checkboxes
         # Columns: selected (bool), gems_name (str), display_name (str),
@@ -517,7 +520,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
         self.product_configurations[gems_name] = config
 
     def _on_row_activated(self, treeview, path, column):
-        """Handle double-click on a row."""
+        """Handle double-click on a row - opens combined phase configuration dialog."""
         iter = self.store.get_iter(path)
         gems_name = self.store.get_value(iter, 1)
 
@@ -527,18 +530,18 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
         # If not selected, select it first
         if gems_name not in self.selected_products:
-            self.store.set_value(iter, 0, True)
-            self.selected_products.add(gems_name)
-            self._init_product_configuration(gems_name)
-            self._update_count_label()
-            self.emit('selection-changed')
+            # Only add to selected_products if not a microstructure phase (those are always selected)
+            is_from_micro = self.store.get_value(iter, 8)
+            if not is_from_micro:
+                self.store.set_value(iter, 0, True)
+                self.selected_products.add(gems_name)
+                self._init_product_configuration(gems_name)
+                self._update_count_label()
+                self.emit('selection-changed')
 
-        # Emit configure signal
+        # Emit configure-phase signal with has_csh_data info for the combined dialog
         has_csh = self.store.get_value(iter, 5)
-        if has_csh:
-            self.emit('configure-csh', gems_name)
-        else:
-            self.emit('configure-affinity', gems_name)
+        self.emit('configure-phase', gems_name, has_csh)
 
     def _on_selection_changed(self, selection):
         """Handle tree selection change."""

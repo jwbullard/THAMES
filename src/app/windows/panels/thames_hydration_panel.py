@@ -32,6 +32,7 @@ from app.widgets.electrolyte_composition_editor import ElectrolyteCompositionEdi
 from app.widgets.kinetic_model_editor import KineticModelEditorDialog
 from app.windows.dialogs.affinity_editor_dialog import AffinityEditorDialog
 from app.windows.dialogs.csh_config_dialog import CSHConfigDialog
+from app.windows.dialogs.phase_config_dialog import PhaseConfigurationDialog
 from app.services.hydration_input_service import (
     HydrationInputService,
     HydrationInputConfig,
@@ -44,6 +45,7 @@ from app.services.thames_execution_service import (
     get_thames_execution_service,
 )
 from app.services.hydration_products_service import get_hydration_products_service
+from app.services.phase_id_mapping_service import normalize_phase_name
 
 
 class THAMESHydrationPanel(Gtk.Box):
@@ -95,6 +97,7 @@ class THAMESHydrationPanel(Gtk.Box):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_vexpand(True)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation
 
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=15)
         content_box.set_margin_start(15)
@@ -400,6 +403,42 @@ class THAMESHydrationPanel(Gtk.Box):
         self.output_times_entry.set_hexpand(True)
         content.attach(self.output_times_entry, 1, row, 1, 1)
 
+        row += 1
+
+        # Output options heading
+        output_heading = Gtk.Label()
+        output_heading.set_markup("<b>Output Options</b>")
+        output_heading.set_halign(Gtk.Align.START)
+        output_heading.set_margin_top(10)
+        content.attach(output_heading, 0, row, 2, 1)
+
+        row += 1
+
+        # Create XYZ files checkbox (for Ovito visualization)
+        self.create_xyz_check = Gtk.CheckButton.new_with_label(
+            "Create 3D visualization files (Ovito)"
+        )
+        self.create_xyz_check.set_tooltip_text(
+            "Generate XYZ files for 3D visualization in Ovito or similar software"
+        )
+        content.attach(self.create_xyz_check, 0, row, 2, 1)
+
+        row += 1
+
+        # Verbose output checkbox
+        self.verbose_check = Gtk.CheckButton.new_with_label("Verbose output")
+        self.verbose_check.set_tooltip_text(
+            "Produce detailed output during simulation (useful for debugging)"
+        )
+        content.attach(self.verbose_check, 0, row, 1, 1)
+
+        # Suppress warnings checkbox
+        self.suppress_warnings_check = Gtk.CheckButton.new_with_label("Suppress warnings")
+        self.suppress_warnings_check.set_tooltip_text(
+            "Suppress warning messages during simulation"
+        )
+        content.attach(self.suppress_warnings_check, 1, row, 1, 1)
+
         frame.add(content)
         parent.pack_start(frame, False, False, 0)
 
@@ -464,6 +503,7 @@ class THAMESHydrationPanel(Gtk.Box):
         log_scroll = Gtk.ScrolledWindow()
         log_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         log_scroll.set_size_request(-1, 100)
+        log_scroll.set_can_focus(True)  # Enable keyboard navigation
 
         self.log_buffer = Gtk.TextBuffer()
         self.log_view = Gtk.TextView.new_with_buffer(self.log_buffer)
@@ -480,6 +520,7 @@ class THAMESHydrationPanel(Gtk.Box):
     def _connect_signals(self) -> None:
         """Connect widget signals."""
         self.microstructure_combo.connect("changed", self._on_microstructure_changed)
+        self.product_selector.connect("configure-phase", self._on_configure_phase)
         self.product_selector.connect("configure-affinity", self._on_configure_affinity)
         self.product_selector.connect("configure-csh", self._on_configure_csh)
 
@@ -568,11 +609,14 @@ class THAMESHydrationPanel(Gtk.Box):
                 # Handle nested structure: phase_id_mapping.micro_to_gem
                 phase_id_mapping = mapping.get('phase_id_mapping', mapping)
                 micro_to_gem = phase_id_mapping.get('micro_to_gem', {})
-                excluded = {'VOID', 'Electrolyte', 'AGGREGATE', 'aq_gen', 'gas_gen'}
-                microstructure_phases = [
-                    phase_name for phase_name in micro_to_gem.values()
-                    if phase_name not in excluded
-                ]
+                excluded = {'VOID', 'Electrolyte', 'Aggregate', 'aq_gen', 'gas_gen'}
+                # Normalize phase names to handle case variations (arcanite -> Arcanite)
+                # and use a set to remove duplicates that result from normalization
+                phase_set = set()
+                for phase_name in micro_to_gem.values():
+                    if phase_name not in excluded:
+                        phase_set.add(normalize_phase_name(phase_name))
+                microstructure_phases = list(phase_set)
 
                 num_phases = len(microstructure_phases)
                 self.micro_info_label.set_text(
@@ -591,6 +635,64 @@ class THAMESHydrationPanel(Gtk.Box):
             self.product_selector.clear_microstructure_phases()
 
         self._log_message(f"Selected microstructure: {display_name}")
+
+    def _on_configure_phase(self, widget: HydrationProductSelectorWidget, gems_name: str, has_csh: bool) -> None:
+        """Open combined phase configuration dialog (kinetics + affinity + C-S-H)."""
+        # Get current configurations
+        current_kinetics = self.product_selector.get_kinetic_configuration(gems_name)
+        product_config = self.product_selector.get_product_configuration(gems_name)
+
+        current_affinity = None
+        current_psd = None
+        current_rd = None
+
+        if product_config:
+            current_affinity = product_config.get('affinity')
+            current_psd = product_config.get('poresize_distribution')
+            current_rd = product_config.get('rd_values')
+
+        # Get available phases for affinity targets
+        available_phases = self._get_available_phases()
+
+        dialog = PhaseConfigurationDialog(
+            self.main_window,
+            gems_name,
+            current_kinetics=current_kinetics,
+            current_affinity=current_affinity,
+            current_psd=current_psd,
+            current_rd=current_rd,
+            available_phases=available_phases,
+            has_csh_data=has_csh,
+            initial_tab="kinetics"  # Default to kinetics tab
+        )
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            # Save kinetics
+            new_kinetics = dialog.get_kinetics_data()
+            if new_kinetics:
+                self.product_selector.set_kinetic_configuration(gems_name, new_kinetics)
+                self._log_message(f"Updated kinetics for {gems_name}: {new_kinetics.get('type')}")
+            else:
+                # Thermodynamic (no kinetics)
+                self.product_selector.remove_kinetic_configuration(gems_name)
+                self._log_message(f"Set {gems_name} to thermodynamic control")
+
+            # Save affinity
+            new_affinity = dialog.get_affinity_data()
+            self.product_selector.set_product_affinity(gems_name, new_affinity)
+
+            # Save C-S-H if applicable
+            if has_csh:
+                csh_data = dialog.get_csh_data()
+                self.product_selector.set_csh_parameters(
+                    gems_name,
+                    csh_data.get('poresize_distribution'),
+                    csh_data.get('rd_values')
+                )
+                self._log_message(f"Updated C-S-H parameters for {gems_name}")
+
+        dialog.destroy()
 
     def _on_configure_affinity(self, widget: HydrationProductSelectorWidget, gems_name: str) -> None:
         """Open affinity editor dialog for a product."""
@@ -670,7 +772,7 @@ class THAMESHydrationPanel(Gtk.Box):
             "VOID", "Electrolyte",
             "Alite", "Belite", "Aluminate", "Ferrite",
             "Arcanite", "Thenardite",
-            "Gypsum", "hemihydrate", "Anhydrite",
+            "Gypsum", "Bassanite", "Anhydrite",
             "CSHQ", "Portlandite", "ettr", "monosulf-AlFe",
         ]
 
@@ -716,6 +818,10 @@ class THAMESHydrationPanel(Gtk.Box):
             product_configurations=product_configs,
             electrolyte_conditions=electrolyte_conditions,
             kinetic_overrides=kinetic_overrides,
+            # Runtime options
+            verbose=self.verbose_check.get_active(),
+            suppress_warnings=self.suppress_warnings_check.get_active(),
+            create_xyz_files=self.create_xyz_check.get_active(),
         )
 
         return config
@@ -807,7 +913,7 @@ class THAMESHydrationPanel(Gtk.Box):
         # Start simulation in background
         def run_simulation():
             try:
-                success, errors = self.execution_service.start_simulation(
+                started, errors = self.execution_service.start_simulation(
                     operation_name=op_name,
                     material_phases=material_phases,
                     config=config,
@@ -815,7 +921,13 @@ class THAMESHydrationPanel(Gtk.Box):
                     progress_callback=self._on_progress_update
                 )
 
-                GLib.idle_add(self._on_simulation_complete, success, errors)
+                if not started:
+                    # Failed to start - report error immediately
+                    GLib.idle_add(self._on_simulation_complete, False, errors)
+                else:
+                    # Successfully started - update UI to show running state
+                    # The simulation will complete later via polling
+                    GLib.idle_add(self._on_simulation_started)
 
             except Exception as e:
                 self.logger.error(f"Simulation error: {e}")
@@ -855,7 +967,7 @@ class THAMESHydrationPanel(Gtk.Box):
                 # Create a single MaterialPhaseData with all phases from the mapping
                 phases = []
                 for phase_id_str, phase_name in mapping.get('micro_to_gem', {}).items():
-                    if phase_name not in ["VOID", "Electrolyte", "AGGREGATE"]:
+                    if phase_name not in ["VOID", "Electrolyte", "Aggregate"]:
                         phases.append({
                             'gem_phase_name': phase_name,
                             'mass_fraction': 0.0,  # Unknown from microstructure
@@ -882,7 +994,7 @@ class THAMESHydrationPanel(Gtk.Box):
 
         return material_phases
 
-    def _on_progress_update(self, progress: Any) -> None:
+    def _on_progress_update(self, operation_name: str, progress: Any) -> None:
         """Handle progress update from simulation."""
         GLib.idle_add(self._update_progress_ui, progress)
 
@@ -906,7 +1018,26 @@ class THAMESHydrationPanel(Gtk.Box):
         if progress:
             self._update_progress_ui(progress)
 
+            # Check if simulation has completed
+            if progress.percent_complete >= 100.0:
+                self._on_simulation_complete(True, [])
+                return False
+
+        # Check if simulation is no longer active (may have failed or been cancelled)
+        if op_name not in self.execution_service.active_simulations:
+            # Simulation ended - check if it was successful by looking at progress
+            if progress and progress.percent_complete >= 95.0:
+                self._on_simulation_complete(True, [])
+            else:
+                self._on_simulation_complete(False, ["Simulation ended unexpectedly"])
+            return False
+
         return self.simulation_running
+
+    def _on_simulation_started(self) -> None:
+        """Handle successful simulation start."""
+        self._log_message("Simulation started successfully - monitoring progress...")
+        self.status_label.set_text("Running")
 
     def _on_simulation_complete(self, success: bool, errors: List[str]) -> None:
         """Handle simulation completion."""

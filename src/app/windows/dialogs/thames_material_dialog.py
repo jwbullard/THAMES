@@ -82,6 +82,7 @@ class MaterialDialog(Gtk.Dialog):
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_min_content_height(400)
         scrolled.set_max_content_height(600)
+        scrolled.set_can_focus(True)  # Enable keyboard navigation (Page Up/Down, arrows)
 
         # Create box to hold all form fields
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -330,6 +331,7 @@ class MaterialDialog(Gtk.Dialog):
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_size_request(-1, 80)
+        scrolled.set_can_focus(True)
         self.desc_textview = Gtk.TextView()
         self.desc_textview.set_wrap_mode(Gtk.WrapMode.WORD)
         scrolled.add(self.desc_textview)
@@ -752,7 +754,9 @@ class MaterialDialog(Gtk.Dialog):
                 self.logger.info(f"Created {material_type} material: {self.material_name}")
             else:
                 # Update existing material
-                has_clinker = self.clinker_source_id is not None
+                # Preserve has_clinker if it was already True (for self-contained cements)
+                # or set it True if clinker_source_id is set (for composites)
+                has_clinker = self.clinker_source_id is not None or getattr(self.material, 'has_clinker', False)
                 material_data = MaterialUpdate(
                     name=name,
                     tags=tags,
@@ -770,17 +774,26 @@ class MaterialDialog(Gtk.Dialog):
 
                 # Update phases separately (clear and re-add)
                 if phase_compositions is not None:
-                    # Remove all existing phases
-                    for phase in self.material.phases:
-                        self.material_service.remove_phase(self.material.id, phase.gem_phase_name)
+                    # Get current phases directly from database to avoid lazy-loading issues
+                    current_phases = self.material_service.get_phases_as_dicts(self.material.id)
 
-                    # Add new phases
+                    # Remove all existing phases
+                    for phase in current_phases:
+                        self.material_service.remove_phase(self.material.id, phase['gem_phase_name'])
+
+                    # Add new phases (skip validation until all are added)
                     for phase_comp in phase_compositions:
                         self.material_service.add_phase(
                             self.material.id,
                             phase_comp['gem_phase_name'],
-                            phase_comp['mass_fraction']
+                            phase_comp['mass_fraction'],
+                            validate_total=False  # Skip intermediate validation
                         )
+
+                    # Validate total composition after all phases are added
+                    is_valid, msg = self.material_service.validate_material(self.material.id)
+                    if not is_valid:
+                        raise Exception(msg)
 
                 # Update clinker surface fractions and correlations
                 if material_type == "clinker":

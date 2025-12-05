@@ -348,6 +348,7 @@ class ThemeManager(GObject.Object):
         scrolledwindow {{
             border: 1px solid {colors['border']};
             border-radius: {VCCTLSpacing.BORDER_RADIUS_NORMAL}px;
+            -gtk-overlay-scrolling: false;
         }}
         
         scrollbar {{
@@ -356,14 +357,14 @@ class ThemeManager(GObject.Object):
         }}
         
         scrollbar slider {{
-            background-color: {colors['border']};
+            background-color: {colors['text_secondary']};
             border-radius: {VCCTLSpacing.BORDER_RADIUS_SMALL}px;
-            min-width: 8px;
-            min-height: 8px;
+            min-width: 10px;
+            min-height: 10px;
         }}
         
         scrollbar slider:hover {{
-            background-color: {colors['text_secondary']};
+            background-color: {colors['text_primary']};
         }}
         
         /* Frame styling */

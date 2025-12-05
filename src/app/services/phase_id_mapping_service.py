@@ -6,26 +6,33 @@ Dynamically assigns microstructure phase IDs based on the mix design composition
 This replaces VCCTL's hard-coded phase ID scheme with a flexible system that
 works with any combination of GEMS phases.
 
-THAMES Phase ID Rules (ALWAYS reserved, regardless of mix composition):
-- ID 0: VOID (empty pores, gas phase)
-- ID 1: ELECTROLYTE (aqueous solution)
-- ID 2: Alite (C3S)
-- ID 3: Belite (C2S)
-- ID 4: Aluminate (C3A)
-- ID 5: Ferrite (C4AF)
-- ID 6: arcanite (K2SO4)
-- ID 7: thenardite (Na2SO4)
-- ID 8: AGGREGATE (coarse/fine aggregate, ITZ boundary)
-- IDs 9+: Other phases (calcium sulfates, pozzolans, hydration products)
+THAMES Phase ID Assignment (Two-Phase Approach):
 
-The reserved IDs (0-8) are ALWAYS assigned regardless of whether those phases
-are present in the mix. This ensures consistent phase ID mapping across all
-THAMES simulations and compatibility with the THAMES-Hydration C++ code.
+1. During Microstructure Generation (micgen.c):
+   - ID 0: VOID (empty pores, gas phase) - always reserved
+   - ID 1: Electrolyte (aqueous solution) - always reserved
+   - IDs 2-7: Reserved for clinker phases (Alite, Belite, Aluminate, Ferrite,
+              Arcanite, Thenardite) because micgen.c needs to identify phases
+              with correlation functions and surface area fractions
+   - ID 8: Aggregate (if present)
+   - IDs 9+: Other phases (calcium sulfates, pozzolans, etc.)
+
+2. After Microstructure Generation (remap_to_sequential):
+   - Phase IDs are remapped to be sequential with no gaps
+   - Example: If only phases 0, 1, 2, 3, 8, 9 exist, they become 0, 1, 2, 3, 4, 5
+   - This is required by THAMES-Hydration C++ code which expects sequential IDs
+   - The phase_mapping.json and phase_colors.json files are updated accordingly
+
+The remap_to_sequential() method is called automatically after micgen completes.
 """
 
 import logging
+import json
+from pathlib import Path
 from typing import Dict, List, Optional, Set, Any, Tuple
 from dataclasses import dataclass, field
+
+import numpy as np
 
 from app.config.phase_mappings import (
     VCCTL_TO_GEMS_CEMENT,
@@ -42,6 +49,30 @@ FIRST_SOLID = 2
 # Includes the four main clinker minerals plus alkali sulfates
 CLINKER_PHASES = ["Alite", "Belite", "Aluminate", "Ferrite", "Arcanite", "Thenardite"]
 NUM_CLINKER_PHASES = len(CLINKER_PHASES)
+
+# Build case-insensitive lookup for clinker phase names
+# This handles GEMS database variations (arcanite vs Arcanite, etc.)
+_CLINKER_PHASE_LOOKUP = {name.lower(): name for name in CLINKER_PHASES}
+
+
+def normalize_phase_name(phase_name: str) -> str:
+    """
+    Normalize a phase name to its canonical form.
+
+    Clinker phases are normalized to their capitalized form (e.g., arcanite -> Arcanite).
+    Other phases are returned unchanged.
+
+    Args:
+        phase_name: The phase name to normalize
+
+    Returns:
+        The normalized phase name
+    """
+    lower_name = phase_name.lower()
+    if lower_name in _CLINKER_PHASE_LOOKUP:
+        return _CLINKER_PHASE_LOOKUP[lower_name]
+    return phase_name
+
 
 # Aggregate phase ID - always reserved after clinker phases
 AGGREGATEID = FIRST_SOLID + NUM_CLINKER_PHASES  # ID 8
@@ -101,7 +132,8 @@ class PhaseIdMappingService:
     def create_mapping_from_mix(
         self,
         material_phases: List[Dict[str, Any]],
-        include_hydration_products: bool = True
+        include_hydration_products: bool = True,
+        include_aggregate: bool = False
     ) -> PhaseIdMapping:
         """
         Create a phase ID mapping from a list of materials and their phases.
@@ -110,6 +142,7 @@ class PhaseIdMappingService:
             material_phases: List of dicts with 'material_name' and 'phases' keys.
                             Each phase dict has 'gem_phase_name' and 'mass_fraction'.
             include_hydration_products: Whether to reserve IDs for common hydration products.
+            include_aggregate: Whether to include AGGREGATE phase (only if actually in microstructure).
 
         Returns:
             PhaseIdMapping object with complete phase-to-ID mappings.
@@ -143,13 +176,14 @@ class PhaseIdMappingService:
         mapping.gem_to_micro["Electrolyte"] = ELECTROLYTEID  # GEMS aqueous phase name
         mapping.micro_to_gem[ELECTROLYTEID] = "Electrolyte"
 
-        # Collect all unique phases from materials
+        # Collect all unique phases from materials, normalizing clinker phase names
         all_phases: Set[str] = set()
         for material in material_phases:
             for phase in material.get('phases', []):
                 gem_name = phase.get('gem_phase_name')
                 if gem_name:
-                    all_phases.add(gem_name)
+                    # Normalize to handle case variations (arcanite -> Arcanite, etc.)
+                    all_phases.add(normalize_phase_name(gem_name))
 
         # Check if mix contains clinker phases
         clinker_in_mix = all_phases & set(CLINKER_PHASES)
@@ -164,12 +198,14 @@ class PhaseIdMappingService:
             mapping.micro_to_gem[phase_id] = clinker_phase
             mapping.clinker_phase_ids[clinker_phase] = phase_id
 
-        # ALWAYS reserve ID 8 for aggregate
-        self.logger.info("Reserving ID 8 for aggregate")
-        mapping.gem_to_micro["AGGREGATE"] = AGGREGATEID
-        mapping.micro_to_gem[AGGREGATEID] = "AGGREGATE"
+        # Only include Aggregate if it's actually in the microstructure
+        if include_aggregate:
+            self.logger.info("Including Aggregate at ID 8")
+            mapping.gem_to_micro["Aggregate"] = AGGREGATEID
+            mapping.micro_to_gem[AGGREGATEID] = "Aggregate"
 
-        # Set next available ID to 9 (after clinker + aggregate)
+        # Set next available ID to 9 (after clinker + aggregate slot)
+        # Note: ID 8 is reserved for AGGREGATE even if not present, to maintain consistent IDs
         mapping.next_available_id = FIRST_OTHER_SOLID
 
         # Assign IDs to remaining phases (excluding clinker phases which are already assigned)
@@ -203,21 +239,21 @@ class PhaseIdMappingService:
         Sort phases by priority for consistent ID assignment.
 
         Priority order (for non-clinker phases):
-        1. Calcium sulfates (Gypsum, hemihydrate, Anhydrite)
+        1. Calcium sulfates (Gypsum, Bassanite, Anhydrite)
         2. Carbonates (Calcite, Dolomite)
         3. Pozzolanic phases
         4. Everything else (alphabetical)
 
-        Note: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite,
-        thenardite) are handled separately and always get IDs 2-7.
+        Note: Clinker phases (Alite, Belite, Aluminate, Ferrite, Arcanite,
+        Thenardite) are handled separately and always get IDs 2-7.
         """
         sulfates = []
         carbonates = []
         pozzolans = []
         others = []
 
-        # Note: arcanite and thenardite are clinker phases, handled separately
-        sulfate_names = {"Gypsum", "hemihydrate", "Anhydrite"}
+        # Note: Arcanite and Thenardite are clinker phases, handled separately
+        sulfate_names = {"Gypsum", "Bassanite", "Anhydrite"}
         carbonate_names = {"Calcite", "Dolomite-dis", "Dolomite-ord", "lime"}
         pozzolan_names = {
             "Quartz", "Mullite", "Sfume", "Silica-amorph",
@@ -325,7 +361,7 @@ class PhaseIdMappingService:
             "Arcanite": 5,   # K2SO4
             "Thenardite": 6, # Na2SO4
             "Gypsum": 7,
-            "hemihydrate": 8,
+            "Bassanite": 8,
             "Anhydrite": 9,
             "Sfume": 10,     # Silica fume
             # ... more phases can be added
@@ -382,11 +418,254 @@ class PhaseIdMappingService:
                     f"but has {actual_id}"
                 )
 
-        # Check that aggregate ID is reserved (ID 8)
-        if AGGREGATEID not in mapping.micro_to_gem:
-            errors.append(f"AGGREGATE phase (ID {AGGREGATEID}) not assigned")
+        # Note: AGGREGATE (ID 8) is optional - only required if aggregate is in microstructure
+        # No validation error if AGGREGATE is missing
 
         return len(errors) == 0, errors
+
+    def remap_to_sequential(
+        self,
+        microstructure_path: Path,
+        phase_mapping_path: Path,
+        output_microstructure_path: Optional[Path] = None,
+        output_mapping_path: Optional[Path] = None
+    ) -> Tuple[Dict[int, int], PhaseIdMapping]:
+        """
+        Remap phase IDs in a microstructure file to be sequential with no gaps.
+
+        This is called after microstructure generation to ensure phase IDs are
+        sequential (0, 1, 2, 3, ...) which is required by the THAMES-Hydration
+        C++ code.
+
+        Args:
+            microstructure_path: Path to the .img microstructure file
+            phase_mapping_path: Path to the _phase_mapping.json file
+            output_microstructure_path: Output path for remapped microstructure (default: overwrite input)
+            output_mapping_path: Output path for remapped mapping (default: overwrite input)
+
+        Returns:
+            Tuple of (old_to_new_id_map, new_phase_mapping)
+
+        Example:
+            Original IDs: 0, 1, 2, 3, 5, 8, 9 (gaps at 4, 6, 7)
+            Remapped IDs: 0, 1, 2, 3, 4, 5, 6 (sequential)
+        """
+        if output_microstructure_path is None:
+            output_microstructure_path = microstructure_path
+        if output_mapping_path is None:
+            output_mapping_path = phase_mapping_path
+
+        self.logger.info(f"Remapping phase IDs in {microstructure_path}")
+
+        # Step 1: Read the existing phase mapping
+        with open(phase_mapping_path, 'r') as f:
+            raw_data = json.load(f)
+
+        # Handle nested structure (phase_id_mapping wrapper) or flat structure
+        if 'phase_id_mapping' in raw_data:
+            mapping_data = raw_data['phase_id_mapping']
+            operation_name = raw_data.get('operation_name', '')
+        else:
+            mapping_data = raw_data
+            operation_name = ''
+
+        # Step 2: Read microstructure and find used phase IDs
+        header_lines, voxel_data, dimensions = self._read_microstructure_file(microstructure_path)
+        used_ids = set(np.unique(voxel_data))
+        self.logger.info(f"Phase IDs found in microstructure: {sorted(used_ids)}")
+
+        # Step 3: Create old-to-new ID mapping (sequential, no gaps)
+        # VOID (0) and Electrolyte (1) always stay at 0 and 1 if present
+        # Only remap IDs >= 2 to be sequential
+        old_to_new: Dict[int, int] = {}
+
+        # Keep 0 and 1 unchanged if present
+        if 0 in used_ids:
+            old_to_new[0] = 0
+        if 1 in used_ids:
+            old_to_new[1] = 1
+
+        # Remap IDs >= 2 to be sequential starting from 2
+        next_id = 2
+        for old_id in sorted(used_ids):
+            if old_id >= 2:
+                old_to_new[old_id] = next_id
+                next_id += 1
+
+        self.logger.info(f"ID remapping: {old_to_new}")
+
+        # Check if remapping is actually needed
+        if all(old == new for old, new in old_to_new.items()):
+            self.logger.info("Phase IDs are already sequential, no remapping needed")
+            # Still return the mapping for consistency
+            new_mapping = self._create_mapping_from_dict(mapping_data)
+            return old_to_new, new_mapping
+
+        # Step 4: Remap voxel data
+        remapped_voxels = np.vectorize(lambda x: old_to_new.get(x, x))(voxel_data)
+
+        # Step 5: Write remapped microstructure
+        self._write_microstructure_file(
+            output_microstructure_path, header_lines, remapped_voxels, dimensions
+        )
+        self.logger.info(f"Wrote remapped microstructure to {output_microstructure_path}")
+
+        # Step 6: Update phase mapping
+        new_mapping = self._remap_phase_mapping(mapping_data, old_to_new)
+
+        # Step 7: Write updated phase mapping (preserve nested structure if original had it)
+        output_data = new_mapping.to_dict()
+        if operation_name:
+            output_data = {
+                "operation_name": operation_name,
+                "phase_id_mapping": output_data
+            }
+        with open(output_mapping_path, 'w') as f:
+            json.dump(output_data, f, indent=2)
+        self.logger.info(f"Wrote remapped phase mapping to {output_mapping_path}")
+
+        return old_to_new, new_mapping
+
+    def _read_microstructure_file(
+        self, file_path: Path
+    ) -> Tuple[List[str], np.ndarray, Tuple[int, int, int]]:
+        """
+        Read a microstructure file and return header, voxel data, and dimensions.
+
+        Returns:
+            Tuple of (header_lines, voxel_array, (x_size, y_size, z_size))
+        """
+        with open(file_path, 'r') as f:
+            lines = f.readlines()
+
+        # Parse header
+        x_size = y_size = z_size = None
+        header_end = 0
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+
+            # Handle THAMES format prefix
+            if stripped.startswith('#THAMES:'):
+                stripped = stripped[8:].strip()
+
+            if stripped.startswith('X_Size:'):
+                x_size = int(stripped.split(':')[1].strip())
+            elif stripped.startswith('Y_Size:'):
+                y_size = int(stripped.split(':')[1].strip())
+            elif stripped.startswith('Z_Size:'):
+                z_size = int(stripped.split(':')[1].strip())
+            elif stripped.startswith('Image_Resolution:'):
+                header_end = i + 1
+                break
+
+        if not all([x_size, y_size, z_size]):
+            raise ValueError(f"Could not parse dimensions from {file_path}")
+
+        header_lines = lines[:header_end]
+
+        # Parse voxel data
+        voxel_data = []
+        for line in lines[header_end:]:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                values = [int(x) for x in line.split()]
+                voxel_data.extend(values)
+
+        total_voxels = x_size * y_size * z_size
+        if len(voxel_data) < total_voxels:
+            raise ValueError(
+                f"Insufficient voxel data: got {len(voxel_data)}, expected {total_voxels}"
+            )
+
+        voxel_array = np.array(voxel_data[:total_voxels]).reshape((z_size, y_size, x_size))
+
+        return header_lines, voxel_array, (x_size, y_size, z_size)
+
+    def _write_microstructure_file(
+        self,
+        file_path: Path,
+        header_lines: List[str],
+        voxel_data: np.ndarray,
+        dimensions: Tuple[int, int, int]
+    ) -> None:
+        """
+        Write a microstructure file with header and voxel data.
+        """
+        x_size, y_size, z_size = dimensions
+
+        with open(file_path, 'w') as f:
+            # Write header
+            for line in header_lines:
+                f.write(line)
+
+            # Write voxel data (one value per line, z fastest, then y, then x)
+            for x in range(x_size):
+                for y in range(y_size):
+                    for z in range(z_size):
+                        f.write(f"{voxel_data[z, y, x]}\n")
+
+    def _remap_phase_mapping(
+        self,
+        mapping_data: Dict[str, Any],
+        old_to_new: Dict[int, int]
+    ) -> PhaseIdMapping:
+        """
+        Create a new PhaseIdMapping with remapped IDs.
+        """
+        new_mapping = PhaseIdMapping()
+
+        # Get the original mappings
+        gem_to_micro = mapping_data.get('gem_to_micro', {})
+        micro_to_gem = mapping_data.get('micro_to_gem', {})
+
+        # Remap gem_to_micro
+        for phase_name, old_id in gem_to_micro.items():
+            if old_id in old_to_new:
+                new_id = old_to_new[old_id]
+                new_mapping.gem_to_micro[phase_name] = new_id
+                new_mapping.micro_to_gem[new_id] = phase_name
+
+        # Handle any phases in micro_to_gem that weren't in gem_to_micro
+        for old_id_str, phase_name in micro_to_gem.items():
+            old_id = int(old_id_str)
+            if old_id in old_to_new:
+                new_id = old_to_new[old_id]
+                if new_id not in new_mapping.micro_to_gem:
+                    new_mapping.micro_to_gem[new_id] = phase_name
+                if phase_name not in new_mapping.gem_to_micro:
+                    new_mapping.gem_to_micro[phase_name] = new_id
+
+        # Update other fields
+        new_mapping.has_clinker = mapping_data.get('has_clinker', False)
+
+        # Remap clinker_phase_ids
+        old_clinker_ids = mapping_data.get('clinker_phase_ids', {})
+        for phase_name, old_id in old_clinker_ids.items():
+            if old_id in old_to_new:
+                new_mapping.clinker_phase_ids[phase_name] = old_to_new[old_id]
+
+        # Update next_available_id
+        if new_mapping.micro_to_gem:
+            new_mapping.next_available_id = max(new_mapping.micro_to_gem.keys()) + 1
+        else:
+            new_mapping.next_available_id = FIRST_SOLID
+
+        return new_mapping
+
+    def _create_mapping_from_dict(self, mapping_data: Dict[str, Any]) -> PhaseIdMapping:
+        """Create a PhaseIdMapping from a dictionary (e.g., loaded from JSON)."""
+        mapping = PhaseIdMapping()
+
+        mapping.gem_to_micro = mapping_data.get('gem_to_micro', {})
+        mapping.micro_to_gem = {
+            int(k): v for k, v in mapping_data.get('micro_to_gem', {}).items()
+        }
+        mapping.has_clinker = mapping_data.get('has_clinker', False)
+        mapping.clinker_phase_ids = mapping_data.get('clinker_phase_ids', {})
+        mapping.next_available_id = mapping_data.get('next_available_id', FIRST_SOLID)
+
+        return mapping
 
 
 # Module-level singleton

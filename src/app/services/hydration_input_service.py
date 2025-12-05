@@ -18,6 +18,8 @@ The service generates:
 
 import json
 import logging
+import shutil
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
@@ -78,6 +80,12 @@ class HydrationInputConfig:
     # Impurity data overrides (phase name -> impurity dict)
     impurity_overrides: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
+    # Runtime options (command-line flags for thames executable)
+    verbose: bool = False  # -v: Produce verbose output
+    suppress_warnings: bool = False  # -s: Suppress warning messages
+    create_xyz_files: bool = False  # -x: Create 3D visualization files for Ovito
+    output_folder: str = "Result"  # -o: Output folder name
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -92,6 +100,10 @@ class HydrationInputConfig:
             "product_configurations": self.product_configurations,
             "kinetic_overrides": self.kinetic_overrides,
             "impurity_overrides": self.impurity_overrides,
+            "verbose": self.verbose,
+            "suppress_warnings": self.suppress_warnings,
+            "create_xyz_files": self.create_xyz_files,
+            "output_folder": self.output_folder,
         }
 
     @classmethod
@@ -111,6 +123,10 @@ class HydrationInputConfig:
             product_configurations=data.get("product_configurations", {}),
             kinetic_overrides=data.get("kinetic_overrides", {}),
             impurity_overrides=data.get("impurity_overrides", {}),
+            verbose=data.get("verbose", False),
+            suppress_warnings=data.get("suppress_warnings", False),
+            create_xyz_files=data.get("create_xyz_files", False),
+            output_folder=data.get("output_folder", "Result"),
         )
 
 
@@ -204,14 +220,18 @@ class HydrationInputService:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            # Step 1: Create phase ID mapping from materials and hydration products
-            self.logger.info("Creating phase ID mapping...")
-            phase_mapping = self._create_phase_mapping(material_phases, config)
+            # Step 1: Try to load existing phase mapping from source microstructure
+            # This is CRITICAL - the hydration must use the same phase IDs as the microstructure
+            existing_mapping = self._load_existing_phase_mapping(microstructure_file)
 
-            # Step 1b: CRITICAL - Ensure all phases from microstructure are in mapping
-            # Every phase ID in the microstructure MUST have an entry in simparams.json
+            # Step 2: Create/extend phase ID mapping with hydration products
+            self.logger.info("Creating phase ID mapping...")
+            phase_mapping = self._create_phase_mapping(material_phases, config, existing_mapping)
+
+            # Step 2b: Ensure all phases from microstructure are in mapping (validation)
+            # This should now be a no-op since we loaded the existing mapping
             if microstructure_file and microstructure_file.exists():
-                self.logger.info(f"Reading phases from microstructure: {microstructure_file}")
+                self.logger.info(f"Validating phases from microstructure: {microstructure_file}")
                 success, micro_messages = self.ensure_microstructure_phases_in_mapping(
                     microstructure_file, phase_mapping
                 )
@@ -225,7 +245,7 @@ class HydrationInputService:
                             errors.append(msg)  # Include warnings in errors for user visibility
                         self.logger.info(msg)
 
-            # Step 2: Generate simparams.json
+            # Step 3: Generate simparams.json
             self.logger.info("Generating simparams.json...")
             simparams_path = output_dir / "simparams.json"
             simparams = self._generate_simparams(
@@ -242,23 +262,48 @@ class HydrationInputService:
                 generated_files['simparams'] = simparams_path
                 self.logger.info(f"Wrote simparams.json with {simparams['microstructure']['numentries']} phases")
 
-            # Step 3: Save phase mapping JSON
+            # Step 4: Save phase mapping JSON
             self.logger.info("Saving phase mapping...")
             mapping_path = output_dir / f"{operation_name}_phase_mapping.json"
             self._save_phase_mapping(phase_mapping, mapping_path)
             generated_files['phase_mapping'] = mapping_path
 
-            # Step 4: Save phase colors JSON
+            # Step 5: Save phase colors JSON
             self.logger.info("Saving phase colors...")
             colors_path = output_dir / f"{operation_name}_phase_colors.json"
             self._save_phase_colors(phase_mapping, colors_path)
             generated_files['phase_colors'] = colors_path
 
-            # Step 5: Save hydration config (for reloading in UI)
+            # Step 6: Save hydration config (for reloading in UI)
             self.logger.info("Saving hydration config...")
             config_path = output_dir / f"{operation_name}_hydration_config.json"
             self._save_hydration_config(config, config_path)
             generated_files['hydration_config'] = config_path
+
+            # Step 7: Copy GEMS data files to operation directory
+            self.logger.info("Copying GEMS data files...")
+            gems_files = self._copy_gems_files(output_dir)
+            generated_files.update(gems_files)
+
+            # Step 8: Create thames-dat.lst (GEMS file list)
+            self.logger.info("Creating thames-dat.lst...")
+            dat_lst_path = output_dir / "thames-dat.lst"
+            self._create_thames_dat_lst(dat_lst_path)
+            generated_files['thames_dat_lst'] = dat_lst_path
+
+            # Step 9: Create input.in (master input file for thames)
+            self.logger.info("Creating input.in...")
+            input_in_path = output_dir / "input.in"
+            microstructure_name = microstructure_file.name if microstructure_file else ""
+            self._create_input_in(
+                input_in_path,
+                simtype=2,  # 2 = Hydration (1 = Exit)
+                gem_input_file="thames-dat.lst",
+                simparams_file="simparams.json",
+                microstructure_file=microstructure_name,
+                job_root=operation_name
+            )
+            generated_files['input_in'] = input_in_path
 
             success = len(errors) == 0 or all('warning' in e.lower() for e in errors)
             return success, errors, generated_files
@@ -268,34 +313,117 @@ class HydrationInputService:
             errors.append(f"Exception: {str(e)}")
             return False, errors, generated_files
 
+    def _load_existing_phase_mapping(
+        self,
+        microstructure_file: Optional[Path]
+    ) -> Optional[PhaseIdMapping]:
+        """
+        Load the existing phase mapping from the source microstructure operation.
+
+        This is critical for ensuring phase IDs match between microstructure and hydration.
+
+        Args:
+            microstructure_file: Path to microstructure .img file
+
+        Returns:
+            PhaseIdMapping if found, None otherwise
+        """
+        if not microstructure_file or not microstructure_file.exists():
+            return None
+
+        # Look for phase mapping JSON in the same directory
+        micro_dir = microstructure_file.parent
+        phase_mapping_files = list(micro_dir.glob("*_phase_mapping.json"))
+
+        if not phase_mapping_files:
+            self.logger.warning(f"No phase mapping found in {micro_dir}")
+            return None
+
+        phase_mapping_path = phase_mapping_files[0]
+        self.logger.info(f"Loading existing phase mapping from: {phase_mapping_path}")
+
+        try:
+            import json
+            with open(phase_mapping_path, 'r') as f:
+                data = json.load(f)
+
+            # Handle nested structure (phase_id_mapping wrapper) or flat structure
+            if 'phase_id_mapping' in data:
+                mapping_data = data['phase_id_mapping']
+            else:
+                mapping_data = data
+
+            # Create PhaseIdMapping from loaded data
+            mapping = PhaseIdMapping()
+            mapping.gem_to_micro = mapping_data.get('gem_to_micro', {})
+            mapping.micro_to_gem = {
+                int(k): v for k, v in mapping_data.get('micro_to_gem', {}).items()
+            }
+            mapping.has_clinker = mapping_data.get('has_clinker', False)
+            mapping.clinker_phase_ids = mapping_data.get('clinker_phase_ids', {})
+            mapping.next_available_id = mapping_data.get('next_available_id', 2)
+
+            self.logger.info(f"Loaded phase mapping with {len(mapping.gem_to_micro)} phases")
+            return mapping
+
+        except Exception as e:
+            self.logger.error(f"Error loading phase mapping: {e}")
+            return None
+
     def _create_phase_mapping(
         self,
         material_phases: List[MaterialPhaseData],
-        config: HydrationInputConfig
+        config: HydrationInputConfig,
+        existing_mapping: Optional[PhaseIdMapping] = None
     ) -> PhaseIdMapping:
         """
         Create phase ID mapping from materials and hydration products.
 
+        If an existing mapping is provided (from source microstructure), it is used
+        as the base and only hydration products are added. Otherwise, a new mapping
+        is created from scratch.
+
         Args:
             material_phases: Material phase data from mix
             config: Hydration configuration with product list
+            existing_mapping: Optional existing mapping from source microstructure
 
         Returns:
             PhaseIdMapping object
         """
-        # Convert to format expected by PhaseIdMappingService
-        material_list = []
-        for mat in material_phases:
-            material_list.append({
-                'material_name': mat.material_name,
-                'phases': mat.phases,
-            })
+        if existing_mapping:
+            # Use the existing mapping from the source microstructure
+            mapping = existing_mapping
+            self.logger.info(f"Using existing phase mapping with {len(mapping.gem_to_micro)} phases")
+        else:
+            # Fall back to creating a new mapping from materials
+            self.logger.warning("No existing phase mapping - creating new mapping from materials")
 
-        # Create base mapping from materials
-        mapping = self.phase_id_mapping_service.create_mapping_from_mix(
-            material_list,
-            include_hydration_products=False  # We'll add our own products
-        )
+            # Convert to format expected by PhaseIdMappingService
+            material_list = []
+            for mat in material_phases:
+                material_list.append({
+                    'material_name': mat.material_name,
+                    'phases': mat.phases,
+                })
+
+            # Create base mapping from materials
+            mapping = self.phase_id_mapping_service.create_mapping_from_mix(
+                material_list,
+                include_hydration_products=False  # We'll add our own products
+            )
+
+        # CRITICAL: Ensure VOID (ID 0) and Electrolyte (ID 1) are always present
+        # THAMES-Hydration requires these even if they're not in the initial microstructure
+        if "VOID" not in mapping.gem_to_micro:
+            mapping.gem_to_micro["VOID"] = 0
+            mapping.micro_to_gem[0] = "VOID"
+            self.logger.info("Added VOID (ID 0) to phase mapping for hydration")
+
+        if "Electrolyte" not in mapping.gem_to_micro:
+            mapping.gem_to_micro["Electrolyte"] = 1
+            mapping.micro_to_gem[1] = "Electrolyte"
+            self.logger.info("Added Electrolyte (ID 1) to phase mapping for hydration")
 
         # Add hydration products to mapping
         next_id = mapping.next_available_id
@@ -307,7 +435,7 @@ class HydrationInputService:
 
         mapping.next_available_id = next_id
 
-        self.logger.info(f"Created phase mapping with {len(mapping.gem_to_micro)} phases")
+        self.logger.info(f"Final phase mapping with {len(mapping.gem_to_micro)} phases (including hydration products)")
         return mapping
 
     def _generate_simparams(
@@ -415,11 +543,10 @@ class HydrationInputService:
         Returns:
             GEMS phase name
         """
-        # Reverse mapping of common names
+        # Reverse mapping of common names (THAMES display name -> GEMS phase name)
         reverse_mappings = {
             "Void": "VOID",
             "Electrolyte": "Electrolyte",
-            "Bassanite": "hemihydrate",
             "Hydrotalcite": "hydrotalc-pyro",
         }
         return reverse_mappings.get(thamesname, thamesname)
@@ -695,6 +822,130 @@ class HydrationInputService:
                 )
 
         return len(warnings) == 0, warnings
+
+    def _get_gems_data_dir(self) -> Path:
+        """
+        Get the path to the GEMS data directory.
+
+        Returns:
+            Path to src/data/gems/ directory
+        """
+        # Try multiple possible locations
+        # 1. Relative to this file (development)
+        service_dir = Path(__file__).parent
+        gems_dir = service_dir.parent.parent / "data" / "gems"
+        if gems_dir.exists():
+            return gems_dir
+
+        # 2. PyInstaller bundle location
+        if getattr(sys, 'frozen', False):
+            bundle_dir = Path(sys._MEIPASS)
+            gems_dir = bundle_dir / "data" / "gems"
+            if gems_dir.exists():
+                return gems_dir
+
+        # 3. Fallback to project root
+        project_root = service_dir.parent.parent.parent
+        gems_dir = project_root / "src" / "data" / "gems"
+        if gems_dir.exists():
+            return gems_dir
+
+        raise FileNotFoundError("Could not locate GEMS data directory")
+
+    def _copy_gems_files(self, output_dir: Path) -> Dict[str, Path]:
+        """
+        Copy GEMS data files to the operation directory.
+
+        The files copied are:
+        - thames-dch.dat (DC/phase definitions)
+        - thames-ipm.dat (internal parameters)
+        - thames-dbr.dat (data bridge)
+
+        Args:
+            output_dir: Destination directory
+
+        Returns:
+            Dictionary of file type -> copied path
+        """
+        gems_dir = self._get_gems_data_dir()
+        copied_files: Dict[str, Path] = {}
+
+        gems_files = [
+            ("thames-dch.dat", "gems_dch"),
+            ("thames-ipm.dat", "gems_ipm"),
+            ("thames-dbr.dat", "gems_dbr"),
+        ]
+
+        for filename, key in gems_files:
+            src_path = gems_dir / filename
+            dst_path = output_dir / filename
+
+            if src_path.exists():
+                shutil.copy2(src_path, dst_path)
+                copied_files[key] = dst_path
+                self.logger.debug(f"Copied {filename} to {output_dir}")
+            else:
+                self.logger.warning(f"GEMS file not found: {src_path}")
+
+        return copied_files
+
+    def _create_thames_dat_lst(self, output_path: Path) -> None:
+        """
+        Create the thames-dat.lst file listing GEMS database files.
+
+        Format:
+        -t "thames-dch.dat" "thames-ipm.dat" "thames-dbr.dat"
+
+        Args:
+            output_path: Path to write thames-dat.lst
+        """
+        content = '-t "thames-dch.dat" "thames-ipm.dat" "thames-dbr.dat"\n'
+        with open(output_path, 'w') as f:
+            f.write(content)
+        self.logger.debug(f"Created {output_path}")
+
+    def _create_input_in(
+        self,
+        output_path: Path,
+        simtype: int,
+        gem_input_file: str,
+        simparams_file: str,
+        microstructure_file: str,
+        job_root: str
+    ) -> None:
+        """
+        Create the input.in master input file for thames.
+
+        This file is piped to thames stdin to run non-interactively.
+
+        Format:
+        <simtype>               # 1=Exit, 2=Hydration, 3=Leaching, 4=Sulfate attack
+        <gem_input_file>        # thames-dat.lst
+        <simparams_file>        # simparams.json
+        <microstructure_file>   # e.g., Cem151Paste.thames.img
+        <job_root>              # Base name for output files
+
+        Args:
+            output_path: Path to write input.in
+            simtype: Simulation type (1=Exit, 2=Hydration, 3=Leaching, 4=Sulfate)
+            gem_input_file: Name of GEMS input file (thames-dat.lst)
+            simparams_file: Name of simulation parameters file
+            microstructure_file: Name of microstructure file
+            job_root: Base name for output files
+        """
+        lines = [
+            str(simtype),
+            gem_input_file,
+            simparams_file,
+            microstructure_file,
+            job_root,
+        ]
+        content = '\n'.join(lines) + '\n'
+
+        with open(output_path, 'w') as f:
+            f.write(content)
+
+        self.logger.info(f"Created {output_path} with simtype={simtype}, job_root={job_root}")
 
 
 # =============================================================================

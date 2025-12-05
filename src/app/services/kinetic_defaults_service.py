@@ -103,7 +103,7 @@ class KineticDefaultsService:
             activationEnergy=40000.0,
             loi=0.0
         ),
-        "hemihydrate": StandardKinetics(
+        "Bassanite": StandardKinetics(
             dissolutionRateConst=1.5e-6,
             diffusionRateConstEarly=5.0e-6,
             diffusionRateConstLate=5.0e-6,
@@ -116,6 +116,28 @@ class KineticDefaultsService:
         ),
         "Anhydrite": StandardKinetics(
             dissolutionRateConst=5.0e-7,
+            diffusionRateConstEarly=5.0e-6,
+            diffusionRateConstLate=5.0e-6,
+            dissolvedUnits=2,
+            siexp=1.0,
+            dfexp=1.1,
+            dorexp=0.5,
+            activationEnergy=40000.0,
+            loi=0.0
+        ),
+        "Arcanite": StandardKinetics(
+            dissolutionRateConst=3.0e-6,
+            diffusionRateConstEarly=5.0e-6,
+            diffusionRateConstLate=5.0e-6,
+            dissolvedUnits=2,
+            siexp=1.0,
+            dfexp=1.1,
+            dorexp=0.5,
+            activationEnergy=40000.0,
+            loi=0.0
+        ),
+        "Thenardite": StandardKinetics(
+            dissolutionRateConst=3.0e-6,
             diffusionRateConstEarly=5.0e-6,
             diffusionRateConstLate=5.0e-6,
             dissolvedUnits=2,
@@ -628,12 +650,8 @@ class KineticDefaultsService:
         if phase_name in self.PARROT_KILLOH_DEFAULTS:
             return True
 
-        # Sulfate phases (except alkali sulfates which dissolve instantly)
+        # Sulfate phases (including alkali sulfates Arcanite and Thenardite)
         if phase_name in self.STANDARD_DEFAULTS:
-            return True
-
-        # Alkali sulfates are cement components but dissolve instantly
-        if phase_name in ['Arcanite', 'Thenardite']:
             return True
 
         # Pozzolanic phases
