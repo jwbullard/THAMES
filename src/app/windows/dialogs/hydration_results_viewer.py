@@ -2,9 +2,16 @@
 """
 Hydration Results Viewer Dialog
 
-3D visualization dialog for viewing time-series microstructure evolution 
-from hydration simulation results. Uses the existing PyVista viewer to 
-display initial and hydrated microstructures with time controls.
+Comprehensive viewer for THAMES hydration simulation results including:
+- Tab 1: 3D microstructure evolution visualization (PyVista)
+- Tab 2: Time-series data plots (matplotlib) for CSV output files
+
+CSV output files displayed:
+- Microstructure.csv - Phase volume fractions over time
+- Solution.csv - Aqueous species concentrations over time
+- SI.csv - Saturation indices over time
+- SurfaceAreas.csv - Phase surface areas over time
+- Enthalpy.csv - Enthalpy over time
 """
 
 import gi
@@ -12,10 +19,20 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GObject
 
 import numpy as np
+import pandas as pd
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 import logging
 import re
+
+# Import matplotlib for data plotting
+try:
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_gtk3agg import FigureCanvasGTK3Agg as FigureCanvas
+    from matplotlib.figure import Figure
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 # Import the existing VTK-based 3D viewer
 try:
@@ -39,22 +56,22 @@ except ImportError:
 
 
 class HydrationResultsViewer(Gtk.Dialog):
-    """Dialog for viewing 3D microstructure evolution from hydration simulation."""
-    
+    """Dialog for viewing hydration simulation results (3D visualization + time-series plots)."""
+
     def __init__(self, parent=None, operation=None):
         super().__init__(
-            title="Hydration Results - 3D Microstructure Evolution",
+            title="Hydration Results Viewer",
             transient_for=parent,
             flags=0
         )
-        
+
         self.operation = operation
         self.logger = logging.getLogger(__name__)
 
         # Initialize phase color service for THAMES mappings
         self.phase_color_service = PhaseColorService() if PHASE_COLOR_SERVICE_AVAILABLE else None
 
-        # Time-series data
+        # Time-series data (3D viewer)
         self.microstructure_files: List[Tuple[float, str]] = []  # (time_hours, filepath)
         self.current_time_index = 0
 
@@ -64,36 +81,47 @@ class HydrationResultsViewer(Gtk.Dialog):
 
         # THAMES-specific phase mapping (loaded from operation folder)
         self.thames_color_mapping = None  # PhaseColorMapping from operation folder
-        
+
         # Cache microstructure data for fast time navigation
         self.cached_voxel_data: Dict[int, np.ndarray] = {}  # index -> voxel_data
         self.cached_phase_meshes: Dict[int, Any] = {}  # index -> pre-built phase meshes
         self.preloading_complete = False
-        
+
         # Cleanup flag to prevent double cleanup
         self.cleanup_performed = False
-        
+
         # Track when dialog was hidden for automatic memory cleanup
         self.hidden_time = None
         self.auto_cleanup_timer = None
-        
-        # UI components
+
+        # 3D viewer UI components
         self.pyvista_viewer = None
         self.time_slider = None
         self.time_label = None
         self.info_label = None
-        
-        # Dialog setup
-        self.set_default_size(1000, 700)
+
+        # Data plots UI components (Tab 2)
+        self.csv_files: Dict[str, Path] = {}  # {display_name: filepath}
+        self.current_csv_data: Optional[pd.DataFrame] = None
+        self.plot_figure = None
+        self.plot_canvas = None
+        self.data_file_combo = None
+        self.y_liststore = None
+        self.y_treeview = None
+        self.output_path: Optional[Path] = None  # Cache operation output path
+
+        # Dialog setup - use reasonable default that fits most screens
+        self.set_default_size(1000, 650)
+        self.set_resizable(True)
         self.set_modal(True)
-        
+
         # Add standard dialog buttons
         self.add_button("Close", Gtk.ResponseType.CLOSE)
-        
+
         # Connect cleanup handlers to prevent segfault
         self.connect('delete-event', self._on_delete_event)
         self.connect('response', self._on_response)
-        
+
         # Initialize UI
         self._setup_ui()
         self._load_microstructure_files()
@@ -111,38 +139,53 @@ class HydrationResultsViewer(Gtk.Dialog):
             self._initial_loaded = True
         
     def _setup_ui(self) -> None:
-        """Set up the user interface."""
+        """Set up the user interface with tabs for 3D viewer and data plots."""
         content_area = self.get_content_area()
-        content_area.set_spacing(10)
+        content_area.set_spacing(5)
         content_area.set_margin_left(10)
         content_area.set_margin_right(10)
-        content_area.set_margin_top(10)
-        content_area.set_margin_bottom(10)
-        
-        # Create main layout - 3D viewer on top, controls below
-        main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        content_area.pack_start(main_vbox, True, True, 0)
-        
+        content_area.set_margin_top(5)
+        content_area.set_margin_bottom(5)
+
+        # Create notebook for tabs
+        self.notebook = Gtk.Notebook()
+        self.notebook.set_tab_pos(Gtk.PositionType.TOP)
+        content_area.pack_start(self.notebook, True, True, 0)
+
+        # Tab 1: 3D Microstructure Evolution
+        self._create_3d_viewer_tab()
+
+        # Tab 2: Time-Series Data Plots
+        self._create_data_plots_tab()
+
+        # Ensure notebook and tabs are visible
+        self.notebook.show_all()
+
+    def _create_3d_viewer_tab(self) -> None:
+        """Create the 3D microstructure viewer tab."""
+        tab_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        tab_vbox.set_margin_left(5)
+        tab_vbox.set_margin_right(5)
+        tab_vbox.set_margin_top(5)
+        tab_vbox.set_margin_bottom(5)
+
         # Info label at top
         self.info_label = Gtk.Label()
         self.info_label.set_markup("<b>Hydration Simulation Results</b>")
         self.info_label.set_halign(Gtk.Align.START)
-        main_vbox.pack_start(self.info_label, False, False, 0)
-        
+        tab_vbox.pack_start(self.info_label, False, False, 0)
+
         # Create 3D viewer frame
         viewer_frame = Gtk.Frame(label="3D Microstructure Evolution")
-        viewer_frame.set_size_request(-1, 500)
-        main_vbox.pack_start(viewer_frame, True, True, 0)
+        viewer_frame.set_size_request(-1, 380)
+        tab_vbox.pack_start(viewer_frame, True, True, 0)
 
         # Add PyVista viewer if available
         if PYVISTA_AVAILABLE and PyVistaViewer3D is not None:
             self.pyvista_viewer = PyVistaViewer3D()
             viewer_frame.add(self.pyvista_viewer)
-
-            # Make sure the viewer is shown
             self.pyvista_viewer.show_all()
         else:
-            # Show message that 3D visualization is not available
             unavailable_label = Gtk.Label()
             unavailable_label.set_markup(
                 "<b>3D Visualization Not Available</b>\n\n"
@@ -151,56 +194,254 @@ class HydrationResultsViewer(Gtk.Dialog):
             )
             unavailable_label.set_justify(Gtk.Justification.CENTER)
             viewer_frame.add(unavailable_label)
-        
+
         # Create time controls frame
         controls_frame = Gtk.Frame(label="Time Controls")
-        main_vbox.pack_start(controls_frame, False, False, 0)
-        
-        # Time controls layout
+        tab_vbox.pack_start(controls_frame, False, False, 0)
+
         controls_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         controls_vbox.set_margin_left(10)
         controls_vbox.set_margin_right(10)
         controls_vbox.set_margin_top(5)
         controls_vbox.set_margin_bottom(10)
         controls_frame.add(controls_vbox)
-        
+
         # Time display label
         self.time_label = Gtk.Label()
         self.time_label.set_markup("<b>Time: 0.0 hours</b>")
         self.time_label.set_halign(Gtk.Align.CENTER)
         controls_vbox.pack_start(self.time_label, False, False, 0)
-        
+
         # Time slider
         self.time_slider = Gtk.Scale.new_with_range(
             orientation=Gtk.Orientation.HORIZONTAL,
             min=0,
-            max=100,  # Will be updated when files are loaded
+            max=100,
             step=1
         )
         self.time_slider.set_hexpand(True)
         self.time_slider.set_value(0)
         self.time_slider.connect('value-changed', self._on_time_changed)
         controls_vbox.pack_start(self.time_slider, False, False, 5)
-        
+
         # Time navigation buttons
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         button_box.set_halign(Gtk.Align.CENTER)
         controls_vbox.pack_start(button_box, False, False, 5)
-        
-        # Previous button
+
         prev_button = Gtk.Button(label="← Previous")
         prev_button.connect('clicked', self._on_previous_clicked)
         button_box.pack_start(prev_button, False, False, 0)
-        
-        # Next button
+
         next_button = Gtk.Button(label="Next →")
         next_button.connect('clicked', self._on_next_clicked)
         button_box.pack_start(next_button, False, False, 0)
-        
-        # Export view button - REMOVED (non-functional, working version available in PyVista viewer)
-        # export_button = Gtk.Button(label="Export View")
-        # export_button.connect('clicked', self._on_export_clicked)
-        # button_box.pack_start(export_button, False, False, 0)
+
+        # Add tab to notebook
+        tab_label = Gtk.Label(label="3D Visualization")
+        tab_vbox.show_all()
+        self.notebook.append_page(tab_vbox, tab_label)
+
+    def _create_data_plots_tab(self) -> None:
+        """Create the time-series data plots tab."""
+        if not MATPLOTLIB_AVAILABLE:
+            # Show message that matplotlib is not available
+            unavailable_label = Gtk.Label()
+            unavailable_label.set_markup(
+                "<b>Data Plotting Not Available</b>\n\n"
+                "Matplotlib is required for time-series data plots.\n"
+                "Install matplotlib to enable this feature."
+            )
+            unavailable_label.set_justify(Gtk.Justification.CENTER)
+            tab_label = Gtk.Label(label="Data Plots")
+            unavailable_label.show_all()
+            self.notebook.append_page(unavailable_label, tab_label)
+            return
+
+        # Main horizontal layout: controls on left, plot on right
+        main_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
+        main_paned.set_wide_handle(True)
+        main_paned.set_position(260)
+
+        # Left side: Controls panel (scrollable)
+        controls_frame = Gtk.Frame(label="Plot Controls")
+        controls_frame.set_size_request(260, -1)
+
+        # Make controls scrollable for smaller screens
+        controls_scroll = Gtk.ScrolledWindow()
+        controls_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+
+        controls_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        controls_vbox.set_margin_left(6)
+        controls_vbox.set_margin_right(6)
+        controls_vbox.set_margin_top(6)
+        controls_vbox.set_margin_bottom(6)
+        controls_scroll.add(controls_vbox)
+        controls_frame.add(controls_scroll)
+
+        # Data file selection
+        file_label = Gtk.Label()
+        file_label.set_markup("<b>Data Category:</b>")
+        file_label.set_halign(Gtk.Align.START)
+        controls_vbox.pack_start(file_label, False, False, 0)
+
+        self.data_file_combo = Gtk.ComboBoxText()
+        self.data_file_combo.connect('changed', self._on_data_file_changed)
+        controls_vbox.pack_start(self.data_file_combo, False, False, 0)
+
+        # Y-axis variables (multi-select)
+        y_label = Gtk.Label()
+        y_label.set_markup("<b>Variables to Plot:</b>")
+        y_label.set_halign(Gtk.Align.START)
+        controls_vbox.pack_start(y_label, False, False, 5)
+
+        # Scrolled window for Y variables list
+        y_scrolled = Gtk.ScrolledWindow()
+        y_scrolled.set_size_request(-1, 150)
+        y_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        controls_vbox.pack_start(y_scrolled, True, True, 0)
+
+        # List store: selected, display_name, column_name
+        self.y_liststore = Gtk.ListStore(bool, str, str)
+        self.y_treeview = Gtk.TreeView(model=self.y_liststore)
+
+        # Checkbox column
+        checkbox_renderer = Gtk.CellRendererToggle()
+        checkbox_renderer.connect("toggled", self._on_plot_variable_toggled)
+        checkbox_column = Gtk.TreeViewColumn("", checkbox_renderer, active=0)
+        self.y_treeview.append_column(checkbox_column)
+
+        # Variable name column
+        text_renderer = Gtk.CellRendererText()
+        name_column = Gtk.TreeViewColumn("Variable", text_renderer, text=1)
+        self.y_treeview.append_column(name_column)
+
+        y_scrolled.add(self.y_treeview)
+
+        # Select/deselect buttons
+        select_button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        controls_vbox.pack_start(select_button_box, False, False, 0)
+
+        select_all_btn = Gtk.Button(label="Select All")
+        select_all_btn.connect('clicked', self._on_select_all_clicked)
+        select_button_box.pack_start(select_all_btn, True, True, 0)
+
+        deselect_all_btn = Gtk.Button(label="Deselect All")
+        deselect_all_btn.connect('clicked', self._on_deselect_all_clicked)
+        select_button_box.pack_start(deselect_all_btn, True, True, 0)
+
+        # Plot options
+        options_label = Gtk.Label()
+        options_label.set_markup("<b>Plot Options:</b>")
+        options_label.set_halign(Gtk.Align.START)
+        controls_vbox.pack_start(options_label, False, False, 5)
+
+        # Log scale checkboxes
+        self.log_x_check = Gtk.CheckButton(label="Logarithmic X-axis")
+        controls_vbox.pack_start(self.log_x_check, False, False, 0)
+
+        self.log_y_check = Gtk.CheckButton(label="Logarithmic Y-axis")
+        controls_vbox.pack_start(self.log_y_check, False, False, 0)
+
+        # Line width selection
+        line_width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        line_width_label = Gtk.Label(label="Line Width:")
+        line_width_box.pack_start(line_width_label, False, False, 0)
+        self.line_width_spin = Gtk.SpinButton.new_with_range(0.5, 5.0, 0.5)
+        self.line_width_spin.set_value(1.5)
+        self.line_width_spin.set_digits(1)
+        line_width_box.pack_start(self.line_width_spin, False, False, 0)
+        controls_vbox.pack_start(line_width_box, False, False, 2)
+
+        # Color scheme selection
+        color_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        color_label = Gtk.Label(label="Color Scheme:")
+        color_box.pack_start(color_label, False, False, 0)
+        self.color_scheme_combo = Gtk.ComboBoxText()
+        color_schemes = ["Tab10 (Default)", "Set1", "Dark2", "Paired", "Pastel1", "Single Color"]
+        for scheme in color_schemes:
+            self.color_scheme_combo.append_text(scheme)
+        self.color_scheme_combo.set_active(0)
+        color_box.pack_start(self.color_scheme_combo, True, True, 0)
+        controls_vbox.pack_start(color_box, False, False, 2)
+
+        # Axis range controls
+        range_label = Gtk.Label()
+        range_label.set_markup("<b>Axis Ranges:</b> <small>(leave blank for auto)</small>")
+        range_label.set_halign(Gtk.Align.START)
+        controls_vbox.pack_start(range_label, False, False, 5)
+
+        # X-axis range
+        x_range_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+        x_range_label = Gtk.Label(label="X:")
+        x_range_label.set_size_request(20, -1)
+        x_range_box.pack_start(x_range_label, False, False, 0)
+        self.x_min_entry = Gtk.Entry()
+        self.x_min_entry.set_placeholder_text("min")
+        self.x_min_entry.set_width_chars(6)
+        x_range_box.pack_start(self.x_min_entry, True, True, 0)
+        x_to_label = Gtk.Label(label="to")
+        x_range_box.pack_start(x_to_label, False, False, 0)
+        self.x_max_entry = Gtk.Entry()
+        self.x_max_entry.set_placeholder_text("max")
+        self.x_max_entry.set_width_chars(6)
+        x_range_box.pack_start(self.x_max_entry, True, True, 0)
+        controls_vbox.pack_start(x_range_box, False, False, 0)
+
+        # Y-axis range
+        y_range_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=3)
+        y_range_label = Gtk.Label(label="Y:")
+        y_range_label.set_size_request(20, -1)
+        y_range_box.pack_start(y_range_label, False, False, 0)
+        self.y_min_entry = Gtk.Entry()
+        self.y_min_entry.set_placeholder_text("min")
+        self.y_min_entry.set_width_chars(6)
+        y_range_box.pack_start(self.y_min_entry, True, True, 0)
+        y_to_label = Gtk.Label(label="to")
+        y_range_box.pack_start(y_to_label, False, False, 0)
+        self.y_max_entry = Gtk.Entry()
+        self.y_max_entry.set_placeholder_text("max")
+        self.y_max_entry.set_width_chars(6)
+        y_range_box.pack_start(self.y_max_entry, True, True, 0)
+        controls_vbox.pack_start(y_range_box, False, False, 0)
+
+        # Action buttons
+        action_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        controls_vbox.pack_start(action_box, False, False, 10)
+
+        plot_button = Gtk.Button(label="Create Plot")
+        plot_button.get_style_context().add_class("suggested-action")
+        plot_button.connect('clicked', self._on_create_data_plot_clicked)
+        action_box.pack_start(plot_button, False, False, 0)
+
+        export_plot_btn = Gtk.Button(label="Export Plot")
+        export_plot_btn.connect('clicked', self._on_export_data_plot_clicked)
+        action_box.pack_start(export_plot_btn, False, False, 0)
+
+        main_paned.pack1(controls_frame, False, False)
+
+        # Right side: Plot area
+        plot_frame = Gtk.Frame(label="Time-Series Plot")
+
+        self.plot_figure = Figure(figsize=(8, 6), dpi=100)
+        self.plot_canvas = FigureCanvas(self.plot_figure)
+        self.plot_canvas.set_size_request(500, 400)
+        plot_frame.add(self.plot_canvas)
+
+        # Initial placeholder plot
+        ax = self.plot_figure.add_subplot(111)
+        ax.text(0.5, 0.5, 'Select a data category and variables,\nthen click "Create Plot"',
+                horizontalalignment='center', verticalalignment='center',
+                transform=ax.transAxes, fontsize=12)
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        main_paned.pack2(plot_frame, True, True)
+
+        # Add tab to notebook - show_all ensures all widgets are visible
+        tab_label = Gtk.Label(label="Data Plots")
+        main_paned.show_all()
+        self.notebook.append_page(main_paned, tab_label)
         
     def _load_microstructure_files(self) -> None:
         """Load and sort all time-series microstructure files."""
@@ -208,7 +449,7 @@ class HydrationResultsViewer(Gtk.Dialog):
             if not self.operation:
                 self.logger.error("No operation specified")
                 return
-            
+
             # Get output directory from operation metadata
             output_dir = None
             if hasattr(self.operation, 'output_dir') and self.operation.output_dir:
@@ -217,7 +458,7 @@ class HydrationResultsViewer(Gtk.Dialog):
                 output_dir = self.operation.metadata.get('output_directory')
                 if not output_dir:
                     output_dir = self.operation.metadata.get('output_dir')
-            
+
             if not output_dir:
                 # Try to construct from operation name using configured operations directory
                 from app.services.service_container import get_service_container
@@ -226,43 +467,75 @@ class HydrationResultsViewer(Gtk.Dialog):
                 potential_folder = operations_dir / self.operation.name
                 if potential_folder.exists():
                     output_dir = str(potential_folder)
-            
+
             if not output_dir:
                 self.logger.error("No output directory found for operation")
                 return
-            
+
             output_path = Path(output_dir)
             if not output_path.exists():
                 self.logger.error(f"Output directory does not exist: {output_path}")
                 return
-            
-            # Find initial microstructure (original .img file)
-            initial_files = list(output_path.glob("*.img"))
-            initial_files = [f for f in initial_files if not any(x in f.name for x in ['.h.', 'HydrationOf_'])]
-            
-            if initial_files:
-                self.microstructure_files.append((0.0, str(initial_files[0])))
-                self.logger.info(f"Found initial microstructure: {initial_files[0].name}")
-            
-            # Find time-series files (pattern: *.img.XXX.XXh.XX.XXX) - exclude .poredist files
-            time_files = list(output_path.glob("*.img.*h.*.*"))
-            time_files = [f for f in time_files if not f.name.endswith('.poredist')]
-            
-            for file_path in time_files:
-                # Extract time from filename using regex
-                match = re.search(r'\.(\d+\.?\d*)h\.', file_path.name)
-                if match:
-                    time_hours = float(match.group(1))
-                    self.microstructure_files.append((time_hours, str(file_path)))
-                    self.logger.info(f"Found time-series file: {file_path.name} at {time_hours}h")
-            
-            # Find final hydrated microstructure
-            final_files = list(output_path.glob("HydrationOf_*.img.*.*"))
-            if final_files:
-                # Try to get the final time from CSV data or use a large number
-                final_time = 999999.0  # Large number to place at end
-                self.microstructure_files.append((final_time, str(final_files[0])))
-                self.logger.info(f"Found final microstructure: {final_files[0].name}")
+
+            # Check for Result/ subdirectory (THAMES hydration output location)
+            result_path = output_path / "Result"
+            if result_path.exists():
+                self.logger.info(f"Found Result/ subdirectory, searching there for hydration outputs")
+                search_path = result_path
+            else:
+                search_path = output_path
+
+            # Find all .img files in the search path (Result/ or operation root)
+            all_img_files = list(search_path.glob("*.img"))
+            self.logger.info(f"Found {len(all_img_files)} .img files in {search_path}")
+
+            # THAMES time-series format: JobRoot.YYYyDDDdHHhMMm.TTTK.img
+            # Example: HydOf-Cem152-Neat.000y000d02h24m.298K.img
+            thames_time_pattern = re.compile(r'\.(\d+)y(\d+)d(\d+)h(\d+)m\.(\d+)K\.img$')
+
+            # Also support VCCTL format: *.img.XXX.XXh.XX.XXX
+            vcctl_time_pattern = re.compile(r'\.img\..*?(\d+\.?\d*)h\.')
+
+            # Track which files we've already added (by path) to avoid duplicates
+            added_files = set()
+
+            for file_path in all_img_files:
+                filename = file_path.name
+                file_str = str(file_path)
+
+                # Skip if already added
+                if file_str in added_files:
+                    continue
+
+                # Try THAMES time-series format first
+                thames_match = thames_time_pattern.search(filename)
+                if thames_match:
+                    years = int(thames_match.group(1))
+                    days = int(thames_match.group(2))
+                    hours = int(thames_match.group(3))
+                    minutes = int(thames_match.group(4))
+
+                    # Convert to total hours
+                    time_hours = years * 365 * 24 + days * 24 + hours + minutes / 60.0
+                    self.microstructure_files.append((time_hours, file_str))
+                    added_files.add(file_str)
+                    self.logger.info(f"Found THAMES time-series file: {filename} at {time_hours:.2f}h")
+                    continue
+
+                # Try VCCTL format
+                vcctl_match = vcctl_time_pattern.search(filename)
+                if vcctl_match:
+                    time_hours = float(vcctl_match.group(1))
+                    self.microstructure_files.append((time_hours, file_str))
+                    added_files.add(file_str)
+                    self.logger.info(f"Found VCCTL time-series file: {filename} at {time_hours}h")
+                    continue
+
+                # No time pattern matched - this is an initial microstructure
+                # Use -0.001 hours so it sorts before t=0 time-series files
+                self.microstructure_files.append((-0.001, file_str))
+                added_files.add(file_str)
+                self.logger.info(f"Found initial microstructure: {filename}")
             
             # Sort by time
             self.microstructure_files.sort(key=lambda x: x[0])
@@ -277,6 +550,10 @@ class HydrationResultsViewer(Gtk.Dialog):
             # Try to load THAMES phase mapping from operation folder
             thames_loaded = self._load_thames_phase_mapping(output_path)
             mapping_source = "THAMES" if thames_loaded else "VCCTL"
+
+            # Cache output path and load CSV files for data plots tab
+            self.output_path = output_path
+            self._load_csv_files()
 
             # Update info label
             if self.microstructure_files:
@@ -875,24 +1152,38 @@ class HydrationResultsViewer(Gtk.Dialog):
         """Update the time display label."""
         if 0 <= self.current_time_index < len(self.microstructure_files):
             time_hours, file_path = self.microstructure_files[self.current_time_index]
-            
-            if time_hours >= 999999:  # Final microstructure
+
+            if time_hours < 0:  # Initial microstructure (before hydration)
+                time_text = "Initial (before hydration)"
+            elif time_hours >= 999999:  # Final microstructure
                 time_text = "Final Hydrated State"
-            else:
+            elif time_hours < 1:
+                time_text = f"{time_hours * 60:.1f} minutes"
+            elif time_hours < 24:
                 time_text = f"{time_hours:.2f} hours"
-            
+            else:
+                days = time_hours / 24.0
+                time_text = f"{days:.2f} days ({time_hours:.1f} hours)"
+
             self.time_label.set_markup(f"<b>Time: {time_text}</b>")
     
     def _update_time_display_with_status(self, status: str) -> None:
         """Update the time display label with a status message."""
         if 0 <= self.current_time_index < len(self.microstructure_files):
             time_hours, file_path = self.microstructure_files[self.current_time_index]
-            
-            if time_hours >= 999999:  # Final microstructure
+
+            if time_hours < 0:  # Initial microstructure (before hydration)
+                time_text = "Initial (before hydration)"
+            elif time_hours >= 999999:  # Final microstructure
                 time_text = "Final Hydrated State"
-            else:
+            elif time_hours < 1:
+                time_text = f"{time_hours * 60:.1f} minutes"
+            elif time_hours < 24:
                 time_text = f"{time_hours:.2f} hours"
-            
+            else:
+                days = time_hours / 24.0
+                time_text = f"{days:.2f} days ({time_hours:.1f} hours)"
+
             self.time_label.set_markup(f"<b>Time: {time_text}</b> - <span color='orange'>{status}</span>")
     
     def _on_export_clicked(self, button) -> None:
@@ -916,6 +1207,380 @@ class HydrationResultsViewer(Gtk.Dialog):
             dialog.run()
             dialog.destroy()
     
+    # ==================== Data Plots Tab Methods ====================
+
+    def _load_csv_files(self) -> None:
+        """Load CSV files from the Result/ subdirectory for the data plots tab."""
+        try:
+            self.logger.info(f"_load_csv_files called, output_path={self.output_path}")
+
+            if not self.output_path:
+                self.logger.warning("No output path available for CSV loading")
+                return
+
+            # Check for Result/ subdirectory (THAMES hydration output location)
+            result_path = self.output_path / "Result"
+            self.logger.info(f"Looking for Result/ at: {result_path}, exists={result_path.exists()}")
+
+            if not result_path.exists():
+                self.logger.info(f"No Result/ subdirectory found in {self.output_path}")
+                return
+
+            # Define the expected CSV files with user-friendly display names
+            csv_file_mappings = {
+                "Phase Volumes": "Microstructure.csv",
+                "Solution Chemistry": "Solution.csv",
+                "Saturation Indices": "SI.csv",
+                "Surface Areas": "SurfaceAreas.csv",
+                "Enthalpy": "Enthalpy.csv",
+            }
+
+            # Find CSV files matching the expected names
+            self.csv_files.clear()
+            for display_name, filename in csv_file_mappings.items():
+                # Look for files with the operation name prefix
+                pattern = f"*_{filename}"
+                matches = list(result_path.glob(pattern))
+                if matches:
+                    self.csv_files[display_name] = matches[0]
+                    self.logger.info(f"Found CSV file: {display_name} -> {matches[0].name}")
+                else:
+                    # Try without prefix
+                    direct_match = result_path / filename
+                    if direct_match.exists():
+                        self.csv_files[display_name] = direct_match
+                        self.logger.info(f"Found CSV file: {display_name} -> {filename}")
+
+            # Populate the combo box
+            self.logger.info(f"Found {len(self.csv_files)} CSV files, data_file_combo exists: {self.data_file_combo is not None}")
+
+            if self.data_file_combo:
+                self.data_file_combo.remove_all()
+                for display_name in self.csv_files.keys():
+                    self.data_file_combo.append_text(display_name)
+                    self.logger.info(f"Added to combo: {display_name}")
+
+                if self.csv_files:
+                    self.data_file_combo.set_active(0)
+                    self.logger.info(f"Loaded {len(self.csv_files)} CSV files for data plots, set active=0")
+                else:
+                    self.logger.info("No CSV files found in Result/ directory")
+            else:
+                self.logger.warning("data_file_combo is None - cannot populate")
+
+        except Exception as e:
+            self.logger.error(f"Error loading CSV files: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+
+    def _on_data_file_changed(self, combo) -> None:
+        """Handle data file selection change."""
+        try:
+            selected_text = combo.get_active_text()
+            if not selected_text or selected_text not in self.csv_files:
+                return
+
+            filepath = self.csv_files[selected_text]
+            self._load_csv_data(filepath)
+
+        except Exception as e:
+            self.logger.error(f"Error handling data file change: {e}")
+
+    def _load_csv_data(self, filepath: Path) -> None:
+        """Load CSV data and populate the variables list."""
+        try:
+            self.current_csv_data = pd.read_csv(filepath)
+            columns = list(self.current_csv_data.columns)
+
+            # Clear and populate variables list
+            self.y_liststore.clear()
+
+            # Find the time column (should be first column)
+            time_col = None
+            for col in columns:
+                if col.lower() in ['time(h)', 'time', 'time_h', 'time_hours']:
+                    time_col = col
+                    break
+
+            # Add non-time columns as plottable variables
+            for column in columns:
+                if column != time_col:
+                    # Create cleaner display name
+                    display_name = column
+                    self.y_liststore.append([False, display_name, column])
+
+            # Auto-select first few variables for convenience
+            iter_var = self.y_liststore.get_iter_first()
+            selected_count = 0
+            while iter_var and selected_count < 3:
+                self.y_liststore.set_value(iter_var, 0, True)
+                iter_var = self.y_liststore.iter_next(iter_var)
+                selected_count += 1
+
+            self.logger.info(f"Loaded {len(columns)} columns from {filepath.name}")
+
+        except Exception as e:
+            self.logger.error(f"Error loading CSV data from {filepath}: {e}")
+            self._show_plot_error(f"Failed to load data: {e}")
+
+    def _on_plot_variable_toggled(self, renderer, path) -> None:
+        """Handle variable checkbox toggle."""
+        try:
+            iter_var = self.y_liststore.get_iter(path)
+            current_value = self.y_liststore.get_value(iter_var, 0)
+            self.y_liststore.set_value(iter_var, 0, not current_value)
+        except Exception as e:
+            self.logger.error(f"Error toggling variable: {e}")
+
+    def _on_select_all_clicked(self, button) -> None:
+        """Select all variables."""
+        try:
+            iter_var = self.y_liststore.get_iter_first()
+            while iter_var:
+                self.y_liststore.set_value(iter_var, 0, True)
+                iter_var = self.y_liststore.iter_next(iter_var)
+        except Exception as e:
+            self.logger.error(f"Error selecting all: {e}")
+
+    def _on_deselect_all_clicked(self, button) -> None:
+        """Deselect all variables."""
+        try:
+            iter_var = self.y_liststore.get_iter_first()
+            while iter_var:
+                self.y_liststore.set_value(iter_var, 0, False)
+                iter_var = self.y_liststore.iter_next(iter_var)
+        except Exception as e:
+            self.logger.error(f"Error deselecting all: {e}")
+
+    def _get_selected_variables(self) -> List[str]:
+        """Get list of selected variable column names."""
+        selected = []
+        try:
+            iter_var = self.y_liststore.get_iter_first()
+            while iter_var:
+                if self.y_liststore.get_value(iter_var, 0):  # If selected
+                    col_name = self.y_liststore.get_value(iter_var, 2)
+                    selected.append(col_name)
+                iter_var = self.y_liststore.iter_next(iter_var)
+        except Exception as e:
+            self.logger.error(f"Error getting selected variables: {e}")
+        return selected
+
+    def _on_create_data_plot_clicked(self, button) -> None:
+        """Create the data plot based on current selections."""
+        try:
+            if self.current_csv_data is None:
+                self._show_plot_error("No data loaded. Please select a data category.")
+                return
+
+            selected_vars = self._get_selected_variables()
+            if not selected_vars:
+                self._show_plot_error("Please select at least one variable to plot.")
+                return
+
+            # Find time column
+            time_col = None
+            for col in self.current_csv_data.columns:
+                if col.lower() in ['time(h)', 'time', 'time_h', 'time_hours']:
+                    time_col = col
+                    break
+
+            if time_col is None:
+                self._show_plot_error("No time column found in data.")
+                return
+
+            # Get time data and convert to days for better readability
+            time_data = self.current_csv_data[time_col]
+            time_days = time_data / 24.0  # Convert hours to days
+
+            # Clear and create new plot
+            self.plot_figure.clear()
+            ax = self.plot_figure.add_subplot(111)
+
+            # Get line width
+            line_width = self.line_width_spin.get_value() if hasattr(self, 'line_width_spin') else 1.5
+
+            # Get color scheme
+            color_scheme = self.color_scheme_combo.get_active_text() if hasattr(self, 'color_scheme_combo') else "Tab10 (Default)"
+            colors = self._get_color_palette(color_scheme, len(selected_vars))
+
+            # Plot each selected variable
+            for i, var in enumerate(selected_vars):
+                y_data = self.current_csv_data[var]
+                color = colors[i % len(colors)]
+                ax.plot(time_days, y_data, linewidth=line_width, color=color, label=var)
+
+            # Set log scale if requested
+            if hasattr(self, 'log_x_check') and self.log_x_check.get_active():
+                ax.set_xscale('log')
+
+            if hasattr(self, 'log_y_check') and self.log_y_check.get_active():
+                ax.set_yscale('log')
+
+            # Apply custom axis ranges if specified
+            x_min, x_max = self._parse_range(self.x_min_entry, self.x_max_entry)
+            y_min, y_max = self._parse_range(self.y_min_entry, self.y_max_entry)
+
+            if x_min is not None or x_max is not None:
+                current_xlim = ax.get_xlim()
+                ax.set_xlim(
+                    x_min if x_min is not None else current_xlim[0],
+                    x_max if x_max is not None else current_xlim[1]
+                )
+
+            if y_min is not None or y_max is not None:
+                current_ylim = ax.get_ylim()
+                ax.set_ylim(
+                    y_min if y_min is not None else current_ylim[0],
+                    y_max if y_max is not None else current_ylim[1]
+                )
+
+            # Configure plot
+            ax.set_xlabel("Time (days)", fontsize=10)
+            ax.set_ylabel("Value", fontsize=10)
+            ax.grid(True, alpha=0.3)
+
+            # Get category name for title
+            category = self.data_file_combo.get_active_text() or "Data"
+            ax.set_title(f"{category} vs Time", fontsize=11, fontweight='bold')
+
+            # Add legend (outside plot if many variables)
+            if len(selected_vars) <= 6:
+                ax.legend(loc='best', fontsize=8)
+            else:
+                ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=7)
+
+            # Adjust layout
+            self.plot_figure.tight_layout()
+            self.plot_canvas.draw()
+
+            self.logger.info(f"Created plot with {len(selected_vars)} variables")
+
+        except Exception as e:
+            self.logger.error(f"Error creating plot: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            self._show_plot_error(f"Failed to create plot: {e}")
+
+    def _on_export_data_plot_clicked(self, button) -> None:
+        """Export the current data plot to a file."""
+        try:
+            if self.plot_figure is None:
+                self._show_plot_error("No plot to export.")
+                return
+
+            # Create file chooser dialog
+            dialog = Gtk.FileChooserDialog(
+                title="Export Plot",
+                parent=self,
+                action=Gtk.FileChooserAction.SAVE
+            )
+            dialog.add_buttons(
+                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_SAVE, Gtk.ResponseType.OK
+            )
+
+            # Add file filters
+            filter_png = Gtk.FileFilter()
+            filter_png.set_name("PNG images")
+            filter_png.add_pattern("*.png")
+            dialog.add_filter(filter_png)
+
+            filter_pdf = Gtk.FileFilter()
+            filter_pdf.set_name("PDF files")
+            filter_pdf.add_pattern("*.pdf")
+            dialog.add_filter(filter_pdf)
+
+            filter_svg = Gtk.FileFilter()
+            filter_svg.set_name("SVG files")
+            filter_svg.add_pattern("*.svg")
+            dialog.add_filter(filter_svg)
+
+            # Set default filename
+            category = self.data_file_combo.get_active_text() or "plot"
+            category_safe = category.replace(" ", "_").lower()
+            if self.operation:
+                dialog.set_current_name(f"{self.operation.name}_{category_safe}.png")
+            else:
+                dialog.set_current_name(f"{category_safe}.png")
+
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                filename = dialog.get_filename()
+                self.plot_figure.savefig(filename, dpi=300, bbox_inches='tight')
+                self.logger.info(f"Plot exported to: {filename}")
+
+                # Show success message
+                success_dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Export Successful"
+                )
+                success_dialog.format_secondary_text(f"Plot saved to:\n{filename}")
+                success_dialog.run()
+                success_dialog.destroy()
+
+            dialog.destroy()
+
+        except Exception as e:
+            self.logger.error(f"Error exporting plot: {e}")
+            self._show_plot_error(f"Failed to export plot: {e}")
+
+    def _get_color_palette(self, scheme_name: str, num_colors: int) -> List:
+        """Get a color palette based on the selected scheme."""
+        scheme_map = {
+            "Tab10 (Default)": plt.cm.tab10,
+            "Set1": plt.cm.Set1,
+            "Dark2": plt.cm.Dark2,
+            "Paired": plt.cm.Paired,
+            "Pastel1": plt.cm.Pastel1,
+        }
+
+        if scheme_name == "Single Color":
+            # Return a single blue color repeated
+            return [(0.2, 0.4, 0.8, 1.0)] * num_colors
+
+        cmap = scheme_map.get(scheme_name, plt.cm.tab10)
+        return [cmap(i / max(num_colors - 1, 1)) for i in range(num_colors)]
+
+    def _parse_range(self, min_entry: Gtk.Entry, max_entry: Gtk.Entry) -> Tuple[Optional[float], Optional[float]]:
+        """Parse min/max range from entry widgets."""
+        min_val = None
+        max_val = None
+
+        try:
+            min_text = min_entry.get_text().strip()
+            if min_text:
+                min_val = float(min_text)
+        except ValueError:
+            pass  # Invalid input, use auto
+
+        try:
+            max_text = max_entry.get_text().strip()
+            if max_text:
+                max_val = float(max_text)
+        except ValueError:
+            pass  # Invalid input, use auto
+
+        return min_val, max_val
+
+    def _show_plot_error(self, message: str) -> None:
+        """Show an error dialog for plot-related errors."""
+        dialog = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text="Plot Error"
+        )
+        dialog.format_secondary_text(message)
+        dialog.run()
+        dialog.destroy()
+
+    # ==================== Dialog Lifecycle Methods ====================
+
     def _on_delete_event(self, widget, event):
         """Handle window close event - hide instead of destroy to avoid PyVista segfault."""
         try:

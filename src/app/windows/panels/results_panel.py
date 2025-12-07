@@ -328,17 +328,17 @@ class ResultsPanel(Gtk.Box):
             button_box.pack_start(icon_label, False, False, 0)
 
             text_label = Gtk.Label()
-            text_label.set_markup('<b>View 3D Results</b>')
+            text_label.set_markup('<b>View Results</b>')
             button_box.pack_start(text_label, False, False, 0)
 
             desc_label = Gtk.Label()
-            desc_label.set_markup('<small>Interactive 3D microstructure\nevolution visualization</small>')
+            desc_label.set_markup('<small>3D visualization and\ntime-series data plots</small>')
             desc_label.set_justify(Gtk.Justification.CENTER)
             button_box.pack_start(desc_label, False, False, 0)
 
             self.view_3d_button.add(button_box)
             self.view_3d_button.connect('clicked', self._on_view_3d_results_clicked)
-            self.view_3d_button.set_tooltip_text("View 3D microstructure evolution from hydration simulation results")
+            self.view_3d_button.set_tooltip_text("View 3D microstructure evolution and time-series data plots")
 
             buttons_grid.attach(self.view_3d_button, button_col, 0, 1, 1)
             button_col += 1

@@ -964,6 +964,88 @@ December 5, 2025
 
 ---
 
+### Session 12: Hydration Results Visualization & Preferences UI
+December 6, 2025
+
+**Context**: Completed the hydration results visualization system and implemented user-configurable kinetic defaults. Fixed bugs from Session 11 and added comprehensive time-series data plotting.
+
+**Key Accomplishments**:
+
+1. **Fixed Kinetic Model Attachment Bug**
+   - Problem: Kinetic models assigned to "Thermodynamic" phases (like Calcite) didn't appear in simparams.json
+   - Cause: `get_kinetics_with_override()` returned `None` for phases without built-in defaults
+   - Fix: Modified to create kinetics from scratch when override includes valid `type` field
+   - File: `src/app/services/kinetic_defaults_service.py`
+
+2. **Fixed 3D Visualization Time Sequence Bug**
+   - Problem: Only initial microstructure shown, not hydration time steps
+   - Cause: Wrong file pattern for THAMES format (`JobRoot.YYYyDDDdHHhMMm.TTTK.img`)
+   - Fix: Updated regex pattern and search in `Result/` subdirectory
+   - File: `src/app/windows/dialogs/hydration_results_viewer.py`
+
+3. **Implemented Kinetic Preferences System**
+   - **New File**: `src/app/services/kinetic_preferences_service.py` (~273 lines)
+     - Stores user kinetic defaults in JSON at platform-specific location
+     - CRUD operations, import/export functionality
+   - **Modified**: `kinetic_defaults_service.py` to check user preferences first
+   - **Modified**: `preferences_dialog.py` - Added `KineticDefaultsTab` with:
+     - Searchable list of all 89 GEM phases
+     - Edit/Reset buttons for each phase
+     - Import/Export functionality
+
+4. **Implemented Hydration Output Visualization**
+   - **Major rewrite**: `hydration_results_viewer.py` (~1700 lines total)
+   - Added tabbed interface: "3D Visualization" + "Data Plots"
+   - Data Plots tab features:
+     - CSV file categories: Phase Volumes, Solution Chemistry, Saturation Indices, Surface Areas, Enthalpy
+     - Multi-select variable list with checkboxes
+     - Logarithmic X and Y axis options
+     - Custom axis ranges (min/max)
+     - Line width control (0.5-5.0)
+     - Color scheme selection (Tab10, Set1, Dark2, Paired, Pastel1, Single Color)
+     - Export to PNG/PDF/SVG at 300 DPI
+
+5. **UI Improvements**
+   - Renamed "View 3D Results" button to "View Results"
+   - Made Results dialog resizable with smaller default size (1000x650)
+   - Made controls panel scrollable for smaller screens
+   - Reduced component heights for better fit
+
+**Files Created**:
+- `src/app/services/kinetic_preferences_service.py` (~273 lines)
+- `docs/SESSION_12_SUMMARY.md`
+
+**Files Modified**:
+- `src/app/services/kinetic_defaults_service.py` - User preference checking, override fix
+- `src/app/windows/dialogs/preferences_dialog.py` - KineticDefaultsTab
+- `src/app/windows/dialogs/hydration_results_viewer.py` - Complete rewrite with tabs
+- `src/app/windows/panels/results_panel.py` - Button label update
+
+**Testing Status**:
+- ✅ Kinetic model attachment for phases without defaults
+- ✅ 3D visualization shows all time steps
+- ✅ Preferences UI for kinetic defaults
+- ✅ Data plots tab with all options
+- ✅ Dialog resizable and fits on screen
+
+**CSV Output Files Supported**:
+| Display Name | File Pattern | Content |
+|--------------|--------------|---------|
+| Phase Volumes | `*_Microstructure.csv` | Phase volume fractions over time |
+| Solution Chemistry | `*_Solution.csv` | Aqueous species concentrations |
+| Saturation Indices | `*_SI.csv` | SI values for each phase |
+| Surface Areas | `*_SurfaceAreas.csv` | Phase surface areas (m²/100g) |
+| Enthalpy | `*_Enthalpy.csv` | System enthalpy (J/100g) |
+
+**Critical Files for Next Session**:
+- Kinetic Preferences: `src/app/services/kinetic_preferences_service.py`
+- Kinetic Defaults: `src/app/services/kinetic_defaults_service.py`
+- Preferences Dialog: `src/app/windows/dialogs/preferences_dialog.py`
+- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
+- Session Summary: `docs/SESSION_12_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

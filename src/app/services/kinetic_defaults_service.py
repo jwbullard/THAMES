@@ -569,6 +569,8 @@ class KineticDefaultsService:
         """
         Get default kinetic parameters for a phase.
 
+        Checks user preferences first, then falls back to built-in defaults.
+
         Args:
             phase_name: GEMS phase name (e.g., 'Alite', 'Gypsum', 'Quartz')
 
@@ -576,6 +578,16 @@ class KineticDefaultsService:
             Kinetic parameters instance, or None if phase has no kinetic model
             (e.g., hydration products, electrolyte)
         """
+        # Check user preferences first
+        user_kinetics = self._get_user_kinetics(phase_name)
+        if user_kinetics is not None:
+            return user_kinetics
+
+        # Fall back to built-in defaults
+        return self._get_builtin_kinetics(phase_name)
+
+    def _get_builtin_kinetics(self, phase_name: str) -> Optional[KineticParameters]:
+        """Get built-in kinetic defaults (without checking user preferences)."""
         # Check Parrot-Killoh (clinker phases)
         if phase_name in self.PARROT_KILLOH_DEFAULTS:
             return self.PARROT_KILLOH_DEFAULTS[phase_name]
@@ -591,9 +603,78 @@ class KineticDefaultsService:
         # Phase has no kinetic model (hydration product, electrolyte, etc.)
         return None
 
+    def _get_user_kinetics(self, phase_name: str) -> Optional[KineticParameters]:
+        """
+        Get user-defined kinetic defaults for a phase.
+
+        Args:
+            phase_name: GEMS phase name
+
+        Returns:
+            KineticParameters if user has defined defaults, None otherwise
+        """
+        try:
+            from app.services.kinetic_preferences_service import get_kinetic_preferences_service
+            prefs_service = get_kinetic_preferences_service()
+
+            user_default = prefs_service.get_user_default(phase_name)
+            if user_default is None:
+                return None
+
+            kinetic_type = user_default.get('type')
+            if not kinetic_type or kinetic_type == 'Thermodynamic':
+                return None
+
+            # Create kinetic parameters from user default
+            if kinetic_type == 'ParrotKilloh':
+                return ParrotKillohKinetics(
+                    k1=user_default.get('k1', 1.5),
+                    k2=user_default.get('k2', 0.05),
+                    k3=user_default.get('k3', 1.1),
+                    n1=user_default.get('n1', 0.7),
+                    n3=user_default.get('n3', 3.3),
+                    dorHcoeff=user_default.get('dorHcoeff', 2.0),
+                    activationEnergy=user_default.get('activationEnergy', 41570.0),
+                    loi=user_default.get('loi', 0.0),
+                )
+            elif kinetic_type == 'Standard':
+                return StandardKinetics(
+                    dissolutionRateConst=user_default.get('dissolutionRateConst', 1.0e-6),
+                    diffusionRateConstEarly=user_default.get('diffusionRateConstEarly', 5.0e-6),
+                    diffusionRateConstLate=user_default.get('diffusionRateConstLate', 5.0e-6),
+                    dissolvedUnits=user_default.get('dissolvedUnits', 2),
+                    siexp=user_default.get('siexp', 1.0),
+                    dfexp=user_default.get('dfexp', 1.1),
+                    dorexp=user_default.get('dorexp', 0.5),
+                    activationEnergy=user_default.get('activationEnergy', 40000.0),
+                    loi=user_default.get('loi', 0.0),
+                )
+            elif kinetic_type == 'Pozzolanic':
+                return PozzolanicKinetics(
+                    dissolutionRateConst=user_default.get('dissolutionRateConst', 1.4e-11),
+                    diffusionRateConstEarly=user_default.get('diffusionRateConstEarly', 2.8e-12),
+                    diffusionRateConstLate=user_default.get('diffusionRateConstLate', 2.8e-12),
+                    dissolvedUnits=user_default.get('dissolvedUnits', 1),
+                    siexp=user_default.get('siexp', 1.0),
+                    dfexp=user_default.get('dfexp', 1.0),
+                    dorexp=user_default.get('dorexp', 0.5),
+                    ohexp=user_default.get('ohexp', 1.0),
+                    sio2=user_default.get('sio2', 0.987),
+                    activationEnergy=user_default.get('activationEnergy', 40000.0),
+                    loi=user_default.get('loi', 1.3),
+                )
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(f"Error loading user kinetics for {phase_name}: {e}")
+            return None
+
     def get_kinetic_type(self, phase_name: str) -> Optional[str]:
         """
         Get the kinetic model type for a phase.
+
+        Checks user preferences first, then falls back to built-in defaults.
 
         Args:
             phase_name: GEMS phase name
@@ -601,6 +682,22 @@ class KineticDefaultsService:
         Returns:
             'ParrotKilloh', 'Standard', 'Pozzolanic', or None
         """
+        # Check user preferences first
+        try:
+            from app.services.kinetic_preferences_service import get_kinetic_preferences_service
+            prefs_service = get_kinetic_preferences_service()
+
+            user_default = prefs_service.get_user_default(phase_name)
+            if user_default is not None:
+                kinetic_type = user_default.get('type')
+                if kinetic_type and kinetic_type != 'Thermodynamic':
+                    return kinetic_type
+                elif kinetic_type == 'Thermodynamic':
+                    return None  # User explicitly set to Thermodynamic
+        except Exception:
+            pass
+
+        # Fall back to built-in defaults
         if phase_name in self.PARROT_KILLOH_DEFAULTS:
             return 'ParrotKilloh'
         if phase_name in self.STANDARD_DEFAULTS:
@@ -608,6 +705,22 @@ class KineticDefaultsService:
         if phase_name in self.POZZOLANIC_DEFAULTS:
             return 'Pozzolanic'
         return None
+
+    def has_user_override(self, phase_name: str) -> bool:
+        """
+        Check if a phase has a user-defined kinetic default.
+
+        Args:
+            phase_name: GEMS phase name
+
+        Returns:
+            True if user has defined a default for this phase
+        """
+        try:
+            from app.services.kinetic_preferences_service import get_kinetic_preferences_service
+            return get_kinetic_preferences_service().has_user_default(phase_name)
+        except Exception:
+            return False
 
     def get_impurity_data(self, phase_name: str) -> Optional[Dict[str, float]]:
         """
@@ -680,18 +793,46 @@ class KineticDefaultsService:
         """
         Get kinetic parameters with user overrides applied.
 
+        If the phase has default kinetics, overlays the override on top.
+        If the phase has NO default kinetics but the override specifies a 'type',
+        creates kinetics from scratch using the override values (allowing users
+        to add kinetics to phases that don't have them by default).
+
         Args:
             phase_name: GEMS phase name
-            override: Dict of parameters to override
+            override: Dict of parameters to override (may include 'type' field)
 
         Returns:
             Kinetic parameters with overrides applied, or None if no kinetics
         """
         defaults = self.get_kinetics_for_phase(phase_name)
-        if defaults is None:
-            return None
 
-        return defaults.with_override(override)
+        if defaults is not None:
+            # Phase has defaults - overlay the override
+            return defaults.with_override(override)
+
+        # Phase has NO default kinetics - check if override specifies a type
+        # This allows users to add kinetics to phases that don't have them
+        kinetic_type = override.get('type')
+        if kinetic_type and kinetic_type != 'Thermodynamic':
+            # Create kinetics from scratch using the override as the full specification
+            # Get generic defaults for the specified type, then apply override
+            if kinetic_type == 'ParrotKilloh':
+                # Use Alite as generic default for ParrotKilloh
+                generic_defaults = self.PARROT_KILLOH_DEFAULTS.get("Alite")
+            elif kinetic_type == 'Standard':
+                # Use Gypsum as generic default for Standard
+                generic_defaults = self.STANDARD_DEFAULTS.get("Gypsum")
+            elif kinetic_type == 'Pozzolanic':
+                # Use Quartz as generic default for Pozzolanic
+                generic_defaults = self.POZZOLANIC_DEFAULTS.get("Quartz")
+            else:
+                return None
+
+            if generic_defaults:
+                return generic_defaults.with_override(override)
+
+        return None
 
 
 # Module-level singleton
