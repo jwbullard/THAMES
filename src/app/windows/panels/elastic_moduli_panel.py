@@ -29,7 +29,15 @@ from app.help.panel_help_button import create_panel_help_button
 
 
 class ElasticModuliPanel(Gtk.Box):
-    """Main panel for elastic moduli calculations."""
+    """Main panel for elastic moduli calculations.
+
+    Supports two backends:
+    - THAMES: Uses thames executable with -s 5 for elastic calculation on paste microstructures
+    - VCCTL: Uses elastic.c for multi-scale concrete (with aggregates/ITZ via concelas)
+
+    Currently THAMES is the default. THAMES will eventually support concelas for
+    multi-scale concrete once the AppliedStrain class is extended.
+    """
 
     def __init__(self, main_window: "VCCTLMainWindow"):
         """Initialize the elastic moduli panel."""
@@ -45,6 +53,10 @@ class ElasticModuliPanel(Gtk.Box):
         self.available_hydration_operations = []
         self.available_microstructures = []  # Phase 2: Hydrated microstructures list
         self.resolved_lineage = None  # Phase 2: Cached lineage data
+
+        # Backend mode detection
+        self.thames_mode = self._is_thames_mode()
+        self.backend_info_label = None
 
         # UI components
         self.hydration_combo = None
@@ -137,11 +149,53 @@ class ElasticModuliPanel(Gtk.Box):
         desc_label.set_line_wrap(True)
         header_box.pack_start(desc_label, False, False, 0)
 
+        # Backend mode info box
+        self._create_backend_info_box(header_box)
+
         # Separator
         separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
         header_box.pack_start(separator, False, False, 5)
 
         self.pack_start(header_box, False, False, 0)
+
+    def _create_backend_info_box(self, parent: Gtk.Box) -> None:
+        """Create the backend mode information box."""
+        info_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        info_box.set_margin_top(5)
+
+        # Backend mode indicator
+        if self.thames_mode:
+            backend_text = (
+                '<span size="small" foreground="#2E7D32">● Backend: <b>THAMES</b></span>'
+            )
+            info_text = (
+                '<span size="small" style="italic">'
+                'FEM calculation on paste microstructures. '
+                'Aggregate/ITZ support coming with concelas integration.'
+                '</span>'
+            )
+        else:
+            backend_text = (
+                '<span size="small" foreground="#1565C0">● Backend: <b>VCCTL</b></span>'
+            )
+            info_text = (
+                '<span size="small" style="italic">'
+                'Multi-scale concrete with aggregate grading and ITZ.'
+                '</span>'
+            )
+
+        backend_label = Gtk.Label()
+        backend_label.set_markup(backend_text)
+        backend_label.set_halign(Gtk.Align.START)
+        info_box.pack_start(backend_label, False, False, 0)
+
+        self.backend_info_label = Gtk.Label()
+        self.backend_info_label.set_markup(info_text)
+        self.backend_info_label.set_halign(Gtk.Align.START)
+        self.backend_info_label.set_line_wrap(True)
+        info_box.pack_start(self.backend_info_label, True, True, 0)
+
+        parent.pack_start(info_box, False, False, 0)
 
     def _create_operation_settings(self, parent: Gtk.Box) -> None:
         """Create operation configuration section."""
@@ -226,10 +280,11 @@ class ElasticModuliPanel(Gtk.Box):
 
         self.operation_name_entry = Gtk.Entry()
         self.operation_name_entry.set_placeholder_text(
-            "Auto-generated from microstructure selection"
+            "← Select a microstructure above"
         )
         self.operation_name_entry.set_tooltip_text(
-            "Auto-generated: Elastic-{HydrationName}-{TimeStep}"
+            "Auto-generated as: Elastic-{HydrationName}-{TimeStep}\n"
+            "Will be populated when you select a hydrated microstructure."
         )
         self.operation_name_entry.set_sensitive(False)  # Make read-only
         grid.attach(self.operation_name_entry, 1, row, 2, 1)
@@ -238,17 +293,33 @@ class ElasticModuliPanel(Gtk.Box):
         parent.pack_start(frame, False, False, 0)
 
     def _create_microstructure_settings(self, parent: Gtk.Box) -> None:
-        """Create microstructure file settings section."""
-        frame = Gtk.Frame(label="Microstructure Settings")
-        frame.set_label_align(0.02, 0.5)
+        """Create microstructure file settings section (collapsible)."""
+        # Use Expander for collapsible section - collapsed by default since fields are auto-populated
+        expander = Gtk.Expander(label="Microstructure Settings (auto-populated)")
+        expander.set_expanded(False)  # Collapsed by default
+        expander.set_margin_top(10)
+        expander.set_margin_bottom(5)
+
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        main_box.set_margin_top(10)
+        main_box.set_margin_bottom(10)
+        main_box.set_margin_left(15)
+        main_box.set_margin_right(15)
+
+        # Info message
+        info_label = Gtk.Label()
+        info_label.set_markup(
+            '<span size="small" foreground="#1976D2">'
+            'ℹ These fields are auto-populated when you select a hydrated microstructure above.'
+            '</span>'
+        )
+        info_label.set_halign(Gtk.Align.START)
+        info_label.set_line_wrap(True)
+        main_box.pack_start(info_label, False, False, 0)
 
         grid = Gtk.Grid()
         grid.set_row_spacing(10)
         grid.set_column_spacing(15)
-        grid.set_margin_top(15)
-        grid.set_margin_bottom(15)
-        grid.set_margin_left(15)
-        grid.set_margin_right(15)
 
         row = 0
 
@@ -258,8 +329,9 @@ class ElasticModuliPanel(Gtk.Box):
         grid.attach(label, 0, row, 1, 1)
 
         self.image_filename_entry = Gtk.Entry()
-        self.image_filename_entry.set_placeholder_text("e.g., MyMix01.img")
-        self.image_filename_entry.set_tooltip_text("Hydrated microstructure image file")
+        self.image_filename_entry.set_placeholder_text("Auto-populated from selection")
+        self.image_filename_entry.set_tooltip_text("Hydrated microstructure image file (auto-populated)")
+        self.image_filename_entry.set_sensitive(False)  # Read-only - auto-populated
         grid.attach(self.image_filename_entry, 1, row, 2, 1)
 
         row += 1
@@ -272,18 +344,20 @@ class ElasticModuliPanel(Gtk.Box):
         dir_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
 
         self.output_dir_entry = Gtk.Entry()
-        self.output_dir_entry.set_placeholder_text("Directory for output files")
+        self.output_dir_entry.set_placeholder_text("Auto-populated from selection")
+        self.output_dir_entry.set_sensitive(False)  # Read-only - auto-populated
         dir_box.pack_start(self.output_dir_entry, True, True, 0)
 
-        browse_button = Gtk.Button("Browse...")
-        browse_button.connect("clicked", self._on_browse_output_dir)
-        dir_box.pack_start(browse_button, False, False, 0)
+        self.browse_output_button = Gtk.Button("Browse...")
+        self.browse_output_button.connect("clicked", self._on_browse_output_dir)
+        self.browse_output_button.set_sensitive(False)  # Disabled - auto-populated
+        dir_box.pack_start(self.browse_output_button, False, False, 0)
 
         grid.attach(dir_box, 1, row, 2, 1)
 
         row += 1
 
-        # Pimg file path
+        # Pimg file path - auto-populated from lineage
         label = Gtk.Label("Pimg File Path:")
         label.set_halign(Gtk.Align.START)
         grid.attach(label, 0, row, 1, 1)
@@ -291,28 +365,36 @@ class ElasticModuliPanel(Gtk.Box):
         pimg_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
 
         self.pimg_file_entry = Gtk.Entry()
-        self.pimg_file_entry.set_placeholder_text("Optional .pimg file")
+        self.pimg_file_entry.set_placeholder_text("Auto-populated from microstructure lineage")
+        self.pimg_file_entry.set_tooltip_text("Phase ID mapping file (.pimg) from original microstructure")
+        self.pimg_file_entry.set_sensitive(False)  # Read-only - auto-populated
         pimg_box.pack_start(self.pimg_file_entry, True, True, 0)
 
-        browse_pimg_button = Gtk.Button("Browse...")
-        browse_pimg_button.connect("clicked", self._on_browse_pimg_file)
-        pimg_box.pack_start(browse_pimg_button, False, False, 0)
+        self.browse_pimg_button = Gtk.Button("Browse...")
+        self.browse_pimg_button.connect("clicked", self._on_browse_pimg_file)
+        self.browse_pimg_button.set_sensitive(False)  # Disabled - auto-populated
+        pimg_box.pack_start(self.browse_pimg_button, False, False, 0)
 
         grid.attach(pimg_box, 1, row, 2, 1)
 
         row += 1
 
-        # ITZ flag
+        # ITZ flag (only relevant in VCCTL mode with aggregates)
         self.has_itz_check = Gtk.CheckButton(
             "Include ITZ (Interfacial Transition Zone)"
         )
         self.has_itz_check.set_tooltip_text(
             "Include ITZ calculations for aggregate interfaces"
         )
+        if self.thames_mode:
+            self.has_itz_check.set_active(False)
+            self.has_itz_check.set_sensitive(False)
+            self.has_itz_check.set_visible(False)  # Hide in THAMES mode
         grid.attach(self.has_itz_check, 0, row, 3, 1)
 
-        frame.add(grid)
-        parent.pack_start(frame, False, False, 0)
+        main_box.pack_start(grid, False, False, 0)
+        expander.add(main_box)
+        parent.pack_start(expander, False, False, 0)
 
     def _create_aggregate_settings(self, parent: Gtk.Box) -> None:
         """Create aggregate properties section."""
@@ -324,6 +406,24 @@ class ElasticModuliPanel(Gtk.Box):
         main_box.set_margin_bottom(15)
         main_box.set_margin_left(15)
         main_box.set_margin_right(15)
+
+        # THAMES mode notice - aggregate support requires concelas integration
+        if self.thames_mode:
+            notice_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            notice_box.set_margin_bottom(10)
+
+            notice_label = Gtk.Label()
+            notice_label.set_markup(
+                '<span size="small" foreground="#F57C00">'
+                '⚠ Aggregate support not yet available in THAMES mode. '
+                'These settings will be enabled after concelas integration.'
+                '</span>'
+            )
+            notice_label.set_halign(Gtk.Align.START)
+            notice_label.set_line_wrap(True)
+            notice_box.pack_start(notice_label, True, True, 0)
+
+            main_box.pack_start(notice_box, False, False, 0)
 
         # Fine aggregate section
         fine_frame = Gtk.Frame(label="Fine Aggregate")
@@ -341,6 +441,10 @@ class ElasticModuliPanel(Gtk.Box):
 
         frame.add(main_box)
         parent.pack_start(frame, False, False, 0)
+
+        # Disable aggregate controls in THAMES mode
+        if self.thames_mode:
+            self._disable_aggregate_settings()
 
     def _create_aggregate_grid(self, agg_type: str) -> Gtk.Grid:
         """Create aggregate property grid for fine or coarse aggregate."""
@@ -583,6 +687,8 @@ class ElasticModuliPanel(Gtk.Box):
 
             # Get operations directory from configuration
             operations_dir = self.service_container.directories_service.get_operations_path()
+            self.logger.info(f"Scanning for hydration operations in: {operations_dir}")
+
             if not operations_dir.exists():
                 self.logger.warning(f"Operations folder not found: {operations_dir}")
                 self.hydration_combo.append("", "No completed hydration operations found")
@@ -599,21 +705,53 @@ class ElasticModuliPanel(Gtk.Box):
 
                 operation_name = operation_path.name
 
-                # Check for hydration output files
-                # Look for HydrationOf_*.csv or HydrationOf_*.mov files
-                csv_files = list(operation_path.glob("HydrationOf_*.csv"))
-                mov_files = list(operation_path.glob("HydrationOf_*.mov"))
+                # Check for VCCTL hydration output files
+                vcctl_csv_files = list(operation_path.glob("HydrationOf_*.csv"))
+                vcctl_mov_files = list(operation_path.glob("HydrationOf_*.mov"))
+
+                # Check for THAMES hydration output files
+                # THAMES outputs to Result/ subdirectory
+                result_dir = operation_path / "Result"
+                thames_csv_files = []
+                thames_img_files = []
+                if result_dir.exists():
+                    thames_csv_files = list(result_dir.glob("*_Microstructure.csv"))
+                    thames_img_files = list(result_dir.glob("*.img"))
+
+                # Also check for simparams.json (THAMES input file)
+                simparams_file = operation_path / "simparams.json"
                 progress_file = operation_path / "progress.json"
 
-                # Consider it a hydration operation if it has at least 2 of the 3 expected files
+                # Count evidence of hydration operation
                 files_found = 0
-                if csv_files and any(f.stat().st_size > 0 for f in csv_files):
+
+                # VCCTL evidence
+                if vcctl_csv_files and any(f.stat().st_size > 0 for f in vcctl_csv_files):
                     files_found += 1
-                if mov_files and any(f.stat().st_size > 0 for f in mov_files):
+                if vcctl_mov_files and any(f.stat().st_size > 0 for f in vcctl_mov_files):
                     files_found += 1
+
+                # THAMES evidence
+                if thames_csv_files and any(f.stat().st_size > 0 for f in thames_csv_files):
+                    files_found += 1
+                if thames_img_files and any(f.stat().st_size > 0 for f in thames_img_files):
+                    files_found += 1
+                if simparams_file.exists() and simparams_file.stat().st_size > 0:
+                    files_found += 1
+
+                # Common evidence
                 if progress_file.exists() and progress_file.stat().st_size > 0:
                     files_found += 1
 
+                # Log what we found for debugging (use info level to ensure visibility)
+                self.logger.info(
+                    f"Checking {operation_name}: "
+                    f"THAMES evidence: CSV={len(thames_csv_files)}, IMG={len(thames_img_files)}, "
+                    f"simparams={simparams_file.exists()}, progress={progress_file.exists()}, "
+                    f"total={files_found}"
+                )
+
+                # Consider it a hydration operation if it has at least 2 pieces of evidence
                 if files_found >= 2:
                     # Get modification time for sorting
                     mtime = operation_path.stat().st_mtime
@@ -641,8 +779,10 @@ class ElasticModuliPanel(Gtk.Box):
             if not hydration_operations:
                 self.hydration_combo.append("", "No completed hydration operations found")
                 self.hydration_combo.set_sensitive(False)
+                self.logger.info("No completed hydration operations found")
             else:
                 self.hydration_combo.set_sensitive(True)
+                self.logger.info(f"Found {len(hydration_operations)} hydration operations: {[op['name'] for op in hydration_operations]}")
 
         except Exception as e:
             self.logger.error(f"Error loading hydration operations: {e}")
@@ -713,66 +853,100 @@ class ElasticModuliPanel(Gtk.Box):
             self._show_error_dialog(f"Error loading hydration operation data: {str(e)}")
 
     def _load_lineage_and_microstructures(self, hydration_id: int) -> None:
-        """Load lineage data and available microstructures (Phase 2)."""
-        try:
-            # Store hydration ID for later re-resolution with output directory
-            self._current_hydration_id = hydration_id
+        """Load lineage data and available microstructures (Phase 2).
 
-            # Resolve complete lineage chain
+        For THAMES mode, lineage resolution may fail if parent_operation_id
+        is not set, but we should still try to discover microstructures.
+        """
+        # Store hydration ID for later re-resolution with output directory
+        self._current_hydration_id = hydration_id
+
+        # Try to resolve lineage chain (may fail for THAMES operations without proper linkage)
+        try:
             self.resolved_lineage = (
                 self.elastic_moduli_service.lineage_service.resolve_lineage_chain(
                     hydration_id
                 )
             )
-
-            # Update lineage display
             self._update_lineage_display(self.resolved_lineage)
+            self.logger.info("Successfully resolved lineage chain")
+        except Exception as e:
+            self.logger.warning(f"Could not resolve lineage chain: {e}")
+            self.resolved_lineage = None
+            if self.thames_mode:
+                # In THAMES mode, lineage resolution may fail - show informational message
+                self._update_lineage_display_thames_fallback(hydration_id)
+            else:
+                self._update_lineage_display(None)
 
-            # Discover available hydrated microstructures
+        # Always try to discover microstructures, even if lineage resolution failed
+        try:
             self.available_microstructures = (
                 self.elastic_moduli_service.discover_hydrated_microstructures(
                     hydration_id
                 )
             )
+        except Exception as e:
+            self.logger.error(f"Error discovering microstructures: {e}")
+            self.available_microstructures = []
 
-            # Populate microstructure combo
-            self.microstructure_combo.remove_all()
-            for i, microstructure in enumerate(self.available_microstructures):
-                display_text = f"{microstructure.time_label}" + (
-                    " (Final)" if microstructure.is_final else ""
-                )
-                self.microstructure_combo.append(str(i), display_text)
+        # Populate microstructure combo
+        self.microstructure_combo.remove_all()
+        for i, microstructure in enumerate(self.available_microstructures):
+            # For THAMES, time_label already includes "(Final)" for final, so check is_final
+            if microstructure.is_final:
+                display_text = microstructure.time_label
+            else:
+                display_text = microstructure.time_label
+            self.microstructure_combo.append(str(i), display_text)
 
-            if self.available_microstructures:
-                # Don't auto-select any microstructure - let user choose
-                self.microstructure_combo.set_active(-1)  # No selection
-                self.microstructure_combo.set_sensitive(True)
-                self.logger.info(
-                    f"Loaded {len(self.available_microstructures)} hydrated microstructures"
-                )
+        if self.available_microstructures:
+            # Don't auto-select any microstructure - let user choose
+            self.microstructure_combo.set_active(-1)  # No selection
+            self.microstructure_combo.set_sensitive(True)
+            self.logger.info(
+                f"Loaded {len(self.available_microstructures)} hydrated microstructures"
+            )
 
-                # Only populate lineage data, not microstructure-specific fields
+            # Only populate lineage data if available
+            if self.resolved_lineage:
                 self._populate_from_resolved_lineage()
                 self.logger.info(
                     "Populated UI fields from resolved lineage (waiting for user microstructure selection)"
                 )
-            else:
-                self.microstructure_combo.append(
-                    "", "No hydrated microstructures found"
-                )
-                self.microstructure_combo.set_sensitive(False)
-                self.logger.warning(
-                    f"No hydrated microstructures found for hydration operation {hydration_id}"
-                )
-
-        except Exception as e:
-            self.logger.error(f"Error loading lineage and microstructures: {e}")
-            self.resolved_lineage = None
-            self.available_microstructures = []
-            self._update_lineage_display(None)
-            self.microstructure_combo.remove_all()
-            self.microstructure_combo.append("", f"Error: {str(e)}")
+        else:
+            self.microstructure_combo.append(
+                "", "No hydrated microstructures found"
+            )
             self.microstructure_combo.set_sensitive(False)
+            self.logger.warning(
+                f"No hydrated microstructures found for hydration operation {hydration_id}"
+            )
+
+    def _update_lineage_display_thames_fallback(self, hydration_id: int) -> None:
+        """Update lineage display when lineage resolution fails in THAMES mode."""
+        try:
+            from app.models.operation import Operation
+            with self.service_container.database_service.get_session() as session:
+                hydration_op = session.query(Operation).filter_by(id=hydration_id).first()
+                if hydration_op:
+                    self.lineage_info_label.set_markup(
+                        f'<span size="small">'
+                        f'Hydration: <b>{hydration_op.name}</b>\n'
+                        f'<span style="italic" foreground="#888888">'
+                        f'(THAMES mode - lineage not available for aggregate properties)'
+                        f'</span>'
+                        f'</span>'
+                    )
+                else:
+                    self.lineage_info_label.set_markup(
+                        '<span size="small" style="italic">Lineage data not available</span>'
+                    )
+        except Exception as e:
+            self.logger.error(f"Error updating THAMES fallback display: {e}")
+            self.lineage_info_label.set_markup(
+                '<span size="small" style="italic">Lineage data not available</span>'
+            )
 
     def _update_lineage_display(self, lineage_data) -> None:
         """Update the lineage information display (Phase 2)."""
@@ -852,32 +1026,56 @@ class ElasticModuliPanel(Gtk.Box):
     def _populate_fields_from_selection(
         self, selected_microstructure: HydratedMicrostructure
     ) -> None:
-        """Populate form fields based on selected microstructure with auto-generated names and relative paths."""
-        if not self.resolved_lineage:
-            self.logger.warning("No lineage data available for populating fields")
-            return
+        """Populate form fields based on selected microstructure with auto-generated names and relative paths.
 
-        hydration_op = self.resolved_lineage.get("hydration_operation")
-        if not hydration_op:
-            self.logger.warning("No hydration operation in lineage data")
+        Works in both VCCTL mode (with full lineage) and THAMES mode (without lineage).
+        """
+        import re
+
+        # Get hydration operation - either from lineage or directly from database
+        hydration_op = None
+        hydration_name = None
+
+        if self.resolved_lineage:
+            hydration_op = self.resolved_lineage.get("hydration_operation")
+            if hydration_op:
+                hydration_name = hydration_op.name
+
+        # Fallback for THAMES mode: get hydration operation from database
+        if not hydration_name and hasattr(self, "_current_hydration_id"):
+            try:
+                from app.models.operation import Operation
+                with self.service_container.database_service.get_session() as session:
+                    hydration_op = session.query(Operation).filter_by(
+                        id=self._current_hydration_id
+                    ).first()
+                    if hydration_op:
+                        hydration_name = hydration_op.name
+            except Exception as e:
+                self.logger.warning(f"Could not get hydration operation from database: {e}")
+
+        if not hydration_name:
+            self.logger.warning("No hydration operation available for populating fields")
             return
 
         # Auto-generate operation name: Elastic-{HydrationName}-{TimeStep}
         # Extract time step from microstructure time label
         time_step = selected_microstructure.time_label
-        if time_step == "Final":
-            time_step = "Final"
-        else:
-            # Extract just the time part (e.g., "144.71h" from "CemLSFMortar.144.71h.23.100")
-            import re
 
-            time_match = re.search(r"(\d+(?:\.\d+)?h)", time_step)
-            if time_match:
-                time_step = time_match.group(1)
+        # Clean up time step for use in operation name
+        # Handle THAMES format like "Final (30d)" or "7d" or "2h 24m"
+        if "Final" in time_step:
+            # Extract the time from "Final (30d)" format
+            final_match = re.search(r"Final \((.+)\)", time_step)
+            if final_match:
+                time_step = f"Final-{final_match.group(1).replace(' ', '')}"
             else:
-                time_step = time_step.replace(".", "_")  # Fallback
+                time_step = "Final"
+        else:
+            # Clean up time step: replace spaces with nothing, keep alphanumeric
+            time_step = time_step.replace(" ", "")
 
-        operation_name = f"Elastic-{hydration_op.name}-{time_step}"
+        operation_name = f"Elastic-{hydration_name}-{time_step}"
         self.operation_name_entry.set_text(operation_name)
 
         # Set image filename using selected microstructure path (relative)
@@ -887,18 +1085,20 @@ class ElasticModuliPanel(Gtk.Box):
         # Set hierarchical output directory (absolute path)
         # Format: {OperationsDir}/{HydrationName}/{ElasticOperationName}
         operations_dir = self.service_container.directories_service.get_operations_path()
-        output_dir = str(operations_dir / hydration_op.name / operation_name)
+        output_dir = str(operations_dir / hydration_name / operation_name)
         self.output_dir_entry.set_text(output_dir)
 
-        # Set PIMG file path (use absolute path for consistency)
+        # Set PIMG file path (required for both THAMES and VCCTL elastic calculations)
         if selected_microstructure.pimg_path:
             # Use absolute path - consistent with output directory and works in PyInstaller
             pimg_absolute = Path(selected_microstructure.pimg_path)
-            self.pimg_file_entry.set_text(str(pimg_absolute.resolve()))
+            if pimg_absolute.exists():
+                self.pimg_file_entry.set_text(str(pimg_absolute.resolve()))
 
-        # Re-resolve lineage with output directory for accurate grading file paths
-        if hasattr(self, "_current_hydration_id"):
+        # Re-resolve lineage with output directory for accurate grading file paths (VCCTL mode only)
+        if self.resolved_lineage and hasattr(self, "_current_hydration_id"):
             try:
+                relative_output_dir = str(operations_dir / hydration_name / operation_name)
                 self.resolved_lineage = (
                     self.elastic_moduli_service.lineage_service.resolve_lineage_chain(
                         self._current_hydration_id, relative_output_dir
@@ -912,8 +1112,9 @@ class ElasticModuliPanel(Gtk.Box):
                     f"Error re-resolving lineage with output directory: {e}"
                 )
 
-        # Auto-populate from resolved lineage data
-        self._populate_from_resolved_lineage()
+        # Auto-populate from resolved lineage data (if available)
+        if self.resolved_lineage:
+            self._populate_from_resolved_lineage()
 
         self.logger.info(f"Auto-populated fields for operation: {operation_name}")
 
@@ -1159,6 +1360,31 @@ class ElasticModuliPanel(Gtk.Box):
         for control in controls:
             if control:
                 control.set_sensitive(sensitive)
+
+    def _disable_aggregate_settings(self) -> None:
+        """Disable all aggregate settings in THAMES mode.
+
+        In THAMES mode, aggregate support is not yet available (requires concelas).
+        This method greys out all aggregate-related controls.
+        """
+        # Disable fine aggregate controls
+        if self.fine_agg_check:
+            self.fine_agg_check.set_active(False)
+            self.fine_agg_check.set_sensitive(False)
+        self._set_aggregate_controls_sensitive("fine", False)
+
+        # Disable coarse aggregate controls
+        if self.coarse_agg_check:
+            self.coarse_agg_check.set_active(False)
+            self.coarse_agg_check.set_sensitive(False)
+        self._set_aggregate_controls_sensitive("coarse", False)
+
+        # Disable ITZ checkbox
+        if self.has_itz_check:
+            self.has_itz_check.set_active(False)
+            self.has_itz_check.set_sensitive(False)
+
+        self.logger.info("Aggregate settings disabled in THAMES mode")
 
     def _on_fine_aggregate_toggled(self, checkbox: Gtk.CheckButton) -> None:
         """Handle fine aggregate checkbox toggle."""
@@ -1448,7 +1674,12 @@ class ElasticModuliPanel(Gtk.Box):
         selected_microstructure,
         ui_parameters: Dict[str, Any],
     ) -> Optional[str]:
-        """Launch elastic moduli process through Operations panel (Phase 3)."""
+        """Launch elastic moduli process through Operations panel (Phase 3).
+
+        Supports two backends:
+        - THAMES: Uses thames executable with -s 5 (elastic calculation mode)
+        - VCCTL: Uses elastic.c with generated input file
+        """
         try:
             # Get operations panel reference
             operations_panel = getattr(self.main_window, "operations_panel", None)
@@ -1456,27 +1687,7 @@ class ElasticModuliPanel(Gtk.Box):
                 self.logger.error("Operations panel not found")
                 return None
 
-            # Get elastic executable path
-            import sys
-
-            # Detect if running in PyInstaller bundle
-            if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-                # Running in PyInstaller bundle - executables are in _MEIPASS/backend/bin
-                bin_dir = Path(sys._MEIPASS) / "backend" / "bin"
-            else:
-                # Running in development - executables are in project backend/bin
-                project_root = Path(__file__).parent.parent.parent.parent.parent
-                bin_dir = project_root / "backend" / "bin"
-
-            # Platform-specific executable name
-            elastic_exe = 'elastic.exe' if sys.platform == 'win32' else 'elastic'
-            elastic_path = bin_dir / elastic_exe
-            if not elastic_path.exists():
-                self.logger.error(f"Elastic executable not found at: {elastic_path}")
-                return None
-
-            # Create output directory nested inside hydration operation folder
-            # Need to get the hydration operation name to create proper nesting
+            # Get hydration operation name for output directory structure
             hydration_name = self._get_hydration_operation_name(hydration_id)
             operations_dir = self.service_container.directories_service.get_operations_path()
 
@@ -1492,52 +1703,249 @@ class ElasticModuliPanel(Gtk.Box):
 
             output_dir.mkdir(parents=True, exist_ok=True)
 
-            # Generate input file using existing service
-            input_file_path = self.elastic_moduli_service.generate_elastic_input_file(
-                elastic_operation, selected_microstructure, str(output_dir)
-            )
-
-            # Read input file content for stdin
-            with open(input_file_path, "r") as f:
-                input_content = f.read()
-
-            # Launch real process operation (let it create database operation)
-            # Elastic executable requires -j and -w command line arguments
-            # Use relative paths to avoid path duplication
             from app.windows.panels.operations_monitoring_panel import OperationType
 
-            progress_file = "elastic_progress.json"  # Relative to working directory
-
-            operation_id = operations_panel.start_real_process_operation(
-                name=operation_name,
-                operation_type=OperationType.ELASTIC_MODULI_CALCULATION,
-                command=[
-                    str(elastic_path),
-                    "-j",
-                    progress_file,  # Progress JSON file (relative path)
-                    "-w",
-                    ".",  # Working directory (current directory)
-                ],
-                working_dir=str(output_dir),
-                input_data=input_content,  # Input still provided via stdin
-            )
-
-            # Phase 3: Update database operation with UI parameters and parent linkage
-            if operation_id:
-                self._update_elastic_operation_metadata(
-                    operation_id=operation_id,
+            if self.thames_mode:
+                # =========================================================
+                # THAMES Backend: Use thames executable with -s 5
+                # =========================================================
+                return self._launch_thames_elastic(
+                    operation_name=operation_name,
+                    hydration_id=hydration_id,
+                    hydration_name=hydration_name,
+                    output_dir=output_dir,
+                    selected_microstructure=selected_microstructure,
                     ui_parameters=ui_parameters,
-                    parent_operation_id=hydration_id,
+                    operations_panel=operations_panel,
                 )
-
-            self.logger.info(
-                f"Phase 3: Launched elastic operation '{operation_name}' with database ID: {operation_id}"
-            )
-            return operation_id
+            else:
+                # =========================================================
+                # VCCTL Backend: Use elastic.c with generated input file
+                # =========================================================
+                return self._launch_vcctl_elastic(
+                    operation_name=operation_name,
+                    hydration_id=hydration_id,
+                    output_dir=output_dir,
+                    elastic_operation=elastic_operation,
+                    selected_microstructure=selected_microstructure,
+                    ui_parameters=ui_parameters,
+                    operations_panel=operations_panel,
+                )
 
         except Exception as e:
             self.logger.error(f"Error launching elastic process: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return None
+
+    def _launch_thames_elastic(
+        self,
+        operation_name: str,
+        hydration_id: int,
+        hydration_name: str,
+        output_dir: Path,
+        selected_microstructure,
+        ui_parameters: Dict[str, Any],
+        operations_panel,
+    ) -> Optional[str]:
+        """Launch THAMES elastic calculation using thames executable with -s 5.
+
+        THAMES elastic calculation:
+        - Reads phase elastic moduli from simparams.json
+        - Performs FEM calculation on single microstructure
+        - Outputs bulk modulus, shear modulus, Young's modulus, Poisson's ratio
+        - Results written to elastic_results.txt
+
+        Args:
+            operation_name: Name for the operation
+            hydration_id: Parent hydration operation ID
+            hydration_name: Name of parent hydration operation
+            output_dir: Directory for output files
+            selected_microstructure: Selected microstructure from lineage
+            ui_parameters: UI parameters for database storage
+            operations_panel: Reference to operations monitoring panel
+
+        Returns:
+            Operation ID if successful, None otherwise
+        """
+        import sys
+
+        # Get THAMES executable path
+        thames_path = self._get_thames_executable_path()
+        if not thames_path:
+            self.logger.error("THAMES executable not found")
+            self._show_error_dialog(
+                "THAMES executable not found.\n\n"
+                "Please ensure the thames executable is compiled and located in backend/bin/"
+            )
+            return None
+
+        # Get simparams.json path from hydration operation
+        simparams_path = self._get_simparams_path(hydration_name)
+        if not simparams_path:
+            self.logger.error(f"simparams.json not found for hydration operation: {hydration_name}")
+            self._show_error_dialog(
+                f"simparams.json not found for hydration operation '{hydration_name}'.\n\n"
+                "This file is required for THAMES elastic calculation as it contains "
+                "the elastic moduli for each phase."
+            )
+            return None
+
+        # Get microstructure file path
+        mic_path = self._get_thames_microstructure_for_elastic(hydration_name, selected_microstructure)
+        if not mic_path:
+            self.logger.error(f"Microstructure file not found for: {hydration_name}")
+            self._show_error_dialog(
+                f"Microstructure file not found for hydration operation '{hydration_name}'.\n\n"
+                "Please ensure the hydration simulation completed successfully and "
+                "generated microstructure output files."
+            )
+            return None
+
+        self.logger.info(f"THAMES elastic calculation:")
+        self.logger.info(f"  Executable: {thames_path}")
+        self.logger.info(f"  Simparams: {simparams_path}")
+        self.logger.info(f"  Microstructure: {mic_path}")
+        self.logger.info(f"  Output dir: {output_dir}")
+
+        # Copy simparams.json to output directory if not already there
+        output_simparams = output_dir / "simparams.json"
+        if not output_simparams.exists():
+            import shutil
+            shutil.copy2(simparams_path, output_simparams)
+            self.logger.info(f"Copied simparams.json to output directory")
+
+        # Create Result subdirectory (THAMES expects this)
+        result_dir = output_dir / "Result"
+        result_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy microstructure to Result directory with expected name
+        output_mic = result_dir / mic_path.name
+        if not output_mic.exists():
+            import shutil
+            shutil.copy2(mic_path, output_mic)
+            self.logger.info(f"Copied microstructure to: {output_mic}")
+
+        # Build THAMES command
+        # THAMES elastic mode: thames -s 5 <simparams.json> <microstructure.img>
+        # The -s 5 flag triggers elastic calculation mode (ELASTIC_CALC = 5 in global.h)
+        from app.windows.panels.operations_monitoring_panel import OperationType
+
+        command = [
+            str(thames_path),
+            "-s", "5",  # Elastic calculation mode
+            str(output_simparams),  # simparams.json path
+            str(output_mic),  # Microstructure file path
+        ]
+
+        self.logger.info(f"THAMES command: {' '.join(command)}")
+
+        # Launch the process
+        operation_id = operations_panel.start_real_process_operation(
+            name=operation_name,
+            operation_type=OperationType.ELASTIC_MODULI_CALCULATION,
+            command=command,
+            working_dir=str(output_dir),
+            input_data=None,  # THAMES reads from files, not stdin
+        )
+
+        # Update database operation with UI parameters and parent linkage
+        if operation_id:
+            ui_parameters["backend"] = "THAMES"
+            ui_parameters["simparams_path"] = str(simparams_path)
+            ui_parameters["microstructure_path"] = str(mic_path)
+            self._update_elastic_operation_metadata(
+                operation_id=operation_id,
+                ui_parameters=ui_parameters,
+                parent_operation_id=hydration_id,
+            )
+
+        self.logger.info(
+            f"Launched THAMES elastic operation '{operation_name}' with database ID: {operation_id}"
+        )
+        return operation_id
+
+    def _launch_vcctl_elastic(
+        self,
+        operation_name: str,
+        hydration_id: int,
+        output_dir: Path,
+        elastic_operation: ElasticModuliOperation,
+        selected_microstructure,
+        ui_parameters: Dict[str, Any],
+        operations_panel,
+    ) -> Optional[str]:
+        """Launch VCCTL elastic calculation using elastic.c.
+
+        VCCTL elastic calculation:
+        - Uses generated elastic_input.txt file
+        - Supports aggregates and ITZ via concelas
+        - Multi-scale concrete calculation
+
+        Args:
+            operation_name: Name for the operation
+            hydration_id: Parent hydration operation ID
+            output_dir: Directory for output files
+            elastic_operation: ElasticModuliOperation with parameters
+            selected_microstructure: Selected microstructure from lineage
+            ui_parameters: UI parameters for database storage
+            operations_panel: Reference to operations monitoring panel
+
+        Returns:
+            Operation ID if successful, None otherwise
+        """
+        import sys
+
+        # Get VCCTL elastic executable path
+        elastic_path = self._get_vcctl_elastic_path()
+        if not elastic_path:
+            self.logger.error("VCCTL elastic executable not found")
+            self._show_error_dialog(
+                "VCCTL elastic executable not found.\n\n"
+                "Please ensure elastic.c is compiled and located in backend/bin/"
+            )
+            return None
+
+        # Generate input file using existing service
+        input_file_path = self.elastic_moduli_service.generate_elastic_input_file(
+            elastic_operation, selected_microstructure, str(output_dir)
+        )
+
+        # Read input file content for stdin
+        with open(input_file_path, "r") as f:
+            input_content = f.read()
+
+        from app.windows.panels.operations_monitoring_panel import OperationType
+
+        progress_file = "elastic_progress.json"  # Relative to working directory
+
+        operation_id = operations_panel.start_real_process_operation(
+            name=operation_name,
+            operation_type=OperationType.ELASTIC_MODULI_CALCULATION,
+            command=[
+                str(elastic_path),
+                "-j",
+                progress_file,  # Progress JSON file (relative path)
+                "-w",
+                ".",  # Working directory (current directory)
+            ],
+            working_dir=str(output_dir),
+            input_data=input_content,  # Input provided via stdin
+        )
+
+        # Update database operation with UI parameters and parent linkage
+        if operation_id:
+            ui_parameters["backend"] = "VCCTL"
+            self._update_elastic_operation_metadata(
+                operation_id=operation_id,
+                ui_parameters=ui_parameters,
+                parent_operation_id=hydration_id,
+            )
+
+        self.logger.info(
+            f"Launched VCCTL elastic operation '{operation_name}' with database ID: {operation_id}"
+        )
+        return operation_id
 
     def _get_hydration_operation_name(self, hydration_id: int) -> Optional[str]:
         """Get the name of a hydration operation by its ID."""
@@ -1847,4 +2255,148 @@ class ElasticModuliPanel(Gtk.Box):
         except Exception as e:
             self.logger.error(f"Error getting parent microstructure name: {e}")
             return None
+
+    # =========================================================================
+    # THAMES Backend Detection and Support Methods
+    # =========================================================================
+
+    def _is_thames_mode(self) -> bool:
+        """
+        Detect if THAMES backend should be used for elastic calculations.
+
+        THAMES mode is used when:
+        1. The thames executable exists in backend/bin/
+        2. We're running the THAMES application (not VCCTL)
+
+        Returns:
+            True if THAMES backend should be used, False for VCCTL elastic.c
+        """
+        import sys
+
+        # Check for THAMES executable
+        thames_path = self._get_thames_executable_path()
+        if thames_path and thames_path.exists():
+            self.logger.info(f"THAMES mode enabled - found executable at: {thames_path}")
+            return True
+
+        # Fallback: check for VCCTL elastic executable
+        elastic_path = self._get_vcctl_elastic_path()
+        if elastic_path and elastic_path.exists():
+            self.logger.info(f"VCCTL mode - using elastic.c at: {elastic_path}")
+            return False
+
+        # Default to THAMES mode if neither found (will show error at runtime)
+        self.logger.warning("No elastic calculation executable found - defaulting to THAMES mode")
+        return True
+
+    def _get_thames_executable_path(self) -> Optional[Path]:
+        """
+        Get the path to the THAMES executable.
+
+        Returns:
+            Path to thames executable, or None if not found
+        """
+        import sys
+
+        # Detect if running in PyInstaller bundle
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            # Running in PyInstaller bundle
+            bin_dir = Path(sys._MEIPASS) / "backend" / "bin"
+        else:
+            # Running in development
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+            bin_dir = project_root / "backend" / "bin"
+
+        # Platform-specific executable name
+        thames_exe = 'thames.exe' if sys.platform == 'win32' else 'thames'
+        thames_path = bin_dir / thames_exe
+
+        return thames_path if thames_path.exists() else None
+
+    def _get_vcctl_elastic_path(self) -> Optional[Path]:
+        """
+        Get the path to the VCCTL elastic executable.
+
+        Returns:
+            Path to elastic executable, or None if not found
+        """
+        import sys
+
+        # Detect if running in PyInstaller bundle
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            bin_dir = Path(sys._MEIPASS) / "backend" / "bin"
+        else:
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+            bin_dir = project_root / "backend" / "bin"
+
+        # Platform-specific executable name
+        elastic_exe = 'elastic.exe' if sys.platform == 'win32' else 'elastic'
+        elastic_path = bin_dir / elastic_exe
+
+        return elastic_path if elastic_path.exists() else None
+
+    def _get_simparams_path(self, hydration_name: str) -> Optional[Path]:
+        """
+        Get the path to simparams.json for a hydration operation.
+
+        THAMES elastic calculations require the simparams.json file from
+        the hydration operation to get phase elastic moduli.
+
+        Args:
+            hydration_name: Name of the hydration operation
+
+        Returns:
+            Path to simparams.json, or None if not found
+        """
+        operations_dir = self.service_container.directories_service.get_operations_path()
+        simparams_path = operations_dir / hydration_name / "simparams.json"
+
+        if simparams_path.exists():
+            return simparams_path
+
+        # Also check in Result subdirectory
+        result_simparams = operations_dir / hydration_name / "Result" / "simparams.json"
+        if result_simparams.exists():
+            return result_simparams
+
+        return None
+
+    def _get_thames_microstructure_for_elastic(
+        self, hydration_name: str, selected_microstructure: HydratedMicrostructure
+    ) -> Optional[Path]:
+        """
+        Get the microstructure file path for THAMES elastic calculation.
+
+        THAMES elastic calculation needs the full path to the .img file.
+
+        Args:
+            hydration_name: Name of the hydration operation
+            selected_microstructure: Selected microstructure from lineage service
+
+        Returns:
+            Path to microstructure file, or None if not found
+        """
+        if selected_microstructure and selected_microstructure.file_path:
+            mic_path = Path(selected_microstructure.file_path)
+            if mic_path.exists():
+                return mic_path
+
+        # Fallback: look in hydration operation directory
+        operations_dir = self.service_container.directories_service.get_operations_path()
+        hydration_dir = operations_dir / hydration_name
+
+        # Try Result subdirectory first (THAMES output location)
+        result_dir = hydration_dir / "Result"
+        if result_dir.exists():
+            img_files = list(result_dir.glob("*.img"))
+            if img_files:
+                # Return the most recently modified
+                return max(img_files, key=lambda f: f.stat().st_mtime)
+
+        # Try hydration directory directly
+        img_files = list(hydration_dir.glob("*.img"))
+        if img_files:
+            return max(img_files, key=lambda f: f.stat().st_mtime)
+
+        return None
 

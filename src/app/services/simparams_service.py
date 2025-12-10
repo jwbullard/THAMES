@@ -23,6 +23,7 @@ from app.services.gems_parser_service import GEMSParserService
 from app.services.kinetic_defaults_service import KineticDefaultsService
 from app.services.phase_id_mapping_service import PhaseIdMapping, VOIDID, ELECTROLYTEID
 from app.services.phase_color_service import PhaseColorService
+from app.services.elastic_defaults_service import ElasticDefaultsService, get_elastic_defaults_service
 from app.models.kinetic_parameters import (
     ParrotKillohKinetics,
     StandardKinetics,
@@ -77,7 +78,8 @@ class PhaseDataBuilder:
         self,
         gems_parser: GEMSParserService,
         kinetic_defaults: KineticDefaultsService,
-        phase_color_service: PhaseColorService
+        phase_color_service: PhaseColorService,
+        elastic_defaults: Optional[ElasticDefaultsService] = None
     ):
         """
         Initialize the PhaseDataBuilder.
@@ -86,10 +88,12 @@ class PhaseDataBuilder:
             gems_parser: GEMS parser service for DC data
             kinetic_defaults: Service providing default kinetic parameters
             phase_color_service: Service for phase colors
+            elastic_defaults: Service providing default elastic moduli
         """
         self.gems_parser = gems_parser
         self.kinetic_defaults = kinetic_defaults
         self.phase_color_service = phase_color_service
+        self.elastic_defaults = elastic_defaults or get_elastic_defaults_service()
         self.logger = logging.getLogger('THAMES.PhaseDataBuilder')
 
     def build_phase_entry(
@@ -101,6 +105,7 @@ class PhaseDataBuilder:
         kinetic_override: Optional[Dict[str, Any]] = None,
         impurity_override: Optional[Dict[str, float]] = None,
         interface_override: Optional[List[Dict[str, Any]]] = None,
+        elastic_override: Optional[Dict[str, float]] = None,
         include_display_data: bool = True
     ) -> Dict[str, Any]:
         """
@@ -114,6 +119,7 @@ class PhaseDataBuilder:
             kinetic_override: Optional override for kinetic parameters
             impurity_override: Optional override for impurity data
             interface_override: Optional override for interface affinity
+            elastic_override: Optional override for elastic moduli (bulk_modulus_GPa, shear_modulus_GPa)
             include_display_data: Whether to include display color data
 
         Returns:
@@ -151,6 +157,10 @@ class PhaseDataBuilder:
         interface_data = self.build_interface_data(gemphasename, interface_override)
         if interface_data:
             entry["interface_data"] = interface_data
+
+        # Add elastic_data for all phases (needed for elastic calculations)
+        elastic_data = self.build_elastic_data(gemphasename, elastic_override)
+        entry["elastic_data"] = elastic_data
 
         return entry
 
@@ -321,6 +331,41 @@ class PhaseDataBuilder:
 
         return {"affinity": affinity_list}
 
+    def build_elastic_data(
+        self,
+        gemphasename: str,
+        override: Optional[Dict[str, float]] = None
+    ) -> Dict[str, float]:
+        """
+        Build elastic_data dictionary with elastic moduli.
+
+        Elastic moduli (bulk modulus K, shear modulus G) are required for
+        finite element elastic calculations on the microstructure.
+
+        Args:
+            gemphasename: GEMS phase name
+            override: Optional dictionary with bulk_modulus_GPa and/or shear_modulus_GPa
+
+        Returns:
+            Elastic data dictionary with bulk_modulus_GPa and shear_modulus_GPa
+        """
+        # Get defaults from elastic defaults service
+        moduli = self.elastic_defaults.get_elastic_moduli(gemphasename)
+
+        result = {
+            "bulk_modulus_GPa": moduli.bulk_modulus_GPa,
+            "shear_modulus_GPa": moduli.shear_modulus_GPa
+        }
+
+        # Apply overrides if provided
+        if override:
+            if "bulk_modulus_GPa" in override:
+                result["bulk_modulus_GPa"] = override["bulk_modulus_GPa"]
+            if "shear_modulus_GPa" in override:
+                result["shear_modulus_GPa"] = override["shear_modulus_GPa"]
+
+        return result
+
     def _build_display_data(self, gemphasename: str) -> Optional[Dict[str, float]]:
         """
         Build display_data dictionary with RGB color values.
@@ -381,7 +426,8 @@ class SimParamsService:
         self,
         gems_parser: GEMSParserService,
         kinetic_defaults: KineticDefaultsService,
-        phase_color_service: PhaseColorService
+        phase_color_service: PhaseColorService,
+        elastic_defaults: Optional[ElasticDefaultsService] = None
     ):
         """
         Initialize the SimParamsService.
@@ -390,12 +436,14 @@ class SimParamsService:
             gems_parser: GEMS parser service
             kinetic_defaults: Kinetic defaults service
             phase_color_service: Phase color service
+            elastic_defaults: Elastic defaults service (optional, will create if needed)
         """
         self.gems_parser = gems_parser
         self.kinetic_defaults = kinetic_defaults
         self.phase_color_service = phase_color_service
+        self.elastic_defaults = elastic_defaults or get_elastic_defaults_service()
         self.phase_builder = PhaseDataBuilder(
-            gems_parser, kinetic_defaults, phase_color_service
+            gems_parser, kinetic_defaults, phase_color_service, self.elastic_defaults
         )
         self.logger = logging.getLogger('THAMES.SimParamsService')
 
@@ -406,6 +454,7 @@ class SimParamsService:
         environment_config: Optional[EnvironmentConfig] = None,
         time_config: Optional[TimeConfig] = None,
         kinetic_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+        elastic_overrides: Optional[Dict[str, Dict[str, float]]] = None,
         hydration_products: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
@@ -417,6 +466,8 @@ class SimParamsService:
             environment_config: Environment configuration (or None for defaults)
             time_config: Time configuration (or None for defaults)
             kinetic_overrides: Optional dict of phase_name -> kinetic override dict
+            elastic_overrides: Optional dict of phase_name -> elastic override dict
+                               (with bulk_modulus_GPa and/or shear_modulus_GPa)
             hydration_products: Optional list of hydration product phase names to include
 
         Returns:
@@ -431,6 +482,7 @@ class SimParamsService:
                 phase_id_mapping,
                 material_phases,
                 kinetic_overrides,
+                elastic_overrides,
                 hydration_products
             ),
             "time_parameters": self._build_time_parameters(t_config)
@@ -460,6 +512,7 @@ class SimParamsService:
         phase_id_mapping: PhaseIdMapping,
         material_phases: List[Dict[str, Any]],
         kinetic_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+        elastic_overrides: Optional[Dict[str, Dict[str, float]]] = None,
         hydration_products: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
@@ -469,6 +522,7 @@ class SimParamsService:
             phase_id_mapping: Phase ID mapping
             material_phases: Material phase data from mix design
             kinetic_overrides: Optional kinetic parameter overrides
+            elastic_overrides: Optional elastic moduli overrides
             hydration_products: Optional list of hydration products to include
 
         Returns:
@@ -498,6 +552,11 @@ class SimParamsService:
             if kinetic_overrides and phase_name in kinetic_overrides:
                 kinetic_override = kinetic_overrides[phase_name]
 
+            # Get elastic override if provided
+            elastic_override = None
+            if elastic_overrides and phase_name in elastic_overrides:
+                elastic_override = elastic_overrides[phase_name]
+
             # Map GEMS phase name to thamesname
             thamesname = self._get_thamesname(phase_name)
 
@@ -508,6 +567,7 @@ class SimParamsService:
                 gemphasename=phase_name,
                 is_cement_component=is_cement,
                 kinetic_override=kinetic_override,
+                elastic_override=elastic_override,
                 include_display_data=(phase_id in [VOIDID] or phase_name not in ["Electrolyte", "aq_gen"])
             )
 
@@ -688,7 +748,8 @@ _simparams_service: Optional[SimParamsService] = None
 def get_simparams_service(
     gems_parser: Optional[GEMSParserService] = None,
     kinetic_defaults: Optional[KineticDefaultsService] = None,
-    phase_color_service: Optional[PhaseColorService] = None
+    phase_color_service: Optional[PhaseColorService] = None,
+    elastic_defaults: Optional[ElasticDefaultsService] = None
 ) -> SimParamsService:
     """
     Get or create the SimParamsService singleton.
@@ -697,6 +758,7 @@ def get_simparams_service(
         gems_parser: GEMS parser service (required on first call)
         kinetic_defaults: Kinetic defaults service (optional, will create if needed)
         phase_color_service: Phase color service (optional, will create if needed)
+        elastic_defaults: Elastic defaults service (optional, will create if needed)
 
     Returns:
         SimParamsService instance
@@ -714,8 +776,11 @@ def get_simparams_service(
         if phase_color_service is None:
             phase_color_service = PhaseColorService()
 
+        if elastic_defaults is None:
+            elastic_defaults = get_elastic_defaults_service()
+
         _simparams_service = SimParamsService(
-            gems_parser, kinetic_defaults, phase_color_service
+            gems_parser, kinetic_defaults, phase_color_service, elastic_defaults
         )
 
     return _simparams_service

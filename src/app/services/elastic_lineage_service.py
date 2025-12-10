@@ -491,43 +491,74 @@ class ElasticLineageService:
     def discover_hydrated_microstructures(self, hydration_operation: Operation) -> List[HydratedMicrostructure]:
         """
         Discover all available hydrated microstructures from hydration operation directory.
-        
+
+        Supports both VCCTL and THAMES output patterns:
+        - VCCTL: HydrationOf_[NAME].img.25.100, [NAME].img.332.05h.25.100
+        - THAMES: [NAME].<YYYyDDDdHHhMMm>.<TTTK>.img in Result/ subdirectory
+
         Returns list sorted with final microstructure first.
         """
         hydration_dir = self.operations_dir / hydration_operation.name
-        
+
         if not hydration_dir.exists():
             self.logger.warning(f"Hydration directory not found: {hydration_dir}")
             return []
-        
+
         # Resolve lineage to find the original microstructure operation
+        original_pimg_path = None
         try:
             lineage = self.resolve_lineage_chain(hydration_operation.id)
             microstructure_operation = lineage.get('microstructure_operation')
-            if not microstructure_operation:
+            if microstructure_operation:
+                # Find the original .pimg file in the microstructure operation's directory
+                original_microstructure_dir = self.operations_dir / microstructure_operation.name
+                original_pimg_path = original_microstructure_dir / f"{microstructure_operation.name}.pimg"
+
+                if not original_pimg_path.exists():
+                    self.logger.warning(f"Original .pimg file not found: {original_pimg_path}")
+                    original_pimg_path = None
+                else:
+                    self.logger.info(f"Using original .pimg file: {original_pimg_path}")
+            else:
                 self.logger.warning(f"No microstructure operation found in lineage for {hydration_operation.name}")
-                return []
-            
-            # Find the original .pimg file in the microstructure operation's directory
-            original_microstructure_dir = self.operations_dir / microstructure_operation.name
-            original_pimg_path = original_microstructure_dir / f"{microstructure_operation.name}.pimg"
-            
-            if not original_pimg_path.exists():
-                self.logger.warning(f"Original .pimg file not found: {original_pimg_path}")
-                return []
-            
-            self.logger.info(f"Using original .pimg file: {original_pimg_path}")
-            
+
         except Exception as e:
-            self.logger.error(f"Error resolving lineage for {hydration_operation.name}: {e}")
-            return []
-        
-        # Find all hydrated .img files in the directory
-        # Pattern 1: Standard hydration output (e.g., HydrationOf_[NAME].img.25.100)  
-        # Pattern 2: Time-step outputs (e.g., [NAME].img.332.05h.25.100)
-        all_files = list(hydration_dir.glob("*"))
-        
+            self.logger.warning(f"Error resolving lineage for {hydration_operation.name}: {e}")
+
+        # Fallback: Look for pimg file directly in hydration directory
+        # (pimg is copied from microstructure operation to hydration directory during setup)
+        if original_pimg_path is None:
+            pimg_files = list(hydration_dir.glob("*.pimg"))
+            if pimg_files:
+                original_pimg_path = pimg_files[0]  # Use first one found
+                self.logger.info(f"Found .pimg file in hydration directory (fallback): {original_pimg_path}")
+            else:
+                self.logger.warning(f"No .pimg file found in hydration directory: {hydration_dir}")
+
         img_files = []
+
+        # =====================================================================
+        # Check for THAMES output files in Result/ subdirectory
+        # Pattern: <name>.<YYYyDDDdHHhMMm>.<TTTK>.img
+        # Example: HydOf-Cem152-Neat.000y003d00h00m.298K.img
+        # =====================================================================
+        result_dir = hydration_dir / "Result"
+        if result_dir.exists():
+            # THAMES pattern: ends with .<digits>K.img (temperature in Kelvin)
+            thames_pattern = re.compile(r'^.+\.\d{3}y\d{3}d\d{2}h\d{2}m\.\d+K\.img$')
+
+            for file_path in result_dir.iterdir():
+                if file_path.is_file() and thames_pattern.match(file_path.name):
+                    img_files.append(file_path)
+                    self.logger.debug(f"Found THAMES microstructure: {file_path.name}")
+
+        # =====================================================================
+        # Check for VCCTL output files in main directory
+        # Pattern 1: HydrationOf_[NAME].img.25.100
+        # Pattern 2: [NAME].img.332.05h.25.100
+        # =====================================================================
+        all_files = list(hydration_dir.glob("*"))
+
         # Valid combinations of Csh2flag (0-1), Adiaflag (0,1,2), Sealed (0-1)
         valid_suffixes = [
             '000', '001', '010', '011', '020', '021',
@@ -550,94 +581,117 @@ class ElasticLineageService:
             # Also include HydrationOf_* files
             elif filename.startswith('HydrationOf_') and '.img.' in filename:
                 img_files.append(file_path)
-        
+
+        self.logger.info(f"Found {len(img_files)} microstructure files for {hydration_operation.name}")
+
         microstructures = []
-        # Final microstructure patterns (be flexible about system size)
-        final_patterns = []
-        
-        # Add patterns based on found files that start with "HydrationOf_"
-        hydrationof_files = [f for f in img_files if f.name.startswith("HydrationOf_")]
-        if hydrationof_files:
-            # The "HydrationOf_" files are typically the final outputs
-            for hof_file in hydrationof_files:
-                final_patterns.append(hof_file.name)
-        
-        # If no HydrationOf_ files, use fallback patterns
-        if not final_patterns:
-            # Look for patterns like HydrationOf_{operation}.img.{size}.100
-            final_patterns = [
-                f"HydrationOf_{hydration_operation.name}.img.25.100",
-                f"HydrationOf_{hydration_operation.name}.img.23.100",
-                f"HydrationOf_{hydration_operation.name}.img.50.100"
-            ]
-        
+
+        # Process each file and extract time information
         for img_file in img_files:
             filename = img_file.name
-            
-            # Determine if this is the final microstructure
-            is_final = any(filename == pattern for pattern in final_patterns)
-            # Also check if this looks like the final time step (highest time value)
-            if not is_final and 'h.25.100' in filename:
-                # This is a time-step file, we'll determine the final one after processing all files
-                pass
-            
+
             # Extract time label from filename
-            time_label = self._extract_time_label(filename, hydration_operation.name, is_final)
-            
-            # Use the original .pimg file found through lineage resolution
+            time_label, time_minutes = self._extract_time_label_thames(filename, hydration_operation.name)
+
             microstructure = HydratedMicrostructure(
                 file_path=str(img_file),
                 time_label=time_label,
-                is_final=is_final
+                is_final=False  # Will determine final below
             )
+            # Store time in minutes for sorting
+            microstructure._time_minutes = time_minutes
             # Use the original .pimg file for all hydrated microstructures
-            microstructure.pimg_path = str(original_pimg_path)
+            microstructure.pimg_path = str(original_pimg_path) if original_pimg_path else None
             microstructures.append(microstructure)
-        
-        # Sort with final first, then by time
-        microstructures.sort(key=lambda x: (not x.is_final, x.time_label))
-        
+
+        # Determine final microstructure (highest time value)
+        if microstructures:
+            # Sort by time in minutes to find the latest
+            microstructures.sort(key=lambda x: x._time_minutes, reverse=True)
+            microstructures[0].is_final = True
+            microstructures[0].time_label = f"Final ({microstructures[0].time_label})"
+
+        # Sort with final first, then by time (descending so most recent is at top)
+        microstructures.sort(key=lambda x: (not x.is_final, -x._time_minutes))
+
         self.logger.info(f"Found {len(microstructures)} hydrated microstructures for {hydration_operation.name}")
         return microstructures
-    
-    def _extract_time_label(self, filename: str, operation_name: str, is_final: bool) -> str:
-        """Extract time label from microstructure filename."""
-        if is_final:
-            return "Final"
-        
+
+    def _extract_time_label_thames(self, filename: str, operation_name: str) -> tuple:
+        """
+        Extract time label from microstructure filename.
+
+        Supports both VCCTL and THAMES patterns:
+        - THAMES: <name>.<YYYyDDDdHHhMMm>.<TTTK>.img -> "X days Y hours"
+        - VCCTL: Various patterns
+
+        Returns:
+            Tuple of (time_label: str, time_in_minutes: int)
+        """
+        # =====================================================================
+        # THAMES pattern: <name>.<YYYyDDDdHHhMMm>.<TTTK>.img
+        # Example: HydOf-Cem152-Neat.000y003d00h00m.298K.img
+        # =====================================================================
+        thames_match = re.search(r'\.(\d{3})y(\d{3})d(\d{2})h(\d{2})m\.\d+K\.img$', filename)
+        if thames_match:
+            years = int(thames_match.group(1))
+            days = int(thames_match.group(2))
+            hours = int(thames_match.group(3))
+            minutes = int(thames_match.group(4))
+
+            # Calculate total minutes for sorting
+            total_minutes = years * 365 * 24 * 60 + days * 24 * 60 + hours * 60 + minutes
+
+            # Build human-readable label
+            parts = []
+            if years > 0:
+                parts.append(f"{years}y")
+            if days > 0:
+                parts.append(f"{days}d")
+            if hours > 0 or (years == 0 and days == 0):
+                parts.append(f"{hours}h")
+            if minutes > 0 and days == 0:
+                parts.append(f"{minutes}m")
+
+            time_label = " ".join(parts) if parts else "0h"
+            return (time_label, total_minutes)
+
+        # =====================================================================
+        # VCCTL patterns
+        # =====================================================================
         # Remove operation name prefix to get time suffix
         if filename.startswith(operation_name):
             suffix = filename[len(operation_name):]
             # Remove .img extension
             suffix = suffix.replace('.img', '')
-            
+
             # Parse common patterns
             if suffix.startswith('_'):
                 suffix = suffix[1:]  # Remove leading underscore
-                
+
                 # Pattern: "028days" -> "28 days"
                 days_match = re.match(r'(\d+)days?', suffix)
                 if days_match:
                     days = int(days_match.group(1))
-                    return f"{days} days"
-                
-                # Pattern: "001hours" -> "1 hours"  
+                    return (f"{days} days", days * 24 * 60)
+
+                # Pattern: "001hours" -> "1 hours"
                 hours_match = re.match(r'(\d+)hours?', suffix)
                 if hours_match:
                     hours = int(hours_match.group(1))
-                    return f"{hours} hours"
-                
+                    return (f"{hours} hours", hours * 60)
+
                 # Pattern: "1year" -> "1 year"
                 year_match = re.match(r'(\d+)years?', suffix)
                 if year_match:
                     years = int(year_match.group(1))
-                    return f"{years} year{'s' if years != 1 else ''}"
-                
+                    return (f"{years} year{'s' if years != 1 else ''}", years * 365 * 24 * 60)
+
                 # Return cleaned suffix if no pattern matches
-                return suffix.replace('_', ' ').title()
-        
+                return (suffix.replace('_', ' ').title(), 0)
+
         # Fallback to filename without extension
-        return filename.replace('.img', '')
+        return (filename.replace('.img', ''), 0)
     
     def convert_to_relative_path(self, absolute_path: str, elastic_operation_dir: str) -> str:
         """

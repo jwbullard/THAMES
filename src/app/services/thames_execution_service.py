@@ -224,6 +224,17 @@ class THAMESExecutionService:
                 import shutil
                 shutil.copy2(microstructure_path, micro_dest)
 
+            # Also copy the pimg file (phase ID mapping) for elastic calculations
+            pimg_path = microstructure_path.with_suffix('.pimg')
+            if pimg_path.exists():
+                pimg_dest = operation_dir / pimg_path.name
+                if not pimg_dest.exists():
+                    import shutil
+                    shutil.copy2(pimg_path, pimg_dest)
+                    self.logger.info(f"Copied pimg file to hydration directory: {pimg_dest}")
+            else:
+                self.logger.warning(f"Pimg file not found at {pimg_path} - elastic calculations may fail")
+
             # Start THAMES process
             simulation_info = self._start_thames_process(
                 operation_name,

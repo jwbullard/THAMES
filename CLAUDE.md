@@ -1046,6 +1046,69 @@ December 6, 2025
 
 ---
 
+### Session 13: Elastic Moduli UI Integration for THAMES
+December 10, 2025
+
+**Context**: Integrated THAMES elastic calculations into the Elastic Moduli panel UI. Added THAMES backend detection, fixed operation/microstructure discovery for THAMES file formats, and ensured pimg files are properly handled.
+
+**Key Accomplishments**:
+
+1. **THAMES Backend Detection and Support**
+   - Added `_is_thames_mode()` and `_get_thames_executable_path()` methods
+   - Added `_launch_thames_elastic()` for THAMES elastic calculation (`thames -s 5`)
+   - Added backend info display in UI header
+   - Disabled aggregate/ITZ controls in THAMES mode with notice about future concelas support
+
+2. **Fixed THAMES Hydration Operations Discovery**
+   - Updated `_load_available_hydration_operations` to detect THAMES patterns
+   - Looks for `Result/` subdirectory, `simparams.json`, `*_Microstructure.csv`
+
+3. **Fixed THAMES Microstructure Discovery**
+   - Added THAMES pattern regex: `r'^.+\.\d{3}y\d{3}d\d{2}h\d{2}m\.\d+K\.img$'`
+   - Example: `HydOf-Cem152-Neat.000y030d00h00m.298K.img`
+   - Added time label extraction from THAMES format
+   - Made lineage resolution failure non-fatal
+
+4. **Auto-Population of UI Fields**
+   - Added database fallback when lineage resolution fails
+   - Auto-generates operation name: `Elastic-{HydrationName}-{TimeStep}`
+   - Auto-populates output directory and pimg file path
+
+5. **Collapsible Microstructure Settings**
+   - Changed from `Gtk.Frame` to `Gtk.Expander` (collapsed by default)
+   - Fields are auto-populated when microstructure selected
+
+6. **Pimg File Handling for Elastic Calculations**
+   - Removed THAMES mode pimg clearing code
+   - Added pimg fallback discovery in hydration directory
+   - Added pimg file copy during hydration setup (`thames_execution_service.py`)
+
+**Files Modified**:
+- `src/app/windows/panels/elastic_moduli_panel.py` - THAMES mode, discovery, auto-population
+- `src/app/services/elastic_lineage_service.py` - THAMES patterns, pimg fallback
+- `src/app/services/thames_execution_service.py` - Pimg file copy
+- `src/app/services/simparams_service.py` - Minor updates
+
+**New File**:
+- `src/app/services/elastic_defaults_service.py` - Elastic calculation defaults
+
+**Testing Status**:
+- ✅ THAMES mode detection works
+- ✅ Hydration operations discovered correctly
+- ✅ Microstructures discovered with proper time labels
+- ✅ Fields auto-populate when microstructure selected
+- ✅ Pimg file copy added to hydration setup
+- ⏳ End-to-end elastic calculation test pending
+
+**Critical Files for Next Session**:
+- Elastic Panel: `src/app/windows/panels/elastic_moduli_panel.py`
+- Lineage Service: `src/app/services/elastic_lineage_service.py`
+- THAMES Execution: `src/app/services/thames_execution_service.py`
+- Elastic Defaults: `src/app/services/elastic_defaults_service.py`
+- Session Summary: `docs/SESSION_13_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
