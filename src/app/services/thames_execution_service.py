@@ -139,12 +139,14 @@ class THAMESExecutionService:
 
         # Platform-specific executable name
         exe_name = 'thames.exe' if sys.platform == 'win32' else 'thames'
-        self.thames_binary = project_root / "backend" / "thames-hydration" / "bin" / exe_name
 
-        # Alternative locations to check
+        # Primary location: top-level bin/ folder
+        self.thames_binary = project_root / "bin" / exe_name
+
+        # Alternative locations to check (fallbacks)
         alt_paths = [
             project_root / "backend" / "bin" / exe_name,
-            project_root / "thames-hydration" / "bin" / exe_name,
+            project_root / "backend" / "thames-hydration" / "bin" / exe_name,
         ]
 
         if not self.thames_binary.exists():
@@ -161,6 +163,7 @@ class THAMESExecutionService:
         material_phases: List[MaterialPhaseData],
         config: HydrationInputConfig,
         microstructure_path: Path,
+        source_microstructure_operation: Optional[str] = None,
         progress_callback: Optional[Callable] = None,
     ) -> Tuple[bool, List[str]]:
         """
@@ -171,11 +174,14 @@ class THAMESExecutionService:
             material_phases: Material phase data from mix design
             config: Hydration input configuration
             microstructure_path: Path to the microstructure file
+            source_microstructure_operation: Name of the source microstructure operation (for lineage tracking)
             progress_callback: Optional callback for progress updates
 
         Returns:
             Tuple of (success, error_messages)
         """
+        # Store source operation name for use when creating the operation record
+        self._current_source_operation = source_microstructure_operation
         errors = []
 
         try:
@@ -567,10 +573,24 @@ class THAMESExecutionService:
 
                 if not operation:
                     self.logger.info(f"Creating operation: {operation_name}")
+
+                    # Look up parent microstructure operation ID if source name was provided
+                    parent_operation_id = None
+                    if hasattr(self, '_current_source_operation') and self._current_source_operation:
+                        parent_op = session.query(Operation).filter_by(
+                            name=self._current_source_operation
+                        ).first()
+                        if parent_op:
+                            parent_operation_id = parent_op.id
+                            self.logger.info(f"Linking to parent operation: {self._current_source_operation} (id={parent_operation_id})")
+                        else:
+                            self.logger.warning(f"Parent operation not found: {self._current_source_operation}")
+
                     operation = Operation(
                         name=operation_name,
                         operation_type=OperationType.HYDRATION.value,
-                        notes=f"THAMES hydration simulation"
+                        notes=f"THAMES hydration simulation",
+                        parent_operation_id=parent_operation_id
                     )
                     session.add(operation)
                     session.flush()

@@ -189,8 +189,13 @@ logs/
 *.log
 
 # THAMES Operations folder - contains user-generated mix designs and simulation outputs
-backend/bin/*
 Operations/
+
+# Executables - ignore contents but track the directories
+bin/*
+!bin/.gitkeep
+backend/bin/*
+!backend/bin/.gitkeep
 
 # C/C++ build artifacts in backend
 backend/*.o

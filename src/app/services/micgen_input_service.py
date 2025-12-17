@@ -126,7 +126,7 @@ class MicgenInputService:
 
         try:
             # Step 1: Create phase ID mapping
-            phase_mapping = self._create_phase_mapping(mix_design)
+            phase_mapping = self._create_phase_mapping(mix_design, include_aggregate=add_aggregate_slab)
 
             # Step 2: Calculate volume fractions
             volume_fractions = self._calculate_volume_fractions(mix_design, phase_mapping)
@@ -181,7 +181,7 @@ class MicgenInputService:
             logger.error(f"Failed to generate micgen input file: {e}", exc_info=True)
             raise MicgenInputGenerationError(f"Input generation failed: {e}") from e
 
-    def _create_phase_mapping(self, mix_design: MixDesign) -> PhaseIdMapping:
+    def _create_phase_mapping(self, mix_design: MixDesign, include_aggregate: bool = False) -> PhaseIdMapping:
         """
         Create phase ID mapping for this mix design.
 
@@ -190,6 +190,7 @@ class MicgenInputService:
 
         Args:
             mix_design: The mix design to map
+            include_aggregate: Whether to include Aggregate phase at ID 8
 
         Returns:
             PhaseIdMapping object with bidirectional phase name <-> ID mapping
@@ -233,7 +234,8 @@ class MicgenInputService:
         # Generate phase ID mapping
         phase_mapping = self.phase_mapping_service.create_mapping_from_mix(
             material_phases=material_phases,
-            include_hydration_products=False  # Don't include hydration products in initial microstructure
+            include_hydration_products=False,  # Don't include hydration products in initial microstructure
+            include_aggregate=include_aggregate
         )
 
         return phase_mapping

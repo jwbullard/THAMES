@@ -578,7 +578,9 @@ class PhaseIdMappingService:
                 f"Insufficient voxel data: got {len(voxel_data)}, expected {total_voxels}"
             )
 
-        voxel_array = np.array(voxel_data[:total_voxels]).reshape((z_size, y_size, x_size))
+        # Reshape with X as first axis, Y second, Z third (last axis varies fastest in C-order)
+        # This matches the file format where Z varies fastest, then Y, then X
+        voxel_array = np.array(voxel_data[:total_voxels]).reshape((x_size, y_size, z_size))
 
         return header_lines, voxel_array, (x_size, y_size, z_size)
 
@@ -603,7 +605,7 @@ class PhaseIdMappingService:
             for x in range(x_size):
                 for y in range(y_size):
                     for z in range(z_size):
-                        f.write(f"{voxel_data[z, y, x]}\n")
+                        f.write(f"{voxel_data[x, y, z]}\n")
 
     def _remap_phase_mapping(
         self,

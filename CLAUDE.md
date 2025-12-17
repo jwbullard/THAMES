@@ -1109,6 +1109,85 @@ December 10, 2025
 
 ---
 
+### Session 14: Executable Paths & Elastic Moduli Input Fix
+December 16, 2025
+
+**Context**: Fixed multiple issues preventing elastic moduli calculations from running: hydration operation lineage tracking, executable path standardization, and THAMES stdin input format for elastic calculations.
+
+**Key Accomplishments**:
+
+1. **Fixed Hydration Operation Lineage Tracking**
+   - Problem: Elastic moduli calculations failed with "Parent operation microstructure not found for hydration X"
+   - Cause: Hydration operations were created without `parent_operation_id` set in database
+   - Fix: Added `source_microstructure_operation` parameter to `start_simulation()` in `thames_execution_service.py`
+   - Fix: Updated `thames_hydration_panel.py` to pass `selected_operation_name` when starting simulation
+   - Fix: `_update_operation_status()` now looks up parent operation by name and sets `parent_operation_id`
+
+2. **Standardized Executable Paths to Top-Level `bin/` Folder**
+   - User preference: All executables (micgen, thames, etc.) should be in `./bin/` not `./backend/bin/`
+   - Updated 6 files to use `bin/` as primary location with fallbacks:
+     - `thames_execution_service.py` - THAMES hydration executable
+     - `hydration_executor_service.py` - VCCTL disrealnew executable
+     - `elastic_moduli_panel.py` - THAMES and VCCTL elastic executables
+     - `mix_design_panel.py` - micgen executable
+     - `pyvista_3d_viewer.py` - stat3d and perc3d executables (4 occurrences)
+   - Updated `.gitignore` to track `bin/` directory via `.gitkeep` but ignore contents
+   - Created `bin/.gitkeep` file
+
+3. **Fixed THAMES Elastic Calculation Input Format**
+   - Problem: Elastic moduli panel was passing command-line arguments, but THAMES reads from stdin
+   - Root cause: `-s` flag is for "suppress warnings", not simulation type selection
+   - Fix: Created proper `input.in` file with stdin format:
+     ```
+     5
+     thames-dat.lst
+     simparams.json
+     <microstructure>.img
+     ```
+   - Fix: Copy GEMS database files (thames-dat.lst, thames-dch.dat, thames-ipm.dat, thames-dbr.dat) to output directory
+   - Fix: Pass input data to `start_real_process_operation()` via `input_data` parameter for stdin redirection
+
+**THAMES Elastic Calculation Input Format** (stdin):
+| Line | Content | Description |
+|------|---------|-------------|
+| 1 | `5` | ELASTIC_CALC simulation type |
+| 2 | `thames-dat.lst` | GEM input file (relative path) |
+| 3 | `simparams.json` | Simulation parameters file |
+| 4 | `<name>.img` | Microstructure file to analyze |
+
+**Files Modified**:
+- `src/app/services/thames_execution_service.py` - Parent operation linkage, executable path
+- `src/app/services/hydration_executor_service.py` - Executable path
+- `src/app/windows/panels/thames_hydration_panel.py` - Pass source operation name
+- `src/app/windows/panels/elastic_moduli_panel.py` - Executable path, stdin input creation
+- `src/app/windows/panels/mix_design_panel.py` - Executable path
+- `src/app/visualization/pyvista_3d_viewer.py` - Executable paths (4 locations)
+- `.gitignore` - Track bin/ directory
+
+**Files Created**:
+- `bin/.gitkeep` - Placeholder to track bin/ directory in git
+
+**Testing Status**:
+- ✅ Hydration operations now have correct parent_operation_id
+- ✅ Elastic moduli calculation starts and runs successfully
+- ✅ Input.in file created with correct format
+- ✅ GEMS database files copied to elastic operation directory
+- ⏳ Elastic progress tracking not yet implemented
+
+**Pending Items for Next Session**:
+1. **Add progress tracking for Elastic Moduli operations** - User will implement THAMES C++ side
+2. **Fix small glitches in 3D visualization functionality** - User reported minor issues
+
+**Critical Files for Next Session**:
+- Elastic Panel: `src/app/windows/panels/elastic_moduli_panel.py`
+- THAMES Execution: `src/app/services/thames_execution_service.py`
+- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
+- Operations Panel: `src/app/windows/panels/operations_monitoring_panel.py`
+- 3D Viewer: `src/app/visualization/pyvista_3d_viewer.py`
+- Session Summary: `docs/SESSION_14_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

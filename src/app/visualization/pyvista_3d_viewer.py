@@ -3674,7 +3674,13 @@ Distance: {distance_um:.2f} μm"""
 
             # Platform-specific executable name
             stat3d_exe = 'stat3d.exe' if sys.platform == 'win32' else 'stat3d'
-            stat3d_path = os.path.join(project_root, 'backend', 'bin', stat3d_exe)
+
+            # Primary location: top-level bin/
+            stat3d_path = os.path.join(project_root, 'bin', stat3d_exe)
+
+            # Fallback: backend/bin/
+            if not os.path.exists(stat3d_path):
+                stat3d_path = os.path.join(project_root, 'backend', 'bin', stat3d_exe)
 
             # Run stat3d program with input and output files
             cmd = [stat3d_path, temp_input.name, output_file]
@@ -3755,7 +3761,13 @@ Distance: {distance_um:.2f} μm"""
 
             # Platform-specific executable name
             perc3d_exe = 'perc3d.exe' if sys.platform == 'win32' else 'perc3d'
-            perc3d_path = os.path.join(project_root, 'backend', 'bin', perc3d_exe)
+
+            # Primary location: top-level bin/
+            perc3d_path = os.path.join(project_root, 'bin', perc3d_exe)
+
+            # Fallback: backend/bin/
+            if not os.path.exists(perc3d_path):
+                perc3d_path = os.path.join(project_root, 'backend', 'bin', perc3d_exe)
 
             # Run perc3d program with command line arguments
             cmd = [perc3d_path, temp_input.name, output_file]
@@ -3830,7 +3842,13 @@ Distance: {distance_um:.2f} μm"""
 
             # Platform-specific executable name
             stat3d_exe = 'stat3d.exe' if sys.platform == 'win32' else 'stat3d'
-            stat3d_path = os.path.join(project_root, 'backend', 'bin', stat3d_exe)
+
+            # Primary location: top-level bin/
+            stat3d_path = os.path.join(project_root, 'bin', stat3d_exe)
+
+            # Fallback: backend/bin/
+            if not os.path.exists(stat3d_path):
+                stat3d_path = os.path.join(project_root, 'backend', 'bin', stat3d_exe)
 
             # Run stat3d program with command line arguments
             cmd = [stat3d_path, temp_input.name]
@@ -3919,7 +3937,13 @@ Distance: {distance_um:.2f} μm"""
 
             # Platform-specific executable name
             perc3d_exe = 'perc3d.exe' if sys.platform == 'win32' else 'perc3d'
-            perc3d_path = os.path.join(project_root, 'backend', 'bin', perc3d_exe)
+
+            # Primary location: top-level bin/
+            perc3d_path = os.path.join(project_root, 'bin', perc3d_exe)
+
+            # Fallback: backend/bin/
+            if not os.path.exists(perc3d_path):
+                perc3d_path = os.path.join(project_root, 'backend', 'bin', perc3d_exe)
 
             # Run perc3d program with command line arguments
             cmd = [perc3d_path, temp_input.name]

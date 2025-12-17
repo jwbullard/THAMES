@@ -1776,7 +1776,7 @@ class ElasticModuliPanel(Gtk.Box):
             self.logger.error("THAMES executable not found")
             self._show_error_dialog(
                 "THAMES executable not found.\n\n"
-                "Please ensure the thames executable is compiled and located in backend/bin/"
+                "Please ensure the thames executable is compiled and located in bin/"
             )
             return None
 
@@ -1819,34 +1819,61 @@ class ElasticModuliPanel(Gtk.Box):
         result_dir = output_dir / "Result"
         result_dir.mkdir(parents=True, exist_ok=True)
 
-        # Copy microstructure to Result directory with expected name
-        output_mic = result_dir / mic_path.name
+        # Copy microstructure to output directory (not Result - we run from output_dir)
+        output_mic = output_dir / mic_path.name
         if not output_mic.exists():
             import shutil
             shutil.copy2(mic_path, output_mic)
             self.logger.info(f"Copied microstructure to: {output_mic}")
 
-        # Build THAMES command
-        # THAMES elastic mode: thames -s 5 <simparams.json> <microstructure.img>
-        # The -s 5 flag triggers elastic calculation mode (ELASTIC_CALC = 5 in global.h)
+        # Copy GEMS database files to output directory
+        hydration_dir = simparams_path.parent
+        gems_files = ["thames-dat.lst", "thames-dch.dat", "thames-ipm.dat", "thames-dbr.dat"]
+        for gems_file in gems_files:
+            src = hydration_dir / gems_file
+            dst = output_dir / gems_file
+            if src.exists() and not dst.exists():
+                import shutil
+                shutil.copy2(src, dst)
+                self.logger.info(f"Copied {gems_file} to output directory")
+
+        # Create input.in file for THAMES
+        # THAMES reads from stdin, so we create an input file with:
+        # 1. Simulation type (5 = ELASTIC_CALC)
+        # 2. GEM input file name (thames-dat.lst)
+        # 3. Simulation parameter file name (simparams.json)
+        # 4. Microstructure file name
+        input_file = output_dir / "input.in"
+        with open(input_file, 'w') as f:
+            f.write("5\n")  # ELASTIC_CALC simulation type
+            f.write("thames-dat.lst\n")  # GEM input file (relative path)
+            f.write("simparams.json\n")  # Simulation parameters (relative path)
+            f.write(f"{output_mic.name}\n")  # Microstructure file (relative path)
+        self.logger.info(f"Created input file: {input_file}")
+
+        # Build THAMES command with output folder option
+        # THAMES elastic mode reads from stdin, use -o to specify output folder
         from app.windows.panels.operations_monitoring_panel import OperationType
 
         command = [
             str(thames_path),
-            "-s", "5",  # Elastic calculation mode
-            str(output_simparams),  # simparams.json path
-            str(output_mic),  # Microstructure file path
+            "-o", "Result",  # Output folder for results
         ]
 
         self.logger.info(f"THAMES command: {' '.join(command)}")
+        self.logger.info(f"Input file contents: 5, thames-dat.lst, simparams.json, {output_mic.name}")
 
-        # Launch the process
+        # Read the input file content for stdin
+        with open(input_file, 'r') as f:
+            input_data = f.read()
+
+        # Launch the process with stdin redirection
         operation_id = operations_panel.start_real_process_operation(
             name=operation_name,
             operation_type=OperationType.ELASTIC_MODULI_CALCULATION,
             command=command,
             working_dir=str(output_dir),
-            input_data=None,  # THAMES reads from files, not stdin
+            input_data=input_data,  # THAMES reads from stdin
         )
 
         # Update database operation with UI parameters and parent linkage
@@ -1902,7 +1929,7 @@ class ElasticModuliPanel(Gtk.Box):
             self.logger.error("VCCTL elastic executable not found")
             self._show_error_dialog(
                 "VCCTL elastic executable not found.\n\n"
-                "Please ensure elastic.c is compiled and located in backend/bin/"
+                "Please ensure elastic.c is compiled and located in bin/"
             )
             return None
 
@@ -2265,7 +2292,7 @@ class ElasticModuliPanel(Gtk.Box):
         Detect if THAMES backend should be used for elastic calculations.
 
         THAMES mode is used when:
-        1. The thames executable exists in backend/bin/
+        1. The thames executable exists in bin/
         2. We're running the THAMES application (not VCCTL)
 
         Returns:
@@ -2298,20 +2325,36 @@ class ElasticModuliPanel(Gtk.Box):
         """
         import sys
 
+        # Platform-specific executable name
+        exe_name = 'thames.exe' if sys.platform == 'win32' else 'thames'
+
         # Detect if running in PyInstaller bundle
         if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
             # Running in PyInstaller bundle
-            bin_dir = Path(sys._MEIPASS) / "backend" / "bin"
+            bin_dir = Path(sys._MEIPASS) / "bin"
+            thames_path = bin_dir / exe_name
+            if thames_path.exists():
+                return thames_path
         else:
-            # Running in development
+            # Running in development - check multiple locations
             project_root = Path(__file__).parent.parent.parent.parent.parent
-            bin_dir = project_root / "backend" / "bin"
 
-        # Platform-specific executable name
-        thames_exe = 'thames.exe' if sys.platform == 'win32' else 'thames'
-        thames_path = bin_dir / thames_exe
+            # Primary location: top-level bin/
+            thames_path = project_root / "bin" / exe_name
+            if thames_path.exists():
+                return thames_path
 
-        return thames_path if thames_path.exists() else None
+            # Fallback: backend/bin/
+            fallback_path = project_root / "backend" / "bin" / exe_name
+            if fallback_path.exists():
+                return fallback_path
+
+            # Fallback: backend/thames-hydration/bin/
+            alt_path = project_root / "backend" / "thames-hydration" / "bin" / exe_name
+            if alt_path.exists():
+                return alt_path
+
+        return None
 
     def _get_vcctl_elastic_path(self) -> Optional[Path]:
         """
@@ -2322,18 +2365,29 @@ class ElasticModuliPanel(Gtk.Box):
         """
         import sys
 
-        # Detect if running in PyInstaller bundle
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            bin_dir = Path(sys._MEIPASS) / "backend" / "bin"
-        else:
-            project_root = Path(__file__).parent.parent.parent.parent.parent
-            bin_dir = project_root / "backend" / "bin"
-
         # Platform-specific executable name
         elastic_exe = 'elastic.exe' if sys.platform == 'win32' else 'elastic'
-        elastic_path = bin_dir / elastic_exe
 
-        return elastic_path if elastic_path.exists() else None
+        # Detect if running in PyInstaller bundle
+        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+            bin_dir = Path(sys._MEIPASS) / "bin"
+            elastic_path = bin_dir / elastic_exe
+            if elastic_path.exists():
+                return elastic_path
+        else:
+            project_root = Path(__file__).parent.parent.parent.parent.parent
+
+            # Primary location: top-level bin/
+            elastic_path = project_root / "bin" / elastic_exe
+            if elastic_path.exists():
+                return elastic_path
+
+            # Fallback: backend/bin/
+            fallback_path = project_root / "backend" / "bin" / elastic_exe
+            if fallback_path.exists():
+                return fallback_path
+
+        return None
 
     def _get_simparams_path(self, hydration_name: str) -> Optional[Path]:
         """

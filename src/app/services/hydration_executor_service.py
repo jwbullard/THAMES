@@ -115,7 +115,15 @@ class HydrationExecutorService:
 
         # Platform-specific executable name
         disrealnew_exe = 'disrealnew.exe' if sys.platform == 'win32' else 'disrealnew'
-        self.disrealnew_binary = self.project_root / "backend" / "bin" / disrealnew_exe
+
+        # Primary location: top-level bin/
+        self.disrealnew_binary = self.project_root / "bin" / disrealnew_exe
+
+        # Fallback: backend/bin/
+        if not self.disrealnew_binary.exists():
+            fallback_path = self.project_root / "backend" / "bin" / disrealnew_exe
+            if fallback_path.exists():
+                self.disrealnew_binary = fallback_path
 
         # Configuration
         self.progress_update_interval = 15.0  # seconds

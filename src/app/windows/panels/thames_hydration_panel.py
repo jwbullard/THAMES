@@ -918,6 +918,7 @@ class THAMESHydrationPanel(Gtk.Box):
                     material_phases=material_phases,
                     config=config,
                     microstructure_path=self.selected_microstructure_path,
+                    source_microstructure_operation=self.selected_operation_name,
                     progress_callback=self._on_progress_update
                 )
 

@@ -587,10 +587,20 @@ class SimParamsService:
                     phases_list.append(entry)
                     next_id += 1
 
-        return {
+        # Build microstructure section
+        microstructure = {
             "numentries": len(phases_list),
-            "phases": phases_list
         }
+
+        # Add aggregate_phase_id if aggregate is present in the microstructure
+        aggregate_phase_id = phase_id_mapping.gem_to_micro.get("Aggregate")
+        if aggregate_phase_id is not None:
+            microstructure["aggregate_phase_id"] = aggregate_phase_id
+            self.logger.info(f"Added aggregate_phase_id: {aggregate_phase_id}")
+
+        microstructure["phases"] = phases_list
+
+        return microstructure
 
     def _get_thamesname(self, gemphasename: str) -> str:
         """

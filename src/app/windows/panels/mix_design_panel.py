@@ -3254,7 +3254,13 @@ class MixDesignPanel(Gtk.Box):
 
             # Platform-specific executable name
             micgen_exe = 'micgen.exe' if sys.platform == 'win32' else 'micgen'
-            micgen_path = os.path.join(project_root, 'backend', 'bin', micgen_exe)
+
+            # Primary location: top-level bin/
+            micgen_path = os.path.join(project_root, 'bin', micgen_exe)
+
+            # Fallback: backend/bin/
+            if not os.path.exists(micgen_path):
+                micgen_path = os.path.join(project_root, 'backend', 'bin', micgen_exe)
 
             self.logger.info(f"Project root: {project_root}")
             self.logger.info(f"Micgen path: {micgen_path}")
