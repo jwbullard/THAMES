@@ -4184,13 +4184,14 @@ void outmic(void) {
   }
 
   /***
-   *  2025 August 04
-   *  New convention is to write microstructures in C-order, where Z varies
-   *the fastest, then Y, then X.
+   *  2025 December 18
+   *  Convention updated to X-fastest ordering to match THAMES C++ convention.
+   *  Loop order: Z outer, Y middle, X inner (X varies fastest in file).
+   *  Index formula: x + xsize*y + xsize*ysize*z
    ***/
-  for (ix = 0; ix < Xsyssize; ix++) {
+  for (iz = 0; iz < Zsyssize; iz++) {
     for (iy = 0; iy < Ysyssize; iy++) {
-      for (iz = 0; iz < Zsyssize; iz++) {
+      for (ix = 0; ix < Xsyssize; ix++) {
         valout = Cemreal.val[getInt3dindex(Cemreal, ix, iy, iz)];
         fprintf(outfile, "\n%d", valout);
         valout = Cement.val[getInt3dindex(Cement, ix, iy, iz)];

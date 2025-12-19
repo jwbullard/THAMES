@@ -499,8 +499,9 @@ class PyVistaStrainViewer(Gtk.Dialog):
                 else:
                     data_values = data_values[:expected_size]
 
-            # Reshape data to 3D array (match energy.img format: X, Y, Z order)
-            self.strain_data = np.array(data_values).reshape(x_dim, y_dim, z_dim)
+            # Reshape to (z, y, x) for X-fastest with C-order
+            # THAMES convention: index = x + xsize*y + xsize*ysize*z
+            self.strain_data = np.array(data_values).reshape(z_dim, y_dim, x_dim)
 
             self.logger.info(f"Loaded {len(data_values)} strain energy values")
             self.logger.info(f"Data range: {np.min(self.strain_data):.2e} to {np.max(self.strain_data):.2e}")

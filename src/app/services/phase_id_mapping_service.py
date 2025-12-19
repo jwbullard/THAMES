@@ -583,9 +583,9 @@ class PhaseIdMappingService:
                 f"Insufficient voxel data: got {len(voxel_data)}, expected {total_voxels}"
             )
 
-        # Reshape with X as first axis, Y second, Z third (last axis varies fastest in C-order)
-        # This matches the file format where Z varies fastest, then Y, then X
-        voxel_array = np.array(voxel_data[:total_voxels]).reshape((x_size, y_size, z_size))
+        # Reshape with Z as first axis, Y second, X third (X varies fastest in C-order)
+        # This matches THAMES X-fastest convention: index = x + xsize*y + xsize*ysize*z
+        voxel_array = np.array(voxel_data[:total_voxels]).reshape((z_size, y_size, x_size))
 
         return header_lines, voxel_array, (x_size, y_size, z_size)
 
@@ -598,6 +598,9 @@ class PhaseIdMappingService:
     ) -> None:
         """
         Write a microstructure file with header and voxel data.
+
+        Uses X-fastest ordering to match THAMES convention.
+        Loop order: Z outer, Y middle, X inner.
         """
         x_size, y_size, z_size = dimensions
 
@@ -606,11 +609,12 @@ class PhaseIdMappingService:
             for line in header_lines:
                 f.write(line)
 
-            # Write voxel data (one value per line, z fastest, then y, then x)
-            for x in range(x_size):
+            # Write voxel data (X-fastest: Z outer, Y middle, X inner)
+            # Array shape is (z_size, y_size, x_size) so index as [z, y, x]
+            for z in range(z_size):
                 for y in range(y_size):
-                    for z in range(z_size):
-                        f.write(f"{voxel_data[x, y, z]}\n")
+                    for x in range(x_size):
+                        f.write(f"{voxel_data[z, y, x]}\n")
 
     def _remap_phase_mapping(
         self,

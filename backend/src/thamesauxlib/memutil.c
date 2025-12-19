@@ -990,10 +990,12 @@ int Int3darray(Int3d *thing, size_t xsize, size_t ysize, size_t zsize) {
  *
  ***/
 size_t getInt3dindex(Int3d thing, size_t x, size_t y, size_t z) {
-  /* Assumes C-ordering */
-  return ((x * thing.ysize * thing.zsize) + (y * thing.zsize) + z);
-  /* Assumes A-ordering */
-  /* return ((z * thing.ysize * thing.xsize) + (y * thing.xsize) + x); */
+  /* X-fastest ordering (matches THAMES C++ convention) */
+  /* Index formula: x + xsize*y + xsize*ysize*z */
+  return (x + (thing.xsize * y) + (thing.xsize * thing.ysize * z));
+
+  /* Z-fastest ordering (legacy, do not use) */
+  /* return ((x * thing.ysize * thing.zsize) + (y * thing.zsize) + z); */
 }
 
 /***

@@ -743,11 +743,12 @@ class PyVistaViewer3D(Gtk.Box):
             self.source_file_path = source_file_path  # Store source file path for saving results
 
             # Set volume bounds for cross-section calculations
-            shape = voxel_data.shape
+            # Array shape is (z, y, x), so extract dimensions accordingly
+            nz, ny, nx = voxel_data.shape
             self.volume_bounds = [
-                0, shape[0] * voxel_size[0],  # X min, max
-                0, shape[1] * voxel_size[1],  # Y min, max
-                0, shape[2] * voxel_size[2]   # Z min, max
+                0, nx * voxel_size[0],  # X min, max
+                0, ny * voxel_size[1],  # Y min, max
+                0, nz * voxel_size[2]   # Z min, max
             ]
 
             # Initialize phase visibility and opacity
@@ -838,18 +839,22 @@ class PyVistaViewer3D(Gtk.Box):
                 # Create VTK ImageData (structured grid)
                 grid = vtkImageData()
 
-                # Set dimensions (number of points in each direction)
-                grid.SetDimensions(phase_mask.shape[0], phase_mask.shape[1], phase_mask.shape[2])
+                # Set dimensions for VTK (nx, ny, nz)
+                # Array shape is (z, y, x), so reverse order for VTK
+                # VTK expects X-fastest ordering which matches our C-order flatten
+                nz, ny, nx = phase_mask.shape
+                grid.SetDimensions(nx, ny, nz)
 
-                # Set spacing (physical size of voxels)
+                # Set spacing (physical size of voxels) - assuming isotropic or (x, y, z) order
                 grid.SetSpacing(self.voxel_size[0], self.voxel_size[1], self.voxel_size[2])
 
                 # Set origin
                 grid.SetOrigin(0.0, 0.0, 0.0)
 
                 # Convert numpy array to VTK array
+                # C-order flatten of (z, y, x) array gives x-fastest, matching VTK convention
                 vtk_data_array = numpy_support.numpy_to_vtk(
-                    num_array=phase_mask.flatten(order='C'),  # Flatten in C-order
+                    num_array=phase_mask.flatten(order='C'),
                     deep=True,  # Make a copy
                     array_type=VTK_UNSIGNED_CHAR
                 )
@@ -3655,19 +3660,21 @@ Distance: {distance_um:.2f} μm"""
             # Write voxel data in VCCTL format
             with open(temp_input.name, 'w') as f:
                 # Write proper VCCTL header format
+                # Array shape is (z, y, x), so extract dimensions accordingly
+                nz, ny, nx = self.voxel_data.shape
                 f.write("Version: 7.0\n")
-                f.write(f"X_Size: {self.voxel_data.shape[0]}\n")
-                f.write(f"Y_Size: {self.voxel_data.shape[1]}\n")
-                f.write(f"Z_Size: {self.voxel_data.shape[2]}\n")
+                f.write(f"X_Size: {nx}\n")
+                f.write(f"Y_Size: {ny}\n")
+                f.write(f"Z_Size: {nz}\n")
                 # Use first element of voxel_size tuple for VCCTL resolution
                 resolution = self.voxel_size[0] if isinstance(self.voxel_size, (tuple, list)) else self.voxel_size
                 f.write(f"Image_Resolution: {resolution:.2f}\n")
-                
-                # Write voxel data
-                for z in range(self.voxel_data.shape[2]):
-                    for y in range(self.voxel_data.shape[1]):
-                        for x in range(self.voxel_data.shape[0]):
-                            f.write(f"{int(self.voxel_data[x, y, z])}\n")
+
+                # Write voxel data (X-fastest: Z outer, Y middle, X inner)
+                for z in range(nz):
+                    for y in range(ny):
+                        for x in range(nx):
+                            f.write(f"{int(self.voxel_data[z, y, x])}\n")
             
             # Get path to stat3d executable - use absolute path from project root
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -3742,19 +3749,21 @@ Distance: {distance_um:.2f} μm"""
             # Write voxel data in VCCTL format
             with open(temp_input.name, 'w') as f:
                 # Write proper VCCTL header format
+                # Array shape is (z, y, x), so extract dimensions accordingly
+                nz, ny, nx = self.voxel_data.shape
                 f.write("Version: 7.0\n")
-                f.write(f"X_Size: {self.voxel_data.shape[0]}\n")
-                f.write(f"Y_Size: {self.voxel_data.shape[1]}\n")
-                f.write(f"Z_Size: {self.voxel_data.shape[2]}\n")
+                f.write(f"X_Size: {nx}\n")
+                f.write(f"Y_Size: {ny}\n")
+                f.write(f"Z_Size: {nz}\n")
                 # Use first element of voxel_size tuple for VCCTL resolution
                 resolution = self.voxel_size[0] if isinstance(self.voxel_size, (tuple, list)) else self.voxel_size
                 f.write(f"Image_Resolution: {resolution:.2f}\n")
-                
-                # Write voxel data
-                for z in range(self.voxel_data.shape[2]):
-                    for y in range(self.voxel_data.shape[1]):
-                        for x in range(self.voxel_data.shape[0]):
-                            f.write(f"{int(self.voxel_data[x, y, z])}\n")
+
+                # Write voxel data (X-fastest: Z outer, Y middle, X inner)
+                for z in range(nz):
+                    for y in range(ny):
+                        for x in range(nx):
+                            f.write(f"{int(self.voxel_data[z, y, x])}\n")
             
             # Get path to perc3d executable
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -3823,19 +3832,21 @@ Distance: {distance_um:.2f} μm"""
             # Write voxel data in VCCTL format
             with open(temp_input.name, 'w') as f:
                 # Write proper VCCTL header format
+                # Array shape is (z, y, x), so extract dimensions accordingly
+                nz, ny, nx = self.voxel_data.shape
                 f.write("Version: 7.0\n")
-                f.write(f"X_Size: {self.voxel_data.shape[0]}\n")
-                f.write(f"Y_Size: {self.voxel_data.shape[1]}\n")
-                f.write(f"Z_Size: {self.voxel_data.shape[2]}\n")
+                f.write(f"X_Size: {nx}\n")
+                f.write(f"Y_Size: {ny}\n")
+                f.write(f"Z_Size: {nz}\n")
                 # Use first element of voxel_size tuple for VCCTL resolution
                 resolution = self.voxel_size[0] if isinstance(self.voxel_size, (tuple, list)) else self.voxel_size
                 f.write(f"Image_Resolution: {resolution:.2f}\n")
-                
-                # Write voxel data
-                for z in range(self.voxel_data.shape[2]):
-                    for y in range(self.voxel_data.shape[1]):
-                        for x in range(self.voxel_data.shape[0]):
-                            f.write(f"{int(self.voxel_data[x, y, z])}\n")
+
+                # Write voxel data (X-fastest: Z outer, Y middle, X inner)
+                for z in range(nz):
+                    for y in range(ny):
+                        for x in range(nx):
+                            f.write(f"{int(self.voxel_data[z, y, x])}\n")
             
             # Get path to stat3d executable - use absolute path from project root
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -3918,19 +3929,21 @@ Distance: {distance_um:.2f} μm"""
             # Write voxel data in VCCTL format
             with open(temp_input.name, 'w') as f:
                 # Write proper VCCTL header format
+                # Array shape is (z, y, x), so extract dimensions accordingly
+                nz, ny, nx = self.voxel_data.shape
                 f.write("Version: 7.0\n")
-                f.write(f"X_Size: {self.voxel_data.shape[0]}\n")
-                f.write(f"Y_Size: {self.voxel_data.shape[1]}\n")
-                f.write(f"Z_Size: {self.voxel_data.shape[2]}\n")
+                f.write(f"X_Size: {nx}\n")
+                f.write(f"Y_Size: {ny}\n")
+                f.write(f"Z_Size: {nz}\n")
                 # Use first element of voxel_size tuple for VCCTL resolution
                 resolution = self.voxel_size[0] if isinstance(self.voxel_size, (tuple, list)) else self.voxel_size
                 f.write(f"Image_Resolution: {resolution:.2f}\n")
-                
-                # Write voxel data
-                for z in range(self.voxel_data.shape[2]):
-                    for y in range(self.voxel_data.shape[1]):
-                        for x in range(self.voxel_data.shape[0]):
-                            f.write(f"{int(self.voxel_data[x, y, z])}\n")
+
+                # Write voxel data (X-fastest: Z outer, Y middle, X inner)
+                for z in range(nz):
+                    for y in range(ny):
+                        for x in range(nx):
+                            f.write(f"{int(self.voxel_data[z, y, x])}\n")
             
             # Get path to perc3d executable
             project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))

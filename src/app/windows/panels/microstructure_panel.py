@@ -709,10 +709,10 @@ class MicrostructurePanel(Gtk.Box):
                 
                 # Convert to numpy array and reshape
                 voxel_data = np.array(voxel_values, dtype=np.uint8)
-                
-                # VCCTL data is stored with z varying fastest, then y, then x
-                # This matches NumPy's default C-order where last dimension varies fastest
-                voxel_data = voxel_data.reshape((x_size, y_size, z_size))
+
+                # THAMES X-fastest convention: index = x + xsize*y + xsize*ysize*z
+                # Reshape to (z, y, x) so X varies fastest with C-order
+                voxel_data = voxel_data.reshape((z_size, y_size, x_size))
                 
                 self.logger.info(f"Reshaped voxel data to: {voxel_data.shape}")
                 
