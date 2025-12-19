@@ -133,7 +133,8 @@ class PhaseIdMappingService:
         self,
         material_phases: List[Dict[str, Any]],
         include_hydration_products: bool = True,
-        include_aggregate: bool = False
+        include_aggregate: bool = False,
+        aggregate_phase_name: str = "Quartz"
     ) -> PhaseIdMapping:
         """
         Create a phase ID mapping from a list of materials and their phases.
@@ -143,6 +144,7 @@ class PhaseIdMappingService:
                             Each phase dict has 'gem_phase_name' and 'mass_fraction'.
             include_hydration_products: Whether to reserve IDs for common hydration products.
             include_aggregate: Whether to include AGGREGATE phase (only if actually in microstructure).
+            aggregate_phase_name: GEM phase name for the aggregate (default: "Quartz").
 
         Returns:
             PhaseIdMapping object with complete phase-to-ID mappings.
@@ -199,10 +201,13 @@ class PhaseIdMappingService:
             mapping.clinker_phase_ids[clinker_phase] = phase_id
 
         # Only include Aggregate if it's actually in the microstructure
+        # Use the specified GEM phase name (e.g., "Quartz") for proper kinetics/elastic moduli lookup
         if include_aggregate:
-            self.logger.info("Including Aggregate at ID 8")
+            self.logger.info(f"Including aggregate phase '{aggregate_phase_name}' at ID {AGGREGATEID}")
+            mapping.gem_to_micro[aggregate_phase_name] = AGGREGATEID
+            mapping.micro_to_gem[AGGREGATEID] = aggregate_phase_name
+            # Also add "Aggregate" as an alias for backward compatibility
             mapping.gem_to_micro["Aggregate"] = AGGREGATEID
-            mapping.micro_to_gem[AGGREGATEID] = "Aggregate"
 
         # Set next available ID to 9 (after clinker + aggregate slot)
         # Note: ID 8 is reserved for AGGREGATE even if not present, to maintain consistent IDs

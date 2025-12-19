@@ -3238,9 +3238,9 @@ void create(void) {
             "Enter volume fraction of this phase (ALL SOLIDS basis): ");
     read_string(instring, sizeof(instring));
     fprintf(Logfile, "\n%s\n", instring);
-    Vol_frac[phase_id] = (atof(instring)) * (clinker_vfrac + other_solid_vfrac);
+    Vol_frac[phase_id] = atof(instring);
 
-    /* Convert to total VOLUME basis, binder + water system */
+    /* Convert to total VOLUME basis, binder + electrolyte system */
     Vol_frac[phase_id] *= (other_solid_vfrac + clinker_vfrac);
 
     target_phase_vox = (Vol_frac[phase_id] * (float)Binderpix) + 0.5;

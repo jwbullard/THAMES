@@ -44,7 +44,8 @@ class MicrostructurePhasesEditor(Gtk.Box):
     }
 
     # Phases that should not be shown (not dissolving phases)
-    EXCLUDED_PHASES = {'VOID', 'Electrolyte', 'Aggregate', 'aq_gen', 'gas_gen'}
+    # Note: Aggregate phases (e.g., Quartz) are now included so users can set kinetics
+    EXCLUDED_PHASES = {'VOID', 'Electrolyte', 'aq_gen', 'gas_gen'}
 
     def __init__(self):
         """Initialize the microstructure phases editor."""

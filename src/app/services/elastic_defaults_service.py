@@ -83,9 +83,9 @@ class ElasticDefaultsService:
         "Periclase": (105.2, 44.8),  # MgO - same as clinker
 
         # Sulfate phases
-        "Gypsum": (42.5, 15.7),
-        "Bassanite": (52.4, 24.2),
-        "Anhydrite": (54.9, 29.3),
+        "Gypsum": (44.8, 17.2),
+        "Bassanite": (53.0, 24.1),
+        "Anhydrite": (59.3, 31.4),
         "Arcanite": (31.9, 17.4),  # K2SO4
         "Thenardite": (43.4, 22.3),  # Na2SO4
 
@@ -98,17 +98,31 @@ class ElasticDefaultsService:
         # Hydration products - C-S-H type (lower stiffness)
         "CSHQ": (14.9, 9.0),
         "Hydrogarnet": (14.9, 9.0),  # C3AH6
-        "AFt": (14.9, 9.0),  # Ettringite
         "FH3": (14.9, 9.0),  # Iron hydroxide
         "Hydrocalumite": (14.9, 9.0),  # Friedel's salt
         "Stratlingite": (14.9, 9.0),  # C2ASH8
         "Hydrotalcite": (14.9, 9.0),
         "Damage": (14.9, 9.0),  # Damaged material - use C-S-H values
 
+        # Hydration products - AFt family (Ettringite type)
+        "AFt": (14.9, 9.0),  # Ettringite generic
+        "ettr": (14.9, 9.0),  # Ettringite
+        "C6As3H32": (14.9, 9.0),  # Ettringite
+        "Thaumasite": (14.9, 9.0),  # Thaumasite (AFt-like)
+
+        # Hydration products - AFm family (Monosulfate type)
+        "AFm": (40.1, 16.0),  # Monosulfate generic
+        "C4AsH12": (40.1, 16.0),  # Monosulfate
+        "C4AsH14": (40.1, 16.0),  # Monosulfate variant
+
+        # Hydration products - Monocarbonate/Hemicarbonate family
+        "AFmc": (40.1, 16.0),  # Monocarbonate generic
+        "C4AcH11": (40.1, 16.0),  # Monocarbonate
+        "C4Ac0.5H12": (40.1, 16.0),  # Hemicarbonate
+
         # Hydration products - Portlandite type (higher stiffness)
         "Portlandite": (40.0, 16.0),  # CH
-        "AFm": (40.0, 16.0),  # Monosulfate
-        "AFmc": (40.0, 16.0),  # Monocarbonate
+        "Portite": (40.0, 16.0),  # CH (alias)
         "Brucite": (40.0, 16.0),  # Mg(OH)2
         "CaCl2": (40.0, 16.0),
     }
@@ -119,6 +133,9 @@ class ElasticDefaultsService:
         # (K, G, description)
         "clinker": (105.2, 44.8, "Clinker minerals - stiff crystalline"),
         "hydrate_csh": (14.9, 9.0, "C-S-H type hydrates - lower stiffness"),
+        "hydrate_aft": (14.9, 9.0, "AFt family (ettringite) - lower stiffness"),
+        "hydrate_afm": (40.1, 16.0, "AFm family (monosulfate) - moderate stiffness"),
+        "hydrate_afc": (40.1, 16.0, "Monocarbonate/hemicarbonate family"),
         "hydrate_ch": (40.0, 16.0, "CH type hydrates - moderate stiffness"),
         "sulfate": (45.0, 20.0, "Sulfate minerals - intermediate"),
         "carbonate": (70.0, 30.0, "Carbonate minerals - moderate-high"),
@@ -181,15 +198,23 @@ class ElasticDefaultsService:
         "Tobermorite-II": "hydrate_csh",
         "Tobermorite": "hydrate_csh",
 
-        # Aluminates
+        # Aluminates - general hydrates
         "C3AH6": "hydrate_csh",
         "C4AH13": "hydrate_ch",
         "C2AH8": "hydrate_ch",
         "CAH10": "hydrate_csh",
-        "C4AcH11": "hydrate_ch",  # Monocarbonate
-        "C4AsH12": "hydrate_ch",  # Monosulfate
-        "C6As3H32": "hydrate_csh",  # Ettringite
-        "Thaumasite": "hydrate_csh",
+
+        # AFt family (Ettringite type) - fallback category
+        "C6As3H32": "hydrate_aft",  # Ettringite
+        "Thaumasite": "hydrate_aft",
+
+        # AFm family (Monosulfate type) - fallback category
+        "C4AsH12": "hydrate_afm",  # Monosulfate
+        "C4AsH14": "hydrate_afm",  # Monosulfate variant
+
+        # Monocarbonate/Hemicarbonate family - fallback category
+        "C4AcH11": "hydrate_afc",  # Monocarbonate
+        "C4Ac0.5H12": "hydrate_afc",  # Hemicarbonate
 
         # Other phases
         "Aggregate": "carbonate",  # Typically limestone or siliceous

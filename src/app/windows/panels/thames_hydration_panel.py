@@ -609,7 +609,8 @@ class THAMESHydrationPanel(Gtk.Box):
                 # Handle nested structure: phase_id_mapping.micro_to_gem
                 phase_id_mapping = mapping.get('phase_id_mapping', mapping)
                 micro_to_gem = phase_id_mapping.get('micro_to_gem', {})
-                excluded = {'VOID', 'Electrolyte', 'Aggregate', 'aq_gen', 'gas_gen'}
+                # Note: Aggregate phases (e.g., Quartz) are now included so users can set kinetics
+                excluded = {'VOID', 'Electrolyte', 'aq_gen', 'gas_gen'}
                 # Normalize phase names to handle case variations (arcanite -> Arcanite)
                 # and use a set to remove duplicates that result from normalization
                 phase_set = set()
@@ -966,9 +967,10 @@ class THAMESHydrationPanel(Gtk.Box):
                     mapping = json.load(f)
 
                 # Create a single MaterialPhaseData with all phases from the mapping
+                # Note: Aggregate phases (e.g., Quartz) are now included so users can set kinetics
                 phases = []
                 for phase_id_str, phase_name in mapping.get('micro_to_gem', {}).items():
-                    if phase_name not in ["VOID", "Electrolyte", "Aggregate"]:
+                    if phase_name not in ["VOID", "Electrolyte"]:
                         phases.append({
                             'gem_phase_name': phase_name,
                             'mass_fraction': 0.0,  # Unknown from microstructure
