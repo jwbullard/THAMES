@@ -1188,6 +1188,78 @@ December 16, 2025
 
 ---
 
+### Session 15: Unified Voxel Ordering Convention (X-Fastest)
+December 18, 2025
+
+**Context**: Investigation revealed that micgen.c used Z-fastest voxel ordering while THAMES C++ code used X-fastest. Despite this mismatch, the system appeared to work because file bytes passed through unchanged. This session unified all code to use X-fastest ordering for consistency and correctness.
+
+**Key Accomplishments**:
+
+1. **Root Cause Analysis**
+   - Discovered micgen.c `getInt3dindex()` used formula: `x*Y*Z + y*Z + z` (Z-fastest)
+   - THAMES Lattice.cc uses formula: `x + X*y + X*Y*z` (X-fastest)
+   - Files appeared identical because THAMES reads/writes sequentially, preserving byte order
+   - Coordinate labels were different but topology preserved, so hydration worked
+   - VTK/PyVista expects X-fastest ordering
+
+2. **C Code Changes**
+   - **memutil.c** (line 992-999): Changed `getInt3dindex()` to X-fastest formula
+     - New: `x + (xsize * y) + (xsize * ysize * z)`
+     - Legacy Z-fastest formula preserved in comment
+   - **micgen.c** (lines 4186-4207): Changed file writing loop order
+     - From: X-outer, Y-middle, Z-inner (Z varies fastest)
+     - To: Z-outer, Y-middle, X-inner (X varies fastest)
+
+3. **Python Code Changes**
+   - **phase_id_mapping_service.py**: Reshape to `(z_size, y_size, x_size)`, fixed write loop
+   - **microstructure_panel.py**: Reshape to `(z_size, y_size, x_size)`
+   - **pyvista_strain_viewer.py**: Reshape to `(z_dim, y_dim, x_dim)`
+   - **pyvista_3d_viewer.py**:
+     - Fixed VTK `SetDimensions(nx, ny, nz)` using `(shape[2], shape[1], shape[0])`
+     - Fixed `volume_bounds` calculation
+     - Fixed 4 file export functions for stat3d/perc3d utilities
+
+4. **Convention Documentation**
+   - Index formula: `index = x + xsize*y + xsize*ysize*z`
+   - NumPy shape: `(z_size, y_size, x_size)` with C-order
+   - VTK SetDimensions: `(shape[2], shape[1], shape[0])`
+   - File loop order: Z outer, Y middle, X inner
+
+**Files Modified**:
+- `backend/src/thamesauxlib/memutil.c` - Core index formula change
+- `backend/src/micgen.c` - File writing loop order
+- `src/app/services/phase_id_mapping_service.py` - Reshape and write loop
+- `src/app/windows/panels/microstructure_panel.py` - Reshape
+- `src/app/windows/dialogs/pyvista_strain_viewer.py` - Reshape
+- `src/app/visualization/pyvista_3d_viewer.py` - VTK dims, bounds, file exports
+
+**Testing Status**:
+- ✅ Non-cubic microstructure generation (110×100×100)
+- ✅ With and without aggregate slab
+- ✅ Long dimension in X or Z direction
+- ✅ 3D visualization (unscrambled, correct orientation)
+- ✅ THAMES hydration simulation (all 4 test cases)
+- ✅ Elastic moduli calculations (results consistent with w/c and age)
+
+**Git Commits**:
+- `ad6bf72` - Session 15: Pre-voxel-ordering baseline
+- `267a771` - Session 15: Unified voxel ordering to X-fastest convention
+
+**User Feedback**: All four test combinations (with/without slab × long dimension in x/z) passed through microstructure generation, visualization, hydration, and elastic calculations successfully.
+
+**Pending Items for Next Session**:
+1. **Add progress tracking for Elastic Moduli operations**
+2. **Fix small glitches in 3D visualization functionality**
+3. **Consider applying same voxel ordering fix to VCCTL project**
+
+**Critical Files for Next Session**:
+- memutil.c: `backend/src/thamesauxlib/memutil.c`
+- micgen.c: `backend/src/micgen.c`
+- PyVista Viewer: `src/app/visualization/pyvista_3d_viewer.py`
+- Session Summary: `docs/SESSION_15_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
