@@ -1288,10 +1288,11 @@ class PyVistaViewer3D(Gtk.Box):
                 property.SetInterpolationToPhong()
 
                 # Set lighting parameters for good visibility
-                property.SetSpecular(0.5)  # Moderate specular for some shine
-                property.SetSpecularPower(20)  # Moderate highlights
-                property.SetAmbient(0.2)  # Low ambient for contrast
-                property.SetDiffuse(0.8)  # High diffuse for good visibility
+                # Lower specular and higher ambient to reduce purple tint in blue phases
+                property.SetSpecular(0.3)  # Reduced specular to minimize color shifts
+                property.SetSpecularPower(30)  # Sharper but less intense highlights
+                property.SetAmbient(0.3)  # Higher ambient for less shadow contrast
+                property.SetDiffuse(0.7)  # Slightly reduced diffuse for balance
 
                 # Add actor to renderer
                 self.renderer.AddActor(actor)
@@ -1347,10 +1348,10 @@ class PyVistaViewer3D(Gtk.Box):
                 property.SetLineWidth(0.3)
 
                 # Set lighting parameters for good visibility
-                property.SetSpecular(0.4)
-                property.SetSpecularPower(20)
-                property.SetAmbient(0.3)
-                property.SetDiffuse(0.7)
+                property.SetSpecular(0.3)  # Reduced specular to minimize color shifts
+                property.SetSpecularPower(30)  # Sharper but less intense highlights
+                property.SetAmbient(0.3)  # Higher ambient for less shadow contrast
+                property.SetDiffuse(0.7)  # Slightly reduced diffuse for balance
 
                 # Add actor to renderer
                 self.renderer.AddActor(actor)
@@ -1536,60 +1537,84 @@ class PyVistaViewer3D(Gtk.Box):
     
     def _set_camera_view(self, view_type: str):
         """Set camera to predefined view."""
-        if not hasattr(self, 'plotter') or self.plotter is None:
-            self.logger.warning("Plotter not initialized")
-            return
-        
         try:
             view_success = False
-            
-            # Try PyVista built-in view methods first
-            try:
+
+            # VTK-direct rendering path (preferred)
+            if hasattr(self, 'renderer') and self.renderer is not None and hasattr(self, 'camera'):
+                # Calculate volume center and appropriate distance
+                if hasattr(self, 'volume_bounds') and self.volume_bounds:
+                    cx = (self.volume_bounds[0] + self.volume_bounds[1]) / 2
+                    cy = (self.volume_bounds[2] + self.volume_bounds[3]) / 2
+                    cz = (self.volume_bounds[4] + self.volume_bounds[5]) / 2
+                    max_dim = max(
+                        self.volume_bounds[1] - self.volume_bounds[0],
+                        self.volume_bounds[3] - self.volume_bounds[2],
+                        self.volume_bounds[5] - self.volume_bounds[4]
+                    )
+                    distance = max_dim * 2
+                elif hasattr(self, 'voxel_data') and self.voxel_data is not None:
+                    shape = self.voxel_data.shape
+                    cx = shape[2] * self.voxel_size[0] / 2
+                    cy = shape[1] * self.voxel_size[1] / 2
+                    cz = shape[0] * self.voxel_size[2] / 2
+                    max_dim = max(shape) * max(self.voxel_size)
+                    distance = max_dim * 2
+                else:
+                    cx, cy, cz = 50, 50, 50
+                    distance = 200
+
+                # Set camera position based on view type
                 if view_type == 'isometric':
-                    self.plotter.view_isometric()
+                    self.camera.SetPosition(cx + distance, cy + distance, cz + distance)
+                    self.camera.SetViewUp(0, 0, 1)
                 elif view_type == 'xy':
-                    self.plotter.view_xy()
+                    # Looking down Z axis at XY plane
+                    self.camera.SetPosition(cx, cy, cz + distance)
+                    self.camera.SetViewUp(0, 1, 0)
                 elif view_type == 'xz':
-                    self.plotter.view_xz()
+                    # Looking down Y axis at XZ plane
+                    self.camera.SetPosition(cx, cy + distance, cz)
+                    self.camera.SetViewUp(0, 0, 1)
                 elif view_type == 'yz':
-                    self.plotter.view_yz()
+                    # Looking down X axis at YZ plane
+                    self.camera.SetPosition(cx + distance, cy, cz)
+                    self.camera.SetViewUp(0, 0, 1)
+
+                self.camera.SetFocalPoint(cx, cy, cz)
+                self.renderer.ResetCamera()
                 view_success = True
-            except Exception as e:
-                self.logger.debug(f"Built-in view method failed: {e}")
-            
-            # Fallback: manual camera positioning
-            if not view_success:
+                self.logger.info(f"VTK camera set to {view_type} view, center=({cx:.1f}, {cy:.1f}, {cz:.1f})")
+
+            # PyVista plotter fallback
+            elif hasattr(self, 'plotter') and self.plotter is not None:
                 try:
-                    camera = None
-                    if hasattr(self.plotter, 'camera') and self.plotter.camera is not None:
-                        camera = self.plotter.camera
-                    elif len(self.plotter.renderers) > 0:
-                        camera = self.plotter.renderers[0].GetActiveCamera()
-                    
-                    if camera:
-                        if view_type == 'isometric':
-                            if hasattr(camera, 'azimuth'):
-                                camera.azimuth = 45
-                                camera.elevation = 20
-                            else:
-                                camera.SetPosition(1, 1, 1)
-                                camera.SetViewUp(0, 0, 1)
-                        # Add other view types as needed
-                        view_success = True
+                    if view_type == 'isometric':
+                        self.plotter.view_isometric()
+                    elif view_type == 'xy':
+                        self.plotter.view_xy()
+                    elif view_type == 'xz':
+                        self.plotter.view_xz()
+                    elif view_type == 'yz':
+                        self.plotter.view_yz()
+                    view_success = True
                 except Exception as e:
-                    self.logger.debug(f"Manual camera positioning failed: {e}")
-            
+                    self.logger.debug(f"PyVista view method failed: {e}")
+            else:
+                self.logger.warning("Neither renderer nor plotter initialized")
+                return
+
             if view_success:
                 # Track current view type
                 self.current_view_type = view_type
-                
+
                 # Force immediate screenshot update
-                self._simple_render_update()
+                self._render_to_gtk()
                 self.emit('view-changed')
                 self.logger.info(f"Set camera view: {view_type}")
             else:
                 self.logger.warning(f"Failed to set view: {view_type}")
-            
+
         except Exception as e:
             self.logger.error(f"Failed to set camera view {view_type}: {e}")
             import traceback
@@ -2045,118 +2070,9 @@ class PyVistaViewer3D(Gtk.Box):
     
     def _on_reset_view(self, button):
         """Handle reset view button."""
-        # Check for VTK-direct renderer first
-        if hasattr(self, 'renderer') and self.renderer is not None:
-            # VTK-direct path - reset to isometric view
-            if hasattr(self, 'voxel_data') and self.voxel_data is not None:
-                shape = self.voxel_data.shape
-                max_dim = max(shape) * max(self.voxel_size)
-                distance = max_dim * 2
-            else:
-                distance = 200
-
-            self.camera.SetPosition(distance, distance, distance)
-            self.camera.SetViewUp(0, 0, 1)
-            self.camera.SetFocalPoint(0, 0, 0)
-            self.renderer.ResetCamera()
-            self._render_to_gtk()
-            self.logger.info("View reset to default isometric")
-            return
-
-        # PyVista plotter fallback (legacy code)
-        if not hasattr(self, 'plotter') or self.plotter is None:
-            self.logger.warning("Neither renderer nor plotter initialized for reset")
-            return
-
-        try:
-            # Comprehensive camera reset to default isometric view
-            reset_success = False
-            self.logger.info(">>> Attempting complete camera reset (zoom + orientation)...")
-            
-            # Method 1: Force isometric view reset
-            try:
-                self.logger.info(">>> Setting isometric view with reset camera")
-                # First reset camera to defaults
-                if hasattr(self.plotter, 'reset_camera'):
-                    self.plotter.reset_camera()
-                # Then force isometric orientation
-                self.plotter.view_isometric()
-                reset_success = True
-                self.logger.info(">>> Isometric view reset succeeded")
-            except Exception as e:
-                self.logger.info(f">>> Isometric reset failed: {e}")
-            
-            # Method 2: Manual camera positioning reset
-            if not reset_success:
-                try:
-                    self.logger.info(">>> Trying manual camera positioning")
-                    camera = None
-                    if hasattr(self.plotter, 'camera') and self.plotter.camera is not None:
-                        camera = self.plotter.camera
-                        self.logger.info(">>> Got camera from plotter.camera")
-                    elif len(self.plotter.renderers) > 0:
-                        camera = self.plotter.renderers[0].GetActiveCamera()
-                        self.logger.info(">>> Got camera from renderer")
-                    
-                    if camera:
-                        # Complete reset: position, orientation, and zoom
-                        if hasattr(camera, 'azimuth') and hasattr(camera, 'elevation'):
-                            self.logger.info(">>> Resetting PyVista camera position and orientation")
-                            camera.azimuth = 45
-                            camera.elevation = 20
-                            # Reset zoom by setting distance
-                            if hasattr(camera, 'distance'):
-                                camera.distance = None  # Auto-calculate
-                        else:
-                            # VTK camera complete reset
-                            self.logger.info(">>> Resetting VTK camera position, orientation and zoom")
-                            # Reset to default isometric position
-                            data_bounds = None
-                            if hasattr(self, 'voxel_data') and self.voxel_data is not None:
-                                # Calculate appropriate camera distance based on data size
-                                shape = self.voxel_data.shape
-                                max_dim = max(shape) * max(self.voxel_size)
-                                distance = max_dim * 2  # Good viewing distance
-                            else:
-                                distance = 100  # Default distance
-                            
-                            camera.SetPosition(distance, distance, distance)
-                            camera.SetViewUp(0, 0, 1)
-                            camera.SetFocalPoint(0, 0, 0)
-                            
-                        # Force camera update
-                        if hasattr(camera, 'Modified'):
-                            camera.Modified()
-                        
-                        reset_success = True
-                        self.logger.info(">>> Manual camera reset succeeded")
-                    else:
-                        self.logger.warning(">>> No camera found for manual reset")
-                except Exception as e:
-                    self.logger.info(f">>> Manual camera reset failed: {e}")
-            
-            # Method 3: Re-initialize view
-            if not reset_success:
-                try:
-                    self.logger.info(">>> Trying view reset to isometric")
-                    self._set_camera_view('isometric')
-                    reset_success = True
-                    self.logger.info(">>> View reset succeeded")
-                except Exception as e:
-                    self.logger.info(f">>> View reset failed: {e}")
-            
-            if reset_success:
-                # Force immediate screenshot update
-                self._simple_render_update()
-                self.emit('view-changed')
-                self.logger.info("View reset to default")
-            else:
-                self.logger.warning("All reset methods failed")
-                
-        except Exception as e:
-            self.logger.error(f"Failed to reset view: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
+        # Use the unified camera view method for consistent behavior
+        self._set_camera_view('isometric')
+        self.logger.info("View reset to default isometric")
     
     def set_phase_visibility(self, phase_id: int, visible: bool):
         """Set visibility of a specific phase."""

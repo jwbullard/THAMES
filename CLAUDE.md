@@ -1260,6 +1260,85 @@ December 18, 2025
 
 ---
 
+### Session 16: Multi-Temperature GEMS Database & Hydration Products Expansion
+December 20, 2025
+
+**Context**: Enabled multi-temperature support (277-353K) by debugging and creating working thermodynamic input files from GEM-Selektor v3.9.6. Expanded hydration products available in the UI from ~32 to 82 phases.
+
+**Key Accomplishments**:
+
+1. **Multi-Temperature GEMS Database Debugging**
+   - Compared working pyrrcem database with failing new exports
+   - Identified critical DBR parameters: temperature grid (39 points), dul constraints (Cl⁻=1e-08, Cl₂=0.001)
+   - Created `/Users/jwbullard/NewThermoData/DBR_Differences.md` documenting all differences
+   - User successfully replicated working parameters in GEM-Selektor
+
+2. **Added 11 New Phases to GEMS Database**
+   - Glass phases: Mullite, C2AS, CA2S, CAS, CAS2, K6A2S
+   - Minerals: Diopside, Albite, Anorthite, Fayalite, Forsterite
+   - Final database: **100 phases, 198 DCs, 39 temperature points**
+
+3. **Successful Multi-Temperature Testing**
+   - Hydration simulations completed at 10°C, 25°C, and 40°C
+   - All 100 phases properly integrated
+
+4. **Expanded Hydration Products Service** (~50 new phases added)
+   - Chloride AFm: Friedels, Kuzels
+   - Zeolites: ZeoliteX, ZeoliteY, zeoliteP_Ca, Natrolite
+   - Silicates: Forsterite, Fayalite, Mullite, Diopside, Albite, Anorthite
+   - Pozzolanic: Sfume, K6A2S, CAS, CA2S, C2AS, CAS2
+   - Al hydroxides: Al(OH)3am, Al(OH)3mic, Gibbsite
+   - Carbonates: Aragonite, Dolomite-dis/ord, Magnesite, Siderite, Fe-carbonate
+   - Aluminate hydrates: C2AH75, CAH10, straetlingite, C2ASH55
+   - Ferrite hydrates: C3FS0.84H4.32, C3FS1.34H3.32, C4Fc05H10, C4FcH12
+   - Hydrotalcites: hydrotalcite, OH-hydrotalc
+   - Fe oxides: Goethite, Hematite, Magnetite, Ferrihyd-am, Ferrihyd-mc
+   - Other: thaumasite, syngenite, Kaolinite, Periclase, Melanterite, Pyrrhotite, Troilite, Sulphur, lime
+   - **Final count: 82 hydration products in UI**
+
+5. **Fixed Phase Name Mismatches**
+   - `straet` → `straetlingite` (match GEMS)
+   - `hydrotalc-pyro` → `Hydrotalc-pyr` (match GEMS)
+
+**Name Fixing sed Script** (apply to new GEMS exports):
+```bash
+sed -i '' \
+    -e "s/'aq_gen'/'Electrolyte'/g" \
+    -e "s/'ettringite-AlFe'/'ettr-AlFe'/g" \
+    -e "s/'ettringite'/'ettr'/g" \
+    -e "s/'monosulphate'/'monosulf'/g" \
+    -e "s/'monocarbonate'/'monocarb'/g" \
+    -e "s/'hemicarbonate'/'hemicarb'/g" \
+    -e "s/'hemihydrate'/'Bassanite'/g" \
+    -e "s/'tricarboalu03'/'tricarb03'/g" \
+    -e "s/'arcanite'/'Arcanite'/g" \
+    -e "s/'thenardite'/'Thenardite'/g" \
+    -e "s/'Silica-fume'/'Sfume'/g" \
+    thames-dch.dat thames-dbr.dat
+```
+
+**Files Modified**:
+- `src/data/gems/thames-dch.dat` - 100 phases, 198 DCs
+- `src/data/gems/thames-ipm.dat` - Updated IPM parameters
+- `src/data/gems/thames-dbr.dat` - Correct bIC, dul constraints
+- `src/app/services/hydration_products_service.py` - 82 hydration products
+
+**Files Created**:
+- `docs/SESSION_16_SUMMARY.md` - Detailed session documentation
+- `/Users/jwbullard/NewThermoData/DBR_Differences.md` - DBR comparison
+- `/Users/jwbullard/NewThermoData/BaseICAllPhases/` - Final 100-phase export
+
+**Known Issues**:
+- C++ backend needs debugging for non-standard material systems (e.g., no clinker, diopside only)
+
+**Critical Files for Next Session**:
+- GEMS Database: `src/data/gems/thames-*.dat`
+- Hydration Products: `src/app/services/hydration_products_service.py`
+- DBR Differences: `/Users/jwbullard/NewThermoData/DBR_Differences.md`
+- Session Summary: `docs/SESSION_16_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

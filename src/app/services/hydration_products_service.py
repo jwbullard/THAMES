@@ -347,13 +347,22 @@ SUGGESTED_PRODUCTS: Dict[str, HydrationProductData] = {
     ),
 
     # ----- Hydrotalcite -----
-    "hydrotalc-pyro": HydrationProductData(
-        gems_name="hydrotalc-pyro",
+    "Hydrotalc-pyr": HydrationProductData(
+        gems_name="Hydrotalc-pyr",
+        display_name="Hydrotalcite (pyroaurite-type)",
+        category=ProductCategory.HYDROTALCITE,
+        description="Mg-Fe layered double hydroxide - forms in slag-blended cements",
+        suggested_for=["slag", "blended"],
+        default_affinity=[],
+    ),
+
+    "hydrotalcite": HydrationProductData(
+        gems_name="hydrotalcite",
         display_name="Hydrotalcite",
         category=ProductCategory.HYDROTALCITE,
-        description="Mg-Al layered double hydroxide - forms in slag-blended cements",
+        description="Mg-Al layered double hydroxide",
         suggested_for=["slag", "blended"],
-        default_affinity=[],  # Often has no specific affinity preferences
+        default_affinity=[],
     ),
 }
 
@@ -573,16 +582,6 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         ],
     ),
 
-    # Stratlingite
-    "straet": HydrationProductData(
-        gems_name="straet",
-        display_name="Strätlingite",
-        category=ProductCategory.ALUMINATE_HYDRATE,
-        description="Calcium aluminosilicate hydrate - forms in pozzolanic systems",
-        suggested_for=["pozzolanic"],
-        default_affinity=[],
-    ),
-
     # Zeolites
     "Chabazite": HydrationProductData(
         gems_name="Chabazite",
@@ -642,6 +641,489 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         category=ProductCategory.OTHER,
         description="Calcium carbonate - can precipitate from carbonation",
         suggested_for=["limestone"],
+        default_affinity=[],
+    ),
+
+    # ----- Chloride AFm phases -----
+    "Friedels": HydrationProductData(
+        gems_name="Friedels",
+        display_name="Friedel's salt",
+        category=ProductCategory.AFM,
+        description="Chloride AFm - forms in chloride-rich environments",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "ettr-AlFe", "contactanglevalue": 0},
+            {"affinityphase": "ettr", "contactanglevalue": 0},
+            {"affinityphase": "monosulf-AlFe", "contactanglevalue": 0},
+            {"affinityphase": "Aluminate", "contactanglevalue": 0},
+        ],
+    ),
+
+    "Kuzels": HydrationProductData(
+        gems_name="Kuzels",
+        display_name="Kuzel's salt",
+        category=ProductCategory.AFM,
+        description="Chloro-sulfate AFm - intermediate between Friedel's and monosulfate",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "ettr-AlFe", "contactanglevalue": 0},
+            {"affinityphase": "ettr", "contactanglevalue": 0},
+            {"affinityphase": "monosulf-AlFe", "contactanglevalue": 0},
+            {"affinityphase": "Aluminate", "contactanglevalue": 0},
+        ],
+    ),
+
+    # ----- More Zeolites -----
+    "ZeoliteX": HydrationProductData(
+        gems_name="ZeoliteX",
+        display_name="Zeolite X",
+        category=ProductCategory.ZEOLITE,
+        description="Zeolite X - can form in alkali-activated systems",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "ZeoliteY": HydrationProductData(
+        gems_name="ZeoliteY",
+        display_name="Zeolite Y",
+        category=ProductCategory.ZEOLITE,
+        description="Zeolite Y - can form in alkali-activated systems",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "zeoliteP_Ca": HydrationProductData(
+        gems_name="zeoliteP_Ca",
+        display_name="Zeolite P (Ca)",
+        category=ProductCategory.ZEOLITE,
+        description="Calcium-exchanged Zeolite P",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    # ----- Silicates and Pozzolanic Phases -----
+    "Forsterite": HydrationProductData(
+        gems_name="Forsterite",
+        display_name="Forsterite",
+        category=ProductCategory.OTHER,
+        description="Magnesium silicate (Mg2SiO4) - olivine end-member",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Fayalite": HydrationProductData(
+        gems_name="Fayalite",
+        display_name="Fayalite",
+        category=ProductCategory.OTHER,
+        description="Iron silicate (Fe2SiO4) - olivine end-member",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Mullite": HydrationProductData(
+        gems_name="Mullite",
+        display_name="Mullite",
+        category=ProductCategory.OTHER,
+        description="Aluminosilicate (Al6Si2O13) - common in fly ash",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "Diopside": HydrationProductData(
+        gems_name="Diopside",
+        display_name="Diopside",
+        category=ProductCategory.OTHER,
+        description="Calcium magnesium silicate (CaMgSi2O6) - pyroxene mineral",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Albite": HydrationProductData(
+        gems_name="Albite",
+        display_name="Albite",
+        category=ProductCategory.OTHER,
+        description="Sodium feldspar (NaAlSi3O8)",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Anorthite": HydrationProductData(
+        gems_name="Anorthite",
+        display_name="Anorthite",
+        category=ProductCategory.OTHER,
+        description="Calcium feldspar (CaAl2Si2O8)",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    # ----- Glass/Pozzolanic Phases (fly ash, slag) -----
+    "Sfume": HydrationProductData(
+        gems_name="Sfume",
+        display_name="Silica Fume",
+        category=ProductCategory.OTHER,
+        description="Amorphous silica - reactive pozzolan",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "K6A2S": HydrationProductData(
+        gems_name="K6A2S",
+        display_name="K6A2S Glass",
+        category=ProductCategory.OTHER,
+        description="Potassium aluminosilicate glass phase",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "CAS": HydrationProductData(
+        gems_name="CAS",
+        display_name="CAS Glass",
+        category=ProductCategory.OTHER,
+        description="Calcium aluminosilicate glass - fly ash phase",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "CA2S": HydrationProductData(
+        gems_name="CA2S",
+        display_name="CA2S Glass",
+        category=ProductCategory.OTHER,
+        description="Calcium dialuminosilicate glass - fly ash phase",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "C2AS": HydrationProductData(
+        gems_name="C2AS",
+        display_name="C2AS Glass (Gehlenite)",
+        category=ProductCategory.OTHER,
+        description="Dicalcium aluminosilicate glass - gehlenite composition",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "CAS2": HydrationProductData(
+        gems_name="CAS2",
+        display_name="CAS2 Glass (Anorthite)",
+        category=ProductCategory.OTHER,
+        description="Calcium aluminodisilicate glass - anorthite composition",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    # ----- Aluminum Hydroxides -----
+    "Al(OH)3am": HydrationProductData(
+        gems_name="Al(OH)3am",
+        display_name="Al(OH)3 amorphous",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Amorphous aluminum hydroxide",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Al(OH)3mic": HydrationProductData(
+        gems_name="Al(OH)3mic",
+        display_name="Al(OH)3 microcrystalline",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Microcrystalline aluminum hydroxide",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Gibbsite": HydrationProductData(
+        gems_name="Gibbsite",
+        display_name="Gibbsite",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Crystalline aluminum hydroxide Al(OH)3",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    # ----- Carbonates -----
+    "Aragonite": HydrationProductData(
+        gems_name="Aragonite",
+        display_name="Aragonite",
+        category=ProductCategory.OTHER,
+        description="Calcium carbonate polymorph (orthorhombic)",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Dolomite-dis": HydrationProductData(
+        gems_name="Dolomite-dis",
+        display_name="Dolomite (disordered)",
+        category=ProductCategory.OTHER,
+        description="Disordered calcium magnesium carbonate",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Dolomite-ord": HydrationProductData(
+        gems_name="Dolomite-ord",
+        display_name="Dolomite (ordered)",
+        category=ProductCategory.OTHER,
+        description="Ordered calcium magnesium carbonate",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Magnesite": HydrationProductData(
+        gems_name="Magnesite",
+        display_name="Magnesite",
+        category=ProductCategory.OTHER,
+        description="Magnesium carbonate MgCO3",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Siderite": HydrationProductData(
+        gems_name="Siderite",
+        display_name="Siderite",
+        category=ProductCategory.OTHER,
+        description="Iron carbonate FeCO3",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Fe-carbonate": HydrationProductData(
+        gems_name="Fe-carbonate",
+        display_name="Fe-carbonate",
+        category=ProductCategory.OTHER,
+        description="Iron carbonate phase",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    # ----- More Aluminate Hydrates -----
+    "C2AH75": HydrationProductData(
+        gems_name="C2AH75",
+        display_name="C2AH7.5",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Dicalcium aluminate hydrate",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Aluminate", "contactanglevalue": 0},
+        ],
+    ),
+
+    "CAH10": HydrationProductData(
+        gems_name="CAH10",
+        display_name="CAH10",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Calcium aluminate decahydrate",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Aluminate", "contactanglevalue": 0},
+        ],
+    ),
+
+    "straetlingite": HydrationProductData(
+        gems_name="straetlingite",
+        display_name="Strätlingite",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Calcium aluminosilicate hydrate C2ASH8",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    "C2ASH55": HydrationProductData(
+        gems_name="C2ASH55",
+        display_name="C2ASH5.5 (Strätlingite variant)",
+        category=ProductCategory.ALUMINATE_HYDRATE,
+        description="Strätlingite with 5.5 water molecules",
+        suggested_for=["pozzolanic"],
+        default_affinity=[],
+    ),
+
+    # ----- Ferrite Hydrates -----
+    "C3FS0.84H4.32": HydrationProductData(
+        gems_name="C3FS0.84H4.32",
+        display_name="Fe-siliceous hydrogarnet",
+        category=ProductCategory.FERRITE_HYDRATE,
+        description="Iron-siliceous hydrogarnet phase",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Ferrite", "contactanglevalue": 0},
+        ],
+    ),
+
+    "C3FS1.34H3.32": HydrationProductData(
+        gems_name="C3FS1.34H3.32",
+        display_name="Fe-siliceous hydrogarnet (high Si)",
+        category=ProductCategory.FERRITE_HYDRATE,
+        description="Iron-siliceous hydrogarnet with higher Si content",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Ferrite", "contactanglevalue": 0},
+        ],
+    ),
+
+    "C4Fc05H10": HydrationProductData(
+        gems_name="C4Fc05H10",
+        display_name="Fe-hemicarbonate",
+        category=ProductCategory.CARBONATE_AFM,
+        description="Iron hemicarbonate AFm",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Ferrite", "contactanglevalue": 0},
+        ],
+    ),
+
+    "C4FcH12": HydrationProductData(
+        gems_name="C4FcH12",
+        display_name="Fe-monocarbonate",
+        category=ProductCategory.CARBONATE_AFM,
+        description="Iron monocarbonate AFm",
+        suggested_for=[],
+        default_affinity=[
+            {"affinityphase": "Ferrite", "contactanglevalue": 0},
+        ],
+    ),
+
+    # ----- Hydrotalcites -----
+    "OH-hydrotalc": HydrationProductData(
+        gems_name="OH-hydrotalc",
+        display_name="OH-Hydrotalcite",
+        category=ProductCategory.HYDROTALCITE,
+        description="Hydroxide hydrotalcite Mg-Al LDH",
+        suggested_for=["slag"],
+        default_affinity=[],
+    ),
+
+    # ----- Iron Oxides/Hydroxides -----
+    "Goethite": HydrationProductData(
+        gems_name="Goethite",
+        display_name="Goethite",
+        category=ProductCategory.OTHER,
+        description="Iron oxyhydroxide FeOOH",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Hematite": HydrationProductData(
+        gems_name="Hematite",
+        display_name="Hematite",
+        category=ProductCategory.OTHER,
+        description="Iron oxide Fe2O3",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Magnetite": HydrationProductData(
+        gems_name="Magnetite",
+        display_name="Magnetite",
+        category=ProductCategory.OTHER,
+        description="Iron oxide Fe3O4",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Ferrihyd-am": HydrationProductData(
+        gems_name="Ferrihyd-am",
+        display_name="Ferrihydrite (amorphous)",
+        category=ProductCategory.OTHER,
+        description="Amorphous iron hydroxide",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Ferrihyd-mc": HydrationProductData(
+        gems_name="Ferrihyd-mc",
+        display_name="Ferrihydrite (microcrystalline)",
+        category=ProductCategory.OTHER,
+        description="Microcrystalline iron hydroxide",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    # ----- Other Hydration Products -----
+    "thaumasite": HydrationProductData(
+        gems_name="thaumasite",
+        display_name="Thaumasite",
+        category=ProductCategory.OTHER,
+        description="Ca3Si(CO3)(SO4)(OH)6·12H2O - sulfate attack product",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "syngenite": HydrationProductData(
+        gems_name="syngenite",
+        display_name="Syngenite",
+        category=ProductCategory.OTHER,
+        description="Potassium calcium sulfate K2Ca(SO4)2·H2O",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Natrolite": HydrationProductData(
+        gems_name="Natrolite",
+        display_name="Natrolite",
+        category=ProductCategory.ZEOLITE,
+        description="Sodium zeolite Na2Al2Si3O10·2H2O",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Kaolinite": HydrationProductData(
+        gems_name="Kaolinite",
+        display_name="Kaolinite",
+        category=ProductCategory.OTHER,
+        description="Clay mineral Al2Si2O5(OH)4",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Periclase": HydrationProductData(
+        gems_name="Periclase",
+        display_name="Periclase",
+        category=ProductCategory.OTHER,
+        description="Magnesium oxide MgO",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Melanterite": HydrationProductData(
+        gems_name="Melanterite",
+        display_name="Melanterite",
+        category=ProductCategory.OTHER,
+        description="Iron sulfate heptahydrate FeSO4·7H2O",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Pyrrhotite": HydrationProductData(
+        gems_name="Pyrrhotite",
+        display_name="Pyrrhotite",
+        category=ProductCategory.OTHER,
+        description="Iron sulfide Fe(1-x)S",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Troilite": HydrationProductData(
+        gems_name="Troilite",
+        display_name="Troilite",
+        category=ProductCategory.OTHER,
+        description="Iron sulfide FeS",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "Sulphur": HydrationProductData(
+        gems_name="Sulphur",
+        display_name="Sulfur",
+        category=ProductCategory.OTHER,
+        description="Elemental sulfur S",
+        suggested_for=[],
+        default_affinity=[],
+    ),
+
+    "lime": HydrationProductData(
+        gems_name="lime",
+        display_name="Lime (free CaO)",
+        category=ProductCategory.OTHER,
+        description="Calcium oxide CaO",
+        suggested_for=[],
         default_affinity=[],
     ),
 }

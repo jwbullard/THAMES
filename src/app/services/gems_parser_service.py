@@ -81,17 +81,23 @@ class GEMSParserService:
         self.num_ics: int = 0
         self.num_dcs: int = 0
         self.num_phases: int = 0
+        self.num_tp: int = 1   # nTp - number of temperature grid points
+        self.num_pp: int = 1   # nPp - number of pressure grid points
+        self.standard_t_index: int = 0  # Index for 298.15 K in temperature grid
 
         self.ic_names: List[str] = []
         self.dc_names: List[str] = []
         self.phase_names: List[str] = []
 
         self.dc_molar_masses: List[float] = []
-        self.dc_molar_volumes: List[float] = []  # V0 in m³/mol
+        self.dc_molar_volumes: List[float] = []  # V0 in m³/mol at standard T/P
         self.dc_class_codes: List[str] = []
         self.phase_class_codes: List[str] = []
 
         self.num_dcs_in_phase: List[int] = []
+
+        # Temperature grid for finding standard conditions
+        self.temperature_grid: List[float] = []
 
         # Derived data structures
         self.phases: Dict[str, GEMPhase] = {}
@@ -127,6 +133,14 @@ class GEMSParserService:
                     self.num_dcs = self._parse_single_int(lines, i)
                 elif key == 'nPH':
                     self.num_phases = self._parse_single_int(lines, i)
+                elif key == 'nTp':
+                    self.num_tp = self._parse_single_int(lines, i)
+                elif key == 'nPp':
+                    self.num_pp = self._parse_single_int(lines, i)
+                elif key == 'TKval':
+                    self.temperature_grid = self._parse_float_array(lines, i)
+                    # Find index closest to 298.15 K (standard conditions)
+                    self._find_standard_temperature_index()
                 elif key == 'ICNL':
                     self.ic_names = self._parse_name_list(lines, i)
                 elif key == 'DCNL':
@@ -136,7 +150,9 @@ class GEMSParserService:
                 elif key == 'DCmm':
                     self.dc_molar_masses = self._parse_float_array(lines, i)
                 elif key == 'V0':
-                    self.dc_molar_volumes = self._parse_float_array(lines, i)
+                    # V0 has nDC * nTp * nPp values; extract at standard T/P
+                    all_v0 = self._parse_float_array(lines, i)
+                    self.dc_molar_volumes = self._extract_standard_tp_values(all_v0)
                 elif key == 'ccDC':
                     self.dc_class_codes = self._parse_name_list(lines, i)
                 elif key == 'ccPH':
@@ -232,6 +248,52 @@ class GEMSParserService:
             i += 1
 
         return values
+
+    def _find_standard_temperature_index(self) -> None:
+        """Find the index in the temperature grid closest to 298.15 K."""
+        if not self.temperature_grid:
+            self.standard_t_index = 0
+            return
+
+        standard_t = 298.15  # Standard temperature in K
+        min_diff = float('inf')
+        best_index = 0
+
+        for i, t in enumerate(self.temperature_grid):
+            diff = abs(t - standard_t)
+            if diff < min_diff:
+                min_diff = diff
+                best_index = i
+
+        self.standard_t_index = best_index
+
+    def _extract_standard_tp_values(self, all_values: List[float]) -> List[float]:
+        """
+        Extract values at standard T/P from a full T/P grid array.
+
+        The array is organized as [nDC * nTp * nPp] where values are stored
+        as DC0_T0_P0, DC0_T0_P1, ..., DC0_T1_P0, ..., DC1_T0_P0, ...
+
+        For nPp=1, this simplifies to: DC0_T0, DC0_T1, ..., DC0_T35, DC1_T0, ...
+        """
+        if self.num_tp <= 1 and self.num_pp <= 1:
+            # Old format: one value per DC
+            return all_values
+
+        stride = self.num_tp * self.num_pp  # Values per DC
+        t_index = self.standard_t_index
+        p_index = 0  # Assume first pressure point
+
+        extracted = []
+        for dc_idx in range(self.num_dcs):
+            # Index for this DC at standard T/P
+            idx = dc_idx * stride + t_index * self.num_pp + p_index
+            if idx < len(all_values):
+                extracted.append(all_values[idx])
+            else:
+                extracted.append(0.0)
+
+        return extracted
 
     def _parse_name_list(self, lines: List[str], start_idx: int) -> List[str]:
         """Parse a list of quoted names like 'Al(SO4)+' 'Al+3' ..."""
