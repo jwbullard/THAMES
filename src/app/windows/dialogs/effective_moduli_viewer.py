@@ -99,10 +99,10 @@ class EffectiveModuliViewer(Gtk.Dialog):
         notes_box.set_margin_right(6)
 
         notes_text = [
-            "• Paste properties are calculated from the cement matrix only",
-            "• Concrete properties include aggregates and air voids",
-            "• Values marked as 'nan' indicate insufficient data for calculation",
-            "• All moduli are calculated using homogenization theory"
+            "• Effective moduli are calculated using finite element homogenization",
+            "• Bulk modulus (K) and Shear modulus (G) are the primary computed values",
+            "• Young's modulus (E) and Poisson's ratio (v) are derived from K and G",
+            "• Values marked as 'Not available' indicate insufficient data"
         ]
 
         for note in notes_text:
@@ -124,12 +124,19 @@ class EffectiveModuliViewer(Gtk.Dialog):
                 self._show_error("Could not find operation directory")
                 return
 
-            moduli_file = Path(operation_dir) / "EffectiveModuli.csv"
+            operation_path = Path(operation_dir)
+
+            # THAMES puts results in Result/ subdirectory
+            moduli_file = operation_path / "Result" / "EffectiveModuli.csv"
+            if not moduli_file.exists():
+                # Fallback to direct path (VCCTL format)
+                moduli_file = operation_path / "EffectiveModuli.csv"
+
             if not moduli_file.exists():
                 self._show_error("EffectiveModuli.csv file not found")
                 return
 
-            # Read and parse CSV data
+            # Read and parse CSV data (handles both THAMES and VCCTL formats)
             moduli_data = self._parse_moduli_csv(moduli_file)
 
             # Populate the tree view
@@ -181,6 +188,10 @@ class EffectiveModuliViewer(Gtk.Dialog):
                     value = row[1].strip()
                     units = row[2].strip()
 
+                    # Skip header row
+                    if property_name.lower() == 'property':
+                        continue
+
                     # Clean up property names for display
                     display_name = self._format_property_name(property_name)
 
@@ -230,27 +241,59 @@ class EffectiveModuliViewer(Gtk.Dialog):
         """Populate the tree view with moduli data."""
         self.liststore.clear()
 
-        # Group data by material type
+        # Group data by type: metadata vs moduli vs other
+        metadata_props = ['microstructure', 'dimension', 'resolution']
+        moduli_props = ['modulus', 'ratio']
+        paste_props = ['paste']
+        concrete_props = ['concrete', 'mortar']
+
+        metadata_data = []
+        moduli_data = []
         paste_data = []
         concrete_data = []
         other_data = []
 
         for property_name, value, units in data:
-            if 'paste' in property_name.lower():
+            name_lower = property_name.lower()
+            if any(prop in name_lower for prop in metadata_props):
+                metadata_data.append((property_name, value, units))
+            elif any(prop in name_lower for prop in moduli_props):
+                # Further categorize moduli by paste/concrete/general
+                if any(prop in name_lower for prop in paste_props):
+                    paste_data.append((property_name, value, units))
+                elif any(prop in name_lower for prop in concrete_props):
+                    concrete_data.append((property_name, value, units))
+                else:
+                    moduli_data.append((property_name, value, units))
+            elif any(prop in name_lower for prop in paste_props):
                 paste_data.append((property_name, value, units))
-            elif 'concrete' in property_name.lower() or 'mortar' in property_name.lower():
+            elif any(prop in name_lower for prop in concrete_props):
                 concrete_data.append((property_name, value, units))
             else:
                 other_data.append((property_name, value, units))
 
-        # Add paste section
+        # Add metadata section
+        if metadata_data:
+            self.liststore.append(["MICROSTRUCTURE INFO", "", ""])
+            for item in metadata_data:
+                self.liststore.append(item)
+            self.liststore.append(["", "", ""])  # Separator
+
+        # Add effective moduli section (THAMES format)
+        if moduli_data:
+            self.liststore.append(["EFFECTIVE MODULI", "", ""])
+            for item in moduli_data:
+                self.liststore.append(item)
+            self.liststore.append(["", "", ""])  # Separator
+
+        # Add paste section (VCCTL format)
         if paste_data:
             self.liststore.append(["PASTE PROPERTIES", "", ""])
             for item in paste_data:
                 self.liststore.append(item)
             self.liststore.append(["", "", ""])  # Separator
 
-        # Add concrete section
+        # Add concrete section (VCCTL format)
         if concrete_data:
             self.liststore.append(["CONCRETE PROPERTIES", "", ""])
             for item in concrete_data:

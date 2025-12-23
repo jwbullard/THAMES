@@ -1135,18 +1135,30 @@ class ResultsPanel(Gtk.Box):
         try:
             operation_dir = self._get_operation_output_dir(operation)
             if operation_dir:
-                effective_moduli_file = Path(operation_dir) / "EffectiveModuli.csv"
+                op_path = Path(operation_dir)
+                # Check Result/ subdirectory first (THAMES format)
+                effective_moduli_file = op_path / "Result" / "EffectiveModuli.csv"
+                if effective_moduli_file.exists():
+                    return True
+                # Fallback to direct path (VCCTL format)
+                effective_moduli_file = op_path / "EffectiveModuli.csv"
                 return effective_moduli_file.exists()
             return False
         except Exception:
             return False
 
     def _has_itz_moduli(self, operation) -> bool:
-        """Check if operation has ITZmoduli.csv file."""
+        """Check if operation has ITZModuli.csv file."""
         try:
             operation_dir = self._get_operation_output_dir(operation)
             if operation_dir:
-                itz_moduli_file = Path(operation_dir) / "ITZmoduli.csv"
+                op_path = Path(operation_dir)
+                # Check Result/ subdirectory first (THAMES format)
+                itz_moduli_file = op_path / "Result" / "ITZModuli.csv"
+                if itz_moduli_file.exists():
+                    return True
+                # Fallback to direct path (VCCTL format)
+                itz_moduli_file = op_path / "ITZModuli.csv"
                 return itz_moduli_file.exists()
             return False
         except Exception:

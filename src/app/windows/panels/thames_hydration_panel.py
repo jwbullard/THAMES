@@ -46,6 +46,12 @@ from app.services.thames_execution_service import (
 )
 from app.services.hydration_products_service import get_hydration_products_service
 from app.services.phase_id_mapping_service import normalize_phase_name
+from app.services.time_generator_service import (
+    get_time_generator_service,
+    TimeUnit,
+    ExponentialBase,
+    TimeGenerationResult,
+)
 
 
 class THAMESHydrationPanel(Gtk.Box):
@@ -378,30 +384,254 @@ class THAMESHydrationPanel(Gtk.Box):
 
         row += 1
 
-        # Final time
-        time_label = Gtk.Label("Final Time (days):")
+        # Final time with unit selector
+        time_label = Gtk.Label("Final Time:")
         time_label.set_halign(Gtk.Align.START)
         content.attach(time_label, 0, row, 1, 1)
 
+        final_time_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         self.final_time_spin = Gtk.SpinButton.new_with_range(0.1, 365, 0.1)
         self.final_time_spin.set_value(28)
-        self.final_time_spin.set_digits(1)
-        self.final_time_spin.set_tooltip_text("Total simulation time in days")
-        content.attach(self.final_time_spin, 1, row, 1, 1)
+        self.final_time_spin.set_digits(2)
+        self.final_time_spin.set_tooltip_text("Total simulation time")
+        self.final_time_spin.connect("value-changed", self._on_time_param_changed)
+        final_time_box.pack_start(self.final_time_spin, True, True, 0)
+
+        self.final_time_unit_combo = Gtk.ComboBoxText()
+        self.final_time_unit_combo.append("min", "minutes")
+        self.final_time_unit_combo.append("hr", "hours")
+        self.final_time_unit_combo.append("d", "days")
+        self.final_time_unit_combo.set_active_id("d")
+        self.final_time_unit_combo.set_tooltip_text("Unit for final time")
+        self.final_time_unit_combo.connect("changed", self._on_time_param_changed)
+        final_time_box.pack_start(self.final_time_unit_combo, False, False, 0)
+        content.attach(final_time_box, 1, row, 1, 1)
 
         row += 1
 
-        # Output times
-        times_label = Gtk.Label("Output Times (days):")
-        times_label.set_halign(Gtk.Align.START)
-        times_label.set_valign(Gtk.Align.START)
-        content.attach(times_label, 0, row, 1, 1)
+        # Output time model selector
+        model_label = Gtk.Label("Output Time Model:")
+        model_label.set_halign(Gtk.Align.START)
+        content.attach(model_label, 0, row, 1, 1)
 
-        self.output_times_entry = Gtk.Entry()
-        self.output_times_entry.set_text("0.01, 0.1, 0.25, 0.5, 1, 3, 7, 14, 21, 28")
-        self.output_times_entry.set_tooltip_text("Comma-separated list of times to output results")
-        self.output_times_entry.set_hexpand(True)
-        content.attach(self.output_times_entry, 1, row, 1, 1)
+        self.output_model_combo = Gtk.ComboBoxText()
+        self.output_model_combo.append("custom", "Custom List")
+        self.output_model_combo.append("linear_count", "Linear (by count)")
+        self.output_model_combo.append("linear_spacing", "Linear (by spacing)")
+        self.output_model_combo.append("exponential", "Exponential")
+        self.output_model_combo.set_active_id("custom")
+        self.output_model_combo.set_tooltip_text("Method for generating output times")
+        self.output_model_combo.connect("changed", self._on_output_model_changed)
+        content.attach(self.output_model_combo, 1, row, 1, 1)
+
+        row += 1
+
+        # Stack for model-specific parameters
+        self.time_model_stack = Gtk.Stack()
+        self.time_model_stack.set_transition_type(Gtk.StackTransitionType.CROSSFADE)
+        content.attach(self.time_model_stack, 0, row, 2, 1)
+
+        # Custom model UI
+        custom_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        custom_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        custom_label = Gtk.Label("Times:")
+        custom_label.set_halign(Gtk.Align.START)
+        custom_label.set_size_request(100, -1)
+        custom_row.pack_start(custom_label, False, False, 0)
+
+        self.custom_times_entry = Gtk.Entry()
+        self.custom_times_entry.set_text("0.01, 0.1, 0.25, 0.5, 1, 3, 7, 14, 21, 28")
+        self.custom_times_entry.set_tooltip_text("Comma-separated list of output times")
+        self.custom_times_entry.set_hexpand(True)
+        self.custom_times_entry.connect("changed", self._on_time_param_changed)
+        custom_row.pack_start(self.custom_times_entry, True, True, 0)
+
+        self.custom_times_unit_combo = Gtk.ComboBoxText()
+        self.custom_times_unit_combo.append("min", "min")
+        self.custom_times_unit_combo.append("hr", "hr")
+        self.custom_times_unit_combo.append("d", "d")
+        self.custom_times_unit_combo.set_active_id("d")
+        self.custom_times_unit_combo.connect("changed", self._on_time_param_changed)
+        custom_row.pack_start(self.custom_times_unit_combo, False, False, 0)
+        custom_box.pack_start(custom_row, False, False, 0)
+        self.time_model_stack.add_named(custom_box, "custom")
+
+        # Linear by count UI
+        linear_count_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        linear_count_label = Gtk.Label("Number of outputs:")
+        linear_count_label.set_halign(Gtk.Align.START)
+        linear_count_label.set_size_request(100, -1)
+        linear_count_box.pack_start(linear_count_label, False, False, 0)
+
+        self.linear_count_spin = Gtk.SpinButton.new_with_range(2, 100, 1)
+        self.linear_count_spin.set_value(10)
+        self.linear_count_spin.set_tooltip_text("Number of evenly-spaced output times (2-100)")
+        self.linear_count_spin.connect("value-changed", self._on_time_param_changed)
+        linear_count_box.pack_start(self.linear_count_spin, False, False, 0)
+
+        linear_count_note = Gtk.Label("(includes start and end)")
+        linear_count_note.get_style_context().add_class("dim-label")
+        linear_count_box.pack_start(linear_count_note, False, False, 5)
+        self.time_model_stack.add_named(linear_count_box, "linear_count")
+
+        # Linear by spacing UI
+        linear_spacing_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        linear_spacing_label = Gtk.Label("Time spacing:")
+        linear_spacing_label.set_halign(Gtk.Align.START)
+        linear_spacing_label.set_size_request(100, -1)
+        linear_spacing_box.pack_start(linear_spacing_label, False, False, 0)
+
+        self.linear_spacing_spin = Gtk.SpinButton.new_with_range(0.001, 100, 0.1)
+        self.linear_spacing_spin.set_value(1.0)
+        self.linear_spacing_spin.set_digits(3)
+        self.linear_spacing_spin.set_tooltip_text("Time between outputs (max 100 outputs)")
+        self.linear_spacing_spin.connect("value-changed", self._on_time_param_changed)
+        linear_spacing_box.pack_start(self.linear_spacing_spin, False, False, 0)
+
+        self.linear_spacing_unit_combo = Gtk.ComboBoxText()
+        self.linear_spacing_unit_combo.append("min", "min")
+        self.linear_spacing_unit_combo.append("hr", "hr")
+        self.linear_spacing_unit_combo.append("d", "d")
+        self.linear_spacing_unit_combo.set_active_id("d")
+        self.linear_spacing_unit_combo.connect("changed", self._on_time_param_changed)
+        linear_spacing_box.pack_start(self.linear_spacing_unit_combo, False, False, 0)
+        self.time_model_stack.add_named(linear_spacing_box, "linear_spacing")
+
+        # Exponential UI
+        exp_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+
+        # t0 row
+        exp_t0_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        exp_t0_label = Gtk.Label("t₀ (start time):")
+        exp_t0_label.set_halign(Gtk.Align.START)
+        exp_t0_label.set_size_request(100, -1)
+        exp_t0_row.pack_start(exp_t0_label, False, False, 0)
+
+        self.exp_t0_spin = Gtk.SpinButton.new_with_range(0.0001, 10, 0.001)
+        self.exp_t0_spin.set_value(0.01)
+        self.exp_t0_spin.set_digits(4)
+        self.exp_t0_spin.set_tooltip_text("Starting time (t = t₀ × base^(a×i))")
+        self.exp_t0_spin.connect("value-changed", self._on_time_param_changed)
+        exp_t0_row.pack_start(self.exp_t0_spin, False, False, 0)
+
+        self.exp_t0_unit_combo = Gtk.ComboBoxText()
+        self.exp_t0_unit_combo.append("min", "min")
+        self.exp_t0_unit_combo.append("hr", "hr")
+        self.exp_t0_unit_combo.append("d", "d")
+        self.exp_t0_unit_combo.set_active_id("d")
+        self.exp_t0_unit_combo.connect("changed", self._on_time_param_changed)
+        exp_t0_row.pack_start(self.exp_t0_unit_combo, False, False, 0)
+        exp_box.pack_start(exp_t0_row, False, False, 0)
+
+        # Strength and steps row
+        exp_params_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+
+        exp_a_label = Gtk.Label("Strength (a):")
+        exp_a_label.set_halign(Gtk.Align.START)
+        exp_a_label.set_size_request(100, -1)
+        exp_params_row.pack_start(exp_a_label, False, False, 0)
+
+        self.exp_strength_spin = Gtk.SpinButton.new_with_range(0.001, 1.0, 0.01)
+        self.exp_strength_spin.set_value(0.1)
+        self.exp_strength_spin.set_digits(3)
+        self.exp_strength_spin.set_tooltip_text("Strength parameter (0 < a ≤ 1.0)")
+        self.exp_strength_spin.connect("value-changed", self._on_time_param_changed)
+        exp_params_row.pack_start(self.exp_strength_spin, False, False, 0)
+
+        exp_steps_label = Gtk.Label("   Steps:")
+        exp_params_row.pack_start(exp_steps_label, False, False, 0)
+
+        self.exp_steps_spin = Gtk.SpinButton.new_with_range(2, 100, 1)
+        self.exp_steps_spin.set_value(20)
+        self.exp_steps_spin.set_tooltip_text("Number of time steps (max 100)")
+        self.exp_steps_spin.connect("value-changed", self._on_time_param_changed)
+        exp_params_row.pack_start(self.exp_steps_spin, False, False, 0)
+        exp_box.pack_start(exp_params_row, False, False, 0)
+
+        # Base row
+        exp_base_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        exp_base_label = Gtk.Label("Base:")
+        exp_base_label.set_halign(Gtk.Align.START)
+        exp_base_label.set_size_request(100, -1)
+        exp_base_row.pack_start(exp_base_label, False, False, 0)
+
+        self.exp_base_e_radio = Gtk.RadioButton.new_with_label(None, "e (natural)")
+        self.exp_base_e_radio.connect("toggled", self._on_time_param_changed)
+        exp_base_row.pack_start(self.exp_base_e_radio, False, False, 0)
+
+        self.exp_base_10_radio = Gtk.RadioButton.new_with_label_from_widget(
+            self.exp_base_e_radio, "10"
+        )
+        self.exp_base_10_radio.connect("toggled", self._on_time_param_changed)
+        exp_base_row.pack_start(self.exp_base_10_radio, False, False, 10)
+        exp_box.pack_start(exp_base_row, False, False, 0)
+
+        self.time_model_stack.add_named(exp_box, "exponential")
+
+        # Show initial model
+        self.time_model_stack.set_visible_child_name("custom")
+
+        row += 1
+
+        # Additional exact times
+        exact_label = Gtk.Label("Additional Exact Times:")
+        exact_label.set_halign(Gtk.Align.START)
+        exact_label.set_tooltip_text("Extra times to include (merged with model output)")
+        content.attach(exact_label, 0, row, 1, 1)
+
+        exact_times_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        self.exact_times_entry = Gtk.Entry()
+        self.exact_times_entry.set_placeholder_text("e.g., 0.5, 7, 28")
+        self.exact_times_entry.set_tooltip_text(
+            "Comma-separated times to add to the model sequence (optional)"
+        )
+        self.exact_times_entry.set_hexpand(True)
+        self.exact_times_entry.connect("changed", self._on_time_param_changed)
+        exact_times_box.pack_start(self.exact_times_entry, True, True, 0)
+
+        self.exact_times_unit_combo = Gtk.ComboBoxText()
+        self.exact_times_unit_combo.append("min", "min")
+        self.exact_times_unit_combo.append("hr", "hr")
+        self.exact_times_unit_combo.append("d", "d")
+        self.exact_times_unit_combo.set_active_id("d")
+        self.exact_times_unit_combo.connect("changed", self._on_time_param_changed)
+        exact_times_box.pack_start(self.exact_times_unit_combo, False, False, 0)
+        content.attach(exact_times_box, 1, row, 1, 1)
+
+        row += 1
+
+        # Preview area
+        preview_label = Gtk.Label("Preview:")
+        preview_label.set_halign(Gtk.Align.START)
+        preview_label.set_valign(Gtk.Align.START)
+        preview_label.set_margin_top(5)
+        content.attach(preview_label, 0, row, 1, 1)
+
+        preview_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        # Preview text (scrollable)
+        preview_scroll = Gtk.ScrolledWindow()
+        preview_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        preview_scroll.set_min_content_height(60)
+        preview_scroll.set_max_content_height(80)
+
+        self.time_preview_text = Gtk.TextView()
+        self.time_preview_text.set_editable(False)
+        self.time_preview_text.set_cursor_visible(False)
+        self.time_preview_text.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        self.time_preview_text.get_buffer().set_text(
+            "0.01 d, 0.1 d, 0.25 d, 0.5 d, 1 d, 3 d, 7 d, 14 d, 21 d, 28 d"
+        )
+        preview_scroll.add(self.time_preview_text)
+        preview_box.pack_start(preview_scroll, True, True, 0)
+
+        # Count and validation label
+        self.time_count_label = Gtk.Label()
+        self.time_count_label.set_halign(Gtk.Align.START)
+        self.time_count_label.set_markup("<small>10 output times</small>")
+        preview_box.pack_start(self.time_count_label, False, False, 0)
+
+        content.attach(preview_box, 1, row, 1, 1)
 
         row += 1
 
@@ -574,6 +804,159 @@ class THAMESHydrationPanel(Gtk.Box):
         except Exception as e:
             self.logger.error(f"Error refreshing microstructure list: {e}")
             self._log_message(f"Error: {e}")
+
+    # =========================================================================
+    # Time Parameter Handlers
+    # =========================================================================
+
+    def _get_unit_from_combo_id(self, combo_id: str) -> TimeUnit:
+        """Convert combo box ID to TimeUnit enum."""
+        unit_map = {
+            "min": TimeUnit.MINUTES,
+            "hr": TimeUnit.HOURS,
+            "d": TimeUnit.DAYS,
+        }
+        return unit_map.get(combo_id, TimeUnit.DAYS)
+
+    def _on_output_model_changed(self, combo: Gtk.ComboBoxText) -> None:
+        """Handle output time model selection change."""
+        model_id = combo.get_active_id()
+        if model_id:
+            self.time_model_stack.set_visible_child_name(model_id)
+            self._update_time_preview()
+
+    def _on_time_param_changed(self, widget) -> None:
+        """Handle any time parameter change - update preview."""
+        # Debounce rapid changes using idle_add
+        if hasattr(self, '_time_update_pending') and self._time_update_pending:
+            return
+        self._time_update_pending = True
+        GLib.idle_add(self._do_time_preview_update)
+
+    def _do_time_preview_update(self) -> bool:
+        """Actually perform the preview update (called from idle)."""
+        self._time_update_pending = False
+        self._update_time_preview()
+        return False  # Don't repeat
+
+    def _get_final_time_days(self) -> float:
+        """Get final time converted to days."""
+        value = self.final_time_spin.get_value()
+        unit_id = self.final_time_unit_combo.get_active_id()
+        unit = self._get_unit_from_combo_id(unit_id)
+        service = get_time_generator_service()
+        return service.convert_to_days(value, unit)
+
+    def _generate_output_times(self) -> TimeGenerationResult:
+        """Generate output times based on current UI settings."""
+        service = get_time_generator_service()
+        model = self.output_model_combo.get_active_id() or "custom"
+        final_time_days = self._get_final_time_days()
+
+        # Parse additional exact times
+        exact_times_days = []
+        exact_text = self.exact_times_entry.get_text().strip()
+        if exact_text:
+            exact_unit_id = self.exact_times_unit_combo.get_active_id()
+            exact_unit = self._get_unit_from_combo_id(exact_unit_id)
+            exact_times_days, _ = service.parse_custom_times(exact_text, exact_unit)
+
+        # Generate based on model
+        if model == "custom":
+            custom_text = self.custom_times_entry.get_text()
+            custom_unit_id = self.custom_times_unit_combo.get_active_id()
+            custom_unit = self._get_unit_from_combo_id(custom_unit_id)
+            custom_times, error = service.parse_custom_times(custom_text, custom_unit)
+            if error:
+                return TimeGenerationResult(
+                    times_days=[], model_times_days=[], exact_times_days=[],
+                    exact_time_indices=[], warnings=[], error=error
+                )
+            return service.generate_output_times(
+                model="custom",
+                final_time_days=final_time_days,
+                exact_times_days=exact_times_days,
+                custom_times_days=custom_times,
+            )
+
+        elif model == "linear_count":
+            num_outputs = int(self.linear_count_spin.get_value())
+            return service.generate_output_times(
+                model="linear_count",
+                final_time_days=final_time_days,
+                exact_times_days=exact_times_days,
+                linear_count=num_outputs,
+            )
+
+        elif model == "linear_spacing":
+            spacing_value = self.linear_spacing_spin.get_value()
+            spacing_unit_id = self.linear_spacing_unit_combo.get_active_id()
+            spacing_unit = self._get_unit_from_combo_id(spacing_unit_id)
+            spacing_days = service.convert_to_days(spacing_value, spacing_unit)
+            return service.generate_output_times(
+                model="linear_spacing",
+                final_time_days=final_time_days,
+                exact_times_days=exact_times_days,
+                linear_spacing_days=spacing_days,
+            )
+
+        elif model == "exponential":
+            t0_value = self.exp_t0_spin.get_value()
+            t0_unit_id = self.exp_t0_unit_combo.get_active_id()
+            t0_unit = self._get_unit_from_combo_id(t0_unit_id)
+            t0_days = service.convert_to_days(t0_value, t0_unit)
+
+            strength = self.exp_strength_spin.get_value()
+            num_steps = int(self.exp_steps_spin.get_value())
+            base = ExponentialBase.E if self.exp_base_e_radio.get_active() else ExponentialBase.TEN
+
+            return service.generate_output_times(
+                model="exponential",
+                final_time_days=final_time_days,
+                exact_times_days=exact_times_days,
+                exp_t0_days=t0_days,
+                exp_strength=strength,
+                exp_num_steps=num_steps,
+                exp_base=base,
+            )
+
+        # Fallback
+        return TimeGenerationResult(
+            times_days=[], model_times_days=[], exact_times_days=[],
+            exact_time_indices=[], warnings=[], error=f"Unknown model: {model}"
+        )
+
+    def _update_time_preview(self) -> None:
+        """Update the time preview display based on current UI settings."""
+        service = get_time_generator_service()
+        result = self._generate_output_times()
+
+        # Update preview text
+        if result.error:
+            preview_text = f"Error: {result.error}"
+            count_text = "<small><span foreground='red'>Invalid configuration</span></small>"
+        else:
+            preview_text = service.format_times_for_preview(
+                result.times_days,
+                result.exact_time_indices,
+                max_display=25
+            )
+            count = len(result.times_days)
+
+            # Format count with appropriate styling
+            if count > 200:
+                count_text = f"<small><span foreground='red'>{count} output times (exceeds maximum of 200)</span></small>"
+            elif count > 100:
+                count_text = f"<small><span foreground='orange'>{count} output times (warning: large number may slow simulation)</span></small>"
+            else:
+                count_text = f"<small>{count} output times</small>"
+
+            # Add warning for exact times
+            if result.exact_time_indices:
+                count_text += f" <small>(* = exact times)</small>"
+
+        self.time_preview_text.get_buffer().set_text(preview_text)
+        self.time_count_label.set_markup(count_text)
 
     def _on_microstructure_changed(self, combo: Gtk.ComboBox) -> None:
         """Handle microstructure selection change."""
@@ -787,12 +1170,16 @@ class THAMESHydrationPanel(Gtk.Box):
 
     def _build_config(self) -> HydrationInputConfig:
         """Build HydrationInputConfig from current UI state."""
-        # Parse output times
-        times_text = self.output_times_entry.get_text()
-        try:
-            output_times = [float(t.strip()) for t in times_text.split(",") if t.strip()]
-        except ValueError:
+        # Generate output times using the time generation system
+        result = self._generate_output_times()
+        if result.error or not result.times_days:
+            # Fallback to defaults if generation fails
             output_times = [0.01, 0.1, 0.25, 0.5, 1, 3, 7, 14, 21, 28]
+        else:
+            output_times = result.times_days  # Already in days
+
+        # Get final time in days
+        final_time_days = self._get_final_time_days()
 
         # Get temperature in Kelvin
         temp_celsius = self.temperature_spin.get_value()
@@ -813,7 +1200,7 @@ class THAMESHydrationPanel(Gtk.Box):
             temperature=temp_kelvin,
             reference_temperature=298.15,
             saturated=self.saturated_radio.get_active(),
-            final_time=self.final_time_spin.get_value(),
+            final_time=final_time_days,
             output_times=output_times,
             hydration_products=selected_products,
             product_configurations=product_configs,
@@ -849,14 +1236,18 @@ class THAMESHydrationPanel(Gtk.Box):
         if len(selected_products) == 0:
             errors.append("No hydration products selected")
 
-        # Check output times
-        times_text = self.output_times_entry.get_text()
-        try:
-            output_times = [float(t.strip()) for t in times_text.split(",") if t.strip()]
-            if len(output_times) == 0:
-                errors.append("At least one output time is required")
-        except ValueError:
-            errors.append("Invalid output times format (use comma-separated numbers)")
+        # Check output times using the time generation system
+        time_result = self._generate_output_times()
+        if time_result.error:
+            errors.append(f"Output times error: {time_result.error}")
+        elif len(time_result.times_days) == 0:
+            errors.append("At least one output time is required")
+        elif len(time_result.times_days) > 200:
+            errors.append(f"Too many output times ({len(time_result.times_days)}). Maximum is 200.")
+
+        # Log warnings from time generation
+        for warning in time_result.warnings:
+            self._log_message(f"WARNING: {warning}")
 
         # Check electrolyte charge balance (warning, not error)
         if not self.electrolyte_editor.is_charge_balanced():

@@ -169,15 +169,24 @@ class ITZAnalysisViewer(Gtk.Dialog):
     def _load_itz_data(self):
         """Load ITZ data from CSV file."""
         try:
-            # Find the ITZmoduli.csv file
+            # Find the ITZModuli.csv file
             operation_dir = self._get_operation_directory()
             if not operation_dir:
                 self._show_error("Could not find operation directory")
                 return
 
-            itz_file = Path(operation_dir) / "ITZmoduli.csv"
+            operation_path = Path(operation_dir)
+
+            # Try THAMES format first (Result/ subdirectory with capital M)
+            itz_file = operation_path / "Result" / "ITZModuli.csv"
             if not itz_file.exists():
-                self._show_error("ITZmoduli.csv file not found")
+                # Fallback to direct path with capital M
+                itz_file = operation_path / "ITZModuli.csv"
+            if not itz_file.exists():
+                # Legacy fallback (lowercase m)
+                itz_file = operation_path / "ITZmoduli.csv"
+            if not itz_file.exists():
+                self._show_error("ITZModuli.csv file not found")
                 return
 
             # Read and parse CSV data
@@ -225,64 +234,142 @@ class ITZAnalysisViewer(Gtk.Dialog):
             return None
 
     def _parse_itz_csv(self, csv_file: Path) -> List[Dict[str, float]]:
-        """Parse the ITZmoduli.csv file."""
+        """Parse the ITZModuli.csv file (handles both THAMES and legacy formats)."""
         data = []
 
         try:
             with open(csv_file, 'r') as f:
-                # First, try to detect if the file has headers
+                # Read first line to detect format
                 first_line = f.readline().strip()
                 f.seek(0)  # Reset to beginning
 
-                # Check if first line contains headers (non-numeric first field)
-                try:
-                    float(first_line.split(',')[0])
-                    has_headers = False
-                    self.logger.info("ITZ CSV file detected without headers")
-                except ValueError:
-                    has_headers = True
-                    self.logger.info("ITZ CSV file detected with headers")
-
-                if has_headers:
-                    # Use DictReader for files with headers
-                    csv_reader = csv.DictReader(f)
-                    for row in csv_reader:
-                        try:
-                            data_row = {
-                                'distance': float(row['Distance (um)']),
-                                'bulk_modulus': float(row['Bulk Modulus (GPa)']),
-                                'shear_modulus': float(row['Shear Modulus (GPa)']),  # Removed the space
-                                'youngs_modulus': float(row['Elastic Modulus (GPa)']),  # Changed name
-                                'poissons_ratio': float(row['Poisson Ratio'])  # Match your file header
-                            }
-                            data.append(data_row)
-                        except (ValueError, KeyError) as e:
-                            self.logger.warning(f"Skipping invalid row: {row}, error: {e}")
+                # Check if this is THAMES 3-column format (Property,Value,Units)
+                if first_line.lower().startswith('property,'):
+                    self.logger.info("Detected THAMES 3-column ITZ format")
+                    data = self._parse_thames_itz_format(f)
                 else:
-                    # Use regular reader for files without headers (assume column order)
-                    csv_reader = csv.reader(f)
-                    for row_num, row in enumerate(csv_reader):
-                        try:
-                            if len(row) >= 5:
-                                data_row = {
-                                    'distance': float(row[0]),
-                                    'bulk_modulus': float(row[1]),
-                                    'shear_modulus': float(row[2]),
-                                    'youngs_modulus': float(row[3]),
-                                    'poissons_ratio': float(row[4])
-                                }
-                                data.append(data_row)
-                            else:
-                                self.logger.warning(f"Row {row_num + 1} has insufficient columns: {row}")
-                        except (ValueError, IndexError) as e:
-                            self.logger.warning(f"Skipping invalid row {row_num + 1}: {row}, error: {e}")
+                    # Try legacy formats
+                    try:
+                        float(first_line.split(',')[0])
+                        has_headers = False
+                        self.logger.info("ITZ CSV file detected without headers (legacy)")
+                    except ValueError:
+                        has_headers = True
+                        self.logger.info("ITZ CSV file detected with headers (legacy)")
 
-            self.logger.info(f"Successfully parsed {len(data)} rows from ITZ CSV file")
+                    if has_headers:
+                        data = self._parse_legacy_header_format(f)
+                    else:
+                        data = self._parse_legacy_no_header_format(f)
+
+            self.logger.info(f"Successfully parsed {len(data)} layer rows from ITZ CSV file")
             return data
 
         except Exception as e:
             self.logger.error(f"Error parsing ITZ CSV file: {e}")
+            import traceback
+            traceback.print_exc()
             return []
+
+    def _parse_thames_itz_format(self, f) -> List[Dict[str, float]]:
+        """Parse THAMES 3-column format: Property,Value,Units with Layer_N_ prefixes."""
+        import re
+
+        # Read all rows into a dictionary
+        properties = {}
+        csv_reader = csv.reader(f)
+
+        for row in csv_reader:
+            if len(row) >= 2:
+                prop_name = row[0].strip()
+                value = row[1].strip()
+
+                # Skip header row
+                if prop_name.lower() == 'property':
+                    continue
+
+                properties[prop_name] = value
+
+        # Extract layer data - group by layer number
+        # Pattern: Layer_N_PropertyName where N can be negative (e.g., Layer_-1_distance)
+        layer_pattern = re.compile(r'Layer_(-?\d+)_(\w+)')
+
+        layers = {}  # layer_num -> {property -> value}
+
+        for prop_name, value in properties.items():
+            match = layer_pattern.match(prop_name)
+            if match:
+                layer_num = int(match.group(1))
+                prop_type = match.group(2).lower()
+
+                if layer_num not in layers:
+                    layers[layer_num] = {}
+
+                try:
+                    layers[layer_num][prop_type] = float(value)
+                except ValueError:
+                    self.logger.warning(f"Could not parse value for {prop_name}: {value}")
+
+        # Convert to list of dicts, sorted by distance
+        data = []
+        for layer_num, props in layers.items():
+            if 'distance' in props:
+                data_row = {
+                    'distance': props.get('distance', 0.0),
+                    'bulk_modulus': props.get('bulk_modulus', 0.0),
+                    'shear_modulus': props.get('shear_modulus', 0.0),
+                    'youngs_modulus': props.get('youngs_modulus', 0.0),
+                    'poissons_ratio': props.get('poissons_ratio', 0.0)
+                }
+                data.append(data_row)
+
+        # Sort by distance from aggregate surface
+        data.sort(key=lambda x: x['distance'])
+
+        return data
+
+    def _parse_legacy_header_format(self, f) -> List[Dict[str, float]]:
+        """Parse legacy format with column headers."""
+        data = []
+        csv_reader = csv.DictReader(f)
+
+        for row in csv_reader:
+            try:
+                data_row = {
+                    'distance': float(row.get('Distance (um)', row.get('distance', 0))),
+                    'bulk_modulus': float(row.get('Bulk Modulus (GPa)', row.get('bulk_modulus', 0))),
+                    'shear_modulus': float(row.get('Shear Modulus (GPa)', row.get('shear_modulus', 0))),
+                    'youngs_modulus': float(row.get('Elastic Modulus (GPa)', row.get('youngs_modulus', 0))),
+                    'poissons_ratio': float(row.get('Poisson Ratio', row.get('poissons_ratio', 0)))
+                }
+                data.append(data_row)
+            except (ValueError, KeyError) as e:
+                self.logger.warning(f"Skipping invalid row: {row}, error: {e}")
+
+        return data
+
+    def _parse_legacy_no_header_format(self, f) -> List[Dict[str, float]]:
+        """Parse legacy format without headers (5-column order)."""
+        data = []
+        csv_reader = csv.reader(f)
+
+        for row_num, row in enumerate(csv_reader):
+            try:
+                if len(row) >= 5:
+                    data_row = {
+                        'distance': float(row[0]),
+                        'bulk_modulus': float(row[1]),
+                        'shear_modulus': float(row[2]),
+                        'youngs_modulus': float(row[3]),
+                        'poissons_ratio': float(row[4])
+                    }
+                    data.append(data_row)
+                else:
+                    self.logger.warning(f"Row {row_num + 1} has insufficient columns: {row}")
+            except (ValueError, IndexError) as e:
+                self.logger.warning(f"Skipping invalid row {row_num + 1}: {row}, error: {e}")
+
+        return data
 
     def _populate_treeview(self):
         """Populate the tree view with ITZ data."""

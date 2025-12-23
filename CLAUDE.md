@@ -1339,6 +1339,100 @@ sed -i '' \
 
 ---
 
+### Session 17: Elastic Results Visualization & Homebrew Safety
+December 23, 2025
+
+**Context**: Fixed elastic moduli results visualization for THAMES's new 3-column CSV format. Analyzed homebrew package upgrade risks and pinned critical GTK-related packages to prevent breaking changes.
+
+**Key Accomplishments**:
+
+1. **Fixed EffectiveModuli Viewer** (`effective_moduli_viewer.py`)
+   - Added header row skipping for new `Property,Value,Units` format
+   - Updated grouping logic to categorize:
+     - Microstructure info (name, dimensions, resolution)
+     - Effective moduli (bulk, shear, Young's, Poisson's)
+     - Paste/Concrete properties (VCCTL compatibility)
+   - Updated notes text to be more general
+   - Checks `Result/` subdirectory first (THAMES), falls back to direct path (VCCTL)
+
+2. **Fixed ITZModuli Viewer** (`itz_analysis_viewer.py`)
+   - Added support for THAMES 3-column format with `Layer_N_` prefixes
+   - Parses layer data using regex: `Layer_(-?\d+)_(\w+)`
+   - Handles both positive and negative layer numbers
+   - Checks `Result/ITZModuli.csv` first (THAMES), falls back to direct path
+   - Preserves plotting functionality (moduli vs. distance from aggregate)
+
+3. **Strain Energy Viewer Status**
+   - Identified that viewer isn't broken - THAMES C++ doesn't output per-voxel strain energy data
+   - Elastic calculations produce only EffectiveModuli.csv and ITZModuli.csv
+   - Button hidden until C++ outputs strain energy `.img` files (future work)
+   - Code preserved for future implementation
+
+4. **THAMES Elastic Output CSV Format** (standardized):
+   ```csv
+   Property,Value,Units
+   Microstructure,<name>.img,
+   X_Dimension,110,voxels
+   Y_Dimension,100,voxels
+   Z_Dimension,100,voxels
+   Resolution,1,um/voxel
+   Bulk_modulus,19.299,GPa
+   Shear_modulus,11.1056,GPa
+   Youngs_modulus,27.9546,GPa
+   Poissons_ratio,0.258583,
+   ```
+
+5. **Homebrew Package Safety Analysis**
+   - Identified high-risk packages for GTK/PyGObject stack
+   - **Pinned packages** (protected from upgrade):
+     - `pygobject3` (3.52.3) - THAMES requirements.txt notes 3.54.5 has brew issues
+     - `py3cairo` (1.28.0) - Previous cairo upgrade caused major problems
+     - `gobject-introspection` (1.84.0) - Core GTK introspection system
+   - **Will upgrade** (lower risk):
+     - `freetype` (2.13.3 → 2.14.1)
+     - `gdk-pixbuf` (2.42.12 → 2.44.4)
+     - `glib` (2.84.4 → 2.86.3)
+     - `gtk+3` (3.24.50 → 3.24.51)
+     - `harfbuzz` (11.4.5 → 12.2.0)
+     - `json-glib` (1.10.6 → 1.10.8)
+
+**Homebrew Commands Used**:
+```bash
+# Pin high-risk packages
+brew pin pygobject3 py3cairo gobject-introspection
+
+# Verify pins
+brew list --pinned
+
+# Unpin if needed later
+brew unpin pygobject3 py3cairo gobject-introspection
+```
+
+**Files Modified**:
+- `src/app/windows/dialogs/effective_moduli_viewer.py` - New CSV format support
+- `src/app/windows/dialogs/itz_analysis_viewer.py` - THAMES layer format parsing
+
+**Testing Status**:
+- ✅ EffectiveModuli CSV parsing verified (9 rows parsed correctly)
+- ✅ ITZModuli CSV parsing verified (53 layers parsed correctly)
+- ⏳ User to test UI after homebrew upgrade
+
+**Known Issues**:
+- User will fix `Poissions_ratio` typo in THAMES C++ (not handled in Python)
+- Strain energy output not yet implemented in THAMES C++
+
+**Post-Session Action Required**:
+- User running `brew upgrade` after pinning packages
+- Test both THAMES and VCCTL after upgrade to verify GTK stack works
+
+**Critical Files for Next Session**:
+- EffectiveModuli Viewer: `src/app/windows/dialogs/effective_moduli_viewer.py`
+- ITZModuli Viewer: `src/app/windows/dialogs/itz_analysis_viewer.py`
+- Results Panel: `src/app/windows/panels/results_panel.py`
+- Session Summary: `docs/SESSION_17_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
