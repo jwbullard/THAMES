@@ -231,12 +231,8 @@ class PyVistaViewer3D(Gtk.Box):
             self.camera = vtkCamera()
             self.renderer.SetActiveCamera(self.camera)
 
-            # Add coordinate axes
-            axes = vtkAxesActor()
-            axes.SetTotalLength(50, 50, 50)  # Length of axes in voxels
-            axes.SetShaftType(0)  # Cylinder shaft
-            axes.SetCylinderRadius(0.02)  # Thinner axes
-            self.renderer.AddActor(axes)
+            # Create orientation axes renderer (small viewport in lower-left corner)
+            self._create_orientation_axes_renderer()
 
             # Store reference to window-to-image filter for screenshot capture
             self.window_to_image_filter = vtkWindowToImageFilter()
@@ -291,7 +287,138 @@ class PyVistaViewer3D(Gtk.Box):
             error_label = Gtk.Label(f"VTK initialization failed:\n{e}")
             error_label.set_justify(Gtk.Justification.CENTER)
             self.plotter_widget.pack_start(error_label, True, True, 0)
-    
+
+    def _create_orientation_axes_renderer(self):
+        """Create a small renderer in the corner showing orientation axes."""
+        try:
+            # Create a second renderer for the orientation axes
+            self.axes_renderer = vtkRenderer()
+            self.axes_renderer.SetBackground(0.95, 0.95, 0.95)  # Very light gray background
+
+            # Set viewport to lower-left corner (x_min, y_min, x_max, y_max)
+            # Values are fractions of the render window (0-1)
+            # Use 20% for better visibility of labels
+            self.axes_renderer.SetViewport(0.0, 0.0, 0.20, 0.20)
+
+            # Create axes actor with better proportions
+            self.orientation_axes = vtkAxesActor()
+            self.orientation_axes.SetTotalLength(1.5, 1.5, 1.5)
+            self.orientation_axes.SetShaftType(0)  # Cylinder shaft
+            self.orientation_axes.SetCylinderRadius(0.04)
+            self.orientation_axes.SetConeRadius(0.35)  # Much larger arrowheads
+            self.orientation_axes.SetConeResolution(20)  # Smoother cones
+            self.orientation_axes.SetNormalizedShaftLength(0.7, 0.7, 0.7)  # Shorter shafts = longer cones
+            self.orientation_axes.SetNormalizedTipLength(0.3, 0.3, 0.3)  # Larger cone tips
+
+            # Move labels farther from the axes tips
+            self.orientation_axes.SetNormalizedLabelPosition(1.3, 1.3, 1.3)  # Position labels beyond tips
+
+            # Set axis labels
+            self.orientation_axes.SetXAxisLabelText("X")
+            self.orientation_axes.SetYAxisLabelText("Y")
+            self.orientation_axes.SetZAxisLabelText("Z")
+
+            # Configure X axis label - larger and offset
+            x_caption = self.orientation_axes.GetXAxisCaptionActor2D()
+            x_caption.SetWidth(0.25)
+            x_caption.SetHeight(0.12)
+            x_caption.GetTextActor().SetTextScaleModeToNone()
+            x_props = x_caption.GetCaptionTextProperty()
+            x_props.SetFontSize(32)
+            x_props.SetBold(True)
+            x_props.SetItalic(False)
+            x_props.SetShadow(True)
+            x_props.SetColor(1.0, 0.0, 0.0)  # Red
+
+            # Configure Y axis label - larger and offset
+            y_caption = self.orientation_axes.GetYAxisCaptionActor2D()
+            y_caption.SetWidth(0.25)
+            y_caption.SetHeight(0.12)
+            y_caption.GetTextActor().SetTextScaleModeToNone()
+            y_props = y_caption.GetCaptionTextProperty()
+            y_props.SetFontSize(32)
+            y_props.SetBold(True)
+            y_props.SetItalic(False)
+            y_props.SetShadow(True)
+            y_props.SetColor(0.0, 0.8, 0.0)  # Green
+
+            # Configure Z axis label - larger and offset
+            z_caption = self.orientation_axes.GetZAxisCaptionActor2D()
+            z_caption.SetWidth(0.25)
+            z_caption.SetHeight(0.12)
+            z_caption.GetTextActor().SetTextScaleModeToNone()
+            z_props = z_caption.GetCaptionTextProperty()
+            z_props.SetFontSize(32)
+            z_props.SetBold(True)
+            z_props.SetItalic(False)
+            z_props.SetShadow(True)
+            z_props.SetColor(0.0, 0.0, 1.0)  # Blue
+
+            self.axes_renderer.AddActor(self.orientation_axes)
+
+            # Create camera for axes renderer - position further back to see full axes with labels
+            self.axes_camera = vtkCamera()
+            self.axes_camera.SetPosition(5, 5, 5)
+            self.axes_camera.SetFocalPoint(0, 0, 0)
+            self.axes_camera.SetViewUp(0, 1, 0)  # Y is up in viewport
+            self.axes_camera.SetParallelProjection(False)
+            self.axes_renderer.SetActiveCamera(self.axes_camera)
+            self.axes_renderer.ResetCamera()
+            # Zoom out a bit more to ensure labels aren't clipped
+            self.axes_camera.Zoom(0.6)
+
+            # Add axes renderer to the render window
+            # Important: add after the main renderer so it draws on top
+            self.render_window.AddRenderer(self.axes_renderer)
+
+            # Make the axes viewport layer be on top
+            self.axes_renderer.SetLayer(1)
+            self.renderer.SetLayer(0)
+            self.render_window.SetNumberOfLayers(2)
+
+            self.logger.info("Orientation axes renderer created")
+
+        except Exception as e:
+            self.logger.error(f"Failed to create orientation axes renderer: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+
+    def _sync_axes_camera(self):
+        """Sync the orientation axes camera with the main camera orientation."""
+        try:
+            if not hasattr(self, 'axes_camera') or self.axes_camera is None:
+                return
+
+            # Get the main camera's orientation
+            main_camera = self.renderer.GetActiveCamera()
+
+            # Copy the camera orientation (but not position/distance)
+            # Get the view direction and up vector from main camera
+            position = main_camera.GetPosition()
+            focal_point = main_camera.GetFocalPoint()
+            view_up = main_camera.GetViewUp()
+
+            # Calculate direction vector
+            direction = [
+                position[0] - focal_point[0],
+                position[1] - focal_point[1],
+                position[2] - focal_point[2]
+            ]
+
+            # Normalize and scale to fixed distance
+            length = (direction[0]**2 + direction[1]**2 + direction[2]**2)**0.5
+            if length > 0:
+                fixed_distance = 8.0  # Increased distance to fit labels
+                direction = [d / length * fixed_distance for d in direction]
+
+            # Set axes camera to same orientation but at fixed distance
+            self.axes_camera.SetPosition(direction[0], direction[1], direction[2])
+            self.axes_camera.SetFocalPoint(0, 0, 0)
+            self.axes_camera.SetViewUp(view_up)
+
+        except Exception as e:
+            self.logger.debug(f"Failed to sync axes camera: {e}")
+
     def _create_control_panel(self):
         """Create control panel with PyVista-specific options."""
         self.control_panel = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -973,6 +1100,9 @@ class PyVistaViewer3D(Gtk.Box):
             # Check if we have a valid render window
             if not hasattr(self, 'render_window') or self.render_window is None:
                 return
+
+            # Sync orientation axes camera with main camera before rendering
+            self._sync_axes_camera()
 
             # Render the scene
             try:
@@ -1811,93 +1941,13 @@ class PyVistaViewer3D(Gtk.Box):
             self.logger.error(traceback.format_exc())
     
     def _add_coordinate_axes(self):
-        """Add coordinate axes to the visualization for spatial reference."""
-        try:
-            # TODO: Add VTK axes widget for spatial reference
-            # For minimal prototype, skip coordinate axes
-            # Can be added later using vtkAxesActor or vtkCubeAxesActor
-            pass
-        except Exception as e:
-            self.logger.debug(f"Failed to add coordinate axes: {e}")
-            
-            # Get the bounds of the microstructure data to position axes appropriately
-            if hasattr(self, 'voxel_data') and self.voxel_data is not None:
-                x_size, y_size, z_size = self.voxel_data.shape
-                
-                # Position axes outside the microstructure bounds
-                # Place axes in lower-left-front corner, outside the volume
-                axis_length = min(x_size, y_size, z_size) * 0.2  # 20% of smallest dimension
-                
-                # Position axes outside the microstructure volume
-                axis_origin_x = -axis_length * 0.5  # Offset from left edge
-                axis_origin_y = -axis_length * 0.5  # Offset from front edge  
-                axis_origin_z = -axis_length * 0.5  # Offset from bottom edge
-                
-                # Create axes using PyVista's built-in axes actor first
-                try:
-                    # Method 1: Try to use add_axes with proper positioning
-                    if hasattr(self.plotter, 'add_axes'):
-                        axes_actor = self.plotter.add_axes(
-                            line_width=4,
-                            x_color='red',
-                            y_color='green',
-                            z_color='blue',
-                            xlabel='X (μm)',
-                            ylabel='Y (μm)', 
-                            zlabel='Z (μm)'
-                        )
-                        self.logger.debug("Added coordinate axes using add_axes")
-                        return
-                except Exception as e:
-                    self.logger.debug(f"add_axes failed: {e}")
-                
-                # Method 2: Manual axes creation using line plots positioned outside volume
-                try:
-                    import pyvista as pv
-                    import numpy as np
-                    
-                    # X-axis (red) - from origin to positive X
-                    x_start = [axis_origin_x, axis_origin_y, axis_origin_z]
-                    x_end = [axis_origin_x + axis_length, axis_origin_y, axis_origin_z]
-                    x_line = pv.Line(x_start, x_end)
-                    self.plotter.add_mesh(x_line, color='red', line_width=6, name='x_axis')
-                    
-                    # Y-axis (green) - from origin to positive Y
-                    y_start = [axis_origin_x, axis_origin_y, axis_origin_z]
-                    y_end = [axis_origin_x, axis_origin_y + axis_length, axis_origin_z] 
-                    y_line = pv.Line(y_start, y_end)
-                    self.plotter.add_mesh(y_line, color='green', line_width=6, name='y_axis')
-                    
-                    # Z-axis (blue) - from origin to positive Z
-                    z_start = [axis_origin_x, axis_origin_y, axis_origin_z]
-                    z_end = [axis_origin_x, axis_origin_y, axis_origin_z + axis_length]
-                    z_line = pv.Line(z_start, z_end)
-                    self.plotter.add_mesh(z_line, color='blue', line_width=6, name='z_axis')
-                    
-                    # Add axis labels at the ends of the axes
-                    try:
-                        # X label (red)
-                        self.plotter.add_text('X', 
-                                            position=(axis_origin_x + axis_length * 1.2, axis_origin_y, axis_origin_z),
-                                            color='red', font_size=14, name='x_label')
-                        # Y label (green)
-                        self.plotter.add_text('Y', 
-                                            position=(axis_origin_x, axis_origin_y + axis_length * 1.2, axis_origin_z),
-                                            color='green', font_size=14, name='y_label')
-                        # Z label (blue)
-                        self.plotter.add_text('Z', 
-                                            position=(axis_origin_x, axis_origin_y, axis_origin_z + axis_length * 1.2),
-                                            color='blue', font_size=14, name='z_label')
-                    except Exception as e:
-                        self.logger.debug(f"Adding axis labels failed: {e}")
-                    
-                    self.logger.debug(f"Added coordinate axes outside microstructure bounds at ({axis_origin_x:.1f}, {axis_origin_y:.1f}, {axis_origin_z:.1f})")
-                    
-                except Exception as e:
-                    self.logger.debug(f"Manual axes creation failed: {e}")
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to add coordinate axes: {e}")
+        """Add coordinate axes to the visualization for spatial reference.
+
+        Note: Orientation axes are now created once in _create_orientation_axes_renderer()
+        and synced with the main camera before each render in _sync_axes_camera().
+        This method is kept for backwards compatibility but does nothing.
+        """
+        pass
     
     # Signal handlers
     def _on_rendering_mode_changed(self, combo):

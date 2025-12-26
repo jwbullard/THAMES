@@ -54,8 +54,13 @@ class EffectiveModuliViewer(Gtk.Dialog):
         # Title
         title_label = Gtk.Label()
         title_label.set_markup(f"<b><big>Effective Elastic Moduli</big></b>")
-        title_label.set_margin_bottom(12)
         content_area.pack_start(title_label, False, False, 0)
+
+        # Subtitle for microstructure name (populated later)
+        self.subtitle_label = Gtk.Label()
+        self.subtitle_label.set_markup("<i>Loading...</i>")
+        self.subtitle_label.set_margin_bottom(12)
+        content_area.pack_start(self.subtitle_label, False, False, 0)
 
         # Create scrolled window for table
         scrolled = Gtk.ScrolledWindow()
@@ -137,7 +142,13 @@ class EffectiveModuliViewer(Gtk.Dialog):
                 return
 
             # Read and parse CSV data (handles both THAMES and VCCTL formats)
-            moduli_data = self._parse_moduli_csv(moduli_file)
+            microstructure_name, moduli_data = self._parse_moduli_csv(moduli_file)
+
+            # Update subtitle with microstructure name
+            if microstructure_name:
+                self.subtitle_label.set_markup(f"<i>{microstructure_name}</i>")
+            else:
+                self.subtitle_label.set_markup("")
 
             # Populate the tree view
             self._populate_treeview(moduli_data)
@@ -176,20 +187,30 @@ class EffectiveModuliViewer(Gtk.Dialog):
             self.logger.error(f"Error finding operation directory: {e}")
             return None
 
-    def _parse_moduli_csv(self, csv_file: Path) -> List[Tuple[str, str, str]]:
-        """Parse the EffectiveModuli.csv file."""
+    def _parse_moduli_csv(self, csv_file: Path) -> Tuple[str, List[Tuple[str, str, str]]]:
+        """Parse the EffectiveModuli.csv file.
+
+        Returns:
+            Tuple of (microstructure_name, data_list)
+        """
         data = []
+        microstructure_name = ""
 
         with open(csv_file, 'r') as f:
             csv_reader = csv.reader(f)
             for row in csv_reader:
-                if len(row) >= 3:
+                if len(row) >= 2:
                     property_name = row[0].strip()
                     value = row[1].strip()
-                    units = row[2].strip()
+                    units = row[2].strip() if len(row) >= 3 else ""
 
                     # Skip header row
                     if property_name.lower() == 'property':
+                        continue
+
+                    # Extract microstructure name separately (don't add to table)
+                    if property_name.lower() == 'microstructure':
+                        microstructure_name = value
                         continue
 
                     # Clean up property names for display
@@ -200,7 +221,7 @@ class EffectiveModuliViewer(Gtk.Dialog):
 
                     data.append((display_name, display_value, units))
 
-        return data
+        return microstructure_name, data
 
     def _format_property_name(self, name: str) -> str:
         """Format property name for display."""

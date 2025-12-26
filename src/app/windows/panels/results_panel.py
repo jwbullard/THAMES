@@ -1070,28 +1070,33 @@ class ResultsPanel(Gtk.Box):
             operation_dir_path = Path(operation_dir)
             strain_energy_file = None
 
-            # Look for energy.img file (new naming convention after elastic.c fix)
-            test_file = operation_dir_path / "energy.img"
+            # Check for energy.img in Result/ subdirectory (THAMES format)
+            test_file = operation_dir_path / "Result" / "energy.img"
             if test_file.exists():
                 strain_energy_file = test_file
             else:
-                # Fall back to old patterns for backward compatibility
-                # Pattern 1: {operation_name}.img
-                test_file = operation_dir_path / f"{self.selected_operation.name}.img"
+                # Look for energy.img file in operation directory (VCCTL format)
+                test_file = operation_dir_path / "energy.img"
                 if test_file.exists():
                     strain_energy_file = test_file
                 else:
-                    # Pattern 2: Any Elastic-*.img file in the directory
-                    for img_file in operation_dir_path.glob("Elastic-*.img"):
-                        strain_energy_file = img_file
-                        break
+                    # Fall back to old patterns for backward compatibility
+                    # Pattern 1: {operation_name}.img
+                    test_file = operation_dir_path / f"{self.selected_operation.name}.img"
+                    if test_file.exists():
+                        strain_energy_file = test_file
+                    else:
+                        # Pattern 2: Any Elastic-*.img file in the directory
+                        for img_file in operation_dir_path.glob("Elastic-*.img"):
+                            strain_energy_file = img_file
+                            break
 
-                    # Pattern 3: Check for any .img file that's not newcem.img
-                    if not strain_energy_file:
-                        for img_file in operation_dir_path.glob("*.img"):
-                            if img_file.name != "newcem.img":
-                                strain_energy_file = img_file
-                                break
+                        # Pattern 3: Check for any .img file that's not newcem.img
+                        if not strain_energy_file:
+                            for img_file in operation_dir_path.glob("*.img"):
+                                if img_file.name != "newcem.img":
+                                    strain_energy_file = img_file
+                                    break
 
             if not strain_energy_file:
                 raise Exception("No strain energy .img file found in operation directory")
@@ -1172,7 +1177,12 @@ class ResultsPanel(Gtk.Box):
                 # Look for .img files that match the elastic operation pattern
                 operation_dir_path = Path(operation_dir)
 
-                # Check for energy.img file (new naming convention after elastic.c fix)
+                # Check for energy.img in Result/ subdirectory (THAMES format)
+                thames_energy_file = operation_dir_path / "Result" / "energy.img"
+                if thames_energy_file.exists():
+                    return True
+
+                # Check for energy.img file in operation directory (VCCTL format)
                 energy_file = operation_dir_path / "energy.img"
                 if energy_file.exists():
                     return True

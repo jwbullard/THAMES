@@ -19,6 +19,15 @@ from typing import Optional, Tuple
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
 
+# VTK imports for direct rendering
+from vtkmodules.vtkCommonDataModel import vtkImageData, vtkDataObject
+from vtkmodules.vtkCommonCore import vtkLookupTable
+from vtkmodules.vtkFiltersCore import vtkContourFilter, vtkThreshold, vtkGlyph3D
+from vtkmodules.vtkFiltersGeneral import vtkVertexGlyphFilter
+from vtkmodules.vtkFiltersSources import vtkCubeSource
+from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
+from vtkmodules.util import numpy_support
+
 # Import the existing PyVista viewer as base
 from app.visualization.pyvista_3d_viewer import PyVistaViewer3D
 
@@ -62,8 +71,8 @@ class PyVistaStrainViewer(Gtk.Dialog):
         self.voxel_size = (1.0, 1.0, 1.0)  # μm per voxel
 
         # Visualization settings
-        self.threshold_min = 0.0    # Minimum strain energy threshold
-        self.threshold_max = 0.02   # Default to show low-energy bulk material
+        self.threshold_min = 0.0    # Minimum strain energy threshold (fraction of range)
+        self.threshold_max = 0.5    # Default to show lower half of strain energy range
         self.colormap_name = 'hot'  # Colormap for strain energy
         self.rendering_mode = 'volume'  # 'volume', 'isosurface', 'points'
 
@@ -165,7 +174,7 @@ class PyVistaStrainViewer(Gtk.Dialog):
         max_label.set_size_request(100, -1)
         max_label.set_halign(Gtk.Align.START)
         self.max_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0.0, 1.0, 0.001)
-        self.max_scale.set_value(0.02)  # Default to show low-energy bulk material
+        self.max_scale.set_value(0.5)  # Default to show lower half of strain energy range
         self.max_scale.set_draw_value(True)
         self.max_scale.set_digits(3)  # Show 3 decimal places for fine control
         self.max_scale.connect('value-changed', self._on_threshold_changed)
@@ -223,11 +232,18 @@ class PyVistaStrainViewer(Gtk.Dialog):
     def _customize_pyvista_viewer_for_strain_energy(self):
         """Customize PyVista viewer specifically for strain energy visualization."""
         try:
+            # Hide the phase control panel - not needed for strain energy
+            if hasattr(self.pyvista_viewer, 'phase_control_panel'):
+                self.pyvista_viewer.phase_control_panel.hide()
+                self.pyvista_viewer.phase_control_panel.set_no_show_all(True)
+                self.logger.info("Hidden phase control panel for strain energy viewer")
+
             # Hide unnecessary buttons by traversing the control panel
             if hasattr(self.pyvista_viewer, 'control_panel'):
                 self._hide_buttons_by_label(self.pyvista_viewer.control_panel, [
                     "Phase Data",     # Issue 1: Phase Data button not needed
-                    "Connectivity"    # Issue 1: Connectivity button not needed
+                    "Connectivity",   # Issue 1: Connectivity button not needed
+                    "Phases"          # Phase controls button not needed
                 ])
 
             # Remove the rendering dropdown since we have our own (Issue 3)
@@ -444,7 +460,14 @@ class PyVistaStrainViewer(Gtk.Dialog):
 
             for line in lines:
                 line = line.strip()
-                if not line or line.startswith('#'):
+                if not line:
+                    continue
+
+                # Handle THAMES format: strip "#THAMES:" prefix if present
+                if line.startswith('#THAMES:'):
+                    line = line[8:].strip()  # Remove "#THAMES:" prefix
+                elif line.startswith('#'):
+                    # Skip other comment lines
                     continue
 
                 # Parse header fields (energy.img format with colons)
@@ -463,7 +486,7 @@ class PyVistaStrainViewer(Gtk.Dialog):
                         z_dim = int(line.split(":")[1].strip())
                     except:
                         pass
-                elif line.startswith("Image_Resolution:"):
+                elif line.startswith("Image_Resolution:") or line.startswith("Resolution:"):
                     try:
                         voxel_size = float(line.split(":")[1].strip())
                     except:
@@ -522,85 +545,137 @@ class PyVistaStrainViewer(Gtk.Dialog):
             return False
 
     def _create_pyvista_volume(self):
-        """Create PyVista volume from strain energy data."""
+        """Create VTK volume from strain energy data using direct VTK rendering."""
         if self.strain_data is None:
             self.logger.warning("No strain data available for volume creation")
             return
 
         try:
-            self.logger.info(f"Creating PyVista volume from strain energy data: shape {self.strain_data.shape}")
+            self.logger.info(f"Creating VTK volume from strain energy data: shape {self.strain_data.shape}")
 
-            # Normalize strain energy data to 0-1 range for visualization
+            # Check if VTK renderer is available
+            if not hasattr(self.pyvista_viewer, 'renderer') or self.pyvista_viewer.renderer is None:
+                self.logger.error("VTK renderer not available")
+                return
+
+            # Clear existing actors (except orientation axes)
+            actors_to_remove = []
+            actors = self.pyvista_viewer.renderer.GetActors()
+            actors.InitTraversal()
+            for i in range(actors.GetNumberOfItems()):
+                actor = actors.GetNextActor()
+                if actor and actor != getattr(self.pyvista_viewer, 'orientation_axes', None):
+                    actors_to_remove.append(actor)
+            for actor in actors_to_remove:
+                self.pyvista_viewer.renderer.RemoveActor(actor)
+            self.logger.info(f"Cleared {len(actors_to_remove)} existing actors")
+
+            # Get data range
             data_min = np.min(self.strain_data)
             data_max = np.max(self.strain_data)
             self.logger.info(f"Data range: {data_min:.6f} to {data_max:.6f}")
 
-            if data_max > data_min:
-                normalized_data = (self.strain_data - data_min) / (data_max - data_min)
-            else:
-                normalized_data = np.zeros_like(self.strain_data)
-                self.logger.warning("Data has no variation - all values are the same")
-
-            # Apply thresholds
+            # Use the raw strain energy data (not normalized)
+            # The threshold values are fractions of the data range
             threshold_min_val = data_min + self.threshold_min * (data_max - data_min)
             threshold_max_val = data_min + self.threshold_max * (data_max - data_min)
             self.logger.info(f"Applying thresholds: {threshold_min_val:.6f} to {threshold_max_val:.6f}")
 
-            # Create mask for data within threshold range
-            mask = (self.strain_data >= threshold_min_val) & (self.strain_data <= threshold_max_val)
-            masked_points = np.sum(mask)
-            self.logger.info(f"Points within threshold range: {masked_points} / {self.strain_data.size}")
+            # Create VTK ImageData with raw strain energy values
+            z_dim, y_dim, x_dim = self.strain_data.shape
+            vtk_image = vtkImageData()
+            vtk_image.SetDimensions(x_dim, y_dim, z_dim)
+            vtk_image.SetSpacing(self.voxel_size[0], self.voxel_size[1], self.voxel_size[2])
+            vtk_image.SetOrigin(0, 0, 0)
 
-            # Apply mask to normalized data
-            masked_data = np.where(mask, normalized_data, 0.0)
+            # Flatten data in Fortran order for VTK (x varies fastest)
+            flattened_data = self.strain_data.flatten(order='F').astype(np.float32)
+            vtk_array = numpy_support.numpy_to_vtk(flattened_data, deep=True)
+            vtk_array.SetName("strain_energy")
+            vtk_image.GetPointData().SetScalars(vtk_array)
 
-            # Create PyVista structured grid (note: PyVista expects (nz+1, ny+1, nx+1) for dimensions)
-            # But we'll use the actual data dimensions since it's point data
-            grid = pv.ImageData(dimensions=self.strain_data.shape)
-            grid.spacing = self.voxel_size
-            grid.origin = (0, 0, 0)
+            self.logger.info(f"Created VTK ImageData: dimensions ({x_dim}, {y_dim}, {z_dim})")
+            non_zero = np.count_nonzero(flattened_data)
+            self.logger.info(f"Non-zero values: {non_zero} / {len(flattened_data)}")
 
-            self.logger.info(f"Created PyVista grid: dimensions {grid.dimensions}, n_points {grid.n_points}")
+            # Use threshold filter to select points within the visible range
+            threshold = vtkThreshold()
+            threshold.SetInputData(vtk_image)
+            threshold.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "strain_energy")
+            threshold.SetLowerThreshold(threshold_min_val)
+            threshold.SetUpperThreshold(threshold_max_val)
+            threshold.Update()
 
-            # Add strain energy data as scalars (flatten in C order for PyVista)
-            flattened_data = masked_data.flatten(order='C')
-            grid.point_data["strain_energy"] = flattened_data
+            threshold_output = threshold.GetOutput()
+            n_points = threshold_output.GetNumberOfPoints()
+            self.logger.info(f"Threshold filter: {n_points} points in range [{threshold_min_val:.4f}, {threshold_max_val:.4f}]")
 
-            self.logger.info(f"Added strain energy data: {len(flattened_data)} values, range {np.min(flattened_data):.6f} to {np.max(flattened_data):.6f}")
-            self.logger.info(f"Non-zero values: {np.count_nonzero(flattened_data)} / {len(flattened_data)}")
+            if n_points > 0:
+                # Create lookup table from matplotlib colormap
+                colormap = cm.get_cmap(self.colormap_name)
+                lut = vtkLookupTable()
+                lut.SetNumberOfColors(256)
+                lut.SetRange(threshold_min_val, threshold_max_val)
+                lut.Build()
 
-            # Create colormap
-            colormap = cm.get_cmap(self.colormap_name)
+                # Fill lookup table with colormap colors
+                for i in range(256):
+                    norm_val = i / 255.0
+                    rgba = colormap(norm_val)
+                    lut.SetTableValue(i, rgba[0], rgba[1], rgba[2], 0.8)  # 80% opacity
 
-            # Check if PyVista viewer and plotter are available
-            if not hasattr(self.pyvista_viewer, 'plotter') or not self.pyvista_viewer.plotter:
-                self.logger.error("PyVista plotter not available")
-                return
+                # Convert to vertex glyphs for rendering
+                vertex_filter = vtkVertexGlyphFilter()
+                vertex_filter.SetInputData(threshold_output)
+                vertex_filter.Update()
 
-            # Clear existing visualization
-            self.pyvista_viewer.plotter.clear()
-            self.logger.info("Cleared existing PyVista visualization")
+                vertices = vertex_filter.GetOutput()
 
-            # Add volume based on rendering mode
-            if self.rendering_mode == 'volume':
-                self._add_volume_rendering(grid, colormap)
-            elif self.rendering_mode == 'isosurface':
-                self._add_isosurface_rendering(grid, colormap)
-            elif self.rendering_mode == 'points':
-                self._add_point_rendering(grid, colormap)
+                if vertices.GetNumberOfPoints() > 0:
+                    # Create cube glyphs for voxel-style rendering
+                    cube_source = vtkCubeSource()
+                    voxel_scale = min(self.voxel_size) * 0.95
+                    cube_source.SetXLength(voxel_scale)
+                    cube_source.SetYLength(voxel_scale)
+                    cube_source.SetZLength(voxel_scale)
 
-            # Update view
-            self.pyvista_viewer.plotter.reset_camera()
-            self.logger.info("Reset camera view")
+                    glyph = vtkGlyph3D()
+                    glyph.SetInputData(vertices)
+                    glyph.SetSourceConnection(cube_source.GetOutputPort())
+                    glyph.SetScaleModeToDataScalingOff()
+                    glyph.SetColorModeToColorByScalar()
+                    glyph.Update()
 
-            # CRITICAL: Trigger render and update the GTK image widget
-            self.pyvista_viewer._force_render_update()
-            self.logger.info("Triggered render and display update")
+                    # Create mapper with scalar coloring
+                    mapper = vtkPolyDataMapper()
+                    mapper.SetInputConnection(glyph.GetOutputPort())
+                    mapper.SetScalarModeToUsePointData()
+                    mapper.SetLookupTable(lut)
+                    mapper.SetScalarRange(threshold_min_val, threshold_max_val)
+                    mapper.ScalarVisibilityOn()
 
-            self.logger.info("PyVista volume created successfully")
+                    actor = vtkActor()
+                    actor.SetMapper(mapper)
+
+                    self.pyvista_viewer.renderer.AddActor(actor)
+                    self.logger.info(f"Added {vertices.GetNumberOfPoints()} voxels with scalar coloring")
+            else:
+                self.logger.warning("No points within threshold range")
+
+            # Reset camera to show all data
+            self.pyvista_viewer.renderer.ResetCamera()
+
+            # Set volume bounds for cross-sections
+            self.pyvista_viewer.volume_bounds = (0, x_dim * self.voxel_size[0],
+                                                  0, y_dim * self.voxel_size[1],
+                                                  0, z_dim * self.voxel_size[2])
+
+            # Trigger render update
+            self.pyvista_viewer._render_to_gtk()
+            self.logger.info("VTK volume created and rendered successfully")
 
         except Exception as e:
-            self.logger.error(f"Error creating PyVista volume: {e}")
+            self.logger.error(f"Error creating VTK volume: {e}")
             import traceback
             traceback.print_exc()
 

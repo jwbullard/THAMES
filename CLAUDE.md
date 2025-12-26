@@ -1433,6 +1433,163 @@ brew unpin pygobject3 py3cairo gobject-introspection
 
 ---
 
+### Session 18: Strain Energy Visualization & 3D Orientation Axes
+December 26, 2025
+
+**Context**: Implemented strain energy visualization now that THAMES C++ outputs `energy.img` files. Added orientation axes indicator to 3D viewer. Prepared for Windows migration with cross-platform analysis.
+
+**Key Accomplishments**:
+
+1. **3D Orientation Axes Indicator** (`pyvista_3d_viewer.py`)
+   - Created separate corner viewport renderer for orientation axes
+   - Key method `_create_orientation_axes_renderer()`:
+     - Uses `vtkAxesActor` with enlarged arrowheads (cone radius 0.35, tip length 0.3)
+     - RGB colors for X/Y/Z axes with shadowed labels
+     - Labels positioned at 1.3× axis length to avoid overlapping arrowheads
+     - Camera zoomed out to 0.6 to prevent label clipping
+   - Key method `_sync_axes_camera()`:
+     - Synchronizes orientation with main camera on every render
+     - Copies camera direction vector, maintains fixed distance of 8.0
+   - Axes rotate with microstructure view in real-time
+
+2. **Strain Energy Visualization** (`pyvista_strain_viewer.py`)
+   - Complete rewrite to use VTK directly (main viewer uses VTK, not PyVista plotter)
+   - Updated file discovery to check `Result/energy.img` first (THAMES format)
+   - Added support for `#THAMES:` header prefix in `.img` files
+   - Visualization approach:
+     - Uses `vtkThreshold` to filter voxels above minimum energy
+     - Uses `vtkGlyph3D` with cube source for voxel visualization
+     - Uses `vtkLookupTable` for colormap (jet, viridis, coolwarm, plasma, magma)
+     - Default threshold 50% of energy range
+   - Hidden phase controls panel (irrelevant for strain energy)
+
+3. **Results Panel Updates** (`results_panel.py`)
+   - Updated `_has_strain_energy()` to check `Result/energy.img` (THAMES format)
+   - Updated `_on_strain_energy_clicked()` similarly
+   - Strain Energy button now appears when `energy.img` exists
+
+4. **Bug Fixes During Implementation**
+   - Fixed "PyVista plotter not available" - viewer uses VTK `renderer`, not `plotter`
+   - Fixed `numpy_support` import - moved outside try/except block
+   - Fixed `vtkLookupTable` import - from `vtkCommonCore` not `vtkRenderingCore`
+   - Fixed Y label clipping - camera zoom and sync distance adjustments
+
+**Files Modified**:
+- `src/app/visualization/pyvista_3d_viewer.py` - Orientation axes (~80 lines added)
+- `src/app/windows/dialogs/pyvista_strain_viewer.py` - VTK rewrite (~150 lines changed)
+- `src/app/windows/panels/results_panel.py` - THAMES file path support
+
+**Key Code Patterns**:
+
+```python
+# Orientation axes in corner viewport
+self.axes_renderer.SetViewport(0.0, 0.0, 0.20, 0.20)  # Bottom-left 20%
+self.orientation_axes.SetNormalizedLabelPosition(1.3, 1.3, 1.3)  # Labels away from tips
+self.axes_camera.Zoom(0.6)  # Zoom out to fit labels
+
+# Camera synchronization
+def _sync_axes_camera(self):
+    direction = [fp[i] - pos[i] for i, (fp, pos) in enumerate(zip(focal, position))]
+    norm = math.sqrt(sum(d*d for d in direction))
+    direction = [d/norm for d in direction]
+    distance = 8.0  # Fixed distance for axes view
+    self.axes_camera.SetPosition([-d * distance for d in direction])
+
+# VTK threshold filtering for strain energy
+threshold = vtkThreshold()
+threshold.SetInputData(image_data)
+threshold.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "StrainEnergy")
+threshold.SetLowerThreshold(min_val + threshold_pct * (max_val - min_val))
+```
+
+**Testing Status**:
+- ✅ Orientation axes display and rotate correctly
+- ✅ Axis labels visible (X, Y, Z in RGB colors)
+- ✅ Arrowheads clearly visible with proper proportions
+- ✅ Strain energy visualization renders correctly
+- ✅ Min/max sliders adjust threshold properly
+- ✅ Colormap selection works
+- ✅ Phase controls hidden for strain energy viewer
+
+**User Feedback**: "It looks great now! The only thing I'd like to change now is to remove the 'Phase controls' window just for the strain energy distribution..." → Done. "That is as close to perfect as I think we are going to get."
+
+---
+
+## Windows Migration Analysis & Preparation
+
+**CRITICAL: Review this section before Windows development**
+
+### High-Risk Areas for Windows Compatibility
+
+1. **VTK/PyVista Imports** (`pyvista_3d_viewer.py`, `pyvista_strain_viewer.py`)
+   - VTK module imports may differ on Windows
+   - `vtkmodules.vtkCommonCore`, `vtkmodules.vtkRenderingCore` paths
+   - Headless rendering may require different initialization
+   - **Action**: Test VTK import chain on Windows early
+
+2. **Path Handling**
+   - `/` vs `\` path separators
+   - Use `pathlib.Path` everywhere, not string concatenation
+   - THAMES uses `Result/` subdirectory - verify Windows handles this
+   - **Files to check**: `results_panel.py`, `pyvista_strain_viewer.py`
+
+3. **subprocess Patterns**
+   - macOS: No special flags needed
+   - Windows: Requires `CREATE_NO_WINDOW` flag
+   - **Pattern**:
+   ```python
+   popen_kwargs = {'stdout': ..., 'stderr': ...}
+   if sys.platform == 'win32':
+       popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
+   ```
+
+4. **GTK/Cairo Rendering**
+   - GTK3 behaves differently on Windows (MSYS2/MinGW)
+   - Cairo rendering may have different antialiasing
+   - VTK-to-GTK integration may need adjustment
+
+5. **File Header Parsing** (`pyvista_strain_viewer.py`)
+   - `#THAMES:` prefix parsing uses string slicing
+   - Line endings: `\r\n` on Windows vs `\n` on macOS
+   - **Current code handles this** with `.strip()` calls
+
+### Files Requiring Windows Testing
+
+| File | Risk | Reason |
+|------|------|--------|
+| `pyvista_3d_viewer.py` | HIGH | VTK rendering, camera sync |
+| `pyvista_strain_viewer.py` | HIGH | VTK threshold/glyph pipeline |
+| `results_panel.py` | MEDIUM | Path handling for Result/ subdirectory |
+| `effective_moduli_viewer.py` | LOW | Standard file I/O |
+| `itz_analysis_viewer.py` | LOW | Standard file I/O, matplotlib |
+
+### Pre-Windows Migration Checklist
+
+- [ ] Verify VTK installs correctly via pip on Windows
+- [ ] Test basic VTK rendering (create simple test script)
+- [ ] Verify `vtkmodules` import paths match macOS
+- [ ] Test GTK3 + VTK integration (offscreen render to GTK)
+- [ ] Check all `pathlib.Path` usage (no hardcoded `/`)
+- [ ] Verify subprocess flags for console window suppression
+- [ ] Test `.img` file reading with Windows line endings
+
+### Known Windows-Specific Issues from VCCTL
+
+1. PyGObject installation requires MSYS2/MinGW
+2. VTK may need different wheel (vtk vs vtk-osmesa)
+3. PyInstaller bundling differs significantly
+4. Console windows spawn without `CREATE_NO_WINDOW`
+
+---
+
+**Critical Files for Next Session**:
+- 3D Viewer: `src/app/visualization/pyvista_3d_viewer.py`
+- Strain Viewer: `src/app/windows/dialogs/pyvista_strain_viewer.py`
+- Results Panel: `src/app/windows/panels/results_panel.py`
+- Session Summary: `docs/SESSION_18_SUMMARY.md`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
