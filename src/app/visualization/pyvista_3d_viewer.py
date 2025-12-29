@@ -1138,7 +1138,7 @@ class PyVistaViewer3D(Gtk.Box):
 
             # Convert to GTK display (optimized: direct numpy to GdkPixbuf)
             try:
-                # Create GdkPixbuf directly from numpy array (much faster than PIL→PNG→GdkPixbuf)
+                # Create GdkPixbuf directly from numpy array (much faster than PIL->PNG->GdkPixbuf)
                 # GdkPixbuf expects RGB data in row-major order
                 if components == 3:
                     # Already RGB
@@ -2933,7 +2933,7 @@ Distance: {distance_um:.2f} μm"""
         final_labeled[mask] = component_renumber_array[final_labeled[mask]]
 
         final_num_components = len(unique_components)
-        self.logger.info(f"Periodic connectivity: {num_components} → {final_num_components} components")
+        self.logger.info(f"Periodic connectivity: {num_components} -> {final_num_components} components")
         
         return final_labeled, final_num_components
     

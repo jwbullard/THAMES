@@ -5447,7 +5447,7 @@ class MixDesignPanel(Gtk.Box):
             
             # Log the mix design name being saved (but keep operation name in UI unchanged)
             if unique_mix_name != mix_design_name:
-                self.logger.info(f"Auto-generated unique mix design name: '{mix_design_name}' → '{unique_mix_name}'")
+                self.logger.info(f"Auto-generated unique mix design name: '{mix_design_name}' -> '{unique_mix_name}'")
                 self.main_window.update_status(f"Saving mix design as '{unique_mix_name}' for reuse", "info", 2)
             else:
                 self.main_window.update_status(f"Saving mix design as '{unique_mix_name}' for reuse", "info", 2)

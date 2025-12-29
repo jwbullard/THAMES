@@ -2221,10 +2221,10 @@ class CementDialog(MaterialDialogBase):
                     sg_gypsum = self.GYPSUM_SPECIFIC_GRAVITIES.get(gypsum_type, 1.0)
                     volume_fraction = (mass_value / sg_gypsum) * cement_bulk_sg
                     volume_percent = volume_fraction * 100.0
-                    print(f"DEBUG: {gypsum_type}: mass={mass_value} → volume={volume_percent:.3f}% (SG={sg_gypsum})")
+                    print(f"DEBUG: {gypsum_type}: mass={mass_value} -> volume={volume_percent:.3f}% (SG={sg_gypsum})")
                 else:
                     volume_percent = 0.0
-                    print(f"DEBUG: {gypsum_type}: mass={mass_value} → volume=0.000% (no mass)")
+                    print(f"DEBUG: {gypsum_type}: mass={mass_value} -> volume=0.000% (no mass)")
                 
                 # Set the volume spin button
                 if gypsum_type == 'dihyd':

@@ -15,7 +15,6 @@ import logging
 import json
 import os
 import numpy as np
-from scipy.stats import lognorm
 
 from app.models.mix_design import MixDesign, MixDesignComponentData
 from app.models.material import Material
@@ -716,6 +715,8 @@ class MicgenInputService:
         Returns:
             List of (diameter_um, volume_fraction) tuples
         """
+        from scipy.stats import lognorm
+
         # Generate logarithmically-spaced diameters
         diameters = np.logspace(np.log10(0.25), np.log10(75.0), 30)
 

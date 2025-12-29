@@ -8,6 +8,7 @@ Implements scientific software UI standards with professional appearance.
 
 import gi
 import logging
+import sys
 from typing import Dict, Optional, Tuple, Any
 from pathlib import Path
 from enum import Enum
@@ -194,7 +195,10 @@ class ThemeManager(GObject.Object):
     def _generate_css(self) -> str:
         """Generate CSS content for current theme."""
         colors = self._get_colors_for_scheme(self.current_scheme)
-        
+
+        # Platform-specific CSS properties (Windows GTK doesn't support overlay-scrolling)
+        overlay_scrolling_css = "" if sys.platform == "win32" else "\n            -gtk-overlay-scrolling: false;"
+
         css = f"""
         /* VCCTL Application Theme - {self.current_scheme.value.title()} */
         
@@ -348,7 +352,7 @@ class ThemeManager(GObject.Object):
         scrolledwindow {{
             border: 1px solid {colors['border']};
             border-radius: {VCCTLSpacing.BORDER_RADIUS_NORMAL}px;
-            -gtk-overlay-scrolling: false;
+            {overlay_scrolling_css}
         }}
         
         scrollbar {{

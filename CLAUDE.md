@@ -36,1557 +36,308 @@ November 15, 2025 (Morning)
 ### Session 2: GEMS Integration & Materials Architecture
 November 15, 2025 (Afternoon)
 
-**Context**: THAMES requires GEMS3K thermodynamic database for phase definitions. Unlike VCCTL's fixed material categories (Cement, Fly Ash, etc.), GEMS has 92 phases that don't map to rigid types. Phases like "Aluminate" can appear in both cement AND fly ash.
-
 **Key Accomplishments**:
+- Integrated GEMS3K thermodynamic database (100 phases, 198 DCs)
+- Created GEMSParserService to parse thames-dch.dat and build phase-to-DC mappings
+- Designed tag-based materials architecture (phases + flexible tags, no kinetics)
+- Created phase mappings between VCCTL and GEMS naming conventions
+- Set up virtual environment with PyGObject 3.52.3
 
-1. **GEMS Database Integration** (`src/data/gems/`)
-   - Added 4 GEMS3K database files: thames-dch.dat (32KB), thames-dbr.dat (15KB), thames-ipm.dat (20KB), thames-dat.lst
-   - Database contains: 13 ICs, 180 DCs (chemical species), 92 GEM phases
-   - Critical structure: `<nDCinPH>` array defines which DCs belong to which phase
-     - Phase 1 (aq_gen): DCs 1-69 (aqueous ions)
-     - Phase 2 (gas_gen): DCs 70-77 (gases)
-     - Phase 3+: Solid phases (cement, pozzolans, etc.)
-
-2. **GEMS Parser Service** (`src/app/services/gems_parser_service.py`)
-   - 400-line service that parses thames-dch.dat key-value format
-   - Auto-builds phase-to-DC mappings using nDCinPH ordering
-   - API: `get_phase()`, `get_dcs_for_phase()`, `validate_phase_dc_configuration()`
-   - Tested with `test_gems_parser.py` - all 92 phases verified
-
-3. **Phase Mappings** (`src/app/config/phase_mappings.py`, `docs/vcctl_to_gems_phase_mapping.md`)
-   - **Cement**: 9 phases (C3S→Alite, C2S→Belite, C3A→Aluminate, C4AF→Ferrite, GYPSUM→Gypsum, etc.)
-   - **Limestone**: 4 phases (Calcite, Dolomite-dis, Dolomite-ord, lime)
-   - **Fly Ash**: 8 typical phases (Quartz, Mullite, Aluminate, C2AS(am), CA2S(am), etc.)
-   - **Key insight**: Phases are NOT exclusive - Aluminate in both cement & fly ash
-
-4. **Materials Architecture Design** (tag-based system)
-   - **Problem**: VCCTL has 5 rigid categories, but GEMS has 92 phases with overlaps
-   - **Solution**: Materials = phase composition + flexible tags, NO kinetics
-     ```python
-     Material {
-         name: "Portland Cement Type I"
-         tags: ["cement", "type-i", "portland"]  # User-defined, searchable
-         phases: [{gem_phase: "Alite", mass_fraction: 0.60}, ...]
-         density: 3.15
-         # NO kinetic parameters
-     }
-     ```
-   - **Kinetics in Mix Design**: User defines model + parameters when adding material to mix
-   - **Migration plan**: Cements & limestones from VCCTL → THAMES, fly ash/slag/fillers user-defined
-
-5. **Virtual Environment** (`thames-env/`)
-   - Python 3.11.13 with PyGObject 3.52.3 (pinned - 3.54.5 has brew issues)
-   - All dependencies installed (GTK, SQLAlchemy, Pandas, PyVista, etc.)
-   - Activate: `source thames-env/bin/activate`
-
-**Files Created**:
-- `src/data/gems/` - GEMS database (4 files)
-- `src/app/services/gems_parser_service.py` - Parser (~400 lines)
-- `src/app/config/phase_mappings.py` - VCCTL↔GEMS mappings
-- `test_gems_parser.py` - Comprehensive tests
-- `docs/gems_parser_summary.md` - API documentation
-- `docs/vcctl_to_gems_phase_mapping.md` - Migration reference
-- `requirements.txt` - Python dependencies
-- `SESSION_SUMMARY_2025_11_15.md` - Complete session details
-
-**Next Steps** (for next session):
-1. Design tag-based Material database schema (flexible tags, phase composition)
-2. Create migration script to read VCCTL cements/limestones and convert to THAMES format
-3. Build Material creation service (CRUD, tag management, validation with GEMS parser)
-4. Adapt Materials UI panel from VCCTL (tag-based search, phase editor)
-
-**Critical Files for Next Session**:
-- VCCTL database: `/Users/jwbullard/Software/vcctl-gtk/src/data/database/vcctl.db`
-- Phase mappings: `src/app/config/phase_mappings.py`
-- GEMS parser: `src/app/services/gems_parser_service.py`
-- VCCTL cement service (reference): `vcctl-gtk/src/app/services/cement_service.py`
+**Files Created**: `src/data/gems/`, `src/app/services/gems_parser_service.py`, `src/app/config/phase_mappings.py`
 
 ---
 
 ### Session 3: Material System + UI Phase 1
-November 16, 2025 (Full Day)
-
-**Context**: Implemented complete material management system with tag-based architecture, automatic density calculations, VCCTL migration, service layer, and basic UI.
+November 16, 2025
 
 **Key Accomplishments**:
+- Created material database schema (material, tag, material_tags, material_phase tables)
+- Implemented automatic density calculation from GEMS molar volumes
+- Migrated 36 cements + 1 limestone from VCCTL (183 phase entries, 100% success)
+- Created MaterialService with full CRUD operations (~800 lines)
+- Built Materials UI Phase 1: MaterialsPanel, TagChipInput widget, MaterialDialog
 
-1. **Material Database Schema** (Tag-based, Flexible)
-   - Created 4 tables: `material`, `tag`, `material_tags`, `material_phase`
-   - PSD data required for all materials (consistent with VCCTL)
-   - Materials store composition only; kinetics defined in Mix Design
-   - Immutable flag for migrated VCCTL materials
-   - Files: `src/app/models/material.py`, `src/app/models/material_phase.py`
-
-2. **Automatic Density Calculation from GEMS**
-   - Enhanced GEMSParserService with molar volume (V0) parsing
-   - Calculate material SG from phase composition: ρ = 1 / Σ(w_i / ρ_i)
-   - Methods: `get_dc_density()`, `get_phase_density()`, `calculate_material_specific_gravity()`
-   - Validated: <1% error on known materials (C3S: 3.120 vs 3.15 g/cm³)
-   - Optional feature - users can override with measured values
-
-3. **VCCTL to THAMES Migration**
-   - **37 materials migrated** (36 cements + 1 limestone)
-   - **183 phase entries** created
-   - **3 tags** created (cement, limestone, migrated-vcctl)
-   - 100% success rate, all materials marked immutable
-   - Phase name mappings: C3S→Alite, C2S→Belite, C3A→Aluminate, etc.
-   - Script: `scripts/migrate_vcctl_materials.py` (440 lines)
-   - Database: `~/Library/Application Support/VCCTL/database/thames.db` (252 KB)
-
-4. **Material Service Layer**
-   - Complete CRUD operations (~800 lines)
-   - CRUD: `get_all()`, `get_by_name()`, `create()`, `update()`, `delete()`
-   - Tag management: `add_tag()`, `remove_tag()`, `get_all_tags()`, `search_by_tags()`
-   - Phase management: `add_phase()`, `update_phase()`, `remove_phase()`
-   - Search: `search_by_tags()`, `search_by_phase()`
-   - GEMS integration for validation and auto-SG calculation
-   - Immutable material protection
-   - File: `src/app/services/material_service.py`
-   - Tests: 10/10 passed
-
-5. **Materials UI - Phase 1** (~1,070 lines)
-
-   **MaterialsPanel** (`src/app/windows/panels/materials_panel.py` - 409 lines)
-   - Unified list view showing all materials (tag-based, no type tabs)
-   - Columns: Name, Tags, SG, Phase Count, Read-only status
-   - Toolbar: Add Material, Delete, Refresh buttons
-   - Double-click to edit, delete with confirmation
-   - Protection for immutable materials
-   - Connected to MaterialService
-
-   **TagChipInput Widget** (`src/app/widgets/tag_chip_input.py` - 220 lines)
-   - Visual "chips" for tags (Material Design style)
-   - Enter or comma to add tag, × button to remove
-   - Duplicate detection, lowercase normalization
-   - API: `get_tags()`, `set_tags()`, `add_tag()`, `clear()`
-
-   **MaterialDialog** (`src/app/windows/dialogs/material_dialog.py` - 440 lines)
-   - Create and edit modes
-   - Fields: Name, Tags (chip input), SG, SSA, PSD ID, Description
-   - Form validation (name required, PSD ID ≥ 1)
-   - Save via MaterialService
-   - Immutable material protection (disables form)
-   - **Note**: Phase composition editing NOT in Phase 1 (deferred to Phase 2)
-
-**Testing Results**:
-- MaterialService: 10/10 tests passed
-- Density Calculation: All tests passed
-- Migration: 100% success (37/37 materials)
-- UI Phase 1: 6/6 automated tests passed
-- **Total: 16/16 tests passed (100%)**
-
-**Files Created**: 20+ files
-- Models: `material.py`, `material_phase.py`
-- Services: `material_service.py` (enhanced `gems_parser_service.py`)
-- Scripts: `init_thames_tables.py`, `migrate_vcctl_materials.py`
-- UI: `materials_panel.py`, `tag_chip_input.py`, `material_dialog.py`
-- Tests: `test_material_service.py`, `test_density_calculation.py`, `test_materials_ui.py`
-- Docs: `material_database_schema.md`, `MIGRATION_SUMMARY.md`, `MATERIALS_UI_PHASE1.md`, `MATERIALS_UI_PHASE1_TEST_REPORT.md`
-
-**Total Code Written**: ~4,240 lines
-- Backend: ~2,400 lines (models, services, migration)
-- UI: ~1,070 lines (panels, widgets, dialogs)
-- Tests: ~770 lines
-
-**Database Status**:
-- Location: `~/Library/Application Support/VCCTL/database/thames.db`
-- Size: 252 KB
-- Records: 297 total (37 materials + 3 tags + 74 associations + 183 phases)
-
-**Next Steps** (for next session):
-1. **Manual GUI Testing** (5-10 minutes)
-   - Launch THAMES, navigate to Materials tab
-   - Test Add/Edit/Delete operations
-   - Verify tag display and immutable protection
-
-2. **Materials UI - Phase 2** (2-3 days)
-   - PhaseCompositionEditor widget (~400-500 lines)
-   - GEMS phase selector with autocomplete (~150-200 lines)
-   - Add/edit/remove phases in MaterialDialog
-   - Tag filtering in MaterialsPanel
-   - Enhanced PSD data selection
-   - Auto-calculate SG button
-
-3. **Mix Design Service & UI**
-   - Combine materials into mixes
-   - Define kinetic parameters per material
-   - Water/cement ratio management
-
-**Critical Files for Next Session**:
-- Materials UI: `src/app/windows/panels/materials_panel.py`
-- Material Dialog: `src/app/windows/dialogs/material_dialog.py`
-- Material Service: `src/app/services/material_service.py`
-- GEMS Parser: `src/app/services/gems_parser_service.py`
-- Database: `~/Library/Application Support/VCCTL/database/thames.db`
-- Test Report: `MATERIALS_UI_PHASE1_TEST_REPORT.md`
+**Testing**: 16/16 tests passed (MaterialService, density calculation, migration, UI)
 
 ---
 
 ### Session 4: Clinker/Cement Material System
 November 18, 2025
 
-**Context**: Implemented the clinker-to-cement workflow where clinker is the special material type with surface area fractions and correlation functions. Cements are created by adding phases from clinker materials plus additional phases (sulfates, etc.).
-
 **Key Accomplishments**:
+- Added ClinkerExtension model with 6 surface area fractions and 7 correlation function BLOBs
+- Implemented "Add from Material" feature in PhaseCompositionEditor
+- Automatic clinker tracking when phases from clinker materials are added to cements
+- Materials created by adding clinker phases (scaled by fraction) plus additional phases (sulfates, etc.)
 
-1. **Clinker Extension Database Schema**
-   - Created `ClinkerExtension` model with 6 surface area fractions (C3S, C2S, C3A, C4AF, K2SO4, Na2SO4)
-   - Added 7 correlation function BLOB columns (sil, c3s, alu, c3a, c4af, k2o, n2o)
-   - Created `MaterialComponent` model for future composite support
-   - Added `is_clinker`, `has_clinker`, `clinker_source_id` fields to Material model
-   - Fixed SQLite autoincrement issue by overriding inherited `id` column
-
-2. **MaterialService Clinker Methods** (~740 lines added)
-   - `set_clinker_surface_fractions()` / `get_clinker_surface_fractions()`
-   - `set_clinker_correlation()` / `get_clinker_correlation()`
-   - `get_clinker_for_composite()` - retrieve clinker source for a cement
-   - Full CRUD for clinker extension data
-
-3. **MaterialDialog Clinker UI**
-   - Material type selector: Simple Material / Clinker (removed Composite)
-   - Clinker surface fraction editor with 6 spinbuttons
-   - Real-time total calculation with color-coded validation
-   - Clinker surface fractions saved to ClinkerExtension table
-
-4. **"Add from Material" Feature** (PhaseCompositionEditor)
-   - New button in phase editor toolbar
-   - Dialog shows all materials with phases, highlights clinkers in blue
-   - Scales phases by user-specified mass fraction
-   - Automatically merges duplicate phases (adds fractions together)
-   - Emits `clinker-source-added` signal when clinker is added
-
-5. **Automatic Clinker Tracking**
-   - When phases from a clinker material are added, `clinker_source_id` is set
-   - Materials with clinker phases get `has_clinker=True`
-   - Enables THAMES-Hydration to access correlation functions during simulation
-
-**Workflow for Creating Cement**:
-1. Create Clinker material with phases and surface area fractions
-2. Create Simple material
-3. Click "Add from Material" → select clinker (e.g., 0.95 fraction)
-4. Click "Add Phase" → add gypsum, hemihydrate at remaining fractions
-5. Save - system automatically tracks clinker source
-
-**Files Created/Modified**:
-- `src/app/models/clinker_extension.py` (NEW - 164 lines)
-- `src/app/models/material_component.py` (NEW - 50 lines)
-- `src/app/models/material.py` (updated with clinker fields + Pydantic models)
-- `src/app/services/material_service.py` (added ~740 lines clinker methods)
-- `src/app/widgets/phase_composition_editor.py` (added AddFromMaterialDialog)
-- `src/app/windows/dialogs/thames_material_dialog.py` (clinker UI, removed composite)
-- `scripts/init_thames_tables.py` (updated for new tables)
-
-**Database Status**:
-- Location: `~/Library/Application Support/THAMES/database/thames.db`
-- New tables: `clinker_extension`, `material_component`
-- New columns on `material`: `is_clinker`, `has_clinker`, `clinker_source_id`
-- 42 materials loaded successfully
-
-**Next Steps** (for next session):
-1. **Correlation Function Import/Edit UI** (CRITICAL)
-   - Add UI to import 7 correlation files (.sil, .c3s, .alu, .c3a, .c4af, .k2o, .n2o)
-   - File browser for each correlation type
-   - Display correlation data status in clinker editor
-   - Store as BLOBs in ClinkerExtension table
-
-2. **Mix Design Service & UI**
-   - Combine materials into mixes
-   - Define kinetic parameters per material
-   - Water/cement ratio management
-
-3. **VCCTL Migration Update**
-   - Re-migrate VCCTL cements as clinker materials with proper surface fractions
-
-**Critical Files for Next Session**:
-- Clinker Extension: `src/app/models/clinker_extension.py`
-- Material Dialog: `src/app/windows/dialogs/thames_material_dialog.py`
-- Phase Editor: `src/app/widgets/phase_composition_editor.py`
-- Material Service: `src/app/services/material_service.py`
-- Database: `~/Library/Application Support/THAMES/database/thames.db`
+**Files Created**: `src/app/models/clinker_extension.py`, `src/app/models/material_component.py`
 
 ---
 
 ### Session 5: Clinker Re-migration + PSD UI + Clinker Fraction Editor
 November 20, 2025
 
-**Context**: Completed three major tasks: (1) re-migrated VCCTL cements with clinker data, (2) integrated VCCTL's PSD UI widget, (3) implemented editable aggregate clinker fraction in phase editor.
-
 **Key Accomplishments**:
-
-1. **VCCTL Cement Re-migration with Clinker Data**
-   - Updated migration script to create ClinkerExtension records
-   - Migrated 36 cements with surface area fractions and 161 correlation functions
-   - Fixed column name mappings (c4f → correlation_c4af)
-   - Added missing database columns: `is_clinker`, `has_clinker`, `clinker_source_id`
-   - 100% success rate, all correlation BLOBs stored correctly
-
-2. **PSD UI Integration**
-   - Replaced confusing "PSD Data ID" spinner with VCCTL's UnifiedPSDWidget
-   - Made MaterialDialog scrollable (max height 600px) to prevent overflow
-   - PSD section in collapsible Expander (collapsed by default)
-   - All 5 distribution types available: Rosin-Rammler, Log-Normal, Fuller-Thompson, Custom, Discrete
-   - CSV import/export working
-   - Fixed: `material_service.database_service` → `material_service.db_service`
-
-3. **Clinker Fraction Editor** (NEW FEATURE)
-   - Added "Clinker from: [Material Name]" section in PhaseCompositionEditor
-   - Editable "Total Clinker Fraction" spinner appears when clinker phases added
-   - Proportional scaling: edit total → all 6 phases scale, maintaining ratios
-   - Bidirectional sync: edit individual phase → total updates
-   - Handles adding same clinker multiple times (sums fractions correctly)
-   - Restores clinker tracking when loading existing materials
-   - Fixed visibility bug: `set_no_show_all(False)` before `show_all()`
-
-**Workflow Example**:
-1. Create Simple Material
-2. "Add from Material" → Cement 116 at 0.95
-3. See "Clinker from: Cement 116" with "Total Clinker Fraction: 0.9500"
-4. Edit spinner to 0.90 → all 6 phases scale proportionally
-5. Add gypsum, hemihydrate at remaining fractions
-6. Save - clinker tracking preserved
-
-**Files Modified**:
-- `scripts/migrate_vcctl_materials.py` - added clinker migration methods (~100 lines)
-- `src/app/windows/dialogs/thames_material_dialog.py` - PSD widget + clinker restoration (~150 lines)
-- `src/app/widgets/phase_composition_editor.py` - clinker fraction editor (~150 lines)
-
-**Database Status**:
-- Location: `~/Library/Application Support/THAMES/database/thames.db`
-- 39 materials (36 cements + 1 limestone + 2 test)
-- 36 clinker extensions with surface fractions
-- 161 correlation functions (BLOBs)
-
-**Testing Status**: ✓ All manual tests passed
-- ✓ Cement migration: 36/36 with clinker data
-- ✓ PSD widget: All distributions work, CSV import/export
-- ✓ Clinker editor: Scaling, summing, persistence all verified
+- Re-migrated 36 VCCTL cements with clinker data (surface fractions + 161 correlation BLOBs)
+- Integrated VCCTL's UnifiedPSDWidget (5 distribution types: Rosin-Rammler, Log-Normal, Fuller-Thompson, Custom, Discrete)
+- Implemented editable clinker fraction editor with proportional scaling
+- Made MaterialDialog scrollable to prevent overflow
 
 **User Feedback**: "That is definitely working now. I like it a lot. I don't immediately see anything else that needs to be done with the Materials page."
-
-**Next Steps** (for next session):
-1. **Mix Design Service & UI** (HIGH PRIORITY)
-   - Design MixDesign database schema
-   - Create MixDesignService with CRUD operations
-   - Basic UI for creating mixes from materials
-   - Water/cement ratio calculator
-   - Kinetic parameter inputs per material
-
-2. **Materials Testing** (MEDIUM PRIORITY)
-   - Create test materials (fly ash, slag, limestone filler)
-   - Verify phase composition validation
-   - Test auto-SG calculation
-
-**Critical Files for Next Session**:
-- Material Service: `src/app/services/material_service.py`
-- GEMS Parser: `src/app/services/gems_parser_service.py`
-- VCCTL Mix Design (reference): `vcctl-gtk/src/app/windows/panels/mix_design_panel.py`
-- VCCTL Mix Service (reference): `vcctl-gtk/src/app/services/mix_design_service.py`
-- Database: `~/Library/Application Support/THAMES/database/thames.db`
-- Session 5 Summary: `docs/SESSION_5_SUMMARY.md`
 
 ---
 
 ### Session 6: Mix Design Validation + Phase ID Mapping System
 November 21, 2025
 
-**Context**: Fixed Mix Design validation for THAMES mode (MaterialSelector vs type_combo), suppressed concrete-specific validation warnings, and designed/implemented dynamic Phase ID Mapping system.
-
 **Key Accomplishments**:
+- Fixed Mix Design validation for THAMES mode (MaterialSelector vs VCCTL type_combo)
+- Suppressed concrete-specific warnings for THAMES materials
+- Created PhaseIdMappingService with dynamic phase ID assignment (~385 lines)
+- THAMES Phase ID Rules: 0=VOID, 1=ELECTROLYTE, 2-7=Clinker phases, 8+=Other phases
+- Comprehensive test suite: 10/10 tests passing
 
-1. **Mix Design Validation Fix for THAMES Mode**
-   - Fixed `_create_mix_design_from_ui` to handle THAMES MaterialSelector widget
-   - Fixed `_get_current_components_for_validation` similarly
-   - Added conditional checks: `row.get('material_selector')` before accessing `type_combo`/`name_combo`
-   - Fixed SG label parsing (format "SG: X.XXX" vs just number)
-   - Validate button now works correctly in THAMES mode
-
-2. **Concrete-Specific Warning Suppression**
-   - Added `thames_mode: bool = True` flag to `MixDesignValidator` class
-   - Added early-return checks in 4 validation methods:
-     - `_validate_aggregate_content` - "Very high aggregate content" warning
-     - `_validate_water_binder_ratio` - workability/durability warnings
-     - `_validate_air_content` - strength reduction warning
-     - `_validate_binder_content` - "uneconomical" warning
-   - Warnings suppressed by default for THAMES (materials beyond portland cement)
-
-3. **Phase ID Mapping Service** (NEW - ~385 lines)
-   - Dynamic phase ID assignment based on mix composition
-   - **THAMES Phase ID Rules**:
-     - ID 0: VOID (empty pores, gas phase)
-     - ID 1: ELECTROLYTE (aqueous solution, "aq_gen")
-     - IDs 2-7: Clinker phases (Alite, Belite, Aluminate, Ferrite, arcanite, thenardite)
-     - IDs 8+: Other phases (sulfates, pozzolans, hydration products)
-   - For mixes WITHOUT clinker: IDs start at 2
-   - Key classes:
-     - `PhaseIdMapping` dataclass with bidirectional lookups
-     - `PhaseIdMappingService` with `create_mapping_from_mix()` method
-   - Phase priority sorting: sulfates → carbonates → pozzolans → others
-   - Optional hydration products (Portite, CSHQ, ettr, etc.)
-   - Validation method for mapping consistency
-
-4. **Comprehensive Test Suite** (NEW - ~367 lines)
-   - 10 test cases covering all scenarios:
-     - `test_reserved_ids_constants` - VOID=0, ELECTROLYTE=1, FIRST_SOLID=2
-     - `test_clinker_phases_list` - 6 phases in correct order
-     - `test_portland_cement_mix` - IDs 2-7 for clinker, 8+ for others
-     - `test_pozzolanic_mix_without_clinker` - IDs start at 2
-     - `test_blended_cement_mix` - Clinker IDs reserved
-     - `test_bidirectional_mapping_consistency` - gem_to_micro ↔ micro_to_gem
-     - `test_validation` - Mapping validity checks
-     - `test_hydration_products_included` - Optional products added
-     - `test_to_dict_serialization` - JSON-ready output
-     - `test_partial_clinker` - All 6 slots reserved even if partial
-   - **All 10 tests pass**
-
-**Files Created**:
-- `src/app/services/phase_id_mapping_service.py` (NEW - 385 lines)
-- `tests/test_phase_id_mapping_service.py` (NEW - 367 lines)
-
-**Files Modified**:
-- `src/app/windows/panels/mix_design_panel.py` - THAMES MaterialSelector handling
-- `src/app/validation/mix_design_validator.py` - thames_mode flag
-
-**Testing Status**: ✓ All tests passed
-- ✓ Validate button works in THAMES mode
-- ✓ Concrete warnings suppressed
-- ✓ Phase ID mapping: 10/10 tests pass
-
-**Run Tests**:
-```bash
-source thames-env/bin/activate
-python -m pytest tests/test_phase_id_mapping_service.py -v
-# Or simply:
-python tests/test_phase_id_mapping_service.py
-```
-
-**BLOCKED**: Microstructure input file generation
-- User needs to modify C program (genmic) first
-- Exact input requirements unknown until C modifications complete
-
-**Next Steps** (for next session):
-1. **Microstructure Input File Generation** (when C program ready)
-   - Integrate PhaseIdMappingService with input generation
-   - Generate phase ID mapping file for THAMES-Hydration
-   - Create microstructure input file format
-
-2. **PhaseIdMappingService Integration**
-   - Connect to Mix Design UI
-   - Display phase ID assignments to user
-   - Export mapping with simulation inputs
-
-**Critical Files for Next Session**:
-- Phase ID Mapping: `src/app/services/phase_id_mapping_service.py`
-- Tests: `tests/test_phase_id_mapping_service.py`
-- Mix Design Panel: `src/app/windows/panels/mix_design_panel.py`
-- Mix Design Validator: `src/app/validation/mix_design_validator.py`
-- THAMES global.h: `thames-hydration/src/THAMES/global.h`
+**Files Created**: `src/app/services/phase_id_mapping_service.py`, `tests/test_phase_id_mapping_service.py`
 
 ---
 
 ### Session 7: MicgenInputService Implementation & Testing
 November 26, 2025
 
-**Context**: Implemented complete MicgenInputService for generating properly formatted micgen.c input files, including PSD discretization, weighted combination, and UI integration.
-
 **Key Accomplishments**:
+- Debugged micgen.c (fixed stack overflow, unallocated pointer)
+- Implemented complete PSD system with discretization for all 5 modes
+- Weighted PSD combination for multiple materials contributing to same phase
+- Comprehensive unit tests: 15/15 passing
+- UI integration in mix_design_panel.py
+- Fixed executable name: genmic → micgen
 
-1. **Debugged micgen.c C Program**
-   - Fixed stack overflow: `numparts[500][5000]` (9.5MB) → reduced to `[50][100]` (20KB)
-   - Fixed unallocated pointer: `int *Onepixnum;` → `int Onepixnum[MAXNUMPHASES];`
-   - micgen.c now runs simple examples successfully
+**Files Created**: `src/app/services/micgen_input_service.py` (~1,100 lines), `tests/test_micgen_input_service.py` (~414 lines)
 
-2. **Complete PSD System Implementation** (~400 lines)
-   - **Discretization methods for all 5 modes:**
-     - Rosin-Rammler: R = 1 - exp(-(d/d50)^n)
-     - Log-Normal: Using scipy.stats.lognorm
-     - Fuller-Thompson: P(d) = (d/dmax)^exponent
-     - Custom: JSON parsing with auto-normalization
-     - Default: Fallback log-normal
-   - **Conversion methods:**
-     - `_psd_to_dict()` - Handles all modes
-     - `_convert_psd_to_size_classes()` - μm→voxels, filters <0.5 voxels, renormalizes
-
-3. **Weighted PSD Combination** (TODO 1 - CRITICAL)
-   - Proper weighted averaging when multiple materials contribute to same phase
-   - Algorithm: Discretize → Union grid → Interpolate → Weight → Sum → Renormalize
-   - Handles edge cases (single contribution, different grids, negligible fractions)
-
-4. **Phase Data Collection System**
-   - `_aggregate_phases_by_name()` - Combines duplicate phases from materials
-   - `_calculate_solids_volume_fraction()` - Normalizes to solids basis
-   - `_collect_phase_data()` - Complete pipeline (aggregate → normalize → PSD → order)
-   - Volume fraction calculations for clinker, other solids, electrolyte, void
-
-5. **Clinker Distribution System**
-   - `_find_clinker_material()` - UI enforces ≤1 clinker per mix
-   - `_get_clinker_extension()` - Retrieves 6 surface fractions + 7 correlation BLOBs
-   - `_write_correlation_files()` - Writes .sil, .c3s, .alu, .c3a, .c4af, .k2o, .n2o to temp files
-   - `_get_clinker_phase_fractions()` - Extracts volume/surface fractions
-
-6. **Comprehensive Unit Tests** (~414 lines)
-   - **15/15 tests passing** ✅
-   - PSD Discretization (5 tests): All modes, normalization, ranges
-   - PSD Conversion (5 tests): Mode conversion, μm→voxel, filtering
-   - PSD Combination (3 tests): Single/multiple contributions, interpolation
-   - Utility Methods (2 tests): Volume fraction calculations
-
-7. **UI Integration Complete**
-   - Imported MicgenInputService, MaterialService, PSDDataService
-   - Modified `_create_microstructure_input_file()` to use service
-   - Loads database MixDesign model (using saved_mix_design_id)
-   - Calls `micgen_input_service.generate_input_file()`
-   - Created `_execute_genmic_program()` wrapper method
-
-8. **Fixed Critical Executable Name Issue**
-   - **IMPORTANT:** Changed all references from `genmic` → `micgen`
-   - micgen.c ≠ genmic.c (different programs, different input formats!)
-   - Executable location: `./backend/bin/micgen` (macOS), `./backend/bin/micgen.exe` (Windows)
-   - Verified menu numbers: SPECSIZE=2, ADDAGG=3, ADDPART=4 (micgen.c format)
-
-**Files Created**:
-- `src/app/services/micgen_input_service.py` (~1,100 lines)
-- `tests/test_micgen_input_service.py` (~414 lines)
-- `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md` (~350 lines)
-- `docs/SESSION_7_SUMMARY.md` (comprehensive documentation)
-
-**Files Modified**:
-- `src/app/windows/panels/mix_design_panel.py` (~50 lines changed)
-- `backend/src/micgen.c` (3 bug fixes)
-
-**Dependencies Installed**:
-```bash
-pip install scipy  # Required for scipy.stats.lognorm
-```
-
-**Testing Status**:
-- ✅ Unit tests: 15/15 passing
-- ⏳ Integration tests: Pending manual testing (user offline)
-- ⏳ End-to-end: Not started
-
-**Run Tests**:
-```bash
-source thames-env/bin/activate
-python -m pytest tests/test_micgen_input_service.py -v
-```
-
-**Known Limitations** (Deferred):
-- ❌ Real-shape particles (TODO 4) - Infrastructure exists, needs Material model fields + UI
-- ❌ Aggregate slab auto-detection - Currently hardcoded to False
-- ❌ Void phase handling - Currently hardcoded to False
-
-**Next Steps** (for next session):
-1. **Manual Testing** - Follow `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md`
-   - Create simple single-cement mix
-   - Verify input file generation
-   - Run micgen.c executable
-   - Check output files
-
-2. **Debug & Iterate** - Based on test results
-   - Check logs if errors occur
-   - Verify input file format matches micgen-input.md
-   - Test micgen.c manually if needed
-
-3. **Future Enhancements** (After successful test)
-   - Real-shape particles implementation
-   - Aggregate slab auto-detection
-   - Void phase based on air content
-   - Additional testing (multi-material, different PSD modes, larger systems)
-
-**Critical Files for Next Session**:
-- Test Procedure: `docs/MICGEN_INPUT_SERVICE_TEST_PROCEDURE.md`
-- Service: `src/app/services/micgen_input_service.py`
-- Tests: `tests/test_micgen_input_service.py`
-- UI Integration: `src/app/windows/panels/mix_design_panel.py` (lines 2255-2297, 3178-3210)
-- Input Format: `micgen-input.md`
-- Session Summary: `docs/SESSION_7_SUMMARY.md`
+**Dependencies**: `pip install scipy` (for log-normal PSD)
 
 ---
 
 ### Session 8: Results Page Adaptation & Phase Color System
 November 27, 2025
 
-**Context**: Adapted the Results page for THAMES with dynamic phase ID mappings, created a comprehensive phase color service, and standardized phase naming conventions across the codebase.
-
 **Key Accomplishments**:
+- Created PhaseColorService with ~90 GEMS phase colors (~400 lines)
+- Updated Results Viewer to support THAMES phase mappings (loads from JSON)
+- Added support for THAMES microstructure header format (`#THAMES:` prefix)
+- Phase name standardization: `aq_gen` → `Electrolyte`, `arcanite` → `Arcanite`, `thenardite` → `Thenardite`
+- Fixed operations page progress tracking (micgen_progress.json)
 
-1. **Phase Color Service** (NEW - `src/app/services/phase_color_service.py`)
-   - Created ~400 line service for managing phase colors
-   - `PHASE_COLORS` dictionary mapping ~90 GEMS phase names to hex colors
-   - Colors derived from VCCTL `colors.csv` where applicable
-   - `PhaseColorMapping` dataclass for storing phase-to-color mappings
-   - Key methods:
-     - `get_color_for_phase(phase_name)` - returns hex color
-     - `create_color_mapping(operation_name, phase_id_mapping)` - creates complete mapping
-     - `save_color_mapping()` / `load_color_mapping()` - JSON persistence
-     - `save_phase_id_mapping()` / `load_phase_id_mapping()` - JSON persistence
-     - `hex_to_rgb()` / `hex_to_rgb_normalized()` - color format conversion
+**THAMES Phase ID Convention**: 0=VOID (black), 1=Electrolyte (dark blue), 2-7=Clinker phases, 8=AGGREGATE, 9+=Dynamic
 
-2. **Phase Mapping Integration in Mix Design**
-   - Updated `mix_design_panel.py` to save phase mappings during microstructure generation
-   - After `generate_input_file()`, now saves:
-     - `<operation_name>_phase_mapping.json` - phase ID to name mapping
-     - `<operation_name>_phase_colors.json` - phase ID to color mapping
-   - Colors linked to phase **names** (not IDs) for consistency across simulations
-
-3. **Results Viewer Updates** (`hydration_results_viewer.py`)
-   - Added `_load_thames_phase_mapping()` to load JSON mappings from operation folder
-   - Added unified `_get_phase_mapping()` that tries THAMES JSON first, falls back to defaults
-   - Updated `_get_default_phase_mapping()` to use THAMES conventions (not VCCTL)
-   - VOID (phase ID 0) always included in phase list, even if not in microstructure
-   - Added support for THAMES microstructure header format (`#THAMES:` prefix)
-   - Info label now shows "Phase Colors: THAMES" or "Phase Colors: VCCTL"
-
-4. **THAMES Microstructure File Format Support**
-   - Updated `_read_microstructure_file()` to handle both formats:
-     - VCCTL: `X_Size: 100`
-     - THAMES: `#THAMES: X_Size: 100`
-   - Voxel ordering (z fastest, then y, then x) remains the same
-
-5. **Phase Name Standardization**
-   - Renamed `aq_gen` → `Electrolyte` throughout codebase
-   - Renamed `arcanite` → `Arcanite` (capitalized)
-   - Renamed `thenardite` → `Thenardite` (capitalized)
-   - Legacy aliases kept in `phase_color_service.py` for backward compatibility
-   - Updated files:
-     - `phase_id_mapping_service.py` - CLINKER_PHASES list, mapping methods
-     - `phase_color_service.py` - PHASE_COLORS dictionary
-     - `phase_mappings.py` - VCCTL_TO_GEMS mappings
-     - `hydration_results_viewer.py` - default mappings
-
-6. **Color Corrections**
-   - VOID: RGB(0,0,0) - Black
-   - Electrolyte: RGB(0,20,25) - Dark blue (`#001419`)
-
-7. **Operations Page Progress Fix** (from conversation context)
-   - Fixed filename mismatch: `genmic_progress.json` → `micgen_progress.json`
-   - Progress tracking now works correctly on Operations page
-
-**THAMES Phase ID Convention** (Standardized):
-| Phase ID | Name | Color |
-|----------|------|-------|
-| 0 | VOID | Black (0,0,0) |
-| 1 | Electrolyte | Dark blue (0,20,25) |
-| 2 | Alite | Blue (42,42,210) |
-| 3 | Belite | Brown (139,79,19) |
-| 4 | Aluminate | Light gray (178,178,178) |
-| 5 | Ferrite | White (253,253,253) |
-| 6 | Arcanite | Red (255,0,0) |
-| 7 | Thenardite | Red-orange (255,20,0) |
-| 8 | AGGREGATE | Gold (255,192,65) |
-| 9+ | Other phases | Dynamic assignment |
-
-**Files Created**:
-- `src/app/services/phase_color_service.py` (~400 lines)
-
-**Files Modified**:
-- `src/app/windows/panels/mix_design_panel.py` - Added phase mapping saving
-- `src/app/windows/dialogs/hydration_results_viewer.py` - THAMES phase support
-- `src/app/services/phase_id_mapping_service.py` - Electrolyte/Arcanite/Thenardite naming
-- `src/app/services/phase_color_service.py` - Color corrections
-- `src/app/config/phase_mappings.py` - Phase name updates
-- `src/app/windows/panels/operations_monitoring_panel.py` - Progress file fix
-- `src/data/gems/thames-dch.dat` - User updated PHNL list
-
-**GEMS Database Updates** (User-modified):
-- Changed `aq_gen` → `Electrolyte` in PHNL list
-- Changed `arcanite` → `Arcanite` in PHNL list
-- Changed `thenardite` → `Thenardite` in PHNL list
-
-**Testing Status**:
-- ✅ Phase color service imports correctly
-- ✅ Results viewer loads THAMES microstructures
-- ✅ Phase names display correctly (user verified)
-- ✅ Colors display correctly (user verified)
-- ✅ VOID always appears in phase list
-
-**User Feedback**: "It looks very good now. All the phase names are specific and the colors too."
-
-**Next Steps** (for next session):
-1. **Hydration Simulation Integration**
-   - Connect THAMES-Hydration C++ engine
-   - Use saved phase mappings for hydration output
-   - Time-series microstructure visualization
-
-2. **Additional Results Features**
-   - Phase volume fraction plots over time
-   - Export phase statistics to CSV
-   - Compare multiple simulations
-
-**Critical Files for Next Session**:
-- Phase Color Service: `src/app/services/phase_color_service.py`
-- Phase ID Mapping: `src/app/services/phase_id_mapping_service.py`
-- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
-- GEMS Database: `src/data/gems/thames-dch.dat`
-- Mix Design Panel: `src/app/windows/panels/mix_design_panel.py`
+**Files Created**: `src/app/services/phase_color_service.py`
 
 ---
 
 ### Session 9: THAMES Hydration Panel UI Implementation
 November 28, 2025
 
-**Context**: Implemented the complete THAMES Hydration Panel UI, replacing the VCCTL hydration panel. This includes microstructure selection, hydration product configuration, electrolyte composition editor, and simulation parameter controls.
-
 **Key Accomplishments**:
+- Complete THAMES Hydration Panel replacement (~850 lines)
+- Created ElectrolyteCompositionEditor with real-time charge balance validation (~420 lines)
+- Hydration product tree with category checkboxes for bulk selection
+- Simulation parameters: Resolution, temperature, moisture conditions (Saturated/Sealed), time parameters
+- Fixed GEMS parser path issues
 
-1. **THAMES Hydration Panel** (NEW - `src/app/windows/panels/thames_hydration_panel.py`)
-   - Complete replacement for VCCTL hydration panel (~850 lines)
-   - Sections:
-     - **Microstructure Selection**: Dropdown to select from completed microstructure operations
-     - **Hydration Products**: Tree view with category checkboxes for bulk selection
-     - **Electrolyte Composition**: New widget for aqueous species concentrations
-     - **Simulation Parameters**: Resolution, temperature, moisture conditions, time parameters
-     - **Simulation Controls**: Validate, Run, Stop buttons with progress log
-   - Integrated with HydrationInputService, THAMESExecutionService, HydrationProductsService
+**Testing**: All 31 unit tests pass
 
-2. **Electrolyte Composition Editor** (NEW - `src/app/widgets/electrolyte_composition_editor.py` ~420 lines)
-   - Lists aqueous DCs from GEMS Electrolyte phase
-   - Each entry: DC name dropdown, condition type (Initial/Fixed), concentration input
-   - Add/Remove buttons for managing species
-   - "Defaults" button loads standard cement pore solution composition
-   - **Real-time charge balance validation**:
-     - Displays "Charge balance: OK" (green) when balanced
-     - Shows warning with suggestion when unbalanced (e.g., "add anions")
-   - Charges defined for ~70 common aqueous ions (cations, anions, neutral species)
-
-3. **Hydration Product Tree Category Checkboxes** (FIXED)
-   - Modified `_on_product_toggled()` to handle category rows
-   - Added `_toggle_category()` - toggles all products in a category
-   - Added `_update_category_checkbox()` - updates category state based on children
-   - Clicking category header now selects/deselects all products in that family
-
-4. **Removed Duplicate Cement Type Dropdown**
-   - Removed redundant dropdown from `_create_products_section()`
-   - `HydrationProductSelectorWidget` already has its own cement type selector
-
-5. **Improved Simulation Parameters Layout**
-   - Added **"Moisture Conditions"** heading with radio buttons:
-     - "Saturated" - water continuously available
-     - "Sealed" - no external water, uses initial content only
-   - Added **"Time Parameters"** heading containing:
-     - Final Time (days)
-     - Output Times (comma-separated days)
-
-6. **Fixed GEMS Parser Path Issues**
-   - Fixed path in `hydration_input_service.py`: `parent.parent.parent` (not `parent.parent`)
-   - Fixed path in `service_container.py`: same correction
-   - GEMS data files at `src/data/gems/` (not `src/app/data/gems/`)
-
-7. **Fixed Test Suite Issues**
-   - Fixed import error: `get_gems_parser` doesn't exist → use `GEMSParserService()` directly
-   - Updated phase name tests to use capitalized names: "Arcanite", "Thenardite", "Electrolyte"
-   - All 31 hydration integration + phase ID mapping tests pass
-
-**Files Created**:
-- `src/app/widgets/electrolyte_composition_editor.py` (~420 lines)
-
-**Files Modified**:
-- `src/app/windows/panels/thames_hydration_panel.py` - Complete rewrite for THAMES
-- `src/app/windows/panels/__init__.py` - Import THAMESHydrationPanel as HydrationPanel
-- `src/app/widgets/hydration_product_selector.py` - Category checkbox functionality
-- `src/app/services/hydration_input_service.py` - Fixed GEMS path, use radio button
-- `src/app/services/service_container.py` - Fixed GEMS path
-- `tests/test_hydration_integration.py` - Fixed imports
-- `tests/test_phase_id_mapping_service.py` - Fixed phase name assertions
-
-**Testing Status**:
-- ✅ Application launches successfully
-- ✅ Hydration panel displays correctly
-- ✅ Category checkboxes work (bulk select/deselect)
-- ✅ Electrolyte editor displays with charge balance
-- ✅ Moisture conditions radio buttons work
-- ✅ All 31 unit tests pass
-- ⏳ simparams.json generation: User will test next session
-
-**Run Tests**:
-```bash
-source thames-env/bin/activate
-python -m pytest tests/test_hydration_integration.py tests/test_phase_id_mapping_service.py -v
-```
-
-**User Feedback**: "The UI for hydration looks good now."
-
-**Next Steps** (for next session):
-1. **Test simparams.json Generation**
-   - User will run hydration simulation and verify output
-   - Check that electrolyte conditions are properly included
-   - Verify phase mappings are correct
-
-2. **Debug Any Issues**
-   - Based on user testing feedback
-   - Fix any simparams.json format issues
-
-3. **THAMES-Hydration Execution**
-   - Test actual execution of THAMES-Hydration C++ engine
-   - Monitor progress and output
-
-**Critical Files for Next Session**:
-- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
-- Electrolyte Editor: `src/app/widgets/electrolyte_composition_editor.py`
-- Product Selector: `src/app/widgets/hydration_product_selector.py`
-- Hydration Input Service: `src/app/services/hydration_input_service.py`
-- SimParams Service: `src/app/services/simparams_service.py`
-- Session Summary: `docs/SESSION_9_SUMMARY.md`
+**Files Created**: `src/app/widgets/electrolyte_composition_editor.py`
 
 ---
 
 ### Session 10: THAMES Hydration Panel Refinements
 November 29, 2025
 
-**Context**: Refined the THAMES Hydration Panel UI based on user testing feedback. Unified microstructure phases and hydration products, implemented full kinetic model editing, and fixed various UI issues.
-
 **Key Accomplishments**:
-
-1. **Unified Phase List Architecture**
-   - Merged microstructure phases and hydration products into single tree view
-   - Microstructure phases appear at top in "Microstructure Phases" category (blue, locked)
-   - All phases treated symmetrically - each can have kinetic models edited
-   - Fixed nested JSON parsing for `phase_id_mapping.micro_to_gem`
-
-2. **Full Kinetic Model Editing**
-   - Rewrote `KineticModelEditorDialog` with kinetic type dropdown
-   - Options: Thermodynamic (no kinetics), ParrotKilloh, Standard, Pozzolanic
-   - Users can add/remove/edit kinetics for ANY phase
-   - Added units to parameter labels (mol/m²/s, J/mol)
-   - Fixed "Reset to Defaults" button
-
-3. **UI Improvements**
-   - Renamed section from "Hydration Products" to "Phases"
-   - Removed redundant bold "Phases" heading
-   - Moved "Cement Type:" dropdown to left side
-   - Replaced grey rectangle icons with Carbon "edit" icon
-   - Limestone cement type auto-selects Carbonate AFm and Calcite
-
-4. **Kinetic Configuration Management**
-   - Added `remove_kinetic_configuration()` method
-   - Added `_update_kinetic_type_in_store()` for real-time display updates
-   - "Edit Kinetics..." button enabled for ALL selected phases
-
-**Files Modified**:
-- `src/app/widgets/hydration_product_selector.py` - Unified phase list, Carbon icon, UI layout
-- `src/app/widgets/kinetic_model_editor.py` - Full kinetic type selection, units, Reset fix
-- `src/app/windows/panels/thames_hydration_panel.py` - Phase mapping parsing, kinetics removal
-
-**Testing Status**:
-- ✅ Microstructure phases load correctly
-- ✅ Kinetic model editing (all types) works
-- ✅ Add/remove kinetics works
-- ✅ Reset to Defaults button works
-- ✅ Carbon edit icon displays properly
-- ✅ UI layout correct
+- Unified microstructure phases and hydration products into single tree view
+- Full kinetic model editing for ANY phase (Thermodynamic, ParrotKilloh, Standard, Pozzolanic)
+- UI improvements: Carbon edit icon, limestone cement type auto-selection
+- Kinetic configuration management (add/remove/edit)
 
 **User Feedback**: "Looks nice! I like the Carbon icon you chose." / "It looks great now and I think it is working pretty well."
-
-**Next Steps** (for next session):
-1. User testing of simparams.json generation
-2. Test actual THAMES-Hydration execution
-3. Debug any issues found during testing
-
-**Critical Files for Next Session**:
-- Phase Selector: `src/app/widgets/hydration_product_selector.py`
-- Kinetic Editor: `src/app/widgets/kinetic_model_editor.py`
-- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
-- Hydration Input Service: `src/app/services/hydration_input_service.py`
-- Session Summary: `docs/SESSION_10_SUMMARY.md`
 
 ---
 
 ### Session 11: Hydration Progress Tracking & Bug Fixes
 December 5, 2025
 
-**Context**: Implemented hydration progress tracking on the Operations page, fixed multiple bugs in microstructure generation and hydration simulation workflow.
-
 **Key Accomplishments**:
+- Fixed Arcanite/Thenardite case mismatch bug (lowercase vs capitalized)
+- Fixed phase_colors.json remapping bug (nested JSON structure)
+- THAMES C++ progress.json format fix (user corrected Controller.cc to write proper JSON with commas)
+- Hydration progress tracking on Operations page (cycle, time_hours, target_time_hours)
+- Fixed premature "Simulation completed successfully!" message
+- Fixed progress callback signature mismatch
+- UI improvements: Always-visible scrollbars, keyboard navigation
 
-1. **Fixed Arcanite/Thenardite Case Mismatch Bug**
-   - Problem: micgen.log showed 0 volume fractions for Arcanite/Thenardite despite non-zero surface fractions
-   - Cause: Dictionary keys used lowercase `'arcanite'`/`'thenardite'` but database stores capitalized names
-   - Fix: Updated `micgen_input_service.py` to use `'Arcanite'` and `'Thenardite'`
-
-2. **Fixed phase_colors.json Remapping Bug**
-   - Problem: After micgen phase ID remapping, Results viewer showed wrong phase names
-   - Cause: `_remap_phase_colors()` treated nested JSON as flat structure
-   - Fix: Properly handle `phase_id_to_name`, `phase_id_to_color`, and `phase_name_to_color` keys separately
-
-3. **THAMES C++ progress.json Format Fix** (User modified C++ code)
-   - Problem: THAMES wrote malformed JSON with missing commas: `{"cycle": 10 "time_hours": 0.24}`
-   - Fix: User corrected Controller.cc to write proper JSON with commas
-   - Added `target_time_hours` field for progress percentage calculation
-
-4. **Hydration Progress Tracking on Operations Page**
-   - Reads `progress.json` from operation directory
-   - Extracts `cycle`, `time_hours`, `target_time_hours` from JSON
-   - Calculates progress percentage: `current_time / target_time`
-   - Displays: "Cycle X, Time: Y.YYd of Z.Zd, DOH: 0.000"
-   - Auto-refreshes details panel during monitoring
-
-5. **Fixed "Simulation completed successfully!" Premature Message**
-   - Problem: Hydration panel showed completion immediately after starting
-   - Cause: `start_simulation()` returns success when process *starts*, not completes
-   - Fix: Added `_on_simulation_started()` method; completion detected via polling
-
-6. **Fixed Progress Callback Signature Mismatch**
-   - Problem: `THAMESHydrationPanel._on_progress_update() takes 2 positional arguments but 3 were given`
-   - Fix: Changed signature from `(self, progress)` to `(self, operation_name, progress)`
-
-7. **UI Improvements**
-   - Added always-visible scrollbars via CSS (`-gtk-overlay-scrolling: false`)
-   - Added keyboard navigation with `set_can_focus(True)` on ScrolledWindow widgets
-   - Operations details panel now auto-refreshes for currently displayed operation
-
-**Files Modified**:
-- `src/app/services/micgen_input_service.py` - Arcanite/Thenardite case fix
-- `src/app/windows/panels/operations_monitoring_panel.py` - Progress tracking, phase_colors remapping
-- `src/app/windows/panels/thames_hydration_panel.py` - Simulation start/complete handling
-- `src/app/ui/theme_manager.py` - Scrollbar CSS
-- Multiple files - Keyboard navigation focus
-
-**THAMES C++ Changes** (User modified):
-- `backend/thames-hydration/src/thameslib/Controller.cc` - Fixed progress.json format, added target_time_hours
-
-**Testing Status**:
-- ✅ Microstructures generate correctly with all phases including Arcanite/Thenardite
-- ✅ Hydration simulations run and complete successfully
-- ✅ Progress tracking works on Operations page
-- ✅ Progress bar and step message update automatically
-- ✅ Hydration panel shows correct running/completed status
-
-**Known Issues/Pending Todos**:
-1. **Fix bug on attaching a kinetic model to a phase** - User reported issue
-2. **Fix 3D visualization of hydration time sequence on Results Tab** - User reported issue
-
-**Critical Files for Next Session**:
-- Operations Panel: `src/app/windows/panels/operations_monitoring_panel.py`
-- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
-- Kinetic Editor: `src/app/widgets/kinetic_model_editor.py`
-- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
-- THAMES Controller: `backend/thames-hydration/src/thameslib/Controller.cc`
+**THAMES C++ Changes**: Fixed Controller.cc progress.json format, added target_time_hours
 
 ---
 
 ### Session 12: Hydration Results Visualization & Preferences UI
 December 6, 2025
 
-**Context**: Completed the hydration results visualization system and implemented user-configurable kinetic defaults. Fixed bugs from Session 11 and added comprehensive time-series data plotting.
-
 **Key Accomplishments**:
+- Fixed kinetic model attachment bug (phases without built-in defaults)
+- Fixed 3D visualization time sequence bug (THAMES file pattern `JobRoot.YYYyDDDdHHhMMm.TTTK.img`)
+- Implemented kinetic preferences system (user defaults stored in JSON)
+- Added Kinetic Defaults tab to preferences dialog (search, edit, reset, import/export)
+- Implemented hydration output visualization with tabbed interface (3D + Data Plots)
+- Data plots: Multi-select variables, log axes, custom ranges, line width, color schemes, export to PNG/PDF/SVG
 
-1. **Fixed Kinetic Model Attachment Bug**
-   - Problem: Kinetic models assigned to "Thermodynamic" phases (like Calcite) didn't appear in simparams.json
-   - Cause: `get_kinetics_with_override()` returned `None` for phases without built-in defaults
-   - Fix: Modified to create kinetics from scratch when override includes valid `type` field
-   - File: `src/app/services/kinetic_defaults_service.py`
+**CSV Output Files**: Phase Volumes, Solution Chemistry, Saturation Indices, Surface Areas, Enthalpy
 
-2. **Fixed 3D Visualization Time Sequence Bug**
-   - Problem: Only initial microstructure shown, not hydration time steps
-   - Cause: Wrong file pattern for THAMES format (`JobRoot.YYYyDDDdHHhMMm.TTTK.img`)
-   - Fix: Updated regex pattern and search in `Result/` subdirectory
-   - File: `src/app/windows/dialogs/hydration_results_viewer.py`
-
-3. **Implemented Kinetic Preferences System**
-   - **New File**: `src/app/services/kinetic_preferences_service.py` (~273 lines)
-     - Stores user kinetic defaults in JSON at platform-specific location
-     - CRUD operations, import/export functionality
-   - **Modified**: `kinetic_defaults_service.py` to check user preferences first
-   - **Modified**: `preferences_dialog.py` - Added `KineticDefaultsTab` with:
-     - Searchable list of all 89 GEM phases
-     - Edit/Reset buttons for each phase
-     - Import/Export functionality
-
-4. **Implemented Hydration Output Visualization**
-   - **Major rewrite**: `hydration_results_viewer.py` (~1700 lines total)
-   - Added tabbed interface: "3D Visualization" + "Data Plots"
-   - Data Plots tab features:
-     - CSV file categories: Phase Volumes, Solution Chemistry, Saturation Indices, Surface Areas, Enthalpy
-     - Multi-select variable list with checkboxes
-     - Logarithmic X and Y axis options
-     - Custom axis ranges (min/max)
-     - Line width control (0.5-5.0)
-     - Color scheme selection (Tab10, Set1, Dark2, Paired, Pastel1, Single Color)
-     - Export to PNG/PDF/SVG at 300 DPI
-
-5. **UI Improvements**
-   - Renamed "View 3D Results" button to "View Results"
-   - Made Results dialog resizable with smaller default size (1000x650)
-   - Made controls panel scrollable for smaller screens
-   - Reduced component heights for better fit
-
-**Files Created**:
-- `src/app/services/kinetic_preferences_service.py` (~273 lines)
-- `docs/SESSION_12_SUMMARY.md`
-
-**Files Modified**:
-- `src/app/services/kinetic_defaults_service.py` - User preference checking, override fix
-- `src/app/windows/dialogs/preferences_dialog.py` - KineticDefaultsTab
-- `src/app/windows/dialogs/hydration_results_viewer.py` - Complete rewrite with tabs
-- `src/app/windows/panels/results_panel.py` - Button label update
-
-**Testing Status**:
-- ✅ Kinetic model attachment for phases without defaults
-- ✅ 3D visualization shows all time steps
-- ✅ Preferences UI for kinetic defaults
-- ✅ Data plots tab with all options
-- ✅ Dialog resizable and fits on screen
-
-**CSV Output Files Supported**:
-| Display Name | File Pattern | Content |
-|--------------|--------------|---------|
-| Phase Volumes | `*_Microstructure.csv` | Phase volume fractions over time |
-| Solution Chemistry | `*_Solution.csv` | Aqueous species concentrations |
-| Saturation Indices | `*_SI.csv` | SI values for each phase |
-| Surface Areas | `*_SurfaceAreas.csv` | Phase surface areas (m²/100g) |
-| Enthalpy | `*_Enthalpy.csv` | System enthalpy (J/100g) |
-
-**Critical Files for Next Session**:
-- Kinetic Preferences: `src/app/services/kinetic_preferences_service.py`
-- Kinetic Defaults: `src/app/services/kinetic_defaults_service.py`
-- Preferences Dialog: `src/app/windows/dialogs/preferences_dialog.py`
-- Results Viewer: `src/app/windows/dialogs/hydration_results_viewer.py`
-- Session Summary: `docs/SESSION_12_SUMMARY.md`
+**Files Created**: `src/app/services/kinetic_preferences_service.py` (~273 lines)
 
 ---
 
 ### Session 13: Elastic Moduli UI Integration for THAMES
 December 10, 2025
 
-**Context**: Integrated THAMES elastic calculations into the Elastic Moduli panel UI. Added THAMES backend detection, fixed operation/microstructure discovery for THAMES file formats, and ensured pimg files are properly handled.
-
 **Key Accomplishments**:
+- THAMES backend detection and support (`thames -s 5` for elastic calculations)
+- Fixed THAMES hydration operations discovery (Result/ subdirectory, simparams.json)
+- Fixed THAMES microstructure discovery (pattern: `*.YYYyDDDdHHhMMm.TTTK.img`)
+- Auto-population of UI fields when microstructure selected
+- Collapsible microstructure settings (Expander, collapsed by default)
+- Pimg file handling and copy during hydration setup
 
-1. **THAMES Backend Detection and Support**
-   - Added `_is_thames_mode()` and `_get_thames_executable_path()` methods
-   - Added `_launch_thames_elastic()` for THAMES elastic calculation (`thames -s 5`)
-   - Added backend info display in UI header
-   - Disabled aggregate/ITZ controls in THAMES mode with notice about future concelas support
-
-2. **Fixed THAMES Hydration Operations Discovery**
-   - Updated `_load_available_hydration_operations` to detect THAMES patterns
-   - Looks for `Result/` subdirectory, `simparams.json`, `*_Microstructure.csv`
-
-3. **Fixed THAMES Microstructure Discovery**
-   - Added THAMES pattern regex: `r'^.+\.\d{3}y\d{3}d\d{2}h\d{2}m\.\d+K\.img$'`
-   - Example: `HydOf-Cem152-Neat.000y030d00h00m.298K.img`
-   - Added time label extraction from THAMES format
-   - Made lineage resolution failure non-fatal
-
-4. **Auto-Population of UI Fields**
-   - Added database fallback when lineage resolution fails
-   - Auto-generates operation name: `Elastic-{HydrationName}-{TimeStep}`
-   - Auto-populates output directory and pimg file path
-
-5. **Collapsible Microstructure Settings**
-   - Changed from `Gtk.Frame` to `Gtk.Expander` (collapsed by default)
-   - Fields are auto-populated when microstructure selected
-
-6. **Pimg File Handling for Elastic Calculations**
-   - Removed THAMES mode pimg clearing code
-   - Added pimg fallback discovery in hydration directory
-   - Added pimg file copy during hydration setup (`thames_execution_service.py`)
-
-**Files Modified**:
-- `src/app/windows/panels/elastic_moduli_panel.py` - THAMES mode, discovery, auto-population
-- `src/app/services/elastic_lineage_service.py` - THAMES patterns, pimg fallback
-- `src/app/services/thames_execution_service.py` - Pimg file copy
-- `src/app/services/simparams_service.py` - Minor updates
-
-**New File**:
-- `src/app/services/elastic_defaults_service.py` - Elastic calculation defaults
-
-**Testing Status**:
-- ✅ THAMES mode detection works
-- ✅ Hydration operations discovered correctly
-- ✅ Microstructures discovered with proper time labels
-- ✅ Fields auto-populate when microstructure selected
-- ✅ Pimg file copy added to hydration setup
-- ⏳ End-to-end elastic calculation test pending
-
-**Critical Files for Next Session**:
-- Elastic Panel: `src/app/windows/panels/elastic_moduli_panel.py`
-- Lineage Service: `src/app/services/elastic_lineage_service.py`
-- THAMES Execution: `src/app/services/thames_execution_service.py`
-- Elastic Defaults: `src/app/services/elastic_defaults_service.py`
-- Session Summary: `docs/SESSION_13_SUMMARY.md`
+**Files Created**: `src/app/services/elastic_defaults_service.py`
 
 ---
 
 ### Session 14: Executable Paths & Elastic Moduli Input Fix
 December 16, 2025
 
-**Context**: Fixed multiple issues preventing elastic moduli calculations from running: hydration operation lineage tracking, executable path standardization, and THAMES stdin input format for elastic calculations.
-
 **Key Accomplishments**:
+- Fixed hydration operation lineage tracking (parent_operation_id now set in database)
+- Standardized executable paths to top-level `bin/` folder (not `backend/bin/`)
+- Fixed THAMES elastic calculation input format (stdin, not command-line args)
+- THAMES elastic input: Line 1=5 (ELASTIC_CALC), Line 2=thames-dat.lst, Line 3=simparams.json, Line 4=microstructure.img
+- Copy GEMS database files to elastic operation directory
+- Updated 6 files to use `bin/` with fallbacks
 
-1. **Fixed Hydration Operation Lineage Tracking**
-   - Problem: Elastic moduli calculations failed with "Parent operation microstructure not found for hydration X"
-   - Cause: Hydration operations were created without `parent_operation_id` set in database
-   - Fix: Added `source_microstructure_operation` parameter to `start_simulation()` in `thames_execution_service.py`
-   - Fix: Updated `thames_hydration_panel.py` to pass `selected_operation_name` when starting simulation
-   - Fix: `_update_operation_status()` now looks up parent operation by name and sets `parent_operation_id`
-
-2. **Standardized Executable Paths to Top-Level `bin/` Folder**
-   - User preference: All executables (micgen, thames, etc.) should be in `./bin/` not `./backend/bin/`
-   - Updated 6 files to use `bin/` as primary location with fallbacks:
-     - `thames_execution_service.py` - THAMES hydration executable
-     - `hydration_executor_service.py` - VCCTL disrealnew executable
-     - `elastic_moduli_panel.py` - THAMES and VCCTL elastic executables
-     - `mix_design_panel.py` - micgen executable
-     - `pyvista_3d_viewer.py` - stat3d and perc3d executables (4 occurrences)
-   - Updated `.gitignore` to track `bin/` directory via `.gitkeep` but ignore contents
-   - Created `bin/.gitkeep` file
-
-3. **Fixed THAMES Elastic Calculation Input Format**
-   - Problem: Elastic moduli panel was passing command-line arguments, but THAMES reads from stdin
-   - Root cause: `-s` flag is for "suppress warnings", not simulation type selection
-   - Fix: Created proper `input.in` file with stdin format:
-     ```
-     5
-     thames-dat.lst
-     simparams.json
-     <microstructure>.img
-     ```
-   - Fix: Copy GEMS database files (thames-dat.lst, thames-dch.dat, thames-ipm.dat, thames-dbr.dat) to output directory
-   - Fix: Pass input data to `start_real_process_operation()` via `input_data` parameter for stdin redirection
-
-**THAMES Elastic Calculation Input Format** (stdin):
-| Line | Content | Description |
-|------|---------|-------------|
-| 1 | `5` | ELASTIC_CALC simulation type |
-| 2 | `thames-dat.lst` | GEM input file (relative path) |
-| 3 | `simparams.json` | Simulation parameters file |
-| 4 | `<name>.img` | Microstructure file to analyze |
-
-**Files Modified**:
-- `src/app/services/thames_execution_service.py` - Parent operation linkage, executable path
-- `src/app/services/hydration_executor_service.py` - Executable path
-- `src/app/windows/panels/thames_hydration_panel.py` - Pass source operation name
-- `src/app/windows/panels/elastic_moduli_panel.py` - Executable path, stdin input creation
-- `src/app/windows/panels/mix_design_panel.py` - Executable path
-- `src/app/visualization/pyvista_3d_viewer.py` - Executable paths (4 locations)
-- `.gitignore` - Track bin/ directory
-
-**Files Created**:
-- `bin/.gitkeep` - Placeholder to track bin/ directory in git
-
-**Testing Status**:
-- ✅ Hydration operations now have correct parent_operation_id
-- ✅ Elastic moduli calculation starts and runs successfully
-- ✅ Input.in file created with correct format
-- ✅ GEMS database files copied to elastic operation directory
-- ⏳ Elastic progress tracking not yet implemented
-
-**Pending Items for Next Session**:
-1. **Add progress tracking for Elastic Moduli operations** - User will implement THAMES C++ side
-2. **Fix small glitches in 3D visualization functionality** - User reported minor issues
-
-**Critical Files for Next Session**:
-- Elastic Panel: `src/app/windows/panels/elastic_moduli_panel.py`
-- THAMES Execution: `src/app/services/thames_execution_service.py`
-- Hydration Panel: `src/app/windows/panels/thames_hydration_panel.py`
-- Operations Panel: `src/app/windows/panels/operations_monitoring_panel.py`
-- 3D Viewer: `src/app/visualization/pyvista_3d_viewer.py`
-- Session Summary: `docs/SESSION_14_SUMMARY.md`
+**Files Created**: `bin/.gitkeep`
 
 ---
 
 ### Session 15: Unified Voxel Ordering Convention (X-Fastest)
 December 18, 2025
 
-**Context**: Investigation revealed that micgen.c used Z-fastest voxel ordering while THAMES C++ code used X-fastest. Despite this mismatch, the system appeared to work because file bytes passed through unchanged. This session unified all code to use X-fastest ordering for consistency and correctness.
+**Context**: Unified micgen.c (Z-fastest) and THAMES C++ (X-fastest) voxel ordering. Changed all code to use X-fastest for consistency with VTK/PyVista.
 
-**Key Accomplishments**:
+**Key Changes**:
+- **memutil.c** `getInt3dindex()`: Changed to `x + (xsize * y) + (xsize * ysize * z)`
+- **micgen.c** file loop: Changed to Z-outer, Y-middle, X-inner
+- **Python**: Reshape to `(z_size, y_size, x_size)`, VTK dims to `(shape[2], shape[1], shape[0])`
 
-1. **Root Cause Analysis**
-   - Discovered micgen.c `getInt3dindex()` used formula: `x*Y*Z + y*Z + z` (Z-fastest)
-   - THAMES Lattice.cc uses formula: `x + X*y + X*Y*z` (X-fastest)
-   - Files appeared identical because THAMES reads/writes sequentially, preserving byte order
-   - Coordinate labels were different but topology preserved, so hydration worked
-   - VTK/PyVista expects X-fastest ordering
+**Testing**: All test combinations passed (with/without slab × long dimension in x/z)
 
-2. **C Code Changes**
-   - **memutil.c** (line 992-999): Changed `getInt3dindex()` to X-fastest formula
-     - New: `x + (xsize * y) + (xsize * ysize * z)`
-     - Legacy Z-fastest formula preserved in comment
-   - **micgen.c** (lines 4186-4207): Changed file writing loop order
-     - From: X-outer, Y-middle, Z-inner (Z varies fastest)
-     - To: Z-outer, Y-middle, X-inner (X varies fastest)
-
-3. **Python Code Changes**
-   - **phase_id_mapping_service.py**: Reshape to `(z_size, y_size, x_size)`, fixed write loop
-   - **microstructure_panel.py**: Reshape to `(z_size, y_size, x_size)`
-   - **pyvista_strain_viewer.py**: Reshape to `(z_dim, y_dim, x_dim)`
-   - **pyvista_3d_viewer.py**:
-     - Fixed VTK `SetDimensions(nx, ny, nz)` using `(shape[2], shape[1], shape[0])`
-     - Fixed `volume_bounds` calculation
-     - Fixed 4 file export functions for stat3d/perc3d utilities
-
-4. **Convention Documentation**
-   - Index formula: `index = x + xsize*y + xsize*ysize*z`
-   - NumPy shape: `(z_size, y_size, x_size)` with C-order
-   - VTK SetDimensions: `(shape[2], shape[1], shape[0])`
-   - File loop order: Z outer, Y middle, X inner
-
-**Files Modified**:
-- `backend/src/thamesauxlib/memutil.c` - Core index formula change
-- `backend/src/micgen.c` - File writing loop order
-- `src/app/services/phase_id_mapping_service.py` - Reshape and write loop
-- `src/app/windows/panels/microstructure_panel.py` - Reshape
-- `src/app/windows/dialogs/pyvista_strain_viewer.py` - Reshape
-- `src/app/visualization/pyvista_3d_viewer.py` - VTK dims, bounds, file exports
-
-**Testing Status**:
-- ✅ Non-cubic microstructure generation (110×100×100)
-- ✅ With and without aggregate slab
-- ✅ Long dimension in X or Z direction
-- ✅ 3D visualization (unscrambled, correct orientation)
-- ✅ THAMES hydration simulation (all 4 test cases)
-- ✅ Elastic moduli calculations (results consistent with w/c and age)
-
-**Git Commits**:
-- `ad6bf72` - Session 15: Pre-voxel-ordering baseline
-- `267a771` - Session 15: Unified voxel ordering to X-fastest convention
-
-**User Feedback**: All four test combinations (with/without slab × long dimension in x/z) passed through microstructure generation, visualization, hydration, and elastic calculations successfully.
-
-**Pending Items for Next Session**:
-1. **Add progress tracking for Elastic Moduli operations**
-2. **Fix small glitches in 3D visualization functionality**
-3. **Consider applying same voxel ordering fix to VCCTL project**
-
-**Critical Files for Next Session**:
-- memutil.c: `backend/src/thamesauxlib/memutil.c`
-- micgen.c: `backend/src/micgen.c`
-- PyVista Viewer: `src/app/visualization/pyvista_3d_viewer.py`
-- Session Summary: `docs/SESSION_15_SUMMARY.md`
+**Git Commits**: `ad6bf72` (baseline), `267a771` (X-fastest)
 
 ---
 
 ### Session 16: Multi-Temperature GEMS Database & Hydration Products Expansion
 December 20, 2025
 
-**Context**: Enabled multi-temperature support (277-353K) by debugging and creating working thermodynamic input files from GEM-Selektor v3.9.6. Expanded hydration products available in the UI from ~32 to 82 phases.
-
 **Key Accomplishments**:
+- Debugged GEMS database for multi-temperature support (277-353K, 39 temperature points)
+- Added 11 new phases: Mullite, C2AS, CA2S, CAS, CAS2, K6A2S, Diopside, Albite, Anorthite, Fayalite, Forsterite
+- Final database: **100 phases, 198 DCs**
+- Expanded hydration products from ~32 to **82 phases** (chloride AFm, zeolites, silicates, pozzolanic, carbonates, ferrite/aluminate hydrates, Fe oxides, etc.)
+- Successful multi-temperature testing at 10°C, 25°C, and 40°C
 
-1. **Multi-Temperature GEMS Database Debugging**
-   - Compared working pyrrcem database with failing new exports
-   - Identified critical DBR parameters: temperature grid (39 points), dul constraints (Cl⁻=1e-08, Cl₂=0.001)
-   - Created `/Users/jwbullard/NewThermoData/DBR_Differences.md` documenting all differences
-   - User successfully replicated working parameters in GEM-Selektor
-
-2. **Added 11 New Phases to GEMS Database**
-   - Glass phases: Mullite, C2AS, CA2S, CAS, CAS2, K6A2S
-   - Minerals: Diopside, Albite, Anorthite, Fayalite, Forsterite
-   - Final database: **100 phases, 198 DCs, 39 temperature points**
-
-3. **Successful Multi-Temperature Testing**
-   - Hydration simulations completed at 10°C, 25°C, and 40°C
-   - All 100 phases properly integrated
-
-4. **Expanded Hydration Products Service** (~50 new phases added)
-   - Chloride AFm: Friedels, Kuzels
-   - Zeolites: ZeoliteX, ZeoliteY, zeoliteP_Ca, Natrolite
-   - Silicates: Forsterite, Fayalite, Mullite, Diopside, Albite, Anorthite
-   - Pozzolanic: Sfume, K6A2S, CAS, CA2S, C2AS, CAS2
-   - Al hydroxides: Al(OH)3am, Al(OH)3mic, Gibbsite
-   - Carbonates: Aragonite, Dolomite-dis/ord, Magnesite, Siderite, Fe-carbonate
-   - Aluminate hydrates: C2AH75, CAH10, straetlingite, C2ASH55
-   - Ferrite hydrates: C3FS0.84H4.32, C3FS1.34H3.32, C4Fc05H10, C4FcH12
-   - Hydrotalcites: hydrotalcite, OH-hydrotalc
-   - Fe oxides: Goethite, Hematite, Magnetite, Ferrihyd-am, Ferrihyd-mc
-   - Other: thaumasite, syngenite, Kaolinite, Periclase, Melanterite, Pyrrhotite, Troilite, Sulphur, lime
-   - **Final count: 82 hydration products in UI**
-
-5. **Fixed Phase Name Mismatches**
-   - `straet` → `straetlingite` (match GEMS)
-   - `hydrotalc-pyro` → `Hydrotalc-pyr` (match GEMS)
-
-**Name Fixing sed Script** (apply to new GEMS exports):
+**Name Fixing Script** (for new GEMS exports):
 ```bash
-sed -i '' \
-    -e "s/'aq_gen'/'Electrolyte'/g" \
-    -e "s/'ettringite-AlFe'/'ettr-AlFe'/g" \
-    -e "s/'ettringite'/'ettr'/g" \
-    -e "s/'monosulphate'/'monosulf'/g" \
-    -e "s/'monocarbonate'/'monocarb'/g" \
-    -e "s/'hemicarbonate'/'hemicarb'/g" \
-    -e "s/'hemihydrate'/'Bassanite'/g" \
-    -e "s/'tricarboalu03'/'tricarb03'/g" \
-    -e "s/'arcanite'/'Arcanite'/g" \
-    -e "s/'thenardite'/'Thenardite'/g" \
-    -e "s/'Silica-fume'/'Sfume'/g" \
-    thames-dch.dat thames-dbr.dat
+sed -i '' -e "s/'aq_gen'/'Electrolyte'/g" -e "s/'arcanite'/'Arcanite'/g" -e "s/'thenardite'/'Thenardite'/g" thames-dch.dat thames-dbr.dat
 ```
-
-**Files Modified**:
-- `src/data/gems/thames-dch.dat` - 100 phases, 198 DCs
-- `src/data/gems/thames-ipm.dat` - Updated IPM parameters
-- `src/data/gems/thames-dbr.dat` - Correct bIC, dul constraints
-- `src/app/services/hydration_products_service.py` - 82 hydration products
-
-**Files Created**:
-- `docs/SESSION_16_SUMMARY.md` - Detailed session documentation
-- `/Users/jwbullard/NewThermoData/DBR_Differences.md` - DBR comparison
-- `/Users/jwbullard/NewThermoData/BaseICAllPhases/` - Final 100-phase export
-
-**Known Issues**:
-- C++ backend needs debugging for non-standard material systems (e.g., no clinker, diopside only)
-
-**Critical Files for Next Session**:
-- GEMS Database: `src/data/gems/thames-*.dat`
-- Hydration Products: `src/app/services/hydration_products_service.py`
-- DBR Differences: `/Users/jwbullard/NewThermoData/DBR_Differences.md`
-- Session Summary: `docs/SESSION_16_SUMMARY.md`
 
 ---
 
 ### Session 17: Elastic Results Visualization & Homebrew Safety
 December 23, 2025
 
-**Context**: Fixed elastic moduli results visualization for THAMES's new 3-column CSV format. Analyzed homebrew package upgrade risks and pinned critical GTK-related packages to prevent breaking changes.
-
 **Key Accomplishments**:
+- Fixed EffectiveModuli and ITZModuli viewers for THAMES 3-column CSV format (`Property,Value,Units`)
+- Strain energy viewer code preserved (THAMES C++ doesn't output energy.img yet)
+- Homebrew safety analysis: Pinned high-risk packages (pygobject3 3.52.3, py3cairo 1.28.0, gobject-introspection 1.84.0)
 
-1. **Fixed EffectiveModuli Viewer** (`effective_moduli_viewer.py`)
-   - Added header row skipping for new `Property,Value,Units` format
-   - Updated grouping logic to categorize:
-     - Microstructure info (name, dimensions, resolution)
-     - Effective moduli (bulk, shear, Young's, Poisson's)
-     - Paste/Concrete properties (VCCTL compatibility)
-   - Updated notes text to be more general
-   - Checks `Result/` subdirectory first (THAMES), falls back to direct path (VCCTL)
-
-2. **Fixed ITZModuli Viewer** (`itz_analysis_viewer.py`)
-   - Added support for THAMES 3-column format with `Layer_N_` prefixes
-   - Parses layer data using regex: `Layer_(-?\d+)_(\w+)`
-   - Handles both positive and negative layer numbers
-   - Checks `Result/ITZModuli.csv` first (THAMES), falls back to direct path
-   - Preserves plotting functionality (moduli vs. distance from aggregate)
-
-3. **Strain Energy Viewer Status**
-   - Identified that viewer isn't broken - THAMES C++ doesn't output per-voxel strain energy data
-   - Elastic calculations produce only EffectiveModuli.csv and ITZModuli.csv
-   - Button hidden until C++ outputs strain energy `.img` files (future work)
-   - Code preserved for future implementation
-
-4. **THAMES Elastic Output CSV Format** (standardized):
-   ```csv
-   Property,Value,Units
-   Microstructure,<name>.img,
-   X_Dimension,110,voxels
-   Y_Dimension,100,voxels
-   Z_Dimension,100,voxels
-   Resolution,1,um/voxel
-   Bulk_modulus,19.299,GPa
-   Shear_modulus,11.1056,GPa
-   Youngs_modulus,27.9546,GPa
-   Poissons_ratio,0.258583,
-   ```
-
-5. **Homebrew Package Safety Analysis**
-   - Identified high-risk packages for GTK/PyGObject stack
-   - **Pinned packages** (protected from upgrade):
-     - `pygobject3` (3.52.3) - THAMES requirements.txt notes 3.54.5 has brew issues
-     - `py3cairo` (1.28.0) - Previous cairo upgrade caused major problems
-     - `gobject-introspection` (1.84.0) - Core GTK introspection system
-   - **Will upgrade** (lower risk):
-     - `freetype` (2.13.3 → 2.14.1)
-     - `gdk-pixbuf` (2.42.12 → 2.44.4)
-     - `glib` (2.84.4 → 2.86.3)
-     - `gtk+3` (3.24.50 → 3.24.51)
-     - `harfbuzz` (11.4.5 → 12.2.0)
-     - `json-glib` (1.10.6 → 1.10.8)
-
-**Homebrew Commands Used**:
+**Homebrew Commands**:
 ```bash
-# Pin high-risk packages
 brew pin pygobject3 py3cairo gobject-introspection
-
-# Verify pins
-brew list --pinned
-
-# Unpin if needed later
-brew unpin pygobject3 py3cairo gobject-introspection
 ```
-
-**Files Modified**:
-- `src/app/windows/dialogs/effective_moduli_viewer.py` - New CSV format support
-- `src/app/windows/dialogs/itz_analysis_viewer.py` - THAMES layer format parsing
-
-**Testing Status**:
-- ✅ EffectiveModuli CSV parsing verified (9 rows parsed correctly)
-- ✅ ITZModuli CSV parsing verified (53 layers parsed correctly)
-- ⏳ User to test UI after homebrew upgrade
-
-**Known Issues**:
-- User will fix `Poissions_ratio` typo in THAMES C++ (not handled in Python)
-- Strain energy output not yet implemented in THAMES C++
-
-**Post-Session Action Required**:
-- User running `brew upgrade` after pinning packages
-- Test both THAMES and VCCTL after upgrade to verify GTK stack works
-
-**Critical Files for Next Session**:
-- EffectiveModuli Viewer: `src/app/windows/dialogs/effective_moduli_viewer.py`
-- ITZModuli Viewer: `src/app/windows/dialogs/itz_analysis_viewer.py`
-- Results Panel: `src/app/windows/panels/results_panel.py`
-- Session Summary: `docs/SESSION_17_SUMMARY.md`
 
 ---
 
 ### Session 18: Strain Energy Visualization & 3D Orientation Axes
 December 26, 2025
 
-**Context**: Implemented strain energy visualization now that THAMES C++ outputs `energy.img` files. Added orientation axes indicator to 3D viewer. Prepared for Windows migration with cross-platform analysis.
+**Key Accomplishments**:
+- 3D orientation axes indicator in corner viewport (vtkAxesActor, real-time camera sync)
+- Strain energy visualization using VTK (vtkThreshold, vtkGlyph3D, vtkLookupTable)
+- Support for THAMES `Result/energy.img` files and `#THAMES:` header prefix
+
+**Key Methods**:
+- `_create_orientation_axes_renderer()`: Axes with enlarged arrowheads, RGB colors, labels at 1.3× distance
+- `_sync_axes_camera()`: Synchronizes orientation with main camera (fixed distance 8.0)
+
+**User Feedback**: "That is as close to perfect as I think we are going to get."
+
+---
+
+### Session 19: Windows Migration - Initial Setup & UI Launch
+December 29, 2025
+
+**Platform:** Windows 10 (19045.6691)
 
 **Key Accomplishments**:
 
-1. **3D Orientation Axes Indicator** (`pyvista_3d_viewer.py`)
-   - Created separate corner viewport renderer for orientation axes
-   - Key method `_create_orientation_axes_renderer()`:
-     - Uses `vtkAxesActor` with enlarged arrowheads (cone radius 0.35, tip length 0.3)
-     - RGB colors for X/Y/Z axes with shadowed labels
-     - Labels positioned at 1.3× axis length to avoid overlapping arrowheads
-     - Camera zoomed out to 0.6 to prevent label clipping
-   - Key method `_sync_axes_camera()`:
-     - Synchronizes orientation with main camera on every render
-     - Copies camera direction vector, maintains fixed distance of 8.0
-   - Axes rotate with microstructure view in real-time
+1. **Windows Development Environment Setup**
+   - Created `thames-env-windows` using MSYS2 Python 3.12.12
+   - Enabled system site-packages for PyGObject 3.54.3, PyVista 0.36.0, SQLAlchemy 2.0.43
+   - Location: `C:\msys64\mingw64\bin\python.exe`
 
-2. **Strain Energy Visualization** (`pyvista_strain_viewer.py`)
-   - Complete rewrite to use VTK directly (main viewer uses VTK, not PyVista plotter)
-   - Updated file discovery to check `Result/energy.img` first (THAMES format)
-   - Added support for `#THAMES:` header prefix in `.img` files
-   - Visualization approach:
-     - Uses `vtkThreshold` to filter voxels above minimum energy
-     - Uses `vtkGlyph3D` with cube source for voxel visualization
-     - Uses `vtkLookupTable` for colormap (jet, viridis, coolwarm, plasma, magma)
-     - Default threshold 50% of energy range
-   - Hidden phase controls panel (irrelevant for strain energy)
+2. **Scipy Import Fix (Cross-Platform)**
+   - Made scipy import lazy (moved to method level in `micgen_input_service.py`)
+   - Benefit: Application launches without scipy, only needed for log-normal PSD mode
 
-3. **Results Panel Updates** (`results_panel.py`)
-   - Updated `_has_strain_energy()` to check `Result/energy.img` (THAMES format)
-   - Updated `_on_strain_energy_clicked()` similarly
-   - Strain Energy button now appears when `energy.img` exists
+3. **Database Migration from macOS**
+   - Copied 2.8 MB database: 45 materials, 6 tags, 16 operations
+   - From: `~/Library/Application Support/THAMES/database/thames.db` (macOS)
+   - To: `C:\Users\jwbullard\AppData\Local\THAMES\database\thames.db` (Windows)
 
-4. **Bug Fixes During Implementation**
-   - Fixed "PyVista plotter not available" - viewer uses VTK `renderer`, not `plotter`
-   - Fixed `numpy_support` import - moved outside try/except block
-   - Fixed `vtkLookupTable` import - from `vtkCommonCore` not `vtkRenderingCore`
-   - Fixed Y label clipping - camera zoom and sync distance adjustments
+4. **Platform-Specific Compatibility Fixes**
 
-**Files Modified**:
-- `src/app/visualization/pyvista_3d_viewer.py` - Orientation axes (~80 lines added)
-- `src/app/windows/dialogs/pyvista_strain_viewer.py` - VTK rewrite (~150 lines changed)
-- `src/app/windows/panels/results_panel.py` - THAMES file path support
+   **Fix 1: Unicode Arrow Encoding**
+   - Problem: Windows console cp1252 encoding, Unicode arrow `→` caused `UnicodeEncodeError`
+   - Fix: Replaced all `→` with `->` in 5 files (operations_monitoring_panel.py, elastic_lineage_service.py, pyvista_3d_viewer.py, material_dialog.py, mix_design_panel.py)
+   - Impact: Works on both platforms, ASCII arrows less decorative but cross-platform safe
 
-**Key Code Patterns**:
+   **Fix 2: GTK CSS Platform-Specific Properties**
+   - Problem: Windows GTK doesn't support `-gtk-overlay-scrolling` property
+   - Fix: Added platform check in `theme_manager.py`: `overlay_scrolling_css = "" if sys.platform == "win32" else "\n            -gtk-overlay-scrolling: false;"`
+   - Impact: Windows skips property, macOS/Linux apply as before
 
-```python
-# Orientation axes in corner viewport
-self.axes_renderer.SetViewport(0.0, 0.0, 0.20, 0.20)  # Bottom-left 20%
-self.orientation_axes.SetNormalizedLabelPosition(1.3, 1.3, 1.3)  # Labels away from tips
-self.axes_camera.Zoom(0.6)  # Zoom out to fit labels
+5. **Successful GUI Launch**
+   - Command: `thames-env-windows/bin/python src/main.py`
+   - All 6 tabs display correctly, 94 materials (45 THAMES + 49 VCCTL), 6 tags, 16 operations
+   - No encoding errors, no crashes
 
-# Camera synchronization
-def _sync_axes_camera(self):
-    direction = [fp[i] - pos[i] for i, (fp, pos) in enumerate(zip(focal, position))]
-    norm = math.sqrt(sum(d*d for d in direction))
-    direction = [d/norm for d in direction]
-    distance = 8.0  # Fixed distance for axes view
-    self.axes_camera.SetPosition([-d * distance for d in direction])
+**Testing Status**: ✓ Launch, ✓ Materials, ✓ Tags, ✓ Database, ✓ All tabs, ✓ Operations, ✓ Logging
 
-# VTK threshold filtering for strain energy
-threshold = vtkThreshold()
-threshold.SetInputData(image_data)
-threshold.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "StrainEnergy")
-threshold.SetLowerThreshold(min_val + threshold_pct * (max_val - min_val))
-```
+**Known Limitations**:
+1. Scipy not installed - use Rosin-Rammler, Fuller-Thompson, Custom, or Discrete PSD modes
+2. Backend executables not built - need `bin/thames.exe`, `bin/micgen.exe`
+3. Minor CSS warning (cosmetic only)
 
-**Testing Status**:
-- ✅ Orientation axes display and rotate correctly
-- ✅ Axis labels visible (X, Y, Z in RGB colors)
-- ✅ Arrowheads clearly visible with proper proportions
-- ✅ Strain energy visualization renders correctly
-- ✅ Min/max sliders adjust threshold properly
-- ✅ Colormap selection works
-- ✅ Phase controls hidden for strain energy viewer
+**Next Steps**: Compile C++ backend with MSYS2 MinGW, test workflow, VTK visualization
 
-**User Feedback**: "It looks great now! The only thing I'd like to change now is to remove the 'Phase controls' window just for the strain energy distribution..." → Done. "That is as close to perfect as I think we are going to get."
-
----
-
-## Windows Migration Analysis & Preparation
-
-**CRITICAL: Review this section before Windows development**
-
-### High-Risk Areas for Windows Compatibility
-
-1. **VTK/PyVista Imports** (`pyvista_3d_viewer.py`, `pyvista_strain_viewer.py`)
-   - VTK module imports may differ on Windows
-   - `vtkmodules.vtkCommonCore`, `vtkmodules.vtkRenderingCore` paths
-   - Headless rendering may require different initialization
-   - **Action**: Test VTK import chain on Windows early
-
-2. **Path Handling**
-   - `/` vs `\` path separators
-   - Use `pathlib.Path` everywhere, not string concatenation
-   - THAMES uses `Result/` subdirectory - verify Windows handles this
-   - **Files to check**: `results_panel.py`, `pyvista_strain_viewer.py`
-
-3. **subprocess Patterns**
-   - macOS: No special flags needed
-   - Windows: Requires `CREATE_NO_WINDOW` flag
-   - **Pattern**:
-   ```python
-   popen_kwargs = {'stdout': ..., 'stderr': ...}
-   if sys.platform == 'win32':
-       popen_kwargs['creationflags'] = subprocess.CREATE_NO_WINDOW
-   ```
-
-4. **GTK/Cairo Rendering**
-   - GTK3 behaves differently on Windows (MSYS2/MinGW)
-   - Cairo rendering may have different antialiasing
-   - VTK-to-GTK integration may need adjustment
-
-5. **File Header Parsing** (`pyvista_strain_viewer.py`)
-   - `#THAMES:` prefix parsing uses string slicing
-   - Line endings: `\r\n` on Windows vs `\n` on macOS
-   - **Current code handles this** with `.strip()` calls
-
-### Files Requiring Windows Testing
-
-| File | Risk | Reason |
-|------|------|--------|
-| `pyvista_3d_viewer.py` | HIGH | VTK rendering, camera sync |
-| `pyvista_strain_viewer.py` | HIGH | VTK threshold/glyph pipeline |
-| `results_panel.py` | MEDIUM | Path handling for Result/ subdirectory |
-| `effective_moduli_viewer.py` | LOW | Standard file I/O |
-| `itz_analysis_viewer.py` | LOW | Standard file I/O, matplotlib |
-
-### Pre-Windows Migration Checklist
-
-- [ ] Verify VTK installs correctly via pip on Windows
-- [ ] Test basic VTK rendering (create simple test script)
-- [ ] Verify `vtkmodules` import paths match macOS
-- [ ] Test GTK3 + VTK integration (offscreen render to GTK)
-- [ ] Check all `pathlib.Path` usage (no hardcoded `/`)
-- [ ] Verify subprocess flags for console window suppression
-- [ ] Test `.img` file reading with Windows line endings
-
-### Known Windows-Specific Issues from VCCTL
-
-1. PyGObject installation requires MSYS2/MinGW
-2. VTK may need different wheel (vtk vs vtk-osmesa)
-3. PyInstaller bundling differs significantly
-4. Console windows spawn without `CREATE_NO_WINDOW`
-
----
-
-**Critical Files for Next Session**:
-- 3D Viewer: `src/app/visualization/pyvista_3d_viewer.py`
-- Strain Viewer: `src/app/windows/dialogs/pyvista_strain_viewer.py`
-- Results Panel: `src/app/windows/panels/results_panel.py`
-- Session Summary: `docs/SESSION_18_SUMMARY.md`
+**Platform Safety**: All changes use `sys.platform == "win32"` checks, macOS unchanged, cross-platform compatible
 
 ---
 

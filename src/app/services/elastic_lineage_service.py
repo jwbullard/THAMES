@@ -3,7 +3,7 @@
 Elastic Moduli Lineage Resolution Service
 
 Handles complete lineage tracking for elastic moduli operations:
-Elastic → Hydration → Microstructure → Mix Design → Aggregate Properties
+Elastic -> Hydration -> Microstructure -> Mix Design -> Aggregate Properties
 
 Provides services for:
 - Tracing operation lineage chains
@@ -477,14 +477,14 @@ class ElasticLineageService:
                     # Ensure volume fraction is within valid range [0, 1]
                     fine_vf = max(0.0, min(1.0, fine_vf))
                     volume_fractions['fine_aggregate_volume_fraction'] = fine_vf
-                    self.logger.info(f"  → Fine VF = ({fine_mass}/{fine_density}) * {correction_factor:.6f} = {fine_vf:.4f}")
+                    self.logger.info(f"  -> Fine VF = ({fine_mass}/{fine_density}) * {correction_factor:.6f} = {fine_vf:.4f}")
 
                 if coarse_mass > 0:
                     coarse_vf = (coarse_mass / coarse_density) * correction_factor
                     # Ensure volume fraction is within valid range [0, 1]
                     coarse_vf = max(0.0, min(1.0, coarse_vf))
                     volume_fractions['coarse_aggregate_volume_fraction'] = coarse_vf
-                    self.logger.info(f"  → Coarse VF = ({coarse_mass}/{coarse_density}) * {correction_factor:.6f} = {coarse_vf:.4f}")
+                    self.logger.info(f"  -> Coarse VF = ({coarse_mass}/{coarse_density}) * {correction_factor:.6f} = {coarse_vf:.4f}")
         
         return volume_fractions
     

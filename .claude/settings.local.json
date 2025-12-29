@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(findstr:*)",
+      "Bash(gvsbuild --help:*)",
+      "Bash(dir:*)",
+      "Bash(/c/Users/jwbullard/Desktop/foo/VCCTL/venv-win-pyv/bin/python -m pip:*)",
+      "Bash(/c/msys64/mingw64/bin/python -m pip:*)",
+      "Bash(/c/msys64/mingw64/bin/python:*)",
+      "Bash(thames-env-windows/bin/python -m pip install:*)",
+      "Bash(pacman -Ss:*)",
+      "Bash(thames-env-windows/bin/python:*)",
+      "Bash(cmd.exe /c C:\\Users\\jwbullard\\THAMES\\install_scipy.bat)",
+      "Bash(sqlite3:*)",
+      "Bash(taskkill:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

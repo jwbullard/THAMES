@@ -1556,7 +1556,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                     
                     # Log significant changes
                     if running_after != running_before or (loop_iteration % 60 == 1):
-                        self.logger.info(f"Operations update: {running_before}→{running_after} running, {operations_before}→{operations_after} total")
+                        self.logger.info(f"Operations update: {running_before}->{running_after} running, {operations_before}->{operations_after} total")
                         
                         # Log details of running operations
                         for op in self.operations.values():
