@@ -27,7 +27,15 @@
       "Bash(export PATH=\"/c/msys64/mingw64/bin:$PATH\")",
       "Bash(/c/Users/jwbullard/Desktop/foo/THAMES/bin/thames.exe:*)",
       "Bash(/c/Users/jwbullard/Desktop/foo/THAMES/bin/micgen.exe:*)",
-      "Bash(ldd:*)"
+      "Bash(ldd:*)",
+      "Bash(git config:*)",
+      "Bash(cmdkey /list:*)",
+      "Bash(/c/msys64/usr/bin/pacman:*)",
+      "Bash(/c/msys64/mingw64/bin/git-lfs install)",
+      "Bash(tasklist:*)",
+      "Bash(cmake:*)",
+      "Bash(/c/msys64/mingw64/bin/mingw32-make:*)",
+      "Bash(cp:*)"
     ],
     "deny": [],
     "ask": []
