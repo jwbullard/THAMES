@@ -59,8 +59,8 @@ class MixDesign:
     
     def __post_init__(self):
         """Validate mix design data after initialization."""
-        if self.water_binder_ratio < 0 or self.water_binder_ratio > 2.0:
-            raise ValueError("Water-binder ratio must be between 0 and 2.0")
+        if self.water_binder_ratio < 0 or self.water_binder_ratio > 10000.0:
+            raise ValueError("Water-binder ratio must be between 0 and 10000.0")
         if self.air_content < 0 or self.air_content > 0.15:
             raise ValueError("Air content must be between 0 and 0.15 (volume fraction)")
 

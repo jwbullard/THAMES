@@ -318,7 +318,7 @@ class MixDesignPanel(Gtk.Box):
         wb_label.set_tooltip_text("Water/Binder ratio (Water mass / Powder mass)")
         water_grid.attach(wb_label, 0, 0, 1, 1)
         
-        self.wb_ratio_spin = Gtk.SpinButton.new_with_range(0.1, 2.0, 0.01)
+        self.wb_ratio_spin = Gtk.SpinButton.new_with_range(0.1, 10000.0, 0.01)
         self.wb_ratio_spin.set_name("wb-ratio-input")  # Test ID for Playwright
         self.wb_ratio_spin.set_digits(3)
         self.wb_ratio_spin.set_value(0.40)
@@ -331,7 +331,7 @@ class MixDesignPanel(Gtk.Box):
         water_label.set_tooltip_text("Water mass in kg (Binder = Paste = Powder + Water)")
         water_grid.attach(water_label, 0, 1, 1, 1)
         
-        self.water_content_spin = Gtk.SpinButton.new_with_range(0.0, 10000.0, 0.001)
+        self.water_content_spin = Gtk.SpinButton.new_with_range(0.0, 100000.0, 0.001)
         self.water_content_spin.set_name("water-mass-input")  # Test ID for Playwright
         self.water_content_spin.set_value(0.40)  # Default to match W/B ratio
         self.water_content_spin.set_digits(3)

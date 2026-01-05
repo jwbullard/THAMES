@@ -35,6 +35,44 @@ from app.utils.icon_utils import set_tool_button_custom_icon, create_button_with
 from app.help.panel_help_button import create_panel_help_button
 
 
+def format_simulation_time(current_hours: float, target_hours: float = None) -> str:
+    """
+    Format simulation time with appropriate units based on the target duration.
+
+    Args:
+        current_hours: Current simulation time in hours
+        target_hours: Target simulation time in hours (optional, used to determine units)
+
+    Returns:
+        Formatted string like "1.23m of 2.0m", "1.23h of 24.0h", or "1.23d of 30.0d"
+    """
+    # Use target_hours to determine units, or current_hours if target not available
+    reference_hours = target_hours if target_hours is not None else current_hours
+
+    if reference_hours < 1.0:
+        # Use minutes
+        current_min = current_hours * 60.0
+        if target_hours is not None:
+            target_min = target_hours * 60.0
+            return f"{current_min:.2f}m of {target_min:.1f}m"
+        else:
+            return f"{current_min:.2f}m"
+    elif reference_hours < 24.0:
+        # Use hours
+        if target_hours is not None:
+            return f"{current_hours:.2f}h of {target_hours:.1f}h"
+        else:
+            return f"{current_hours:.2f}h"
+    else:
+        # Use days
+        current_days = current_hours / 24.0
+        if target_hours is not None:
+            target_days = target_hours / 24.0
+            return f"{current_days:.2f}d of {target_days:.1f}d"
+        else:
+            return f"{current_days:.2f}d"
+
+
 class OperationStatus(Enum):
     """Status of operations."""
     PENDING = "pending"
@@ -2376,15 +2414,14 @@ class OperationsMonitoringPanel(Gtk.Box):
                         progress = min(1.0, current_time / target_time_hours)
                         operation.progress = progress
 
-                        # Convert to days for display
-                        current_days = current_time / 24.0
-                        target_days = target_time_hours / 24.0
+                        # Format time with appropriate units based on target duration
+                        time_str = format_simulation_time(current_time, target_time_hours)
 
                         # Update current step description with hydration-specific info
                         if progress >= 1.0:
                             operation.current_step = f"Hydration complete - Cycle {cycle}, DOH: {doh:.3f}"
                         else:
-                            operation.current_step = f"Cycle {cycle}, Time: {current_days:.2f}d of {target_days:.1f}d, DOH: {doh:.3f}"
+                            operation.current_step = f"Cycle {cycle}, Time: {time_str}, DOH: {doh:.3f}"
 
                         # Update completed steps based on progress
                         if operation.total_steps > 0:
@@ -2788,8 +2825,10 @@ class OperationsMonitoringPanel(Gtk.Box):
                             if hasattr(progress_data, 'cycle') and hasattr(progress_data, 'time_hours'):
                                 cycle = progress_data.cycle
                                 time_h = progress_data.time_hours
+                                target_h = getattr(progress_data, 'end_time_hours', None)
                                 doh = getattr(progress_data, 'degree_of_hydration', 0.0)
-                                step_text = f"Cycle {cycle}, Time: {time_h:.2f}h, DOH: {doh:.3f}"
+                                time_str = format_simulation_time(time_h, target_h)
+                                step_text = f"Cycle {cycle}, Time: {time_str}, DOH: {doh:.3f}"
                                 self.logger.info(f"DEBUG: Setting step text to: {step_text}")
                                 self.operation_step_value.set_text(step_text)
                             else:
@@ -5665,8 +5704,10 @@ class OperationsMonitoringPanel(Gtk.Box):
                         if hasattr(progress_data, 'cycle') and hasattr(progress_data, 'time_hours'):
                             cycle = progress_data.cycle
                             time_h = progress_data.time_hours
+                            target_h = getattr(progress_data, 'end_time_hours', None)
                             doh = getattr(progress_data, 'degree_of_hydration', 0.0)
-                            matching_op.current_step = f"Cycle {cycle}, Time: {time_h:.2f}h, DOH: {doh:.3f}"
+                            time_str = format_simulation_time(time_h, target_h)
+                            matching_op.current_step = f"Cycle {cycle}, Time: {time_str}, DOH: {doh:.3f}"
                         else:
                             matching_op.current_step = "Hydration simulation in progress..."
                         

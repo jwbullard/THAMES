@@ -141,8 +141,8 @@ class MixDesignCreate(BaseModel):
     """Schema for creating a new mix design."""
     name: str = Field(..., min_length=1, max_length=128)
     description: Optional[str] = Field(None, max_length=2000)
-    water_binder_ratio: float = Field(ge=0.0, le=2.0)
-    total_water_content: float = Field(ge=0.0, le=1000.0)  # kg/m³
+    water_binder_ratio: float = Field(ge=0.0, le=10000.0)
+    total_water_content: float = Field(ge=0.0, le=100000.0)  # kg
     air_content: float = Field(ge=0.0, le=20.0)  # %
     water_volume_fraction: float = Field(ge=0.0, le=1.0)
     air_volume_fraction: float = Field(ge=0.0, le=1.0)
@@ -242,8 +242,8 @@ class MixDesignUpdate(BaseModel):
     """Schema for updating an existing mix design."""
     name: Optional[str] = Field(None, min_length=1, max_length=128)
     description: Optional[str] = Field(None, max_length=2000)
-    water_binder_ratio: Optional[float] = Field(None, ge=0.0, le=2.0)
-    total_water_content: Optional[float] = Field(None, ge=0.0, le=1000.0)
+    water_binder_ratio: Optional[float] = Field(None, ge=0.0, le=10000.0)
+    total_water_content: Optional[float] = Field(None, ge=0.0, le=100000.0)
     air_content: Optional[float] = Field(None, ge=0.0, le=20.0)
     water_volume_fraction: Optional[float] = Field(None, ge=0.0, le=1.0)
     air_volume_fraction: Optional[float] = Field(None, ge=0.0, le=1.0)

@@ -444,6 +444,52 @@ December 31, 2025
 
 ---
 
+### Session 22: Git Sync Fix, W/B Ratio Limits & Progress Time Units
+January 5, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Key Accomplishments**:
+
+1. **Fixed Git Repository Sync After LFS Migration**
+   - pre-session-sync.sh failed due to rebase conflicts from Session 21's Git LFS force push
+   - Local and remote histories had diverged (28 vs 31 commits, no common ancestor)
+   - Resolved by resetting local to remote, then merging submodule changes
+   - Merged divergent thames-hydration submodule commits:
+     - `f251cb2` (Windows fixes) + `92e7efc` (linear time scaling)
+
+2. **Removed W/B Ratio and Water Content Limits**
+   - User needed W/B ratio up to 10000 for dilute suspension simulations
+   - Updated 8 locations with hard-coded limits:
+     - `mix_design_panel.py`: SpinButton ranges (W/B: 2.0→10000, Water: 10000→100000)
+     - `mix_design.py`: Pydantic models (W/B: 2.0→10000, total_water_content: 1000→100000)
+     - `mix_service.py`: Dataclass validation (W/B: 2.0→10000)
+     - `microstructure_service.py`: Config validation (W/B: 2.0→10000)
+
+3. **Adaptive Time Units for Hydration Progress Display**
+   - Problem: Short simulations (2 min) showed "Time: 0.00d of 0.0d"
+   - Created `format_simulation_time()` helper function
+   - Auto-selects units based on target simulation time:
+     - Minutes (`m`) if target < 1 hour
+     - Hours (`h`) if target < 24 hours
+     - Days (`d`) if target >= 24 hours
+   - Updated 3 locations in `operations_monitoring_panel.py`
+
+**Files Modified**:
+- `src/app/windows/panels/mix_design_panel.py` (SpinButton ranges)
+- `src/app/models/mix_design.py` (Pydantic validation limits)
+- `src/app/services/mix_service.py` (dataclass validation)
+- `src/app/services/microstructure_service.py` (config validation)
+- `src/app/windows/panels/operations_monitoring_panel.py` (time formatting)
+- `backend/thames-hydration` (submodule merge)
+
+**Example Progress Display**:
+- 2-minute sim: `"Cycle 50, Time: 1.50m of 2.0m, DOH: 0.012"`
+- 12-hour sim: `"Cycle 500, Time: 6.25h of 12.0h, DOH: 0.234"`
+- 30-day sim: `"Cycle 2000, Time: 15.50d of 30.0d, DOH: 0.678"`
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

@@ -86,8 +86,8 @@ class MicrostructureParams:
             raise ValueError("System size must be between 1 and 1000 voxels")
         if self.resolution <= 0 or self.resolution > 100:
             raise ValueError("Resolution must be between 0 and 100 micrometers")
-        if not (0 <= self.water_binder_ratio <= 2.0):
-            raise ValueError("Water-binder ratio must be between 0 and 2.0")
+        if not (0 <= self.water_binder_ratio <= 10000.0):
+            raise ValueError("Water-binder ratio must be between 0 and 10000.0")
         if not (0 <= self.aggregate_volume_fraction <= 1.0):
             raise ValueError("Aggregate volume fraction must be between 0 and 1.0")
         if not (0 <= self.air_content <= 0.2):
