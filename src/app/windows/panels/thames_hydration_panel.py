@@ -403,7 +403,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.final_time_unit_combo.append("d", "days")
         self.final_time_unit_combo.set_active_id("d")
         self.final_time_unit_combo.set_tooltip_text("Unit for final time")
-        self.final_time_unit_combo.connect("changed", self._on_time_param_changed)
+        self.final_time_unit_combo.connect("changed", self._on_final_time_unit_changed)
         final_time_box.pack_start(self.final_time_unit_combo, False, False, 0)
         content.attach(final_time_box, 1, row, 1, 1)
 
@@ -832,6 +832,15 @@ class THAMESHydrationPanel(Gtk.Box):
             return
         self._time_update_pending = True
         GLib.idle_add(self._do_time_preview_update)
+
+    def _on_final_time_unit_changed(self, widget) -> None:
+        """Handle final time unit change - sync spacing unit and update preview."""
+        # Sync linear spacing unit to match final time unit
+        new_unit_id = self.final_time_unit_combo.get_active_id()
+        if new_unit_id and hasattr(self, 'linear_spacing_unit_combo'):
+            self.linear_spacing_unit_combo.set_active_id(new_unit_id)
+        # Then update preview
+        self._on_time_param_changed(widget)
 
     def _do_time_preview_update(self) -> bool:
         """Actually perform the preview update (called from idle)."""

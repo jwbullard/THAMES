@@ -490,6 +490,100 @@ January 5, 2026
 
 ---
 
+### Session 23: Adaptive Time Stepping Analysis & Planning
+January 6, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Key Accomplishments**:
+
+1. **Fixed GEMS3K Standalone Build Issues**
+   - Removed thameslib references from GEMS3K CMakeLists.txt (was pulling in PngWriter.h → libpng dependency)
+   - Added platform auto-detection to `install.sh` (macOS/Windows/Linux)
+   - Created `strainenergy_standalone.cpp` to provide missing extern symbol for standalone builds
+
+2. **Fixed Output Time Preview Bug**
+   - Problem: Hydration Tab showed "1 ms" instead of ~100 time points for 1-minute simulation
+   - Root cause: `merge_times()` deduplication used 0.001 days (1.44 min) absolute tolerance
+   - Fix: Use 1-second absolute tolerance when comparing small times
+   - Also added unit sync: spacing unit now follows final time unit automatically
+
+3. **Deep Analysis of THAMES C++ Time Stepping Architecture**
+   - Analyzed all time-related code in `thameslib/`
+   - Found time steps are pre-generated with fixed linear increment (0.00006 hours)
+   - Identified "GODZILLA" comments flagging need for adaptive stepping
+   - Documented current failure recovery: halve timestep + random sampling (up to 1000 tries)
+
+4. **Deep Analysis of GEMS3K Solver**
+   - Analyzed Interior Point Method (IPM-3) algorithm
+   - Identified failure modes: max iterations (7000), dual divergence, singular R matrix
+   - Found accessible convergence data: `GEM_Iterations()`, `NodeStatusCH`, `pm.PCI`, `pm.DXM`
+   - Key insight: GEMS has NO built-in step rejection - failures must be handled by THAMES
+
+5. **Created Comprehensive Adaptive Time Stepping Implementation Plan**
+   - 5-phase implementation plan with detailed code specifications
+   - New `AdaptiveTimeController` class design (~400 lines)
+   - PI-like control based on GEMS iteration counts and convergence metrics
+   - Optional kinetic-based prediction module
+   - Full testing strategy and configuration options
+
+**Files Created**:
+- `docs/adaptive_timestepping_implementation_plan.md` (~700 lines)
+- `backend/thames-hydration/src/GEMS3K-standalone/GEMS3K/strainenergy_standalone.cpp`
+
+**Files Modified**:
+- `backend/thames-hydration/src/GEMS3K-standalone/GEMS3K/CMakeLists.txt`
+- `backend/thames-hydration/src/GEMS3K-standalone/install.sh`
+- `src/app/services/time_generator_service.py` (deduplication fix)
+- `src/app/windows/panels/thames_hydration_panel.py` (unit sync)
+
+**Key Technical Findings**:
+
+| GEMS Data | Access Method | Use for Adaptive Stepping |
+|-----------|---------------|---------------------------|
+| IPM iterations | `GEM_Iterations(&prec, &fia, &ipm)` | Convergence difficulty metric |
+| Convergence status | `NodeStatusCH` enum | Success/failure classification |
+| Dikin criterion | `pm.PCI` | How close to convergence |
+| Error codes | 2=max iter, 5=divergence | Failure type classification |
+
+**Next Steps (Priority)**:
+1. Implement Phase 1: Add GEMS convergence accessors to ChemicalSystem
+2. Implement Phase 2: Create AdaptiveTimeController class
+3. Implement Phase 3: Integrate into Controller::doCycle()
+
+---
+
+## PRIORITY TASKS
+
+### 1. Adaptive Time Stepping Implementation (HIGH PRIORITY)
+
+**Status:** Planning complete, ready for implementation
+
+**Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
+
+**Phases:**
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Add GEMS convergence accessors to ChemicalSystem | Not started |
+| 2 | Create AdaptiveTimeController class | Not started |
+| 3 | Integrate into Controller::doCycle() | Not started |
+| 4 | Optional kinetic prediction module | Not started |
+| 5 | Configuration and polish | Not started |
+
+**Key Files to Create:**
+- `AdaptiveTimeController.h` - Header with class definition
+- `AdaptiveTimeController.cc` - Implementation
+
+**Key Files to Modify:**
+- `ChemicalSystem.h/cc` - Add getPCI(), getDXM(), getDetailedIterations()
+- `Controller.h/cc` - Integrate adaptive controller into doCycle()
+
+### 2. Documentation and User Guide (LOWER PRIORITY)
+
+Create documentation for THAMES in the same form as VCCTL project.
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**

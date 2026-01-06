@@ -404,12 +404,17 @@ class TimeGeneratorService:
             else:
                 last_t = merged[-1]
                 # Check if this is a duplicate (within tolerance)
-                if last_t > 0:
+                # Use relative tolerance when both values are non-zero,
+                # otherwise use absolute tolerance (1 second in days)
+                abs_tolerance = 1.0 / (24 * 60 * 60)  # 1 second in days
+                if last_t > abs_tolerance and t > abs_tolerance:
                     relative_diff = abs(t - last_t) / last_t
+                    is_duplicate = relative_diff <= self.dedup_tolerance
                 else:
-                    relative_diff = abs(t - last_t)
+                    # For very small times, use absolute tolerance
+                    is_duplicate = abs(t - last_t) <= abs_tolerance
 
-                if relative_diff > self.dedup_tolerance:
+                if not is_duplicate:
                     # Not a duplicate, add it
                     merged.append(t)
                     if source == 'exact':
