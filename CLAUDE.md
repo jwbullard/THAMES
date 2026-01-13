@@ -627,11 +627,88 @@ January 7, 2026
 
 ---
 
+### Session 25: Adaptive Time Stepping Testing & Kinetics-Based Initial Timestep
+January 13, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Key Accomplishments:**
+
+1. **Adaptive Time Stepping Testing**
+   - **Result-Adaptive-01**: Failed at ~12.9 hours with GEMS MBR (Mass Balance Refinement) errors
+   - Root cause: E04IPM errors due to near-zero IC (Independent Component) moles
+   - **Fix applied**: Raised ICTHRESH from 1.0e-9 to 1.0e-8 in `global.h`
+   - **Fix applied**: Call `checkICMoles()` every cycle (not just first cycle)
+
+2. **SIA Mode Experiment (Failed)**
+   - **Result-Adaptive-02**: Tried using SIA (Smart Initial Approximation) for non-first cycles
+   - Failed earlier at ~0.031 hours with E06IPM (IPM Main Descent) errors
+   - Root cause: Large IC changes between cycles made previous solution a poor starting point
+   - **Reverted**: Back to always using AIA mode with `GEM_run(true)`
+
+3. **Successful Test Run**
+   - **Result-Adaptive-03**: Running successfully past the 12.9 hour failure point
+   - At time of session end: ~47.6 hours simulated, 248 cycles, DOH 34.7%, no GEMS errors
+   - Full 30-day simulation still in progress
+
+4. **Kinetics-Based Initial Timestep Implementation**
+   - Problem: Hard-coded 0.001h initial timestep not physics-based
+   - Solution: Set initial timestep to limit DC mole changes to 5% per timestep
+   - Formula: `dt = maxRelativeChange / maxRate` (clamped to [dt_min, dt_max])
+
+   **New Methods Added:**
+   | Class | Method | Purpose |
+   |-------|--------|---------|
+   | `KineticModel` | `estimateInitialDissolutionRate()` | Virtual base (returns 0.0) |
+   | `ParrotKillohModel` | `estimateInitialDissolutionRate()` | Uses PK rate equations at DOR=0.001 |
+   | `StandardKineticModel` | `estimateInitialDissolutionRate()` | Uses rate constant k with conservative assumptions |
+   | `PozzolanicModel` | `estimateInitialDissolutionRate()` | Similar to Standard with OH- effects |
+   | `KineticController` | `getMaxInitialDissolutionRate()` | Scans all kinetic models, returns max rate |
+   | `AdaptiveTimeController` | `setInitialTimestepFromKinetics()` | Computes physics-based initial dt |
+
+5. **Verified Microstructure Consistency Check**
+   - Confirmed existing behavior in `Controller.cc` lines 1015-1290
+   - When `lattice_->changeMicrostructure()` returns 0 (can't implement GEMS result):
+     - System resets to initial state
+     - Lower limits set on DCs based on sites that couldn't dissolve
+     - GEMS re-runs with constraints
+   - This is separate from adaptive time stepping (constrains GEMS vs reduces timestep)
+
+**Files Modified:**
+- `backend/thames-hydration/src/thameslib/KineticModel.h` (+5 lines)
+- `backend/thames-hydration/src/thameslib/ParrotKillohModel.h` (+1 line)
+- `backend/thames-hydration/src/thameslib/ParrotKillohModel.cc` (+45 lines)
+- `backend/thames-hydration/src/thameslib/StandardKineticModel.h` (+1 line)
+- `backend/thames-hydration/src/thameslib/StandardKineticModel.cc` (+30 lines)
+- `backend/thames-hydration/src/thameslib/PozzolanicModel.h` (+1 line)
+- `backend/thames-hydration/src/thameslib/PozzolanicModel.cc` (+35 lines)
+- `backend/thames-hydration/src/thameslib/KineticController.h` (+1 line)
+- `backend/thames-hydration/src/thameslib/KineticController.cc` (+15 lines)
+- `backend/thames-hydration/src/thameslib/AdaptiveTimeController.h` (+5 lines)
+- `backend/thames-hydration/src/thameslib/AdaptiveTimeController.cc` (+30 lines)
+- `backend/thames-hydration/src/thameslib/Controller.cc` (+10 lines)
+- `backend/thames-hydration/src/thameslib/global.h` (ICTHRESH: 1.0e-9 → 1.0e-8)
+- `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` (checkICMoles every cycle)
+
+**Performance Note:**
+- Adaptive time stepping is more conservative than random sampling approach
+- Current growth_factor=1.2 may be too slow; future tuning suggested
+- Potential optimizations: increase growth_factor to 1.5-2.0, reduce successes_for_growth
+
+**Test Results Summary:**
+| Test | Result | Issue |
+|------|--------|-------|
+| Result-Adaptive-01 | Failed at 12.9h | E04IPM (MBR errors) |
+| Result-Adaptive-02 | Failed at 0.031h | E06IPM (SIA mode) |
+| Result-Adaptive-03 | Running (47.6h+) | No errors |
+
+---
+
 ## PRIORITY TASKS
 
-### 1. Adaptive Time Stepping Implementation (COMPLETED - NEEDS TESTING)
+### 1. Adaptive Time Stepping Implementation (TESTING IN PROGRESS)
 
-**Status:** Implementation complete on `adaptive-timestepping` branch, awaiting testing
+**Status:** Implementation complete, testing in progress (Result-Adaptive-03 running)
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
@@ -642,8 +719,9 @@ January 7, 2026
 | 2 | Create AdaptiveTimeController class | ✅ Complete |
 | 3 | Integrate into Controller::doCycle() | ✅ Complete |
 | 3d | Remove random guessing from calculateState() | ✅ Complete |
-| 4 | Optional kinetic prediction module | Not started |
+| 4 | Kinetics-based initial timestep | ✅ Complete |
 | 5 | Configuration via simparams.json | Not started |
+| 6 | Performance tuning (growth_factor, etc.) | Future work |
 
 **Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition
