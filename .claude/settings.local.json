@@ -35,7 +35,8 @@
       "Bash(tasklist:*)",
       "Bash(cmake:*)",
       "Bash(/c/msys64/mingw64/bin/mingw32-make:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

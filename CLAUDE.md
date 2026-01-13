@@ -553,30 +553,119 @@ January 6, 2026
 
 ---
 
+### Session 24: Adaptive Time Stepping Implementation
+January 7, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Key Accomplishments**:
+
+1. **Phase 1: GEMS Convergence Accessors (ChemicalSystem)**
+   - Added `getPCI()` - Returns Dikin's criterion from GEMS solver
+   - Added `getDXM()` - Returns convergence threshold
+   - Added `getDetailedIterations()` - Returns breakdown of IPM iteration counts
+   - Added `getConvergenceRatio()` - Returns PCI/DXM ratio for quality assessment
+
+2. **Phase 2: AdaptiveTimeController Class (New Files)**
+   - Created `AdaptiveTimeController.h` (~347 lines) with:
+     - `GEMSResultType` enum (SUCCESS_EASY/NORMAL/HARD, FAILURE_STIFFNESS/STRUCTURAL/TERMINAL)
+     - `AdaptiveTimeConfig` struct with configurable parameters
+     - Full class documentation
+   - Created `AdaptiveTimeController.cc` (~275 lines) with:
+     - PI-like control algorithm based on GEMS iteration counts
+     - History tracking with moving averages
+     - Configurable growth/shrink factors (default: grow 1.2×, shrink 0.5×)
+     - Max consecutive failures limit (default: 50)
+
+3. **Phase 3: Controller Integration**
+   - Added `adaptiveTimeController_` unique_ptr member to Controller
+   - Added `useAdaptiveTimeStepping_` flag (enabled by default)
+   - On GEMS success: Records iteration count, PCI, DXM to adaptive controller
+   - On GEMS failure: Gets new smaller timestep from adaptive controller
+   - Timestep selection respects output times and final simulation time
+   - Legacy mode preserved when adaptive disabled
+
+4. **Removed Random Guessing from calculateState()**
+   - Deleted ~90 lines of random time sampling code (up to 1000 tries)
+   - Retry logic now handled entirely by doCycle() with AdaptiveTimeController
+   - Cleaner, more predictable failure recovery
+
+**Branch:** `adaptive-timestepping` (local, not pushed)
+
+**Commits on Branch:**
+| Commit | Description |
+|--------|-------------|
+| `d6ed993` | Phase 1-2: GEMS accessors + AdaptiveTimeController class |
+| `e8dfa0b` | Phase 3: Integration into Controller |
+| `b3a6b84` | Remove random guessing from calculateState() |
+
+**Files Created:**
+- `backend/thames-hydration/src/thameslib/AdaptiveTimeController.h` (~347 lines)
+- `backend/thames-hydration/src/thameslib/AdaptiveTimeController.cc` (~275 lines)
+
+**Files Modified:**
+- `backend/thames-hydration/src/thameslib/ChemicalSystem.h` (+50 lines)
+- `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` (+35 lines)
+- `backend/thames-hydration/src/thameslib/Controller.h` (+48 lines)
+- `backend/thames-hydration/src/thameslib/Controller.cc` (+125/-143 lines)
+
+**Total Changes:** +880 lines added, -143 lines removed
+
+**Testing Status:** Compiles successfully, not yet tested with simulation
+
+**Next Session:**
+1. Test adaptive time stepping with a simulation
+2. Push branch to remote: `git push -u origin adaptive-timestepping`
+3. If tests pass, merge to main
+
+**Technical Details - Dikin's Criterion:**
+- Named after I.I. Dikin (Russian mathematician, 1967)
+- Part of Interior Point Method (affine scaling algorithm)
+- PCI measures duality gap (primal vs dual solution agreement)
+- When PCI < DXM, solver has converged
+- PCI/DXM ratio indicates convergence quality (< 1.0 = good, > 100 = near failure)
+
+---
+
 ## PRIORITY TASKS
 
-### 1. Adaptive Time Stepping Implementation (HIGH PRIORITY)
+### 1. Adaptive Time Stepping Implementation (COMPLETED - NEEDS TESTING)
 
-**Status:** Planning complete, ready for implementation
+**Status:** Implementation complete on `adaptive-timestepping` branch, awaiting testing
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
 **Phases:**
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Add GEMS convergence accessors to ChemicalSystem | Not started |
-| 2 | Create AdaptiveTimeController class | Not started |
-| 3 | Integrate into Controller::doCycle() | Not started |
+| 1 | Add GEMS convergence accessors to ChemicalSystem | ✅ Complete |
+| 2 | Create AdaptiveTimeController class | ✅ Complete |
+| 3 | Integrate into Controller::doCycle() | ✅ Complete |
+| 3d | Remove random guessing from calculateState() | ✅ Complete |
 | 4 | Optional kinetic prediction module | Not started |
-| 5 | Configuration and polish | Not started |
+| 5 | Configuration via simparams.json | Not started |
 
-**Key Files to Create:**
+**Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition
 - `AdaptiveTimeController.cc` - Implementation
 
-**Key Files to Modify:**
-- `ChemicalSystem.h/cc` - Add getPCI(), getDXM(), getDetailedIterations()
-- `Controller.h/cc` - Integrate adaptive controller into doCycle()
+**Key Files Modified:**
+- `ChemicalSystem.h/cc` - Added getPCI(), getDXM(), getDetailedIterations(), getConvergenceRatio()
+- `Controller.h/cc` - Integrated adaptive controller into doCycle(), removed random guessing
+
+**To Test:**
+```bash
+# In thames-hydration submodule
+git checkout adaptive-timestepping
+
+# Run a simulation and look for log messages:
+# "AdaptiveTime: SUCCESS iter=..."
+# "AdaptiveTime: FAILURE code=..."
+# "##### Controller::doCycle - START NEW CYCLE (ADAPTIVE) ..."
+```
+
+**To Disable Adaptive Stepping (if needed):**
+In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
 ### 2. Documentation and User Guide (LOWER PRIORITY)
 
