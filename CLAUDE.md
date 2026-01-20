@@ -704,11 +704,111 @@ January 13, 2026
 
 ---
 
+### Session 26: User Manual Documentation & Simulation Analysis
+January 20, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Key Accomplishments:**
+
+1. **Created Comprehensive THAMES User Manual**
+   - Created `docs/USER_MANUAL.md` (~1,100 lines) following VCCTL documentation style
+   - 15 main sections covering all aspects of THAMES
+   - 3 detailed workflows with step-by-step instructions
+   - Troubleshooting section including GEMS solver error explanations
+   - 4 appendices: Phase reference, kinetic parameters, file formats, keyboard shortcuts
+   - Glossary with cement chemistry terminology
+
+2. **Added Screenshot Placeholders**
+   - Created `docs/images/` folder for screenshots
+   - Added 27 image placeholders throughout the User Manual
+   - Organized by section with descriptive filenames (01-main-window.png through 27-workflow3-elastic.png)
+
+3. **Result-Adaptive-04 Test Run**
+   - Created `run_adaptive_04.sh` script with proper stdin redirection and output capture
+   - Ran 10-hour simulation (345.73 simulated hours, 1,092 cycles)
+   - Exit code 0 (normal termination)
+   - Documented performance baseline for future comparison
+
+4. **Simulation Early Exit Analysis**
+   - **Issue**: Simulation stopped at 14.4 days instead of target 30 days
+   - **Root Cause**: High CO2 concentration (0.5 mol/kg) in electrolyte settings
+   - **Effect**: Portlandite never precipitated (SI ~10⁻¹³), system filled with carbonates
+   - **Termination**: Ran out of nucleation sites (45,789 requested, 45,597 available)
+
+5. **Performance Metrics Documentation**
+   - Created `Result-Adaptive-04/PERFORMANCE_SUMMARY.md` with baseline metrics
+   - Key metrics for future comparison:
+     - 33.5 seconds per cycle
+     - 34.0 simulated hours per wall hour
+     - Average timestep: 19 minutes
+     - 0 GEMS failures
+
+**Files Created:**
+- `docs/USER_MANUAL.md` (~1,100 lines)
+- `docs/images/` (folder for screenshots)
+- `Result-Adaptive-04/run_adaptive_04.sh`
+- `Result-Adaptive-04/PERFORMANCE_SUMMARY.md`
+
+**User Manual Sections:**
+1. Introduction
+2. Getting Started
+3. User Interface Overview
+4. Materials Management
+5. Mix Design
+6. Microstructure Generation
+7. Hydration Simulation
+8. Elastic Properties
+9. Operations Monitoring
+10. Results Analysis
+11. Workflows (3 examples)
+12. Troubleshooting
+13. Appendices (A-D)
+14. Glossary
+15. References
+
+**Screenshot Placeholders (27 total):**
+- Section 3: Main window, Preferences dialogs (3)
+- Section 4: Materials panel, dialog, phase editor, tags (4)
+- Section 5: Mix design, PSD configuration (2)
+- Section 6: Microstructure config, 3D view (2)
+- Section 7: Hydration panel, kinetics, electrolyte, products, time (5)
+- Section 8: Elastic panel, results (2)
+- Section 9: Operations panel, progress (2)
+- Section 10: 3D viewer (axes, slice), data plots (4)
+- Section 11: Workflow results (3)
+
+**Performance Baseline (Result-Adaptive-04):**
+| Metric | Value |
+|--------|-------|
+| Microstructure | 110 × 100 × 100 (1.1M voxels) |
+| Simulated time | 345.73 hours (14.4 days) |
+| Wall clock time | 10.16 hours |
+| Cycles | 1,092 |
+| Final DOH | 65.2% |
+| Seconds/cycle | 33.5 |
+| Avg timestep | 19 minutes |
+| GEMS failures | 0 |
+
+**CO2 Issue Analysis:**
+- Configured CO2@: 0.5 mol/kg (should be ~10⁻⁶ for normal hydration)
+- Portlandite SI: ~10⁻¹³ (extremely undersaturated)
+- pH dropped from 13.2 to 5.2 in first cycle
+- Portlandite never formed; all Ca went to carbonates and C-S-H
+
+**Next Steps:**
+1. User to capture 27 screenshots for User Manual
+2. Run more challenging adaptive time stepping test
+3. Analyze and optimize adaptive time stepping performance (growth_factor tuning)
+4. Add adaptive time stepping config to simparams.json
+
+---
+
 ## PRIORITY TASKS
 
-### 1. Adaptive Time Stepping Implementation (TESTING IN PROGRESS)
+### 1. Adaptive Time Stepping Implementation (FUNCTIONAL - TUNING NEEDED)
 
-**Status:** Implementation complete, testing in progress (Result-Adaptive-03 running)
+**Status:** Implementation complete and functional. Performance tuning needed.
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
@@ -721,7 +821,12 @@ January 13, 2026
 | 3d | Remove random guessing from calculateState() | ✅ Complete |
 | 4 | Kinetics-based initial timestep | ✅ Complete |
 | 5 | Configuration via simparams.json | Not started |
-| 6 | Performance tuning (growth_factor, etc.) | Future work |
+| 6 | Performance tuning (growth_factor, etc.) | **Next priority** |
+
+**Performance Tuning Targets:**
+- Current `growth_factor`: 1.2 (conservative) → Consider 1.5-2.0
+- Current `successes_for_growth`: 3 → Consider reducing to 2
+- Average timestep achieved: 19 minutes (could potentially be larger)
 
 **Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition
@@ -745,9 +850,18 @@ git checkout adaptive-timestepping
 **To Disable Adaptive Stepping (if needed):**
 In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
-### 2. Documentation and User Guide (LOWER PRIORITY)
+### 2. Documentation and User Guide (IN PROGRESS)
 
-Create documentation for THAMES in the same form as VCCTL project.
+**Status:** User Manual draft complete, awaiting screenshots
+
+**Completed:**
+- `docs/USER_MANUAL.md` - Comprehensive user manual (~1,100 lines)
+- `docs/images/` - Folder created for screenshots
+- 27 screenshot placeholders added to manual
+
+**Pending:**
+- User to capture 27 screenshots
+- Screenshots should be saved to `docs/images/` with filenames matching placeholders
 
 ---
 

@@ -36,7 +36,13 @@
       "Bash(cmake:*)",
       "Bash(/c/msys64/mingw64/bin/mingw32-make:*)",
       "Bash(cp:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(chmod:*)",
+      "Bash(/Users/jwbullard/Software/THAMES/bin/thames:*)",
+      "Bash(echo:*)",
+      "Bash(pkill:*)",
+      "Bash(xargs:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []
