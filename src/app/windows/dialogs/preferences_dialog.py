@@ -71,6 +71,10 @@ class PreferencesDialog(Gtk.Dialog):
         kinetic_page = KineticDefaultsTab()
         self.notebook.append_page(kinetic_page, Gtk.Label(label="Kinetic Defaults"))
 
+        # Affinity Defaults page (THAMES-specific)
+        affinity_page = AffinityDefaultsTab()
+        self.notebook.append_page(affinity_page, Gtk.Label(label="Affinity Defaults"))
+
         self.show_all()
 
     def _create_general_page(self):
@@ -705,3 +709,616 @@ class KineticDefaultsTab(Gtk.Box):
         dialog.format_secondary_text(message)
         dialog.run()
         dialog.destroy()
+
+
+class AffinityDefaultsTab(Gtk.Box):
+    """Tab for managing user-defined interface affinity defaults for GEM phases."""
+
+    def __init__(self):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+
+        self.logger = logging.getLogger('THAMES.AffinityDefaultsTab')
+
+        # Services
+        self._init_services()
+
+        # Build UI
+        self._setup_ui()
+
+        # Load phase data
+        self._load_phases()
+
+    def _init_services(self) -> None:
+        """Initialize required services."""
+        try:
+            from app.services.affinity_preferences_service import get_affinity_preferences_service
+            from app.services.kinetic_defaults_service import get_kinetic_defaults_service
+            from app.services.gems_parser_service import GEMSParserService
+
+            self.prefs_service = get_affinity_preferences_service()
+            self.defaults_service = get_kinetic_defaults_service()
+
+            # Get GEMS parser for phase list
+            gems_dir = Path(__file__).parent.parent.parent.parent / "data" / "gems"
+            self.gems_parser = GEMSParserService(gems_dir)
+
+        except Exception as e:
+            self.logger.error(f"Error initializing services: {e}")
+            self.prefs_service = None
+            self.defaults_service = None
+            self.gems_parser = None
+
+    def _setup_ui(self) -> None:
+        """Set up the tab UI."""
+        self.set_margin_start(10)
+        self.set_margin_end(10)
+        self.set_margin_top(10)
+        self.set_margin_bottom(10)
+
+        # Header with description
+        header_label = Gtk.Label()
+        header_label.set_markup(
+            "<b>Interface Affinity Defaults for GEM Phases</b>\n"
+            "<small>Configure contact angles for phase nucleation preferences. "
+            "0° = high affinity, 180° = no affinity.</small>"
+        )
+        header_label.set_halign(Gtk.Align.START)
+        header_label.set_line_wrap(True)
+        self.pack_start(header_label, False, False, 0)
+
+        # Filter controls
+        filter_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.pack_start(filter_box, False, False, 5)
+
+        # Search entry
+        search_label = Gtk.Label(label="Search:")
+        filter_box.pack_start(search_label, False, False, 0)
+
+        self.search_entry = Gtk.Entry()
+        self.search_entry.set_placeholder_text("Filter phases...")
+        self.search_entry.connect('changed', self._on_search_changed)
+        filter_box.pack_start(self.search_entry, True, True, 0)
+
+        # Filter dropdown
+        filter_label = Gtk.Label(label="Show:")
+        filter_box.pack_start(filter_label, False, False, 10)
+
+        self.filter_combo = Gtk.ComboBoxText()
+        self.filter_combo.append("all", "All Phases")
+        self.filter_combo.append("with_affinity", "Phases with Affinity")
+        self.filter_combo.append("user_defined", "User-Defined Only")
+        self.filter_combo.set_active_id("all")
+        self.filter_combo.connect('changed', self._on_filter_changed)
+        filter_box.pack_start(self.filter_combo, False, False, 0)
+
+        # Phase list
+        self._create_phase_list()
+
+        # Button bar
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        button_box.set_halign(Gtk.Align.END)
+        self.pack_start(button_box, False, False, 5)
+
+        # Edit button
+        self.edit_button = Gtk.Button(label="Edit Affinities...")
+        self.edit_button.connect('clicked', self._on_edit_clicked)
+        self.edit_button.set_sensitive(False)
+        button_box.pack_start(self.edit_button, False, False, 0)
+
+        # Reset to built-in button
+        self.reset_button = Gtk.Button(label="Reset to Built-in")
+        self.reset_button.connect('clicked', self._on_reset_clicked)
+        self.reset_button.set_sensitive(False)
+        button_box.pack_start(self.reset_button, False, False, 0)
+
+        # Export/Import buttons
+        export_button = Gtk.Button(label="Export...")
+        export_button.connect('clicked', self._on_export_clicked)
+        button_box.pack_start(export_button, False, False, 20)
+
+        import_button = Gtk.Button(label="Import...")
+        import_button.connect('clicked', self._on_import_clicked)
+        button_box.pack_start(import_button, False, False, 0)
+
+    def _create_phase_list(self) -> None:
+        """Create the phase list TreeView."""
+        # ScrolledWindow for the list
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+        self.pack_start(scrolled, True, True, 0)
+
+        # ListStore: phase_name, affinity_count, source, is_user_defined
+        self.phase_store = Gtk.ListStore(str, str, str, bool)
+
+        # Filter model
+        self.filter_model = self.phase_store.filter_new()
+        self.filter_model.set_visible_func(self._filter_visible_func)
+
+        # TreeView
+        self.phase_tree = Gtk.TreeView(model=self.filter_model)
+        self.phase_tree.set_headers_visible(True)
+        self.phase_tree.get_selection().set_mode(Gtk.SelectionMode.SINGLE)
+        self.phase_tree.get_selection().connect('changed', self._on_selection_changed)
+        self.phase_tree.connect('row-activated', self._on_row_activated)
+        scrolled.add(self.phase_tree)
+
+        # Column: Phase Name
+        renderer_name = Gtk.CellRendererText()
+        column_name = Gtk.TreeViewColumn("Phase Name", renderer_name, text=0)
+        column_name.set_sort_column_id(0)
+        column_name.set_resizable(True)
+        column_name.set_min_width(200)
+        self.phase_tree.append_column(column_name)
+
+        # Column: Affinity Count
+        renderer_count = Gtk.CellRendererText()
+        column_count = Gtk.TreeViewColumn("Affinities", renderer_count, text=1)
+        column_count.set_sort_column_id(1)
+        column_count.set_resizable(True)
+        column_count.set_min_width(100)
+        self.phase_tree.append_column(column_count)
+
+        # Column: Source (Built-in / User-Defined)
+        renderer_source = Gtk.CellRendererText()
+        column_source = Gtk.TreeViewColumn("Source", renderer_source, text=2)
+        column_source.set_sort_column_id(2)
+        column_source.set_resizable(True)
+        column_source.set_min_width(120)
+        self.phase_tree.append_column(column_source)
+
+    def _load_phases(self) -> None:
+        """Load all GEM phases into the list."""
+        if not self.gems_parser:
+            self.logger.error("GEMS parser not available")
+            return
+
+        self.phase_store.clear()
+
+        try:
+            phases = self.gems_parser.get_all_phases()
+
+            for phase in phases:
+                phase_name = phase.name
+
+                # Skip Electrolyte (aqueous phase) - no affinities applicable
+                if phase_name in ['Electrolyte', 'aq_gen', 'Das']:
+                    continue
+
+                # Get affinity data and source
+                has_user_default = self.prefs_service.has_user_default(phase_name)
+                builtin_affinity = self.defaults_service.INTERFACE_AFFINITY_DEFAULTS.get(phase_name)
+
+                if has_user_default:
+                    user_affinity = self.prefs_service.get_user_default(phase_name)
+                    count = len(user_affinity) if user_affinity else 0
+                    source = "User-Defined"
+                elif builtin_affinity:
+                    count = len(builtin_affinity)
+                    source = "Built-in"
+                else:
+                    count = 0
+                    source = "-"
+
+                count_display = str(count) if count > 0 else "None"
+
+                self.phase_store.append([phase_name, count_display, source, has_user_default])
+
+            self.logger.info(f"Loaded {len(self.phase_store)} phases for affinity settings")
+
+        except Exception as e:
+            self.logger.error(f"Error loading phases: {e}")
+
+    def _filter_visible_func(self, model, iter, data) -> bool:
+        """Filter function for the phase list."""
+        phase_name = model[iter][0]
+        affinity_count = model[iter][1]
+        is_user_defined = model[iter][3]
+
+        # Search filter
+        search_text = self.search_entry.get_text().lower()
+        if search_text and search_text not in phase_name.lower():
+            return False
+
+        # Category filter
+        filter_id = self.filter_combo.get_active_id()
+        if filter_id == "with_affinity":
+            return affinity_count != "None"
+        elif filter_id == "user_defined":
+            return is_user_defined
+
+        return True
+
+    def _on_search_changed(self, entry) -> None:
+        """Handle search entry change."""
+        self.filter_model.refilter()
+
+    def _on_filter_changed(self, combo) -> None:
+        """Handle filter combo change."""
+        self.filter_model.refilter()
+
+    def _on_selection_changed(self, selection) -> None:
+        """Handle tree selection change."""
+        model, tree_iter = selection.get_selected()
+        has_selection = tree_iter is not None
+
+        self.edit_button.set_sensitive(has_selection)
+
+        # Reset button only enabled for user-defined phases
+        if has_selection:
+            is_user_defined = model[tree_iter][3]
+            self.reset_button.set_sensitive(is_user_defined)
+        else:
+            self.reset_button.set_sensitive(False)
+
+    def _on_row_activated(self, tree, path, column) -> None:
+        """Handle double-click on row."""
+        self._on_edit_clicked(None)
+
+    def _on_edit_clicked(self, button) -> None:
+        """Handle Edit Affinities button click."""
+        selection = self.phase_tree.get_selection()
+        model, tree_iter = selection.get_selected()
+
+        if not tree_iter:
+            return
+
+        # Get the underlying store iter (not filter iter)
+        filter_path = model.get_path(tree_iter)
+        store_path = self.filter_model.convert_path_to_child_path(filter_path)
+        store_iter = self.phase_store.get_iter(store_path)
+
+        phase_name = self.phase_store[store_iter][0]
+
+        self.logger.info(f"Editing affinities for {phase_name}")
+
+        # Get current affinities (user or built-in)
+        current_affinities = None
+        if self.prefs_service.has_user_default(phase_name):
+            current_affinities = self.prefs_service.get_user_default(phase_name)
+        else:
+            current_affinities = self.defaults_service.INTERFACE_AFFINITY_DEFAULTS.get(phase_name)
+
+        # Get list of all available phases for the affinity dropdown
+        all_phases = [p.name for p in self.gems_parser.get_all_phases()
+                      if p.name not in ['Electrolyte', 'aq_gen', 'Das']]
+
+        # Open the affinity editor dialog
+        dialog = AffinityEditorDialog(
+            parent=self.get_toplevel(),
+            phase_name=phase_name,
+            current_affinities=current_affinities,
+            available_phases=all_phases
+        )
+
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            new_affinities = dialog.get_affinities()
+            if new_affinities:
+                self.prefs_service.set_user_default(phase_name, new_affinities)
+            else:
+                # Empty list means remove all affinities
+                self.prefs_service.set_user_default(phase_name, [])
+
+            # Refresh the list
+            self._refresh_phase(store_iter, phase_name)
+
+        dialog.destroy()
+
+    def _on_reset_clicked(self, button) -> None:
+        """Handle Reset to Built-in button click."""
+        selection = self.phase_tree.get_selection()
+        model, tree_iter = selection.get_selected()
+
+        if not tree_iter:
+            return
+
+        # Get the underlying store iter
+        filter_path = model.get_path(tree_iter)
+        store_path = self.filter_model.convert_path_to_child_path(filter_path)
+        store_iter = self.phase_store.get_iter(store_path)
+
+        phase_name = self.phase_store[store_iter][0]
+
+        # Confirm reset
+        dialog = Gtk.MessageDialog(
+            transient_for=self.get_toplevel(),
+            flags=0,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text=f"Reset {phase_name} to built-in default?"
+        )
+        dialog.format_secondary_text(
+            "This will remove your custom affinity settings for this phase."
+        )
+
+        response = dialog.run()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.YES:
+            self.prefs_service.remove_user_default(phase_name)
+            self._refresh_phase(store_iter, phase_name)
+            self.reset_button.set_sensitive(False)
+
+    def _refresh_phase(self, store_iter, phase_name: str) -> None:
+        """Refresh a single phase row after editing."""
+        has_user_default = self.prefs_service.has_user_default(phase_name)
+        builtin_affinity = self.defaults_service.INTERFACE_AFFINITY_DEFAULTS.get(phase_name)
+
+        if has_user_default:
+            user_affinity = self.prefs_service.get_user_default(phase_name)
+            count = len(user_affinity) if user_affinity else 0
+            source = "User-Defined"
+        elif builtin_affinity:
+            count = len(builtin_affinity)
+            source = "Built-in"
+        else:
+            count = 0
+            source = "-"
+
+        count_display = str(count) if count > 0 else "None"
+
+        self.phase_store[store_iter] = [phase_name, count_display, source, has_user_default]
+
+    def _on_export_clicked(self, button) -> None:
+        """Handle Export button click."""
+        dialog = Gtk.FileChooserDialog(
+            title="Export Affinity Preferences",
+            parent=self.get_toplevel(),
+            action=Gtk.FileChooserAction.SAVE
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_SAVE, Gtk.ResponseType.OK
+        )
+        dialog.set_do_overwrite_confirmation(True)
+        dialog.set_current_name("affinity_defaults.json")
+
+        # Add JSON filter
+        filter_json = Gtk.FileFilter()
+        filter_json.set_name("JSON files")
+        filter_json.add_pattern("*.json")
+        dialog.add_filter(filter_json)
+
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            export_path = Path(dialog.get_filename())
+            if self.prefs_service.export_to_file(export_path):
+                self._show_info(f"Exported preferences to:\n{export_path}")
+            else:
+                self._show_error("Failed to export preferences")
+
+        dialog.destroy()
+
+    def _on_import_clicked(self, button) -> None:
+        """Handle Import button click."""
+        dialog = Gtk.FileChooserDialog(
+            title="Import Affinity Preferences",
+            parent=self.get_toplevel(),
+            action=Gtk.FileChooserAction.OPEN
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OPEN, Gtk.ResponseType.OK
+        )
+
+        # Add JSON filter
+        filter_json = Gtk.FileFilter()
+        filter_json.set_name("JSON files")
+        filter_json.add_pattern("*.json")
+        dialog.add_filter(filter_json)
+
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            import_path = Path(dialog.get_filename())
+
+            # Ask about merge vs replace
+            merge_dialog = Gtk.MessageDialog(
+                transient_for=self.get_toplevel(),
+                flags=0,
+                message_type=Gtk.MessageType.QUESTION,
+                buttons=Gtk.ButtonsType.NONE,
+                text="How should imported settings be applied?"
+            )
+            merge_dialog.add_button("Merge with Existing", 1)
+            merge_dialog.add_button("Replace All", 2)
+            merge_dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+
+            merge_response = merge_dialog.run()
+            merge_dialog.destroy()
+
+            if merge_response in [1, 2]:
+                merge = (merge_response == 1)
+                if self.prefs_service.import_from_file(import_path, merge=merge):
+                    self._load_phases()  # Reload all
+                    self._show_info(f"Imported preferences from:\n{import_path}")
+                else:
+                    self._show_error("Failed to import preferences")
+
+        dialog.destroy()
+
+    def _show_error(self, message: str) -> None:
+        """Show an error dialog."""
+        dialog = Gtk.MessageDialog(
+            transient_for=self.get_toplevel(),
+            flags=0,
+            message_type=Gtk.MessageType.ERROR,
+            buttons=Gtk.ButtonsType.OK,
+            text="Error"
+        )
+        dialog.format_secondary_text(message)
+        dialog.run()
+        dialog.destroy()
+
+    def _show_info(self, message: str) -> None:
+        """Show an info dialog."""
+        dialog = Gtk.MessageDialog(
+            transient_for=self.get_toplevel(),
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="Success"
+        )
+        dialog.format_secondary_text(message)
+        dialog.run()
+        dialog.destroy()
+
+
+class AffinityEditorDialog(Gtk.Dialog):
+    """Dialog for editing interface affinities for a single phase."""
+
+    def __init__(
+        self,
+        parent: Gtk.Window,
+        phase_name: str,
+        current_affinities: Optional[List[Dict[str, Any]]],
+        available_phases: List[str]
+    ):
+        """
+        Initialize the dialog.
+
+        Args:
+            parent: Parent window
+            phase_name: GEM phase name being edited
+            current_affinities: Current affinity list (or None)
+            available_phases: List of all available phase names for the dropdown
+        """
+        super().__init__(
+            title=f"Edit Affinities: {phase_name}",
+            transient_for=parent,
+            flags=0
+        )
+
+        self.phase_name = phase_name
+        self.available_phases = available_phases
+        self.logger = logging.getLogger('THAMES.AffinityEditorDialog')
+
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        self.add_button("OK", Gtk.ResponseType.OK)
+
+        self.set_default_size(500, 400)
+
+        # Content area
+        content = self.get_content_area()
+        content.set_margin_start(15)
+        content.set_margin_end(15)
+        content.set_margin_top(15)
+        content.set_margin_bottom(15)
+        content.set_spacing(10)
+
+        # Phase name header
+        header = Gtk.Label()
+        header.set_markup(
+            f"<b>Phase: {phase_name}</b>\n"
+            "<small>Configure which phases this one prefers to nucleate on.</small>"
+        )
+        header.set_halign(Gtk.Align.START)
+        header.set_line_wrap(True)
+        content.pack_start(header, False, False, 0)
+
+        # Affinity list in scrolled window
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+
+        # ListStore: affinity_phase, contact_angle
+        self.store = Gtk.ListStore(str, float)
+
+        self.treeview = Gtk.TreeView(model=self.store)
+        self.treeview.set_headers_visible(True)
+        scrolled.add(self.treeview)
+        content.pack_start(scrolled, True, True, 0)
+
+        # Column 1: Affinity Phase (editable combo)
+        renderer_phase = Gtk.CellRendererCombo()
+        phase_store = Gtk.ListStore(str)
+        for p in available_phases:
+            phase_store.append([p])
+        renderer_phase.set_property('model', phase_store)
+        renderer_phase.set_property('text-column', 0)
+        renderer_phase.set_property('editable', True)
+        renderer_phase.connect('edited', self._on_phase_edited)
+        column_phase = Gtk.TreeViewColumn("Substrate Phase", renderer_phase, text=0)
+        column_phase.set_expand(True)
+        column_phase.set_min_width(200)
+        self.treeview.append_column(column_phase)
+
+        # Column 2: Contact Angle (editable spin)
+        renderer_angle = Gtk.CellRendererSpin()
+        adjustment = Gtk.Adjustment(value=90, lower=0, upper=180, step_increment=5, page_increment=30)
+        renderer_angle.set_property('adjustment', adjustment)
+        renderer_angle.set_property('editable', True)
+        renderer_angle.set_property('digits', 0)
+        renderer_angle.connect('edited', self._on_angle_edited)
+        column_angle = Gtk.TreeViewColumn("Contact Angle (°)", renderer_angle, text=1)
+        column_angle.set_min_width(120)
+        self.treeview.append_column(column_angle)
+
+        # Add/Remove buttons
+        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        content.pack_start(button_box, False, False, 0)
+
+        add_button = Gtk.Button(label="Add Affinity")
+        add_button.connect('clicked', self._on_add_clicked)
+        button_box.pack_start(add_button, False, False, 0)
+
+        remove_button = Gtk.Button(label="Remove Selected")
+        remove_button.connect('clicked', self._on_remove_clicked)
+        button_box.pack_start(remove_button, False, False, 0)
+
+        # Load current affinities
+        if current_affinities:
+            for aff in current_affinities:
+                self.store.append([
+                    aff.get('affinityphase', ''),
+                    float(aff.get('contactanglevalue', 90))
+                ])
+
+        self.show_all()
+
+    def _on_phase_edited(self, renderer, path, new_text) -> None:
+        """Handle phase name edit."""
+        self.store[path][0] = new_text
+
+    def _on_angle_edited(self, renderer, path, new_text) -> None:
+        """Handle contact angle edit."""
+        try:
+            angle = float(new_text)
+            angle = max(0, min(180, angle))  # Clamp to valid range
+            self.store[path][1] = angle
+        except ValueError:
+            pass
+
+    def _on_add_clicked(self, button) -> None:
+        """Add a new affinity entry."""
+        # Default to first available phase and 90 degrees
+        default_phase = self.available_phases[0] if self.available_phases else ""
+        self.store.append([default_phase, 90.0])
+
+    def _on_remove_clicked(self, button) -> None:
+        """Remove selected affinity entry."""
+        selection = self.treeview.get_selection()
+        model, tree_iter = selection.get_selected()
+        if tree_iter:
+            self.store.remove(tree_iter)
+
+    def get_affinities(self) -> List[Dict[str, Any]]:
+        """
+        Get the edited affinities.
+
+        Returns:
+            List of affinity dicts with 'affinityphase' and 'contactanglevalue'
+        """
+        affinities = []
+        for row in self.store:
+            phase = row[0]
+            angle = row[1]
+            if phase:  # Skip empty entries
+                affinities.append({
+                    'affinityphase': phase,
+                    'contactanglevalue': int(angle)
+                })
+        return affinities

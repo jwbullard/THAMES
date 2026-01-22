@@ -570,21 +570,47 @@ class KineticDefaultsService:
         Get default kinetic parameters for a phase.
 
         Checks user preferences first, then falls back to built-in defaults.
+        If user has explicitly set "Thermodynamic", returns None and does NOT
+        fall back to built-in defaults.
 
         Args:
             phase_name: GEMS phase name (e.g., 'Alite', 'Gypsum', 'Quartz')
 
         Returns:
             Kinetic parameters instance, or None if phase has no kinetic model
-            (e.g., hydration products, electrolyte)
+            (e.g., hydration products, electrolyte, or explicit Thermodynamic preference)
         """
-        # Check user preferences first
+        # Check if user has explicitly set Thermodynamic - this takes precedence
+        if self._user_set_thermodynamic(phase_name):
+            self.logger.debug(f"Phase {phase_name}: user preference is Thermodynamic, no kinetics")
+            return None
+
+        # Check user preferences for non-Thermodynamic kinetics
         user_kinetics = self._get_user_kinetics(phase_name)
         if user_kinetics is not None:
             return user_kinetics
 
         # Fall back to built-in defaults
         return self._get_builtin_kinetics(phase_name)
+
+    def _user_set_thermodynamic(self, phase_name: str) -> bool:
+        """Check if user explicitly set this phase to Thermodynamic (no kinetics).
+
+        Args:
+            phase_name: GEMS phase name
+
+        Returns:
+            True if user has explicitly set Thermodynamic preference
+        """
+        try:
+            from app.services.kinetic_preferences_service import get_kinetic_preferences_service
+            prefs_service = get_kinetic_preferences_service()
+            user_default = prefs_service.get_user_default(phase_name)
+            if user_default is not None:
+                return user_default.get('type') == 'Thermodynamic'
+        except Exception:
+            pass
+        return False
 
     def _get_builtin_kinetics(self, phase_name: str) -> Optional[KineticParameters]:
         """Get built-in kinetic defaults (without checking user preferences)."""
@@ -738,13 +764,81 @@ class KineticDefaultsService:
         """
         Get interface affinity data for a phase.
 
+        Checks user preferences first, then falls back to built-in defaults.
+
         Args:
             phase_name: GEMS phase name
 
         Returns:
             List of affinity dicts, or None if not defined
         """
+        # Check user preferences first
+        user_affinity = self._get_user_affinity(phase_name)
+        if user_affinity is not None:
+            return user_affinity
+
+        # Fall back to built-in defaults
         return self.INTERFACE_AFFINITY_DEFAULTS.get(phase_name)
+
+    def _get_user_affinity(self, phase_name: str) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get user-defined affinity defaults for a phase.
+
+        Args:
+            phase_name: GEMS phase name
+
+        Returns:
+            List of affinity dicts if user has defined defaults, None otherwise
+        """
+        try:
+            from app.services.affinity_preferences_service import get_affinity_preferences_service
+            prefs_service = get_affinity_preferences_service()
+            return prefs_service.get_user_default(phase_name)
+        except Exception as e:
+            self.logger.warning(f"Error loading user affinities for {phase_name}: {e}")
+            return None
+
+    def get_affinity_with_override(
+        self,
+        phase_name: str,
+        override: Optional[List[Dict[str, Any]]]
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get affinity data with optional override.
+
+        If override is provided, it completely replaces any defaults/preferences.
+        If override is an empty list, returns empty list (explicit no affinities).
+        If override is None, returns defaults/preferences.
+
+        Args:
+            phase_name: GEMS phase name
+            override: Optional list of affinity dicts to override
+
+        Returns:
+            List of affinity dicts (may be empty), or None
+        """
+        # If explicit override is provided, use it (even if empty list)
+        if override is not None:
+            return override
+
+        # Otherwise use defaults (which checks user preferences first)
+        return self.get_interface_affinity(phase_name)
+
+    def has_affinity_user_override(self, phase_name: str) -> bool:
+        """
+        Check if a phase has a user-defined affinity default.
+
+        Args:
+            phase_name: GEMS phase name
+
+        Returns:
+            True if user has defined affinities for this phase
+        """
+        try:
+            from app.services.affinity_preferences_service import get_affinity_preferences_service
+            return get_affinity_preferences_service().has_user_default(phase_name)
+        except Exception:
+            return False
 
     def is_cement_component(self, phase_name: str) -> bool:
         """
@@ -793,6 +887,9 @@ class KineticDefaultsService:
         """
         Get kinetic parameters with user overrides applied.
 
+        If the override specifies 'type': 'Thermodynamic', returns None immediately
+        (this allows users to explicitly disable kinetics even if defaults exist).
+
         If the phase has default kinetics, overlays the override on top.
         If the phase has NO default kinetics but the override specifies a 'type',
         creates kinetics from scratch using the override values (allowing users
@@ -805,6 +902,13 @@ class KineticDefaultsService:
         Returns:
             Kinetic parameters with overrides applied, or None if no kinetics
         """
+        # Check for explicit Thermodynamic override FIRST - this takes precedence
+        # over any defaults or user preferences
+        kinetic_type = override.get('type')
+        if kinetic_type == 'Thermodynamic':
+            self.logger.debug(f"Phase {phase_name}: explicit Thermodynamic override, no kinetics")
+            return None
+
         defaults = self.get_kinetics_for_phase(phase_name)
 
         if defaults is not None:

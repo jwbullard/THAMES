@@ -804,6 +804,79 @@ January 20, 2026
 
 ---
 
+### Session 27: Carbonation Testing, Timestep Tuning & Sub-Minute Output Files
+January 22, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Context:** User testing carbonation simulations (CalThermoHet series) with Portlandite dissolving and Calcite precipitating in CO2-rich environment.
+
+**Key Accomplishments:**
+
+1. **Carbonation Simulation Debugging (CalThermoHet-10)**
+   - User tested with 10× higher Portlandite dissolution rate constant (4e-5 → 4e-4)
+   - Caused numerical instability: Portlandite SI overshot equilibrium (reached 5.5, then 8)
+   - GEMS failed 50+ consecutive times; simulation terminated at 130 seconds instead of 600
+   - **Root cause**: High rate constant made system too "stiff" for the timestep
+
+2. **Saturation Index Interpretation Correction**
+   - Clarified SI semantics: SI = 1 at equilibrium, SI < 1 undersaturated, SI > 1 supersaturated
+   - SI = 0 means infinitely undersaturated (pure water), NOT equilibrium
+
+3. **Smaller Minimum Timestep Implementation**
+   - Modified `Controller.cc` to use smaller timesteps for stiff systems:
+     - `stepTimeTHR_`: 1e-3 → 1e-5 hours (minimum timestep now 0.036 seconds)
+     - `dt_initial` default: 0.001 → 0.0001 hours (~0.36 seconds)
+     - `maxRelativeChange`: 5% → 2% (more conservative for high driving forces)
+
+4. **Sub-Minute Output Filename Bug Fix**
+   - **Problem**: User set 0.3-minute (18-second) output spacing, expected ~35 images, got only 11
+   - **Root cause**: `getTimeString()` only used minutes in filename, rounding to nearest minute
+   - Multiple output times (0.0, 0.3, 0.6 min) all mapped to same filename `00h00m`, overwriting each other
+   - **Solution**: Added seconds to filename when non-zero
+   - New filename format: `000y000d00h00m18s.298K.img` (seconds appended only when > 0)
+   - Backward compatible: files without seconds still work
+
+5. **Python Regex Updates for New Filename Format**
+   - Updated `elastic_lineage_service.py`: Pattern now handles optional `(?:(\d{2})s)?` suffix
+   - Updated `hydration_results_viewer.py`: Pattern and time calculation include seconds
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule):*
+- `src/thameslib/Controller.cc`:
+  - `getTimeString()`: Added seconds to filename when > 0
+  - Removed unused variables from old rounding logic
+  - Timestep parameters: smaller minimum and initial timesteps
+
+*Python (main repo):*
+- `src/app/services/elastic_lineage_service.py`: Updated THAMES filename regex and time parsing
+- `src/app/windows/dialogs/hydration_results_viewer.py`: Updated THAMES filename regex and time parsing
+
+**Technical Details - Filename Format:**
+
+| Time (minutes) | Old Filename | New Filename |
+|----------------|--------------|--------------|
+| 0.0 | `00h00m` | `00h00m` |
+| 0.3 (18 sec) | `00h00m` (collision!) | `00h00m18s` |
+| 0.6 (36 sec) | `00h01m` (rounded) | `00h00m36s` |
+| 0.9 (54 sec) | `00h01m` (collision!) | `00h00m54s` |
+| 1.2 (72 sec) | `00h01m` (collision!) | `00h01m12s` |
+
+**Test Simulations:**
+| Test | Config | Result |
+|------|--------|--------|
+| CalThermoHet-10 | 10× rate constant | Failed - SI overshoot, 50+ GEMS failures |
+| CalThermoHet-11 | 3× rate constant | Ran 17,790 cycles, only 11 images (filename collision bug) |
+| CalThermoHet-11 (after fix) | Pending | User to test with sub-minute output intervals |
+
+**Next Steps:**
+1. User to test CalThermoHet with sub-minute output intervals
+2. Verify all 35 output images are created with unique filenames
+3. Continue carbonation kinetics tuning
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (FUNCTIONAL - TUNING NEEDED)

@@ -503,12 +503,18 @@ class HydrationProductSelectorWidget(Gtk.Box):
         self.store.set_value(category_iter, 0, all_selected)
 
     def _init_product_configuration(self, gems_name: str):
-        """Initialize default configuration for a product."""
+        """Initialize default configuration for a product.
+
+        Checks user affinity preferences first, then falls back to built-in defaults.
+        """
         data = self.service.get_product_data(gems_name)
+
+        # Check user affinity preferences first
+        affinity = self._get_affinity_with_user_prefs(gems_name, data)
 
         config = {
             'gems_name': gems_name,
-            'affinity': list(data.default_affinity) if data else [],
+            'affinity': affinity,
         }
 
         # Add C-S-H special data if applicable
@@ -518,6 +524,33 @@ class HydrationProductSelectorWidget(Gtk.Box):
             config['rd_values'] = list(data.rd_values)
 
         self.product_configurations[gems_name] = config
+
+    def _get_affinity_with_user_prefs(self, gems_name: str, data) -> List[Dict[str, Any]]:
+        """Get affinity data, checking user preferences first.
+
+        Args:
+            gems_name: GEM phase name
+            data: HydrationProduct data from service (may be None)
+
+        Returns:
+            List of affinity dicts
+        """
+        try:
+            from app.services.affinity_preferences_service import get_affinity_preferences_service
+            prefs_service = get_affinity_preferences_service()
+
+            # Check user preferences first
+            user_affinity = prefs_service.get_user_default(gems_name)
+            if user_affinity is not None:
+                return list(user_affinity)
+        except Exception as e:
+            self.logger.debug(f"Could not load affinity preferences for {gems_name}: {e}")
+
+        # Fall back to built-in defaults
+        if data and data.default_affinity:
+            return list(data.default_affinity)
+
+        return []
 
     def _on_row_activated(self, treeview, path, column):
         """Handle double-click on a row - opens combined phase configuration dialog."""
@@ -922,16 +955,19 @@ class HydrationProductSelectorWidget(Gtk.Box):
 
     def remove_kinetic_configuration(self, gems_name: str) -> None:
         """
-        Remove kinetic configuration for a phase (set to thermodynamic control).
+        Set a phase to thermodynamic control (no kinetic model).
+
+        This explicitly stores {"type": "Thermodynamic"} rather than deleting
+        the entry, so that user preferences are properly overridden.
 
         Args:
             gems_name: GEMS phase name
         """
-        if gems_name in self.kinetic_configurations:
-            del self.kinetic_configurations[gems_name]
+        # Store explicit Thermodynamic type to override any user preferences
+        self.kinetic_configurations[gems_name] = {"type": "Thermodynamic"}
         # Update the TreeStore to show "Thermodynamic"
         self._update_kinetic_type_in_store(gems_name, "Thermodynamic")
-        self.logger.debug(f"Removed kinetics for {gems_name}")
+        self.logger.debug(f"Set kinetics for {gems_name} to Thermodynamic (no kinetic model)")
 
     def _update_kinetic_type_in_store(self, gems_name: str, kinetic_type: str) -> None:
         """Update the kinetic type display in the TreeStore for a phase."""

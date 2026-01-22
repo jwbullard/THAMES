@@ -489,9 +489,10 @@ class HydrationResultsViewer(Gtk.Dialog):
             all_img_files = list(search_path.glob("*.img"))
             self.logger.info(f"Found {len(all_img_files)} .img files in {search_path}")
 
-            # THAMES time-series format: JobRoot.YYYyDDDdHHhMMm.TTTK.img
-            # Example: HydOf-Cem152-Neat.000y000d02h24m.298K.img
-            thames_time_pattern = re.compile(r'\.(\d+)y(\d+)d(\d+)h(\d+)m\.(\d+)K\.img$')
+            # THAMES time-series format: JobRoot.YYYyDDDdHHhMMm[SSs].TTTK.img
+            # Examples: HydOf-Cem152-Neat.000y000d02h24m.298K.img
+            #           HydOf-Cem152-Neat.000y000d00h00m18s.298K.img (with seconds)
+            thames_time_pattern = re.compile(r'\.(\d+)y(\d+)d(\d+)h(\d+)m(?:(\d+)s)?\.(\d+)K\.img$')
 
             # Also support VCCTL format: *.img.XXX.XXh.XX.XXX
             vcctl_time_pattern = re.compile(r'\.img\..*?(\d+\.?\d*)h\.')
@@ -514,12 +515,13 @@ class HydrationResultsViewer(Gtk.Dialog):
                     days = int(thames_match.group(2))
                     hours = int(thames_match.group(3))
                     minutes = int(thames_match.group(4))
+                    seconds = int(thames_match.group(5)) if thames_match.group(5) else 0
 
                     # Convert to total hours
-                    time_hours = years * 365 * 24 + days * 24 + hours + minutes / 60.0
+                    time_hours = years * 365 * 24 + days * 24 + hours + minutes / 60.0 + seconds / 3600.0
                     self.microstructure_files.append((time_hours, file_str))
                     added_files.add(file_str)
-                    self.logger.info(f"Found THAMES time-series file: {filename} at {time_hours:.2f}h")
+                    self.logger.info(f"Found THAMES time-series file: {filename} at {time_hours:.4f}h")
                     continue
 
                 # Try VCCTL format

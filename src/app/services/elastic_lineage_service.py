@@ -629,18 +629,20 @@ class ElasticLineageService:
             Tuple of (time_label: str, time_in_minutes: int)
         """
         # =====================================================================
-        # THAMES pattern: <name>.<YYYyDDDdHHhMMm>.<TTTK>.img
-        # Example: HydOf-Cem152-Neat.000y003d00h00m.298K.img
+        # THAMES pattern: <name>.<YYYyDDDdHHhMMm[SSs]>.<TTTK>.img
+        # Examples: HydOf-Cem152-Neat.000y003d00h00m.298K.img
+        #           HydOf-Cem152-Neat.000y000d00h00m18s.298K.img (with seconds)
         # =====================================================================
-        thames_match = re.search(r'\.(\d{3})y(\d{3})d(\d{2})h(\d{2})m\.\d+K\.img$', filename)
+        thames_match = re.search(r'\.(\d{3})y(\d{3})d(\d{2})h(\d{2})m(?:(\d{2})s)?\.\d+K\.img$', filename)
         if thames_match:
             years = int(thames_match.group(1))
             days = int(thames_match.group(2))
             hours = int(thames_match.group(3))
             minutes = int(thames_match.group(4))
+            seconds = int(thames_match.group(5)) if thames_match.group(5) else 0
 
-            # Calculate total minutes for sorting
-            total_minutes = years * 365 * 24 * 60 + days * 24 * 60 + hours * 60 + minutes
+            # Calculate total seconds for sorting (more precise than minutes)
+            total_seconds = years * 365 * 24 * 60 * 60 + days * 24 * 60 * 60 + hours * 60 * 60 + minutes * 60 + seconds
 
             # Build human-readable label
             parts = []
@@ -648,13 +650,15 @@ class ElasticLineageService:
                 parts.append(f"{years}y")
             if days > 0:
                 parts.append(f"{days}d")
-            if hours > 0 or (years == 0 and days == 0):
+            if hours > 0 or (years == 0 and days == 0 and minutes == 0 and seconds == 0):
                 parts.append(f"{hours}h")
             if minutes > 0 and days == 0:
                 parts.append(f"{minutes}m")
+            if seconds > 0 and days == 0 and hours == 0:
+                parts.append(f"{seconds}s")
 
             time_label = " ".join(parts) if parts else "0h"
-            return (time_label, total_minutes)
+            return (time_label, total_seconds)
 
         # =====================================================================
         # VCCTL patterns
