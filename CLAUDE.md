@@ -877,11 +877,112 @@ January 22, 2026
 
 ---
 
+### Session 28: Model-Aware Adaptive Time Stepping & UI Charge Balance Validation
+January 25, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Context:** User reported ParrotKilloh-only cement hydration simulations were 5-10x slower than before due to overly conservative adaptive time stepping parameters.
+
+**Key Accomplishments:**
+
+1. **Model-Aware Adaptive Time Stepping**
+   - **Problem**: Conservative adaptive parameters designed for SI-driven models were slowing down PK-only simulations
+   - **Solution**: Implemented automatic model type detection via `hasSignificantSIDrivenMass()` method
+   - **Behavior**: Detects kinetic model types at simulation start and applies appropriate parameters
+
+   **Parameter Selection by Model Type:**
+   | Model Type | dt_initial | dt_max | growth_factor | successes_for_growth | maxRelChange |
+   |------------|------------|--------|---------------|---------------------|--------------|
+   | SI-driven (Standard, Pozzolanic) | 0.0001h | 1.0h | 1.2 | 3 | 2% |
+   | DOR-driven (ParrotKilloh only) | 0.01h | 12.0h | 2.0 | 1 | 5% |
+
+2. **Fast-Dissolving Phase Exclusions**
+   - **Problem**: Bassanite and Gypsum use StandardKineticModel but dissolve quickly, triggering conservative mode unnecessarily
+   - **Solution**: Added exclusion list for fast-dissolving sulfate phases
+   - **Excluded Phases**: Bassanite, Gypsum, Arcanite, Thenardite (case-insensitive)
+   - These phases are skipped when determining if SI-driven models are present
+
+3. **GEMS E05IPM Failure Analysis (PKTest-03)**
+   - **Issue**: Simulation failed at 209.27 hours with E05IPM (Mass Balance Refinement) errors
+   - **Root Cause**: Carbon IC dropped from ~8.9e-08 to ~4.9e-08 mol, approaching ICTHRESH
+   - **User's Solution**: Increased initial DC concentrations by 10x
+   - **Result**: Simulation completed in ~5 minutes (matching original performance)
+
+4. **Electrolyte Charge Balance UI Fix (CalciteTestAfter)**
+   - **Problem**: Carbonation test failed with "Electrolyte charge imbalance" error
+   - **Root Cause**: `std::map::insert()` in C++ ignores duplicate keys - only first K+ entry was used
+   - **UI had K+ listed twice**: First entry (2e-05 mol) kept, second entry (0.004 mol) ignored
+   - **Net charge seen by backend**: +0.00002 - 0.00402 = -0.004 (not balanced)
+   - **UI Fix**: Added duplicate detection to `ElectrolyteCompositionEditor`:
+     - `_update_charge_balance()` now detects and warns about duplicate DC entries
+     - Shows red ERROR message: "Duplicate entries for [DC]. Only first value will be used!"
+     - Calculates charge using first-occurrence-only logic (matching C++ backend)
+     - `is_charge_balanced()` returns False if duplicates exist
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule):*
+- `src/thameslib/KineticController.h`: Added `hasSignificantSIDrivenMass()` declaration
+- `src/thameslib/KineticController.cc`: Implemented model detection with fast-dissolving exclusions (~40 lines)
+- `src/thameslib/Controller.cc`: Model-aware adaptive parameter selection (~30 lines)
+
+*Python (main repo):*
+- `src/app/widgets/electrolyte_composition_editor.py`:
+  - `_update_charge_balance()`: Added duplicate detection and first-occurrence-only charge calculation
+  - `is_charge_balanced()`: Returns False if duplicates exist
+
+**Technical Details - Model Detection Logic:**
+```cpp
+bool KineticController::hasSignificantSIDrivenMass() const {
+  static const std::vector<std::string> fastDissolvingPhases = {
+      "Bassanite", "Gypsum", "Arcanite", "Thenardite",
+      "bassanite", "gypsum", "arcanite", "thenardite"
+  };
+
+  for (int i = 0; i < pKMsize_; ++i) {
+    if (phaseKineticModel_[i] != nullptr) {
+      std::string modelType = phaseKineticModel_[i]->getType();
+      if (modelType == StandardType || modelType == PozzolanicType) {
+        std::string phaseName = phaseKineticModel_[i]->getName();
+        // Skip fast-dissolving phases
+        if (isFastDissolving(phaseName)) continue;
+        return true;  // Found SI-driven model requiring conservative settings
+      }
+    }
+  }
+  return false;  // Only PK models - use aggressive settings
+}
+```
+
+**Test Results:**
+| Test | Configuration | Result |
+|------|---------------|--------|
+| PKTest-03 (initial) | Default adaptive params | Slow (~10x slower than expected) |
+| PKTest-03 (after exclusions) | Model-aware params | Still triggered conservative (Bassanite/Gypsum) |
+| PKTest-03 (with 10x DCs) | Model-aware + exclusions | Completed in ~5 minutes |
+| CalciteTestAfter | Duplicate K+ entries | Failed: charge imbalance |
+| CalciteTestAfter (fixed) | Single Na+ entry | Working |
+
+**Key Insight - std::map::insert() Behavior:**
+```cpp
+// C++ backend code (parseSolutionComp):
+initialSolutionComposition_.insert(make_pair(testDCId, testConc));
+// If testDCId already exists, the NEW value is IGNORED (not summed or replaced)
+```
+
+**Next Steps:**
+1. Consider implementing more sophisticated GEMS error recovery (IC adjustment strategies)
+2. Monitor adaptive time stepping performance on various simulation types
+3. Potential future work: Anticipatory IC monitoring before problems occur
+
+---
+
 ## PRIORITY TASKS
 
-### 1. Adaptive Time Stepping Implementation (FUNCTIONAL - TUNING NEEDED)
+### 1. Adaptive Time Stepping Implementation (COMPLETE)
 
-**Status:** Implementation complete and functional. Performance tuning needed.
+**Status:** Implementation complete with model-aware parameter tuning.
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
@@ -894,12 +995,12 @@ January 22, 2026
 | 3d | Remove random guessing from calculateState() | ✅ Complete |
 | 4 | Kinetics-based initial timestep | ✅ Complete |
 | 5 | Configuration via simparams.json | Not started |
-| 6 | Performance tuning (growth_factor, etc.) | **Next priority** |
+| 6 | Performance tuning (model-aware parameters) | ✅ Complete (Session 28) |
 
-**Performance Tuning Targets:**
-- Current `growth_factor`: 1.2 (conservative) → Consider 1.5-2.0
-- Current `successes_for_growth`: 3 → Consider reducing to 2
-- Average timestep achieved: 19 minutes (could potentially be larger)
+**Model-Aware Parameter Selection (Session 28):**
+- SI-driven models (Standard, Pozzolanic): Conservative settings (growth=1.2, dt_max=1h)
+- DOR-driven models (ParrotKilloh only): Aggressive settings (growth=2.0, dt_max=12h)
+- Fast-dissolving phases (Bassanite, Gypsum, Arcanite, Thenardite) excluded from SI check
 
 **Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition

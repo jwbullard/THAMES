@@ -46,7 +46,11 @@
       "Bash(python3 -m py_compile:*)",
       "Bash(python3:*)",
       "Bash(PYTHONPATH=src python3:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(/Users/jwbullard/Software/THAMES/backend/thames-hydration/build/thames:*)",
+      "Bash(\"/Users/jwbullard/Library/Application Support/THAMES/operations/CalThermoHet-13b/run_test.sh\")",
+      "Bash(bash -c '/Users/jwbullard/Software/THAMES/bin/thames -o Result < input.in > thames_stdout.log 2> thames_stderr.log; echo \"\"Exit: $?\"\"')",
+      "Bash(otool:*)"
     ],
     "deny": [],
     "ask": []

@@ -389,13 +389,31 @@ class ElectrolyteCompositionEditor(Gtk.Box):
         self._update_charge_balance()
 
     def _update_charge_balance(self):
-        """Calculate and display charge balance."""
+        """Calculate and display charge balance.
+
+        Important: The C++ backend uses std::map::insert() which ignores duplicate
+        DC entries - only the FIRST occurrence is used. This method calculates
+        charge balance the same way and warns about duplicates.
+        """
+        # Track seen DCs to match C++ backend behavior (ignores duplicates)
+        seen_dcs: Dict[str, float] = {}  # dc_name -> first concentration
+        duplicate_dcs: List[str] = []
+
+        for condition in self.conditions:
+            if condition.dc_name in seen_dcs:
+                # This is a duplicate - backend will ignore it
+                if condition.dc_name not in duplicate_dcs:
+                    duplicate_dcs.append(condition.dc_name)
+            else:
+                seen_dcs[condition.dc_name] = condition.concentration
+
+        # Calculate charge using only first occurrence of each DC (like C++ backend)
         total_positive = 0.0
         total_negative = 0.0
 
-        for condition in self.conditions:
-            charge = DC_CHARGES.get(condition.dc_name, 0)
-            contribution = charge * condition.concentration
+        for dc_name, concentration in seen_dcs.items():
+            charge = DC_CHARGES.get(dc_name, 0)
+            contribution = charge * concentration
 
             if contribution > 0:
                 total_positive += contribution
@@ -405,7 +423,14 @@ class ElectrolyteCompositionEditor(Gtk.Box):
         net_charge = total_positive - total_negative
 
         # Display status
-        if abs(net_charge) < 1e-10:
+        if duplicate_dcs:
+            # Warn about duplicates first - this is a serious issue
+            dup_list = ", ".join(duplicate_dcs)
+            self.charge_label.set_markup(
+                f'<span foreground="red">ERROR: Duplicate entries for {dup_list}. '
+                f'Only first value will be used!</span>'
+            )
+        elif abs(net_charge) < 1e-10:
             self.charge_label.set_markup(
                 '<span foreground="green">Charge balance: OK (net = 0)</span>'
             )
@@ -472,13 +497,30 @@ class ElectrolyteCompositionEditor(Gtk.Box):
         """
         Check if the current composition is charge balanced.
 
+        Uses the same logic as the C++ backend: only the first occurrence
+        of each DC is considered (duplicates are ignored).
+
         Returns:
-            True if net charge is approximately zero
+            True if net charge is approximately zero AND no duplicates exist
         """
-        total_charge = 0.0
+        # Check for duplicates first (backend ignores them, so they cause issues)
+        seen_dcs: Dict[str, float] = {}
+        has_duplicates = False
+
         for condition in self.conditions:
-            charge = DC_CHARGES.get(condition.dc_name, 0)
-            total_charge += charge * condition.concentration
+            if condition.dc_name in seen_dcs:
+                has_duplicates = True
+                break
+            seen_dcs[condition.dc_name] = condition.concentration
+
+        if has_duplicates:
+            return False  # Duplicates will cause charge imbalance in backend
+
+        # Calculate charge using only first occurrence (like C++ backend)
+        total_charge = 0.0
+        for dc_name, concentration in seen_dcs.items():
+            charge = DC_CHARGES.get(dc_name, 0)
+            total_charge += charge * concentration
 
         return abs(total_charge) < 1e-10
 
