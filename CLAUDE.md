@@ -1039,6 +1039,34 @@ In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
 ---
 
+### 3. Adaptive Time Stepping Configuration (NOT STARTED)
+
+**Status:** Phase 5 from adaptive time stepping - allow user configuration via simparams.json
+
+**Potential Configuration Options:**
+- `adaptive_enabled`: true/false
+- `growth_factor`: 1.2-2.0
+- `shrink_factor`: 0.5
+- `dt_max`: maximum timestep in hours
+- `dt_min`: minimum timestep in hours
+- `successes_for_growth`: number of successes before growing timestep
+
+---
+
+### 4. GEMS Error Recovery Strategies (FUTURE)
+
+**Status:** Discussed in Session 28, not yet implemented
+
+**Potential Improvements:**
+- IC adjustment strategies when E05IPM (Mass Balance Refinement) errors occur
+- Anticipatory IC monitoring before problems occur (detect when ICs approaching ICTHRESH)
+- Automatic DC concentration boosting when ICs get too low
+- Classify error types (E05IPM vs E07IPM) and apply different recovery strategies
+
+**Background:** In PKTest-03, simulation failed at 209 hours when Carbon IC dropped to ~5e-8 mol. User's workaround was to increase initial DC concentrations by 10x.
+
+---
+
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
