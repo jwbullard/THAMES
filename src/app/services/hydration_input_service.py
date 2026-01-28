@@ -426,11 +426,25 @@ class HydrationInputService:
             self.logger.info("Added Electrolyte (ID 1) to phase mapping for hydration")
 
         # Add hydration products to mapping
+        # IMPORTANT: Use the GEMS phase name, not the product key
+        # e.g., "hydrotalcite" (key) -> "OH-hydrotalc" (GEMS phase name)
         next_id = mapping.next_available_id
         for product_name in config.hydration_products:
-            if product_name not in mapping.gem_to_micro:
-                mapping.gem_to_micro[product_name] = next_id
-                mapping.micro_to_gem[next_id] = product_name
+            # Look up the GEMS phase name from the hydration products service
+            product_data = self.hydration_products_service.get_product_data(product_name)
+            if product_data:
+                gems_phase_name = product_data.gems_name
+            else:
+                # Fall back to product_name if not found
+                self.logger.warning(
+                    f"Hydration product '{product_name}' not found in service, "
+                    f"using as GEMS phase name directly"
+                )
+                gems_phase_name = product_name
+
+            if gems_phase_name not in mapping.gem_to_micro:
+                mapping.gem_to_micro[gems_phase_name] = next_id
+                mapping.micro_to_gem[next_id] = gems_phase_name
                 next_id += 1
 
         mapping.next_available_id = next_id
@@ -612,7 +626,7 @@ class HydrationInputService:
             data = self.hydration_products_service.get_product_data(product_name)
             if data:
                 product_config = {
-                    'gems_name': product_name,
+                    'gems_name': data.gems_name,  # Use actual GEMS phase name, not product key
                     'affinity': list(data.default_affinity),
                 }
                 if data.poresize_distribution:

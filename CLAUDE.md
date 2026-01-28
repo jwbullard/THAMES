@@ -978,6 +978,85 @@ initialSolutionComposition_.insert(make_pair(testDCId, testConc));
 
 ---
 
+### Session 29: GEMS Phase Name Fixes & Data Plot Enhancements
+January 28, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Context:** User reported HydrationOf-Cem152-w45 (Portland cement with ParrotKilloh model) failing around cycle 60. Also requested data plotting enhancements for the Results tab.
+
+**Key Accomplishments:**
+
+1. **Fixed GEMS Phase Name vs DC Name Confusion**
+   - **Problem**: Simulation failed with "No GEM phase data for a microstructure phase" for hydrotalcite
+   - **Root Cause**: `hydration_products_service.py` had `gems_name="hydrotalcite"` which is a DC name, not a GEMS phase name
+   - **GEMS Terminology**: A *phase* (e.g., `OH-hydrotalc`) contains one or more *DCs* (e.g., `hydrotalcite`)
+   - **Fixes Applied in Three Locations**:
+
+   | File | Fix |
+   |------|-----|
+   | `hydration_products_service.py` | Changed `gems_name="hydrotalcite"` to `"OH-hydrotalc"`, `gems_name="zeoliteP_Ca"` to `"ZeoliteP"` |
+   | `simparams_service.py` | Added `_get_gems_phase_name()` helper to look up correct GEMS phase name from product data |
+   | `hydration_input_service.py` | Fixed `_create_phase_mapping()` and `create_default_config()` to use `product_data.gems_name` |
+
+2. **Added Anhydrite to Fast-Dissolving Exclusion List**
+   - **Problem**: Portland cement simulations still running slowly despite model-aware adaptive time stepping
+   - **Root Cause**: Anhydrite uses StandardKineticModel but wasn't in the fast-dissolving exclusion list
+   - **Fix**: Added "Anhydrite" and "anhydrite" to `fastDissolvingPhases` in `KineticController.cc`
+   - **Note**: Requires C++ rebuild to take effect
+
+3. **Data Plot Time Unit Selection (Feature 1)**
+   - Added "Time Units" dropdown to Plot Options with choices: Days, Hours, Minutes
+   - X-axis label updates automatically based on selection
+   - Useful for fast simulations where days would show "0.00d"
+
+4. **Multi-Simulation Comparison Plotting (Feature 2)**
+   - Added "Compare with Simulations" section in Data Plots tab
+   - **Add...** button shows dialog listing available hydration operations
+   - **Remove** button removes selected comparison simulation
+   - Plotting behavior:
+     - Primary simulation uses solid lines (`-`)
+     - Comparison simulations use different line styles (`--`, `-.`, `:`, etc.)
+     - Same color used for same variable across simulations
+     - Legend entries include simulation name in parentheses
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule):*
+- `src/thameslib/KineticController.cc`: Added "Anhydrite" to fast-dissolving phases exclusion list
+
+*Python (main repo):*
+- `src/app/services/hydration_products_service.py`: Fixed gems_name for hydrotalcite and zeoliteP_Ca
+- `src/app/services/simparams_service.py`: Added `_get_gems_phase_name()` helper method
+- `src/app/services/hydration_input_service.py`: Fixed phase mapping to use GEMS phase names
+- `src/app/windows/dialogs/hydration_results_viewer.py`:
+  - Added `comparison_data` and `comparison_liststore` instance variables
+  - Added time unit ComboBox (`time_unit_combo`)
+  - Added comparison simulations UI section
+  - Updated `_on_create_data_plot_clicked()` to handle time units and multi-simulation comparison
+  - Added `_on_add_comparison_simulation()`, `_load_comparison_operation()`, `_on_remove_comparison_simulation()` methods
+
+**Technical Details - GEMS Phase vs DC Names:**
+```
+GEMS Phase Name    DC Names (components within phase)
+---------------    ----------------------------------
+OH-hydrotalc       hydrotalcite
+ZeoliteP           zeoliteP_Ca, zeoliteP_K, zeoliteP_Na
+CSHQ               CSHQ_TobH, CSHQ_TobD, CSHQ_JenH, CSHQ_JenD
+```
+
+**Test Status:**
+- HydrationOf-Cem152-w45 simulation running (cycle 20+ at session end)
+- Performance fix (Anhydrite exclusion) requires C++ rebuild
+- Data plotting features not yet tested (simulation in progress)
+
+**Next Steps:**
+1. Rebuild C++ backend with Anhydrite exclusion fix
+2. Test data plotting time unit selection
+3. Test multi-simulation comparison plotting
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

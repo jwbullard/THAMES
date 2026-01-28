@@ -357,7 +357,7 @@ SUGGESTED_PRODUCTS: Dict[str, HydrationProductData] = {
     ),
 
     "hydrotalcite": HydrationProductData(
-        gems_name="hydrotalcite",
+        gems_name="OH-hydrotalc",  # GEMS phase name (DC within it is "hydrotalcite")
         display_name="Hydrotalcite",
         category=ProductCategory.HYDROTALCITE,
         description="Mg-Al layered double hydroxide",
@@ -693,7 +693,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
     ),
 
     "zeoliteP_Ca": HydrationProductData(
-        gems_name="zeoliteP_Ca",
+        gems_name="ZeoliteP",  # GEMS phase name (DC within it is "zeoliteP_Ca")
         display_name="Zeolite P (Ca)",
         category=ProductCategory.ZEOLITE,
         description="Calcium-exchanged Zeolite P",

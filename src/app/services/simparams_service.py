@@ -24,6 +24,7 @@ from app.services.kinetic_defaults_service import KineticDefaultsService
 from app.services.phase_id_mapping_service import PhaseIdMapping, VOIDID, ELECTROLYTEID
 from app.services.phase_color_service import PhaseColorService
 from app.services.elastic_defaults_service import ElasticDefaultsService, get_elastic_defaults_service
+from app.services.hydration_products_service import SUGGESTED_PRODUCTS, ADDITIONAL_PRODUCTS
 from app.models.kinetic_parameters import (
     ParrotKillohKinetics,
     StandardKinetics,
@@ -578,10 +579,13 @@ class SimParamsService:
             next_id = phase_id_mapping.next_available_id
             for product_name in hydration_products:
                 if product_name not in phase_id_mapping.gem_to_micro:
+                    # Look up the GEMS phase name from hydration products data
+                    # The product_name is the key, but gems_name may differ (e.g., "hydrotalcite" -> "OH-hydrotalc")
+                    gems_phase_name = self._get_gems_phase_name(product_name)
                     entry = self.phase_builder.build_phase_entry(
                         thamesname=self._get_thamesname(product_name),
                         phase_id=next_id,
-                        gemphasename=product_name,
+                        gemphasename=gems_phase_name,
                         is_cement_component=False
                     )
                     phases_list.append(entry)
@@ -631,6 +635,33 @@ class SimParamsService:
         }
 
         return name_mappings.get(gemphasename, gemphasename)
+
+    def _get_gems_phase_name(self, product_name: str) -> str:
+        """
+        Get the GEMS phase name for a hydration product.
+
+        The hydration products dictionary uses keys like "hydrotalcite" but the actual
+        GEMS phase name may differ (e.g., "OH-hydrotalc"). This method looks up the
+        gems_name attribute from the hydration products data.
+
+        Args:
+            product_name: The hydration product key/name
+
+        Returns:
+            The GEMS phase name to use for building gemphase_data
+        """
+        # Check SUGGESTED_PRODUCTS first, then ADDITIONAL_PRODUCTS
+        if product_name in SUGGESTED_PRODUCTS:
+            return SUGGESTED_PRODUCTS[product_name].gems_name
+        elif product_name in ADDITIONAL_PRODUCTS:
+            return ADDITIONAL_PRODUCTS[product_name].gems_name
+        else:
+            # Fall back to using product_name as-is (assume it's already a GEMS phase name)
+            self.logger.warning(
+                f"Hydration product '{product_name}' not found in product definitions, "
+                f"using as GEMS phase name directly"
+            )
+            return product_name
 
     def _build_time_parameters(self, config: TimeConfig) -> Dict[str, Any]:
         """

@@ -110,6 +110,11 @@ class HydrationResultsViewer(Gtk.Dialog):
         self.y_treeview = None
         self.output_path: Optional[Path] = None  # Cache operation output path
 
+        # Multi-simulation comparison data
+        # Structure: {operation_name: {category: pd.DataFrame}}
+        self.comparison_data: Dict[str, Dict[str, pd.DataFrame]] = {}
+        self.comparison_liststore = None  # For the comparison simulations list
+
         # Dialog setup - use reasonable default that fits most screens
         self.set_default_size(1000, 650)
         self.set_resizable(True)
@@ -330,6 +335,44 @@ class HydrationResultsViewer(Gtk.Dialog):
         deselect_all_btn.connect('clicked', self._on_deselect_all_clicked)
         select_button_box.pack_start(deselect_all_btn, True, True, 0)
 
+        # Comparison simulations section
+        comparison_label = Gtk.Label()
+        comparison_label.set_markup("<b>Compare with Simulations:</b>")
+        comparison_label.set_halign(Gtk.Align.START)
+        controls_vbox.pack_start(comparison_label, False, False, 5)
+
+        # List of comparison simulations
+        comparison_scrolled = Gtk.ScrolledWindow()
+        comparison_scrolled.set_size_request(-1, 80)
+        comparison_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        controls_vbox.pack_start(comparison_scrolled, False, False, 0)
+
+        # List store: operation_name (display)
+        self.comparison_liststore = Gtk.ListStore(str)
+        comparison_treeview = Gtk.TreeView(model=self.comparison_liststore)
+        comparison_treeview.set_headers_visible(False)
+
+        # Simulation name column
+        name_renderer = Gtk.CellRendererText()
+        name_column = Gtk.TreeViewColumn("Simulation", name_renderer, text=0)
+        comparison_treeview.append_column(name_column)
+        comparison_scrolled.add(comparison_treeview)
+
+        # Store reference for removal functionality
+        self.comparison_treeview = comparison_treeview
+
+        # Add/Remove buttons for comparison simulations
+        comparison_btn_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        controls_vbox.pack_start(comparison_btn_box, False, False, 0)
+
+        add_sim_btn = Gtk.Button(label="Add...")
+        add_sim_btn.connect('clicked', self._on_add_comparison_simulation)
+        comparison_btn_box.pack_start(add_sim_btn, True, True, 0)
+
+        remove_sim_btn = Gtk.Button(label="Remove")
+        remove_sim_btn.connect('clicked', self._on_remove_comparison_simulation)
+        comparison_btn_box.pack_start(remove_sim_btn, True, True, 0)
+
         # Plot options
         options_label = Gtk.Label()
         options_label.set_markup("<b>Plot Options:</b>")
@@ -342,6 +385,18 @@ class HydrationResultsViewer(Gtk.Dialog):
 
         self.log_y_check = Gtk.CheckButton(label="Logarithmic Y-axis")
         controls_vbox.pack_start(self.log_y_check, False, False, 0)
+
+        # Time unit selection
+        time_unit_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        time_unit_label = Gtk.Label(label="Time Units:")
+        time_unit_box.pack_start(time_unit_label, False, False, 0)
+        self.time_unit_combo = Gtk.ComboBoxText()
+        time_units = ["Days", "Hours", "Minutes"]
+        for unit in time_units:
+            self.time_unit_combo.append_text(unit)
+        self.time_unit_combo.set_active(0)  # Default to Days
+        time_unit_box.pack_start(self.time_unit_combo, True, True, 0)
+        controls_vbox.pack_start(time_unit_box, False, False, 2)
 
         # Line width selection
         line_width_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
@@ -1391,9 +1446,21 @@ class HydrationResultsViewer(Gtk.Dialog):
                 self._show_plot_error("No time column found in data.")
                 return
 
-            # Get time data and convert to days for better readability
+            # Get time unit selection and compute conversion factor
+            time_unit = self.time_unit_combo.get_active_text() if hasattr(self, 'time_unit_combo') else "Days"
+            if time_unit == "Minutes":
+                time_factor = 60.0  # hours to minutes
+                time_label = "Time (minutes)"
+            elif time_unit == "Hours":
+                time_factor = 1.0  # already in hours
+                time_label = "Time (hours)"
+            else:  # Days (default)
+                time_factor = 1.0 / 24.0  # hours to days
+                time_label = "Time (days)"
+
+            # Get time data and convert to selected units
             time_data = self.current_csv_data[time_col]
-            time_days = time_data / 24.0  # Convert hours to days
+            time_converted = time_data * time_factor
 
             # Clear and create new plot
             self.plot_figure.clear()
@@ -1404,13 +1471,60 @@ class HydrationResultsViewer(Gtk.Dialog):
 
             # Get color scheme
             color_scheme = self.color_scheme_combo.get_active_text() if hasattr(self, 'color_scheme_combo') else "Tab10 (Default)"
+
+            # Determine total number of lines to plot (primary + comparisons)
+            num_comparison_sims = len(self.comparison_data)
+            has_comparisons = num_comparison_sims > 0
+
+            # Calculate colors - need more colors if comparing multiple simulations
+            total_lines = len(selected_vars) * (1 + num_comparison_sims)
             colors = self._get_color_palette(color_scheme, len(selected_vars))
 
-            # Plot each selected variable
+            # Line styles for different simulations
+            line_styles = ['-', '--', '-.', ':', (0, (3, 1, 1, 1)), (0, (5, 2))]
+
+            # Get primary operation name for legend
+            primary_name = self.operation.name if self.operation else "Primary"
+            # Shorten name if too long
+            if len(primary_name) > 20:
+                primary_name = primary_name[:17] + "..."
+
+            # Plot each selected variable from primary simulation
             for i, var in enumerate(selected_vars):
                 y_data = self.current_csv_data[var]
                 color = colors[i % len(colors)]
-                ax.plot(time_days, y_data, linewidth=line_width, color=color, label=var)
+                label = f"{var}" if not has_comparisons else f"{var} ({primary_name})"
+                ax.plot(time_converted, y_data, linewidth=line_width, color=color,
+                        linestyle=line_styles[0], label=label)
+
+            # Plot comparison simulations
+            category = self.data_file_combo.get_active_text() or "Data"
+            sim_index = 1
+            for sim_name, sim_categories in self.comparison_data.items():
+                if category in sim_categories:
+                    comp_data = sim_categories[category]
+                    # Find time column in comparison data
+                    comp_time_col = None
+                    for col in comp_data.columns:
+                        if col.lower() in ['time(h)', 'time', 'time_h', 'time_hours']:
+                            comp_time_col = col
+                            break
+
+                    if comp_time_col:
+                        comp_time = comp_data[comp_time_col] * time_factor
+                        line_style = line_styles[sim_index % len(line_styles)]
+
+                        # Shorten comparison name if too long
+                        short_sim_name = sim_name if len(sim_name) <= 20 else sim_name[:17] + "..."
+
+                        for i, var in enumerate(selected_vars):
+                            if var in comp_data.columns:
+                                y_data = comp_data[var]
+                                color = colors[i % len(colors)]
+                                label = f"{var} ({short_sim_name})"
+                                ax.plot(comp_time, y_data, linewidth=line_width, color=color,
+                                        linestyle=line_style, label=label)
+                sim_index += 1
 
             # Set log scale if requested
             if hasattr(self, 'log_x_check') and self.log_x_check.get_active():
@@ -1438,16 +1552,16 @@ class HydrationResultsViewer(Gtk.Dialog):
                 )
 
             # Configure plot
-            ax.set_xlabel("Time (days)", fontsize=10)
+            ax.set_xlabel(time_label, fontsize=10)
             ax.set_ylabel("Value", fontsize=10)
             ax.grid(True, alpha=0.3)
 
             # Get category name for title
-            category = self.data_file_combo.get_active_text() or "Data"
             ax.set_title(f"{category} vs Time", fontsize=11, fontweight='bold')
 
-            # Add legend (outside plot if many variables)
-            if len(selected_vars) <= 6:
+            # Add legend (outside plot if many variables or comparing simulations)
+            total_legend_items = len(selected_vars) * (1 + num_comparison_sims)
+            if total_legend_items <= 6:
                 ax.legend(loc='best', fontsize=8)
             else:
                 ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=7)
@@ -1456,13 +1570,221 @@ class HydrationResultsViewer(Gtk.Dialog):
             self.plot_figure.tight_layout()
             self.plot_canvas.draw()
 
-            self.logger.info(f"Created plot with {len(selected_vars)} variables")
+            self.logger.info(f"Created plot with {len(selected_vars)} variables, {num_comparison_sims} comparison simulations")
 
         except Exception as e:
             self.logger.error(f"Error creating plot: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
             self._show_plot_error(f"Failed to create plot: {e}")
+
+    def _on_add_comparison_simulation(self, button) -> None:
+        """Add a simulation for comparison from available hydration operations."""
+        try:
+            from app.services.service_container import get_service_container
+            service_container = get_service_container()
+
+            # Get list of hydration operations
+            operations_service = service_container.operation_service
+            all_operations = operations_service.get_all_operations()
+
+            # Filter for hydration operations only
+            hydration_ops = [
+                op for op in all_operations
+                if op.operation_type == 'hydration' and op.name != (self.operation.name if self.operation else "")
+            ]
+
+            if not hydration_ops:
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="No Other Simulations"
+                )
+                dialog.format_secondary_text("No other hydration simulations are available for comparison.")
+                dialog.run()
+                dialog.destroy()
+                return
+
+            # Create selection dialog
+            select_dialog = Gtk.Dialog(
+                title="Select Simulation for Comparison",
+                transient_for=self,
+                flags=0
+            )
+            select_dialog.add_buttons(
+                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_OK, Gtk.ResponseType.OK
+            )
+            select_dialog.set_default_size(400, 300)
+
+            content = select_dialog.get_content_area()
+            content.set_spacing(10)
+            content.set_margin_left(10)
+            content.set_margin_right(10)
+            content.set_margin_top(10)
+            content.set_margin_bottom(10)
+
+            label = Gtk.Label(label="Select a simulation to compare:")
+            label.set_halign(Gtk.Align.START)
+            content.pack_start(label, False, False, 0)
+
+            # Create scrolled list of operations
+            scrolled = Gtk.ScrolledWindow()
+            scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            content.pack_start(scrolled, True, True, 0)
+
+            # List store and tree view
+            liststore = Gtk.ListStore(str, object)  # name, operation object
+            for op in hydration_ops:
+                # Skip if already added
+                if op.name not in self.comparison_data:
+                    liststore.append([op.name, op])
+
+            if len(liststore) == 0:
+                select_dialog.destroy()
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="All Simulations Added"
+                )
+                dialog.format_secondary_text("All available hydration simulations have already been added for comparison.")
+                dialog.run()
+                dialog.destroy()
+                return
+
+            treeview = Gtk.TreeView(model=liststore)
+            renderer = Gtk.CellRendererText()
+            column = Gtk.TreeViewColumn("Simulation Name", renderer, text=0)
+            treeview.append_column(column)
+            scrolled.add(treeview)
+
+            select_dialog.show_all()
+            response = select_dialog.run()
+
+            if response == Gtk.ResponseType.OK:
+                selection = treeview.get_selection()
+                model, iter_sel = selection.get_selected()
+                if iter_sel:
+                    op_name = model.get_value(iter_sel, 0)
+                    selected_op = model.get_value(iter_sel, 1)
+
+                    # Load CSV data from the selected operation
+                    self._load_comparison_operation(op_name, selected_op)
+
+            select_dialog.destroy()
+
+        except Exception as e:
+            self.logger.error(f"Error adding comparison simulation: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            self._show_plot_error(f"Failed to add comparison simulation: {e}")
+
+    def _load_comparison_operation(self, op_name: str, operation) -> None:
+        """Load CSV data from a comparison operation."""
+        try:
+            from app.services.service_container import get_service_container
+            service_container = get_service_container()
+
+            # Get output directory for the operation
+            output_dir = None
+            if hasattr(operation, 'output_dir') and operation.output_dir:
+                output_dir = operation.output_dir
+            elif hasattr(operation, 'metadata') and operation.metadata:
+                output_dir = operation.metadata.get('output_directory')
+                if not output_dir:
+                    output_dir = operation.metadata.get('output_dir')
+
+            if not output_dir:
+                # Try to construct from operation name
+                operations_dir = service_container.directories_service.get_operations_path()
+                potential_folder = operations_dir / operation.name
+                if potential_folder.exists():
+                    output_dir = str(potential_folder)
+
+            if not output_dir or not Path(output_dir).exists():
+                self._show_plot_error(f"Could not find output directory for {op_name}")
+                return
+
+            output_path = Path(output_dir)
+
+            # Check for Result/ subdirectory
+            result_path = output_path / "Result"
+            if result_path.exists():
+                search_path = result_path
+            else:
+                search_path = output_path
+
+            # Load available CSV files
+            csv_file_mappings = {
+                "Phase Volumes": "Microstructure.csv",
+                "Solution Chemistry": "Solution.csv",
+                "Saturation Indices": "SI.csv",
+                "Surface Areas": "SurfaceAreas.csv",
+                "Enthalpy": "Enthalpy.csv",
+            }
+
+            self.comparison_data[op_name] = {}
+
+            for display_name, filename in csv_file_mappings.items():
+                # Try with operation prefix first
+                csv_files = list(search_path.glob(f"*_{filename}"))
+                if not csv_files:
+                    csv_files = list(search_path.glob(filename))
+
+                if csv_files:
+                    csv_path = csv_files[0]
+                    try:
+                        df = pd.read_csv(csv_path)
+                        self.comparison_data[op_name][display_name] = df
+                        self.logger.info(f"Loaded {display_name} from {op_name}")
+                    except Exception as e:
+                        self.logger.warning(f"Could not load {csv_path}: {e}")
+
+            if self.comparison_data[op_name]:
+                # Add to the comparison list display
+                self.comparison_liststore.append([op_name])
+                self.logger.info(f"Added comparison simulation: {op_name} with {len(self.comparison_data[op_name])} data categories")
+            else:
+                del self.comparison_data[op_name]
+                self._show_plot_error(f"No CSV data found for {op_name}")
+
+        except Exception as e:
+            self.logger.error(f"Error loading comparison operation: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+
+    def _on_remove_comparison_simulation(self, button) -> None:
+        """Remove the selected comparison simulation."""
+        try:
+            selection = self.comparison_treeview.get_selection()
+            model, iter_sel = selection.get_selected()
+
+            if iter_sel:
+                op_name = model.get_value(iter_sel, 0)
+                # Remove from data
+                if op_name in self.comparison_data:
+                    del self.comparison_data[op_name]
+                # Remove from list
+                model.remove(iter_sel)
+                self.logger.info(f"Removed comparison simulation: {op_name}")
+            else:
+                dialog = Gtk.MessageDialog(
+                    transient_for=self,
+                    flags=0,
+                    message_type=Gtk.MessageType.INFO,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="No Selection"
+                )
+                dialog.format_secondary_text("Please select a simulation to remove.")
+                dialog.run()
+                dialog.destroy()
+
+        except Exception as e:
+            self.logger.error(f"Error removing comparison simulation: {e}")
 
     def _on_export_data_plot_clicked(self, button) -> None:
         """Export the current data plot to a file."""
