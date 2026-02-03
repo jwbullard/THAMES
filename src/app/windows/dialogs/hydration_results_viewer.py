@@ -1586,12 +1586,12 @@ class HydrationResultsViewer(Gtk.Dialog):
 
             # Get list of hydration operations
             operations_service = service_container.operation_service
-            all_operations = operations_service.get_all_operations()
+            all_operations = operations_service.get_all()
 
-            # Filter for hydration operations only
+            # Filter for hydration operations only (case-insensitive check)
             hydration_ops = [
                 op for op in all_operations
-                if op.operation_type == 'hydration' and op.name != (self.operation.name if self.operation else "")
+                if op.operation_type and op.operation_type.upper() == 'HYDRATION' and op.name != (self.operation.name if self.operation else "")
             ]
 
             if not hydration_ops:
@@ -1689,34 +1689,20 @@ class HydrationResultsViewer(Gtk.Dialog):
             from app.services.service_container import get_service_container
             service_container = get_service_container()
 
-            # Get output directory for the operation
-            output_dir = None
-            if hasattr(operation, 'output_dir') and operation.output_dir:
-                output_dir = operation.output_dir
-            elif hasattr(operation, 'metadata') and operation.metadata:
-                output_dir = operation.metadata.get('output_directory')
-                if not output_dir:
-                    output_dir = operation.metadata.get('output_dir')
+            # Get output directory for the operation - construct from operation name
+            operations_dir = service_container.directories_service.get_operations_path()
+            output_dir = operations_dir / operation.name
 
-            if not output_dir:
-                # Try to construct from operation name
-                operations_dir = service_container.directories_service.get_operations_path()
-                potential_folder = operations_dir / operation.name
-                if potential_folder.exists():
-                    output_dir = str(potential_folder)
-
-            if not output_dir or not Path(output_dir).exists():
+            if not output_dir.exists():
                 self._show_plot_error(f"Could not find output directory for {op_name}")
                 return
 
-            output_path = Path(output_dir)
-
             # Check for Result/ subdirectory
-            result_path = output_path / "Result"
+            result_path = output_dir / "Result"
             if result_path.exists():
                 search_path = result_path
             else:
-                search_path = output_path
+                search_path = output_dir
 
             # Load available CSV files
             csv_file_mappings = {
