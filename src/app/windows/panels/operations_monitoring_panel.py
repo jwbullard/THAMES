@@ -1811,7 +1811,11 @@ class OperationsMonitoringPanel(Gtk.Box):
                     
                     operation.end_time = current_time
                     operation.completed_steps = operation.total_steps
-                    
+
+                    # Check exit status for hydration operations (may change status to FAILED)
+                    if operation.operation_type == OperationType.HYDRATION_SIMULATION:
+                        self._check_hydration_exit_status(operation)
+
                     # Close output file handles
                     operation.close_output_files()
 
@@ -2429,6 +2433,78 @@ class OperationsMonitoringPanel(Gtk.Box):
 
         except Exception as e:
             self.logger.error(f"Error updating hydration progress for {operation.name}: {e}")
+
+    def _check_hydration_exit_status(self, operation) -> None:
+        """Check exit_status.json for hydration simulation and handle abnormal exits.
+
+        The THAMES C++ backend writes exit_status.json to the Result folder when
+        the simulation terminates. This method reads that file and:
+        - Updates operation status to FAILED for abnormal exits
+        - Shows a dialog to alert the user about the failure
+        - Logs diagnostic information
+        """
+        try:
+            import os
+            import json
+
+            operation_dir = self._get_operation_directory(operation)
+            if not operation_dir:
+                return
+
+            # Check for exit_status.json in Result subdirectory
+            exit_status_file = os.path.join(operation_dir, "Result", "exit_status.json")
+
+            if not os.path.exists(exit_status_file):
+                return
+
+            try:
+                with open(exit_status_file, 'r') as f:
+                    status_data = json.load(f)
+            except (OSError, IOError, json.JSONDecodeError) as e:
+                self.logger.debug(f"Could not read exit_status.json for {operation.name}: {e}")
+                return
+
+            exit_code = status_data.get('exit_code', 0)
+            exit_reason = status_data.get('exit_reason', 'Unknown')
+            success = status_data.get('success', True)
+            diagnostics = status_data.get('diagnostics', '')
+
+            if not success or exit_code != 0:
+                # Abnormal exit - update status and alert user
+                operation.status = OperationStatus.FAILED
+                operation.current_step = f"FAILED: {exit_reason}"
+
+                self.logger.warning(
+                    f"Hydration simulation {operation.name} failed: {exit_reason}"
+                )
+                if diagnostics:
+                    self.logger.warning(f"Diagnostics: {diagnostics}")
+
+                # Show dialog to alert user (on main thread)
+                def show_failure_dialog():
+                    dialog = Gtk.MessageDialog(
+                        transient_for=self.get_toplevel() if hasattr(self, 'get_toplevel') else None,
+                        flags=0,
+                        message_type=Gtk.MessageType.ERROR,
+                        buttons=Gtk.ButtonsType.OK,
+                        text=f"Simulation Failed: {operation.name}"
+                    )
+
+                    secondary_text = f"Reason: {exit_reason}"
+                    if diagnostics:
+                        secondary_text += f"\n\nDiagnostics:\n{diagnostics}"
+                    secondary_text += f"\n\nCheck the log file in:\n{operation_dir}/thames.log"
+
+                    dialog.format_secondary_text(secondary_text)
+                    dialog.run()
+                    dialog.destroy()
+                    return False  # Don't repeat
+
+                # Schedule dialog to run on main thread
+                GLib.idle_add(show_failure_dialog)
+
+        except Exception as e:
+            self.logger.error(f"Error checking exit status for {operation.name}: {e}")
 
     def _update_generic_progress(self, operation) -> None:
         """Update progress for generic operations using JSON progress files."""
