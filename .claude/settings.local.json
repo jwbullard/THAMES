@@ -50,7 +50,10 @@
       "Bash(/Users/jwbullard/Software/THAMES/backend/thames-hydration/build/thames:*)",
       "Bash(\"/Users/jwbullard/Library/Application Support/THAMES/operations/CalThermoHet-13b/run_test.sh\")",
       "Bash(bash -c '/Users/jwbullard/Software/THAMES/bin/thames -o Result < input.in > thames_stdout.log 2> thames_stderr.log; echo \"\"Exit: $?\"\"')",
-      "Bash(otool:*)"
+      "Bash(otool:*)",
+      "Bash(for f in 18-elastic-results.png 25-workflow1-results.png)",
+      "Bash(do [ ! -f \"/Users/jwbullard/Software/THAMES/docs/images/$f\" ])",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

@@ -19,48 +19,46 @@
    - 4.5 [Importing and Exporting Materials](#45-importing-and-exporting-materials)
 5. [Mix Design](#5-mix-design)
    - 5.1 [Creating a Mix Design](#51-creating-a-mix-design)
-   - 5.2 [Water-to-Bite Ratio](#52-water-to-binder-ratio)
-   - 5.3 [Particle Size Distributions](#53-particle-size-distributions)
-   - 5.4 [Saving Mix Designs](#54-saving-mix-designs)
-6. [Microstructure Generation](#6-microstructure-generation)
-   - 6.1 [Configuration Options](#61-configuration-options)
-   - 6.2 [Resolution and Dimensions](#62-resolution-and-dimensions)
-   - 6.3 [Running Microstructure Generation](#63-running-microstructure-generation)
-   - 6.4 [Viewing Generated Microstructures](#64-viewing-generated-microstructures)
-7. [Hydration Simulation](#7-hydration-simulation)
-   - 7.1 [Simulation Setup](#71-simulation-setup)
-   - 7.2 [Kinetic Models](#72-kinetic-models)
-   - 7.3 [Electrolyte Composition](#73-electrolyte-composition)
-   - 7.4 [Hydration Products](#74-hydration-products)
-   - 7.5 [Time Parameters](#75-time-parameters)
-   - 7.6 [Running Simulations](#76-running-simulations)
-8. [Elastic Properties](#8-elastic-properties)
-   - 8.1 [Configuration](#81-configuration)
-   - 8.2 [Running Elastic Calculations](#82-running-elastic-calculations)
-   - 8.3 [Viewing Results](#83-viewing-results)
-9. [Operations Monitoring](#9-operations-monitoring)
-   - 9.1 [Operation States](#91-operation-states)
-   - 9.2 [Progress Tracking](#92-progress-tracking)
-   - 9.3 [Viewing Operation Details](#93-viewing-operation-details)
-10. [Results Analysis](#10-results-analysis)
-    - 10.1 [3D Visualization](#101-3d-visualization)
-    - 10.2 [Data Plots](#102-data-plots)
-    - 10.3 [Exporting Results](#103-exporting-results)
-11. [Workflows](#11-workflows)
-    - 11.1 [Basic Portland Cement Hydration](#111-basic-portland-cement-hydration)
-    - 11.2 [Blended Cement with Fly Ash](#112-blended-cement-with-fly-ash)
-    - 11.3 [Computing Elastic Properties](#113-computing-elastic-properties)
-12. [Troubleshooting](#12-troubleshooting)
-    - 12.1 [Common Issues](#121-common-issues)
-    - 12.2 [GEMS Solver Errors](#122-gems-solver-errors)
-    - 12.3 [Performance Tips](#123-performance-tips)
-13. [Appendices](#13-appendices)
+   - 5.2 [Water-to-Binder Ratio](#52-water-to-binder-ratio)
+   - 5.3 [Aggregates](#53-aggregates)
+   - 5.4 [Microstructure Configuration](#54-microstructure-configuration)
+   - 5.5 [Resolution and Dimensions](#55-resolution-and-dimensions)
+   - 5.6 [Running Microstructure Generation](#56-running-microstructure-generation)
+   - 5.7 [Viewing Generated Microstructures](#57-viewing-generated-microstructures)
+6. [Hydration Simulation](#6-hydration-simulation)
+   - 6.1 [Simulation Setup](#61-simulation-setup)
+   - 6.2 [Kinetic Models](#62-kinetic-models)
+   - 6.3 [Electrolyte Composition](#63-electrolyte-composition)
+   - 6.4 [Hydration Products](#64-hydration-products)
+   - 6.5 [Time Parameters](#65-time-parameters)
+   - 6.6 [Running Simulations](#66-running-simulations)
+7. [Elastic Properties](#7-elastic-properties)
+   - 7.1 [Configuration](#71-configuration)
+   - 7.2 [Running Elastic Calculations](#72-running-elastic-calculations)
+   - 7.3 [Viewing Results](#73-viewing-results)
+8. [Operations Monitoring](#8-operations-monitoring)
+   - 8.1 [Operation States](#81-operation-states)
+   - 8.2 [Progress Tracking](#82-progress-tracking)
+   - 8.3 [Viewing Operation Details](#83-viewing-operation-details)
+9. [Results Analysis](#9-results-analysis)
+   - 9.1 [3D Visualization](#91-3d-visualization)
+   - 9.2 [Data Plots](#92-data-plots)
+   - 9.3 [Exporting Results](#93-exporting-results)
+10. [Workflows](#10-workflows)
+    - 10.1 [Basic Portland Cement Hydration](#101-basic-portland-cement-hydration)
+    - 10.2 [Blended Cement with Fly Ash](#102-blended-cement-with-fly-ash)
+    - 10.3 [Computing Elastic Properties](#103-computing-elastic-properties)
+11. [Troubleshooting](#11-troubleshooting)
+    - 11.1 [Common Issues](#111-common-issues)
+    - 11.2 [GEMS Solver Errors](#112-gems-solver-errors)
+    - 11.3 [Performance Tips](#113-performance-tips)
+12. [Appendices](#12-appendices)
     - A. [Phase Reference](#a-phase-reference)
     - B. [Kinetic Model Parameters](#b-kinetic-model-parameters)
     - C. [File Formats](#c-file-formats)
     - D. [Keyboard Shortcuts](#d-keyboard-shortcuts)
-14. [Glossary](#14-glossary)
-15. [References](#15-references)
+13. [Glossary](#13-glossary)
+14. [References](#14-references)
 
 ---
 
@@ -161,10 +159,10 @@ THAMES uses a tabbed interface with six main sections:
 | Tab | Purpose |
 |-----|---------|
 | **Materials** | Create and manage cementitious materials |
-| **Mix Design** | Define binder compositions and water content |
-| **Microstructure** | Generate 3D particle packings |
+| **Mix Design** | Define binder compositions, water content, and generate 3D microstructures |
 | **Hydration** | Configure and run hydration simulations |
 | **Elastic** | Compute elastic properties |
+| **Operations** | Monitor running and completed operations |
 | **Results** | View and analyze simulation output |
 
 Navigation between tabs follows a typical workflow from left to right, though you can access any tab at any time.
@@ -175,11 +173,19 @@ Access preferences via **THAMES → Preferences** (macOS) or **Edit → Preferen
 
 #### General Tab
 
-- **Theme**: Light or Dark mode
-- **Default output directory**: Where simulation results are saved
+- **Auto-save**: Automatically save changes to the database
+- **Confirm destructive actions**: Show confirmation dialogs before irreversible operations
 
 ![Preferences General Tab](images/02-preferences-general.png)
 *Figure 3.2: Preferences dialog - General tab*
+
+#### Performance Tab
+
+Configure computational resources:
+
+- **Worker threads**: Number of parallel threads for simulations
+- **Memory limit**: Maximum memory allocation for operations
+- **Enable caching**: Cache intermediate results for faster re-runs
 
 #### Kinetic Defaults Tab
 
@@ -193,10 +199,13 @@ Configure default kinetic parameters for phases:
 ![Preferences Kinetic Defaults Tab](images/03-preferences-kinetics.png)
 *Figure 3.3: Preferences dialog - Kinetic Defaults tab*
 
-#### Paths Tab
+#### Affinity Defaults Tab
 
-- **THAMES executable**: Path to the hydration engine
-- **Micgen executable**: Path to the microstructure generator
+Configure default interface affinities between phases:
+
+- Set affinity values that control how phases interact at interfaces
+- Values range from 0 (no affinity) to 1 (maximum affinity)
+- These defaults are used when setting up hydration simulations
 
 ---
 
@@ -221,15 +230,73 @@ THAMES supports several material types:
 
 To create a new material:
 
-1. Click the **+** button in the Materials panel
+1. Click the **Add Material** button in the Materials panel
 2. Enter a **Name** for the material
-3. Optionally add a **Description**
-4. Add **Tags** to categorize the material (e.g., "OPC", "Type I", "ASTM")
-5. Configure the **Phase Composition** (see below)
-6. Click **Save**
+3. Add **Tags** (comma-separated) to categorize the material (e.g., "cement, type-i, portland")
+4. Enter the **Specific Gravity** of the material (can be auto-calculated from phase composition)
+5. Enter the **Specific Surface Area** in m²/kg (Blaine fineness)
+6. Expand **Particle Size Distribution** to configure the PSD (see below)
+7. Select the **Particle Shape**:
+   - *Spheres*: Idealized spherical particles
+   - *Real shapes*: Use digitized particle shape sets from actual powders
+8. Select the **Material Type**:
+   - *Simple Material*: Standard material with uniform properties
+   - *Cement*: Clinker-based material with clinker fraction data
+9. Optionally add a **Description**
+10. Configure the **Phase Composition** (see below)
+11. Click **Save**
 
 ![Material Dialog](images/05-material-dialog.png)
 *Figure 4.2: Material dialog for creating or editing a material*
+
+#### Particle Size Distributions
+
+Each material can have its own particle size distribution (PSD). THAMES supports five PSD types:
+
+**Rosin-Rammler**
+
+```
+F(d) = 1 - exp(-(d/d₀)ⁿ)
+```
+
+Parameters:
+- **Characteristic diameter (d₀)**: μm
+- **Shape parameter (n)**: dimensionless
+
+![PSD Configuration](images/09-psd-rosin-rammler.png)
+*Figure 4.3: Particle Size Distribution configuration (Rosin-Rammler mode)*
+
+**Log-Normal**
+
+```
+F(d) = Φ((ln(d) - μ) / σ)
+```
+
+Parameters:
+- **Mean (μ)**: ln(μm)
+- **Standard deviation (σ)**: dimensionless
+
+**Fuller-Thompson**
+
+```
+F(d) = (d/d_max)^n
+```
+
+Parameters:
+- **Maximum diameter (d_max)**: μm
+- **Exponent (n)**: typically 0.5
+
+**Custom**
+
+User-defined cumulative distribution:
+- Enter pairs of (diameter, cumulative fraction)
+- Linear interpolation between points
+
+**Discrete**
+
+Specific particle sizes with volume fractions:
+- Enter pairs of (diameter, volume fraction)
+- Must sum to 100%
 
 ### 4.3 Phase Composition Editor
 
@@ -249,7 +316,7 @@ For each phase, configure:
 - **Kinetic model**: Thermodynamic (no dissolution), Parrot-Killoh, Standard, or Pozzolanic
 
 ![Phase Composition Editor](images/06-phase-composition-editor.png)
-*Figure 4.3: Phase Composition Editor showing phases with mass fractions and kinetic models*
+*Figure 4.4: Phase Composition Editor showing phases with mass fractions and kinetic models*
 
 #### Clinker Phases
 
@@ -269,17 +336,19 @@ Tags help organize materials:
 Filter materials by tag using the tag selector in the Materials panel.
 
 ![Tag Chip Input](images/07-tag-chips.png)
-*Figure 4.4: Tag chip input for categorizing materials*
+*Figure 4.5: Tag chip input for categorizing materials*
 
 ### 4.5 Importing and Exporting Materials
 
-#### Export
+> **Note:** This feature is planned for a future release and is not yet available in the current version.
+
+#### Export (Future)
 
 1. Select a material in the list
 2. Click **Export**
 3. Choose a location and filename (`.json` format)
 
-#### Import
+#### Import (Future)
 
 1. Click **Import**
 2. Select a `.json` material file
@@ -314,74 +383,32 @@ The water-to-binder (W/B) ratio determines:
 - High-performance concrete: 0.30–0.40
 - Dilute suspensions: Up to 10.0 (for research applications)
 
-### 5.3 Particle Size Distributions
+### 5.3 Aggregates
 
-Each material in the mix can have its own particle size distribution (PSD). THAMES supports five PSD types:
+THAMES supports both fine and coarse aggregates in mix designs.
 
-#### Rosin-Rammler
+#### Aggregate Types
 
-```
-F(d) = 1 - exp(-(d/d₀)ⁿ)
-```
+- **Fine Aggregate**: Sand-sized particles (typically < 4.75 mm)
+- **Coarse Aggregate**: Gravel-sized particles (typically > 4.75 mm)
 
-Parameters:
-- **Characteristic diameter (d₀)**: μm
-- **Shape parameter (n)**: dimensionless
+#### Configuring Aggregates
 
-![PSD Configuration](images/09-psd-rosin-rammler.png)
-*Figure 5.2: Particle Size Distribution configuration (Rosin-Rammler mode)*
+1. Select an aggregate material from the **Fine Aggregate** or **Coarse Aggregate** dropdown
+2. Enter the **Mass** of aggregate in the mix
+3. Click the **Grading** button to configure the particle size grading
 
-#### Log-Normal
+#### Aggregate Grading
 
-```
-F(d) = Φ((ln(d) - μ) / σ)
-```
+The grading curve defines the particle size distribution of the aggregate:
 
-Parameters:
-- **Mean (μ)**: ln(μm)
-- **Standard deviation (σ)**: dimensionless
+- Select from predefined grading templates (ASTM standards)
+- Or create a custom grading curve by entering sieve sizes and percent passing
+- The grading curve is displayed graphically for verification
 
-#### Fuller-Thompson
+### 5.4 Microstructure Configuration
 
-```
-F(d) = (d/d_max)^n
-```
-
-Parameters:
-- **Maximum diameter (d_max)**: μm
-- **Exponent (n)**: typically 0.5
-
-#### Custom
-
-User-defined cumulative distribution:
-- Enter pairs of (diameter, cumulative fraction)
-- Linear interpolation between points
-
-#### Discrete
-
-Specific particle sizes with volume fractions:
-- Enter pairs of (diameter, volume fraction)
-- Must sum to 100%
-
-### 5.4 Saving Mix Designs
-
-Mix designs are automatically saved in the database. To modify:
-
-1. Select the mix in the list
-2. Make changes
-3. Click **Save**
-
----
-
-## 6. Microstructure Generation
-
-### 6.1 Configuration Options
-
-Before generating a microstructure, configure:
-
-#### Mix Design Selection
-
-Select a previously defined mix design from the dropdown.
+Before generating a microstructure, configure the following options:
 
 #### Dimensions
 
@@ -395,9 +422,9 @@ Select a previously defined mix design from the dropdown.
 - **Range**: 0.25–4.0 μm
 
 ![Microstructure Configuration](images/10-microstructure-config.png)
-*Figure 6.1: Microstructure generation configuration panel*
+*Figure 5.2: Microstructure generation configuration panel*
 
-### 6.2 Resolution and Dimensions
+### 5.5 Resolution and Dimensions
 
 The relationship between resolution and physical size:
 
@@ -415,7 +442,7 @@ Physical size = Dimensions × Resolution
 | 200³ | 8 million | ~800 MB |
 | 300³ | 27 million | ~2.7 GB |
 
-### 6.3 Running Microstructure Generation
+### 5.6 Running Microstructure Generation
 
 1. Configure all options
 2. Click **Generate Microstructure**
@@ -427,7 +454,7 @@ The generator creates particles matching:
 - The target volume fraction based on W/B ratio
 - Realistic particle shapes from the shape set library
 
-### 6.4 Viewing Generated Microstructures
+### 5.7 Viewing Generated Microstructures
 
 After generation completes:
 
@@ -440,13 +467,13 @@ After generation completes:
    - Slice planes: Use the slice controls
 
 ![Generated Microstructure](images/11-microstructure-3d.png)
-*Figure 6.2: 3D view of a generated cement particle microstructure*
+*Figure 5.3: 3D view of a generated cement particle microstructure*
 
 ---
 
-## 7. Hydration Simulation
+## 6. Hydration Simulation
 
-### 7.1 Simulation Setup
+### 6.1 Simulation Setup
 
 To configure a hydration simulation:
 
@@ -465,9 +492,9 @@ To configure a hydration simulation:
 - **Sealed**: Fixed water content (typical for real concrete)
 
 ![Hydration Panel Overview](images/12-hydration-panel.png)
-*Figure 7.1: Hydration panel showing microstructure selection and simulation parameters*
+*Figure 6.1: Hydration panel showing microstructure selection and simulation parameters*
 
-### 7.2 Kinetic Models
+### 6.2 Kinetic Models
 
 THAMES supports three kinetic model types:
 
@@ -508,9 +535,9 @@ For silica fume, fly ash glasses, slag:
 | SiO₂ | Silicon dioxide content | mass fraction |
 
 ![Kinetic Model Editor](images/13-kinetic-model-editor.png)
-*Figure 7.2: Kinetic model editor showing Parrot-Killoh parameters for a clinker phase*
+*Figure 6.2: Kinetic model editor showing Parrot-Killoh parameters for a clinker phase*
 
-### 7.3 Electrolyte Composition
+### 6.3 Electrolyte Composition
 
 The electrolyte (pore solution) composition can be configured:
 
@@ -532,9 +559,9 @@ Species that increase over time:
 The **Charge Balance** indicator shows whether the solution is electrically neutral (required for GEMS calculations).
 
 ![Electrolyte Composition Editor](images/14-electrolyte-editor.png)
-*Figure 7.3: Electrolyte Composition Editor with species list and charge balance indicator*
+*Figure 6.3: Electrolyte Composition Editor with species list and charge balance indicator*
 
-### 7.4 Hydration Products
+### 6.4 Hydration Products
 
 Select which hydration products can precipitate:
 
@@ -551,9 +578,9 @@ Select which hydration products can precipitate:
 Enable/disable entire categories or individual phases.
 
 ![Hydration Products Tree](images/15-hydration-products.png)
-*Figure 7.4: Hydration products tree with category checkboxes and phase selection*
+*Figure 6.4: Hydration products tree with category checkboxes and phase selection*
 
-### 7.5 Time Parameters
+### 6.5 Time Parameters
 
 #### Final Simulation Time
 
@@ -568,9 +595,9 @@ Control when microstructure snapshots are saved:
 - **Preview**: Shows the number of output times that will be generated
 
 ![Time Parameters](images/16-time-parameters.png)
-*Figure 7.5: Time parameters configuration with output time preview*
+*Figure 6.5: Time parameters configuration with output time preview*
 
-### 7.6 Running Simulations
+### 6.6 Running Simulations
 
 1. Click **Start Hydration**
 2. Monitor progress in the Operations tab
@@ -590,9 +617,9 @@ Control when microstructure snapshots are saved:
 
 ---
 
-## 8. Elastic Properties
+## 7. Elastic Properties
 
-### 8.1 Configuration
+### 7.1 Configuration
 
 To calculate elastic properties:
 
@@ -604,16 +631,16 @@ To calculate elastic properties:
    - **Convergence tolerance**: Default 1×10⁻⁶
 
 ![Elastic Panel](images/17-elastic-panel.png)
-*Figure 8.1: Elastic properties panel with hydration selection and microstructure time point*
+*Figure 7.1: Elastic properties panel with hydration selection and microstructure time point*
 
-### 8.2 Running Elastic Calculations
+### 7.2 Running Elastic Calculations
 
 1. Click **Calculate**
 2. The calculation applies virtual strains and measures stresses
 3. Progress is shown in the Operations tab
 4. Calculation takes 5–30 minutes depending on microstructure size
 
-### 8.3 Viewing Results
+### 7.3 Viewing Results
 
 Results include:
 
@@ -634,14 +661,11 @@ If aggregate is present, the interface transition zone (ITZ) properties are calc
 - Identifies stress concentrations
 - Shows load paths through the microstructure
 
-![Elastic Results](images/18-elastic-results.png)
-*Figure 8.2: Effective moduli results table showing E, ν, K, G*
-
 ---
 
-## 9. Operations Monitoring
+## 8. Operations Monitoring
 
-### 9.1 Operation States
+### 8.1 Operation States
 
 Operations progress through states:
 
@@ -654,9 +678,9 @@ Operations progress through states:
 | **Cancelled** | Stopped by user |
 
 ![Operations Panel](images/19-operations-panel.png)
-*Figure 9.1: Operations panel showing different operation states*
+*Figure 8.1: Operations panel showing different operation states*
 
-### 9.2 Progress Tracking
+### 8.2 Progress Tracking
 
 For hydration simulations, progress displays:
 
@@ -674,9 +698,9 @@ Time units adapt automatically:
 - Days for simulations ≥ 24 hours
 
 ![Hydration Progress](images/20-hydration-progress.png)
-*Figure 9.2: Hydration simulation progress showing cycle, time, and DOH*
+*Figure 8.2: Hydration simulation progress showing cycle, time, and DOH*
 
-### 9.3 Viewing Operation Details
+### 8.3 Viewing Operation Details
 
 Click on an operation to view:
 
@@ -687,9 +711,9 @@ Click on an operation to view:
 
 ---
 
-## 10. Results Analysis
+## 9. Results Analysis
 
-### 10.1 3D Visualization
+### 9.1 3D Visualization
 
 The 3D viewer provides:
 
@@ -705,7 +729,7 @@ The 3D viewer provides:
 Corner axes indicator shows current view orientation (X, Y, Z with RGB colors).
 
 ![3D Viewer with Axes](images/21-3d-viewer-axes.png)
-*Figure 10.1: 3D viewer showing orientation axes indicator in corner*
+*Figure 9.1: 3D viewer showing orientation axes indicator in corner*
 
 #### Slice Planes
 
@@ -714,7 +738,7 @@ Corner axes indicator shows current view orientation (X, Y, Z with RGB colors).
 - View internal structure without obstruction
 
 ![3D Viewer with Slice](images/22-3d-viewer-slice.png)
-*Figure 10.2: 3D viewer with slice plane showing internal microstructure*
+*Figure 9.2: 3D viewer with slice plane showing internal microstructure*
 
 #### Phase Visibility
 
@@ -722,7 +746,7 @@ Corner axes indicator shows current view orientation (X, Y, Z with RGB colors).
 - Adjust phase opacity (0–100%)
 - Color scheme follows GEMS phase colors
 
-### 10.2 Data Plots
+### 9.2 Data Plots
 
 The Data Plots tab provides time-series visualization:
 
@@ -740,18 +764,36 @@ The Data Plots tab provides time-series visualization:
 #### Plot Options
 
 - **Multi-select**: Plot multiple variables simultaneously
+- **Time Units**: Select display units for the x-axis (Days, Hours, or Minutes)
 - **Axes**: Linear or logarithmic scales
 - **Range**: Auto or manual axis limits
 - **Style**: Line width, marker style
 - **Colors**: Automatic or custom color scheme
 
+#### Multi-Simulation Comparison
+
+Compare results from multiple hydration simulations on the same plot:
+
+1. Click **Add...** in the "Compare with Simulations" section
+2. Select another hydration operation from the list
+3. The comparison simulation appears in the list below
+4. Create a plot - data from all simulations will be shown together
+
+**Comparison plot features:**
+- Primary simulation uses solid lines
+- Comparison simulations use different line styles (dashed, dash-dot, dotted)
+- Same colors are used for the same variable across simulations
+- Legend entries include simulation names in parentheses for identification
+
+To remove a comparison simulation, select it in the list and click **Remove**.
+
 ![Data Plots](images/23-data-plots.png)
-*Figure 10.3: Data plots showing phase volumes over time*
+*Figure 9.3: Data plots showing phase volumes over time*
 
 ![Plot Options](images/24-plot-options.png)
-*Figure 10.4: Plot options panel with axis controls and export settings*
+*Figure 9.4: Plot options panel with time unit selection and comparison simulations*
 
-### 10.3 Exporting Results
+### 9.3 Exporting Results
 
 #### Export Plots
 
@@ -766,9 +808,9 @@ The Data Plots tab provides time-series visualization:
 
 ---
 
-## 11. Workflows
+## 10. Workflows
 
-### 11.1 Basic Portland Cement Hydration
+### 10.1 Basic Portland Cement Hydration
 
 **Goal**: Simulate 28 days of hydration for an ordinary Portland cement paste.
 
@@ -813,10 +855,7 @@ The Data Plots tab provides time-series visualization:
    - Plot phase volumes vs. time
    - Export data as needed
 
-![Workflow 1 Results](images/25-workflow1-results.png)
-*Figure 11.1: Phase volume evolution for 28-day Portland cement hydration*
-
-### 11.2 Blended Cement with Fly Ash
+### 10.2 Blended Cement with Fly Ash
 
 **Goal**: Simulate hydration of a cement-fly ash blend (70:30).
 
@@ -848,9 +887,9 @@ The Data Plots tab provides time-series visualization:
    - Observe Ca/Si ratio evolution
 
 ![Workflow 2 Microstructure](images/26-workflow2-microstructure.png)
-*Figure 11.2: Blended cement microstructure showing cement and fly ash particles*
+*Figure 10.2: Blended cement microstructure showing cement and fly ash particles*
 
-### 11.3 Computing Elastic Properties
+### 10.3 Computing Elastic Properties
 
 **Goal**: Calculate elastic modulus evolution during hydration.
 
@@ -874,13 +913,13 @@ The Data Plots tab provides time-series visualization:
    - Note the effect of phase assemblage on properties
 
 ![Workflow 3 Elastic](images/27-workflow3-elastic.png)
-*Figure 11.3: Young's modulus evolution during hydration*
+*Figure 10.3: Young's modulus evolution during hydration*
 
 ---
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
-### 12.1 Common Issues
+### 11.1 Common Issues
 
 #### Application won't start
 
@@ -905,7 +944,7 @@ The Data Plots tab provides time-series visualization:
 - Check that input files were generated correctly
 - Look for errors in the operation log
 
-### 12.2 GEMS Solver Errors
+### 11.2 GEMS Solver Errors
 
 The GEMS thermodynamic solver may encounter convergence issues:
 
@@ -930,7 +969,7 @@ The GEMS thermodynamic solver may encounter convergence issues:
 - Review enabled phases for conflicts
 - Check temperature is within database range (277–353 K)
 
-### 12.3 Performance Tips
+### 11.3 Performance Tips
 
 #### Speed up simulations
 
@@ -952,7 +991,7 @@ The GEMS thermodynamic solver may encounter convergence issues:
 
 ---
 
-## 13. Appendices
+## 12. Appendices
 
 ### A. Phase Reference
 
@@ -1070,7 +1109,7 @@ Time(h),Phase1,Phase2,Phase3,...
 
 ---
 
-## 14. Glossary
+## 13. Glossary
 
 **AFm phase**: Aluminum-iron monosulfate hydrate family, general formula [Ca₄(Al,Fe)₂(OH)₁₂]·X·nH₂O
 
@@ -1096,7 +1135,7 @@ Time(h),Phase1,Phase2,Phase3,...
 
 ---
 
-## 15. References
+## 14. References
 
 1. Parrot, L.J. and Killoh, D.C. (1984). "Prediction of cement hydration." *British Ceramic Proceedings*, 35, 41-53.
 

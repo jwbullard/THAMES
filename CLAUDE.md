@@ -1126,6 +1126,77 @@ February 3, 2026
 
 ---
 
+### Session 31: User Manual Documentation Updates
+February 4, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Context:** User captured 27 screenshots for the User Manual and needed to integrate them, plus fix several documentation issues.
+
+**Key Accomplishments:**
+
+1. **Screenshot Integration**
+   - Moved 26 screenshots from `tmp/UserManualImages/` to `docs/images/`
+   - Renamed files from `Figure_XX.YY.png` to descriptive names (e.g., `01-main-window.png`)
+   - Updated all image references in USER_MANUAL.md
+   - Removed references to 2 missing screenshots (18-elastic-results.png, 25-workflow1-results.png)
+
+2. **Section 3.2 Tab Navigation Fix**
+   - Removed incorrect "Microstructure" tab from table (it's part of Mix Design)
+   - Added missing "Operations" tab between Elastic and Results
+   - Updated table to show 6 correct tabs
+
+3. **Section 3.3 Preferences Fix**
+   - Updated General Tab to match actual UI (Auto-save, Confirm destructive actions)
+   - Added Performance Tab section (Worker threads, Memory limit, Caching)
+   - Added Affinity Defaults Tab section
+   - Removed non-existent Paths Tab
+
+4. **Section 4.2 Creating Materials Enhancement**
+   - Added missing fields: Specific Gravity, Specific Surface Area, Particle Shape, Material Type
+   - Reordered steps to match actual dialog layout
+
+5. **Section 4.5 Import/Export Materials**
+   - Marked as future feature (not yet implemented)
+
+6. **Major Restructuring: Merged Microstructure into Mix Design**
+   - Removed old Section 5.3 "Saving Mix Designs" (doesn't exist)
+   - Added new Section 5.3 "Aggregates" with types, configuration, and grading
+   - Merged old Section 6 (Microstructure Generation) into Section 5:
+     - 5.4 Microstructure Configuration
+     - 5.5 Resolution and Dimensions
+     - 5.6 Running Microstructure Generation
+     - 5.7 Viewing Generated Microstructures
+   - Renumbered all subsequent sections (7→6, 8→7, etc.)
+   - Updated Table of Contents to match new structure
+   - Updated all figure numbers throughout
+
+7. **Section 9.2 Data Plots Enhancement**
+   - Added Time Units option (Days, Hours, Minutes)
+   - Added Multi-Simulation Comparison subsection with step-by-step instructions
+   - Fixed figure number 10.4 → 9.4
+
+**Files Modified:**
+- `docs/USER_MANUAL.md`: Major restructuring and content updates (~200 lines changed)
+- `docs/images/`: 26 screenshots added with descriptive names
+
+**New Section Structure:**
+| Old # | New # | Section |
+|-------|-------|---------|
+| 5 | 5 | Mix Design (now includes microstructure) |
+| 6 | - | Microstructure Generation (merged into 5) |
+| 7 | 6 | Hydration Simulation |
+| 8 | 7 | Elastic Properties |
+| 9 | 8 | Operations Monitoring |
+| 10 | 9 | Results Analysis |
+| 11 | 10 | Workflows |
+| 12 | 11 | Troubleshooting |
+| 13 | 12 | Appendices |
+| 14 | 13 | Glossary |
+| 15 | 14 | References |
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)
@@ -1172,20 +1243,25 @@ git checkout adaptive-timestepping
 **To Disable Adaptive Stepping (if needed):**
 In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
-### 2. Documentation and User Guide (IN PROGRESS)
+### 2. Documentation and User Guide (MOSTLY COMPLETE)
 
-**Status:** Screenshots complete, ready for next session
+**Status:** User Manual substantially complete with screenshots integrated
 
 **Completed:**
-- `docs/USER_MANUAL.md` - Comprehensive user manual (~1,100 lines)
-- `docs/images/` - Folder created for screenshots
-- 27 screenshot placeholders added to manual
-- ✅ All 27 screenshots captured (February 3, 2026)
+- `docs/USER_MANUAL.md` - Comprehensive user manual (~1,200 lines)
+- `docs/images/` - 26 screenshots with descriptive names
+- ✅ All screenshots captured and integrated (February 4, 2026)
+- ✅ Section ordering fixed (Microstructure merged into Mix Design)
+- ✅ Tab Navigation table corrected
+- ✅ Preferences section updated to match actual UI
+- ✅ Materials creation section expanded
+- ✅ Aggregates section added
+- ✅ Data Plots section updated with new features (time units, multi-sim comparison)
+- ✅ Import/Export marked as future feature
 
-**Pending for Next Session:**
-- Review and finalize section ordering (user noted changes needed)
-- Small UI changes needed on Hydration tab
-- Insert screenshots into User Manual
+**Remaining:**
+- 2 missing screenshots (elastic results, workflow1 results) - references removed
+- Review for any remaining inconsistencies with actual UI
 
 ---
 
