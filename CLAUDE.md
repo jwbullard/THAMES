@@ -1057,11 +1057,80 @@ CSHQ               CSHQ_TobH, CSHQ_TobD, CSHQ_JenH, CSHQ_JenD
 
 ---
 
+### Session 30: Unified Adaptive Stepping, IC Depletion Recovery & Exit Status Messaging
+February 3, 2026
+
+**Platform:** macOS (Darwin 25.2.0)
+
+**Context:** Testing adaptive time stepping with various simulation types. E05IPM GEMS failure occurred at ~556 hours in HydrationOf-AllThree-03 due to IC depletion.
+
+**Key Accomplishments:**
+
+1. **Simplified Adaptive Time Stepping (Unified Parameters)**
+   - Removed model-type detection (`hasSignificantSIDrivenMass()`)
+   - Now uses unified parameters for all simulation types:
+     - `dt_initial = 0.001h` (~3.6 seconds)
+     - `dt_max = 4.0h`
+     - `growth_factor = 1.5`
+     - `successes_for_growth = 2`
+   - Kinetics-based timestep constraint provides dynamic adaptation
+   - Fast-dissolving exclusion list no longer needed
+
+2. **IC Depletion Recovery with Charge Compensation**
+   - **Problem**: ICs dropping below ICTHRESH caused E05IPM (Mass Balance Refinement) failures
+   - **Solution**: When IC depleted, add corresponding aqueous DC mass to maintain stoichiometry
+   - **IC-to-DC Mapping**: Ca→Ca+2, Fe→Fe+2, Al→Al+3, K→K+, Na→Na+, etc.
+   - **Charge Compensation**: Track charge from added DCs, balance with H+ or OH-
+   - **Maintainer Documentation**: Added comments explaining how to extend mapping for new ICs
+
+3. **UI Exit Status Messaging**
+   - **C++ Backend**: Added `writeExitStatus()` method to write `exit_status.json`
+   - **Exit Points**: Called at normal completion and MAX FAILURES EXCEEDED
+   - **Python UI**: Added `_check_hydration_exit_status()` to read exit status
+   - **User Alert**: Shows error dialog with reason and diagnostics when simulation fails
+
+4. **Test Results**
+   - CarbPort-02: ✅ Completed normally (0.5h target)
+   - HydrationOf-AllThree-04: ✅ Completed normally (672h/28d target)
+   - HydrationOf-AllThree-EarlyAge-01: ✅ Completed normally (72h/3d target)
+
+5. **Hydration Tab UI Improvements**
+   - **Validation time units**: Fixed "Final time" in validation output to use selected unit (was hardcoded "days")
+   - **Microstructure reference label**: Added small text below Operation Name showing selected microstructure name for easy reference when naming operations
+
+6. **GEMS Documentation**
+   - Created `docs/GEMS_DC_STOICHIOMETRY_GUIDE.md` - comprehensive guide explaining how to extract DC stoichiometry from GEMS
+   - Covers TNode direct access and ChemicalSystem wrapper functions
+   - Includes examples for solid solutions and phase composition
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule):*
+- `src/thameslib/ChemicalSystem.h`: IC depletion recovery with charge compensation (~120 lines added)
+- `src/thameslib/Controller.cc`: Unified adaptive params, writeExitStatus calls (+61 lines)
+- `src/thameslib/Controller.h`: Added writeExitStatus declaration (+14 lines)
+- `src/thameslib/KineticController.cc`: Removed hasSignificantSIDrivenMass() (-57 lines)
+- `src/thameslib/KineticController.h`: Removed hasSignificantSIDrivenMass() declaration (-21 lines)
+
+*Python (main repo):*
+- `src/app/windows/panels/operations_monitoring_panel.py`: Added `_check_hydration_exit_status()` method and integration (+76 lines)
+- `src/app/windows/panels/thames_hydration_panel.py`: Validation time units fix, microstructure reference label (+20 lines)
+
+*Documentation:*
+- `docs/GEMS_DC_STOICHIOMETRY_GUIDE.md`: New guide for extracting DC stoichiometry from GEMS (~280 lines)
+
+**Commits:**
+- `96065c5` (submodule): Add IC depletion recovery with charge compensation & exit status reporting
+- `c4ebfe26` (main): Session 30: IC depletion recovery & UI exit status messaging
+- Additional commit pending: UI fixes and GEMS documentation
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)
 
-**Status:** Implementation complete with model-aware parameter tuning.
+**Status:** Implementation complete. Simplified to unified parameters in Session 30.
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
@@ -1074,12 +1143,12 @@ CSHQ               CSHQ_TobH, CSHQ_TobD, CSHQ_JenH, CSHQ_JenD
 | 3d | Remove random guessing from calculateState() | ✅ Complete |
 | 4 | Kinetics-based initial timestep | ✅ Complete |
 | 5 | Configuration via simparams.json | Not started |
-| 6 | Performance tuning (model-aware parameters) | ✅ Complete (Session 28) |
+| 6 | Performance tuning | ✅ Complete (Session 30 - unified params) |
 
-**Model-Aware Parameter Selection (Session 28):**
-- SI-driven models (Standard, Pozzolanic): Conservative settings (growth=1.2, dt_max=1h)
-- DOR-driven models (ParrotKilloh only): Aggressive settings (growth=2.0, dt_max=12h)
-- Fast-dissolving phases (Bassanite, Gypsum, Arcanite, Thenardite) excluded from SI check
+**Unified Parameters (Session 30):**
+- Removed model-type detection in favor of unified parameters
+- Kinetics-based timestep constraint provides dynamic adaptation for all model types
+- Parameters: dt_initial=0.001h, dt_max=4h, growth_factor=1.5, successes_for_growth=2
 
 **Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition
@@ -1105,16 +1174,18 @@ In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
 ### 2. Documentation and User Guide (IN PROGRESS)
 
-**Status:** User Manual draft complete, awaiting screenshots
+**Status:** Screenshots complete, ready for next session
 
 **Completed:**
 - `docs/USER_MANUAL.md` - Comprehensive user manual (~1,100 lines)
 - `docs/images/` - Folder created for screenshots
 - 27 screenshot placeholders added to manual
+- ✅ All 27 screenshots captured (February 3, 2026)
 
-**Pending:**
-- User to capture 27 screenshots
-- Screenshots should be saved to `docs/images/` with filenames matching placeholders
+**Pending for Next Session:**
+- Review and finalize section ordering (user noted changes needed)
+- Small UI changes needed on Hydration tab
+- Insert screenshots into User Manual
 
 ---
 
@@ -1132,17 +1203,19 @@ In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
 ---
 
-### 4. GEMS Error Recovery Strategies (FUTURE)
+### 4. GEMS Error Recovery Strategies (PARTIALLY COMPLETE)
 
-**Status:** Discussed in Session 28, not yet implemented
+**Status:** IC depletion recovery implemented in Session 30
 
-**Potential Improvements:**
-- IC adjustment strategies when E05IPM (Mass Balance Refinement) errors occur
+**Completed (Session 30):**
+- ✅ IC depletion recovery: Add aqueous DC mass when ICs drop below ICTHRESH
+- ✅ Charge compensation: Balance added ionic DCs with H+ or OH-
+- ✅ UI exit status messaging: Alert user when simulation fails abnormally
+- ✅ Maintainer documentation for extending IC-to-DC mapping
+
+**Potential Future Improvements:**
 - Anticipatory IC monitoring before problems occur (detect when ICs approaching ICTHRESH)
-- Automatic DC concentration boosting when ICs get too low
 - Classify error types (E05IPM vs E07IPM) and apply different recovery strategies
-
-**Background:** In PKTest-03, simulation failed at 209 hours when Carbon IC dropped to ~5e-8 mol. User's workaround was to increase initial DC concentrations by 10x.
 
 ---
 

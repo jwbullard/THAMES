@@ -699,6 +699,19 @@ class THAMESHydrationPanel(Gtk.Box):
 
         content.pack_start(name_row, False, False, 0)
 
+        # Microstructure reference label (shows selected microstructure name for easy reference)
+        micro_ref_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        spacer_label = Gtk.Label("")
+        spacer_label.set_size_request(120, -1)  # Match the "Operation Name:" label width
+        micro_ref_row.pack_start(spacer_label, False, False, 0)
+
+        self.microstructure_ref_label = Gtk.Label("")
+        self.microstructure_ref_label.set_halign(Gtk.Align.START)
+        self.microstructure_ref_label.get_style_context().add_class("dim-label")
+        micro_ref_row.pack_start(self.microstructure_ref_label, True, True, 0)
+
+        content.pack_start(micro_ref_row, False, False, 0)
+
         # Control buttons
         button_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         button_row.set_halign(Gtk.Align.CENTER)
@@ -974,6 +987,7 @@ class THAMESHydrationPanel(Gtk.Box):
             self.selected_microstructure_path = None
             self.selected_operation_name = None
             self.micro_info_label.set_text("")
+            self.microstructure_ref_label.set_text("")
             # Clear microstructure phases from product selector
             self.product_selector.clear_microstructure_phases()
             return
@@ -984,6 +998,11 @@ class THAMESHydrationPanel(Gtk.Box):
 
         self.selected_microstructure_path = Path(path_str)
         self.selected_operation_name = self.selected_microstructure_path.parent.name
+
+        # Update reference label with microstructure operation name
+        self.microstructure_ref_label.set_markup(
+            f"<small>Microstructure: {self.selected_operation_name}</small>"
+        )
 
         # Show info about selected microstructure
         try:
@@ -1279,7 +1298,8 @@ class THAMESHydrationPanel(Gtk.Box):
             self._log_message(f"  - Total phases: {len(all_phases)}")
             self._log_message(f"  - Resolution: {self.resolution_spin.get_value()} μm/voxel")
             self._log_message(f"  - Temperature: {self.temperature_spin.get_value()}°C")
-            self._log_message(f"  - Final time: {self.final_time_spin.get_value()} days")
+            time_unit = self.final_time_unit_combo.get_active_text()
+            self._log_message(f"  - Final time: {self.final_time_spin.get_value()} {time_unit}")
             self.status_label.set_text("Validated")
 
     def _on_run_clicked(self, button: Gtk.Button) -> None:
