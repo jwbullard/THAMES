@@ -2400,6 +2400,9 @@ class OperationsMonitoringPanel(Gtk.Box):
                     self.logger.debug(f"Skipping hydration progress read for {operation.name}: {read_error}")
                     return
 
+                # Check for concentration overrides on first successful read
+                self._check_concentration_overrides(operation)
+
                 # Extract progress information from hydration progress.json format
                 if 'time_hours' in data:
                     current_time = data['time_hours']
@@ -2505,6 +2508,90 @@ class OperationsMonitoringPanel(Gtk.Box):
 
         except Exception as e:
             self.logger.error(f"Error checking exit status for {operation.name}: {e}")
+
+    def _check_concentration_overrides(self, operation) -> None:
+        """Check for concentration_overrides.json and notify the user.
+
+        The THAMES C++ backend writes this file at startup if any electrolyte
+        concentrations were too low for numerical stability and had to be
+        increased. This method reads that file and shows an info dialog
+        so the user is aware their values were modified.
+
+        Each operation is only checked once (tracked by _overrides_checked set).
+        """
+        try:
+            import os
+            import json
+
+            # Only check each operation once
+            if not hasattr(self, '_overrides_checked'):
+                self._overrides_checked = set()
+            if operation.id in self._overrides_checked:
+                return
+            self._overrides_checked.add(operation.id)
+
+            operation_dir = self._get_operation_directory(operation)
+            if not operation_dir:
+                return
+
+            overrides_file = os.path.join(operation_dir, "concentration_overrides.json")
+            if not os.path.exists(overrides_file):
+                return
+
+            try:
+                with open(overrides_file, 'r') as f:
+                    data = json.load(f)
+            except (OSError, IOError, json.JSONDecodeError) as e:
+                self.logger.debug(
+                    f"Could not read concentration_overrides.json for "
+                    f"{operation.name}: {e}"
+                )
+                return
+
+            message = data.get('message', 'Electrolyte concentrations were adjusted.')
+            overrides = data.get('overrides', [])
+            min_conc = data.get('min_concentration_mol_per_kg', 0)
+
+            if overrides:
+                self.logger.info(
+                    f"Concentration overrides for {operation.name}: "
+                    f"{'; '.join(overrides)}"
+                )
+
+                def show_overrides_dialog():
+                    dialog = Gtk.MessageDialog(
+                        transient_for=(
+                            self.get_toplevel()
+                            if hasattr(self, 'get_toplevel') else None
+                        ),
+                        flags=0,
+                        message_type=Gtk.MessageType.INFO,
+                        buttons=Gtk.ButtonsType.OK,
+                        text=f"Electrolyte Concentrations Adjusted: {operation.name}"
+                    )
+
+                    details = message
+                    details += f"\n\nMinimum concentration: {min_conc:.2e} mol/kg"
+                    details += "\n\nAdjusted species:\n"
+                    for override in overrides:
+                        details += f"  - {override}\n"
+                    details += (
+                        "\nThe simulation is running with the adjusted values. "
+                        "No action is needed."
+                    )
+
+                    dialog.format_secondary_text(details)
+                    dialog.run()
+                    dialog.destroy()
+                    return False
+
+                GLib.idle_add(show_overrides_dialog)
+
+        except Exception as e:
+            self.logger.error(
+                f"Error checking concentration overrides for "
+                f"{operation.name}: {e}"
+            )
 
     def _update_generic_progress(self, operation) -> None:
         """Update progress for generic operations using JSON progress files."""

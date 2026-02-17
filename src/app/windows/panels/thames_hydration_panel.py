@@ -635,6 +635,163 @@ class THAMESHydrationPanel(Gtk.Box):
 
         row += 1
 
+        # Adaptive time stepping heading
+        adaptive_heading = Gtk.Label()
+        adaptive_heading.set_markup("<b>Adaptive Time Stepping</b>")
+        adaptive_heading.set_halign(Gtk.Align.START)
+        adaptive_heading.set_margin_top(10)
+        content.attach(adaptive_heading, 0, row, 2, 1)
+
+        row += 1
+
+        # Enable checkbox
+        self.adaptive_enabled_check = Gtk.CheckButton.new_with_label(
+            "Enable adaptive time stepping"
+        )
+        self.adaptive_enabled_check.set_active(True)
+        self.adaptive_enabled_check.set_tooltip_text(
+            "When enabled, the simulation dynamically adjusts timestep size based on "
+            "GEMS solver performance. When disabled, uses pre-generated fixed time steps."
+        )
+        self.adaptive_enabled_check.connect("toggled", self._on_adaptive_enabled_toggled)
+        content.attach(self.adaptive_enabled_check, 0, row, 2, 1)
+
+        row += 1
+
+        # Expander for detailed parameters (collapsed by default)
+        self.adaptive_expander = Gtk.Expander(label="Advanced Parameters")
+        self.adaptive_expander.set_expanded(False)
+        self.adaptive_expander.set_margin_start(20)
+
+        adaptive_grid = Gtk.Grid()
+        adaptive_grid.set_row_spacing(8)
+        adaptive_grid.set_column_spacing(15)
+        adaptive_grid.set_margin_top(8)
+        adaptive_grid.set_margin_bottom(5)
+
+        arow = 0
+
+        # dt_initial
+        dt_init_label = Gtk.Label("Initial timestep (hours):")
+        dt_init_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(dt_init_label, 0, arow, 1, 1)
+
+        self.adaptive_dt_initial_spin = Gtk.SpinButton.new_with_range(0.00001, 1.0, 0.0001)
+        self.adaptive_dt_initial_spin.set_value(0.001)
+        self.adaptive_dt_initial_spin.set_digits(5)
+        self.adaptive_dt_initial_spin.set_tooltip_text(
+            "Starting timestep size in hours. Default: 0.001 (~3.6 seconds). "
+            "May be overridden by kinetics-based estimate at startup."
+        )
+        adaptive_grid.attach(self.adaptive_dt_initial_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # dt_max
+        dt_max_label = Gtk.Label("Maximum timestep (hours):")
+        dt_max_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(dt_max_label, 0, arow, 1, 1)
+
+        self.adaptive_dt_max_spin = Gtk.SpinButton.new_with_range(0.1, 48.0, 0.5)
+        self.adaptive_dt_max_spin.set_value(4.0)
+        self.adaptive_dt_max_spin.set_digits(1)
+        self.adaptive_dt_max_spin.set_tooltip_text(
+            "Maximum allowed timestep in hours. Default: 4.0."
+        )
+        adaptive_grid.attach(self.adaptive_dt_max_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # growth_factor
+        growth_label = Gtk.Label("Growth factor:")
+        growth_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(growth_label, 0, arow, 1, 1)
+
+        self.adaptive_growth_spin = Gtk.SpinButton.new_with_range(1.01, 5.0, 0.1)
+        self.adaptive_growth_spin.set_value(1.5)
+        self.adaptive_growth_spin.set_digits(2)
+        self.adaptive_growth_spin.set_tooltip_text(
+            "Timestep multiplier after consecutive successes. Default: 1.5 (50% growth)."
+        )
+        adaptive_grid.attach(self.adaptive_growth_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # shrink_factor
+        shrink_label = Gtk.Label("Shrink factor:")
+        shrink_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(shrink_label, 0, arow, 1, 1)
+
+        self.adaptive_shrink_spin = Gtk.SpinButton.new_with_range(0.01, 0.99, 0.05)
+        self.adaptive_shrink_spin.set_value(0.5)
+        self.adaptive_shrink_spin.set_digits(2)
+        self.adaptive_shrink_spin.set_tooltip_text(
+            "Timestep multiplier after GEMS failure. Default: 0.5 (halve timestep)."
+        )
+        adaptive_grid.attach(self.adaptive_shrink_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # successes_for_growth
+        successes_label = Gtk.Label("Successes before growth:")
+        successes_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(successes_label, 0, arow, 1, 1)
+
+        self.adaptive_successes_spin = Gtk.SpinButton.new_with_range(1, 20, 1)
+        self.adaptive_successes_spin.set_value(2)
+        self.adaptive_successes_spin.set_digits(0)
+        self.adaptive_successes_spin.set_tooltip_text(
+            "Number of consecutive GEMS successes required before growing timestep. Default: 2."
+        )
+        adaptive_grid.attach(self.adaptive_successes_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # max_consecutive_failures
+        failures_label = Gtk.Label("Max consecutive failures:")
+        failures_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(failures_label, 0, arow, 1, 1)
+
+        self.adaptive_max_failures_spin = Gtk.SpinButton.new_with_range(5, 500, 5)
+        self.adaptive_max_failures_spin.set_value(50)
+        self.adaptive_max_failures_spin.set_digits(0)
+        self.adaptive_max_failures_spin.set_tooltip_text(
+            "Simulation terminates after this many consecutive GEMS failures. Default: 50."
+        )
+        adaptive_grid.attach(self.adaptive_max_failures_spin, 1, arow, 1, 1)
+
+        arow += 1
+
+        # max_relative_change
+        max_change_label = Gtk.Label("Max relative change per step:")
+        max_change_label.set_halign(Gtk.Align.START)
+        adaptive_grid.attach(max_change_label, 0, arow, 1, 1)
+
+        self.adaptive_max_change_spin = Gtk.SpinButton.new_with_range(0.001, 0.5, 0.01)
+        self.adaptive_max_change_spin.set_value(0.05)
+        self.adaptive_max_change_spin.set_digits(3)
+        self.adaptive_max_change_spin.set_tooltip_text(
+            "Maximum fractional change in DC moles per timestep (kinetics constraint). "
+            "Default: 0.05 (5%). Lower values are more conservative."
+        )
+        adaptive_grid.attach(self.adaptive_max_change_spin, 1, arow, 1, 1)
+
+        self.adaptive_expander.add(adaptive_grid)
+        content.attach(self.adaptive_expander, 0, row, 2, 1)
+
+        # Store all adaptive SpinButtons for sensitivity toggling
+        self._adaptive_spin_buttons = [
+            self.adaptive_dt_initial_spin,
+            self.adaptive_dt_max_spin,
+            self.adaptive_growth_spin,
+            self.adaptive_shrink_spin,
+            self.adaptive_successes_spin,
+            self.adaptive_max_failures_spin,
+            self.adaptive_max_change_spin,
+        ]
+
+        row += 1
+
         # Output options heading
         output_heading = Gtk.Label()
         output_heading.set_markup("<b>Output Options</b>")
@@ -854,6 +1011,11 @@ class THAMESHydrationPanel(Gtk.Box):
             self.linear_spacing_unit_combo.set_active_id(new_unit_id)
         # Then update preview
         self._on_time_param_changed(widget)
+
+    def _on_adaptive_enabled_toggled(self, check_button: Gtk.CheckButton) -> None:
+        """Handle adaptive time stepping enable/disable toggle."""
+        enabled = check_button.get_active()
+        self.adaptive_expander.set_sensitive(enabled)
 
     def _do_time_preview_update(self) -> bool:
         """Actually perform the preview update (called from idle)."""
@@ -1223,6 +1385,18 @@ class THAMESHydrationPanel(Gtk.Box):
         # Get kinetic overrides from the product selector
         kinetic_overrides = self.product_selector.get_all_kinetic_configurations()
 
+        # Adaptive time stepping configuration
+        adaptive_stepping = {
+            'enabled': self.adaptive_enabled_check.get_active(),
+            'dt_initial': self.adaptive_dt_initial_spin.get_value(),
+            'dt_max': self.adaptive_dt_max_spin.get_value(),
+            'growth_factor': self.adaptive_growth_spin.get_value(),
+            'shrink_factor': self.adaptive_shrink_spin.get_value(),
+            'successes_for_growth': int(self.adaptive_successes_spin.get_value()),
+            'max_consecutive_failures': int(self.adaptive_max_failures_spin.get_value()),
+            'max_relative_change': self.adaptive_max_change_spin.get_value(),
+        }
+
         config = HydrationInputConfig(
             resolution=self.resolution_spin.get_value(),
             temperature=temp_kelvin,
@@ -1234,6 +1408,7 @@ class THAMESHydrationPanel(Gtk.Box):
             product_configurations=product_configs,
             electrolyte_conditions=electrolyte_conditions,
             kinetic_overrides=kinetic_overrides,
+            adaptive_stepping=adaptive_stepping,
             # Runtime options
             verbose=self.verbose_check.get_active(),
             suppress_warnings=self.suppress_warnings_check.get_active(),

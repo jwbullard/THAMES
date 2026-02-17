@@ -32,6 +32,7 @@ from app.services.simparams_service import (
     SimParamsService,
     EnvironmentConfig,
     TimeConfig,
+    AdaptiveSteppingConfig,
     DEFAULT_ELECTROLYTE_CONDITIONS,
 )
 from app.services.hydration_products_service import (
@@ -80,6 +81,9 @@ class HydrationInputConfig:
     # Impurity data overrides (phase name -> impurity dict)
     impurity_overrides: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
+    # Adaptive time stepping configuration (None = use C++ defaults)
+    adaptive_stepping: Optional[Dict[str, Any]] = None
+
     # Runtime options (command-line flags for thames executable)
     verbose: bool = False  # -v: Produce verbose output
     suppress_warnings: bool = False  # -s: Suppress warning messages
@@ -100,6 +104,7 @@ class HydrationInputConfig:
             "product_configurations": self.product_configurations,
             "kinetic_overrides": self.kinetic_overrides,
             "impurity_overrides": self.impurity_overrides,
+            "adaptive_stepping": self.adaptive_stepping,
             "verbose": self.verbose,
             "suppress_warnings": self.suppress_warnings,
             "create_xyz_files": self.create_xyz_files,
@@ -123,6 +128,7 @@ class HydrationInputConfig:
             product_configurations=data.get("product_configurations", {}),
             kinetic_overrides=data.get("kinetic_overrides", {}),
             impurity_overrides=data.get("impurity_overrides", {}),
+            adaptive_stepping=data.get("adaptive_stepping", None),
             verbose=data.get("verbose", False),
             suppress_warnings=data.get("suppress_warnings", False),
             create_xyz_files=data.get("create_xyz_files", False),
@@ -477,10 +483,25 @@ class HydrationInputService:
             electrolyte_conditions=config.electrolyte_conditions,
         )
 
+        # Build adaptive stepping config if provided
+        adaptive_config = None
+        if config.adaptive_stepping:
+            adaptive_config = AdaptiveSteppingConfig(
+                enabled=config.adaptive_stepping.get('enabled', True),
+                dt_initial=config.adaptive_stepping.get('dt_initial', 0.001),
+                dt_max=config.adaptive_stepping.get('dt_max', 4.0),
+                growth_factor=config.adaptive_stepping.get('growth_factor', 1.5),
+                shrink_factor=config.adaptive_stepping.get('shrink_factor', 0.5),
+                successes_for_growth=config.adaptive_stepping.get('successes_for_growth', 2),
+                max_consecutive_failures=config.adaptive_stepping.get('max_consecutive_failures', 50),
+                max_relative_change=config.adaptive_stepping.get('max_relative_change', 0.05),
+            )
+
         # Build time config
         time_config = TimeConfig(
             finaltime=config.final_time,
             outtimes=config.output_times,
+            adaptive_stepping=adaptive_config,
         )
 
         # Convert materials to format expected by simparams service

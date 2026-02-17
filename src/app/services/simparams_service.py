@@ -38,8 +38,13 @@ logger = logging.getLogger('THAMES.SimParamsService')
 # =============================================================================
 # Default Electrolyte Conditions
 # =============================================================================
-# These are the initial concentrations of aqueous species in the electrolyte
-# Used to seed the GEMS equilibrium calculations
+# These are the initial concentrations of aqueous species in the electrolyte.
+# Used to seed the GEMS equilibrium calculations.
+#
+# Note: The C++ backend will automatically raise any concentration that is
+# too low to maintain numerical stability (based on IC_FLOOR and the actual
+# water mass in the system). If overrides occur, the backend writes a
+# concentration_overrides.json file to alert the user.
 
 DEFAULT_ELECTROLYTE_CONDITIONS: List[Dict[str, Any]] = [
     {"DCname": "Ca(CO3)@", "condition": "initial", "concentration": 1.0e-6},
@@ -407,12 +412,26 @@ class EnvironmentConfig:
 
 
 @dataclass
+class AdaptiveSteppingConfig:
+    """Configuration for adaptive time stepping parameters."""
+    enabled: bool = True
+    dt_initial: float = 0.001       # hours (~3.6 seconds)
+    dt_max: float = 4.0             # hours
+    growth_factor: float = 1.5      # dimensionless
+    shrink_factor: float = 0.5      # dimensionless
+    successes_for_growth: int = 2   # consecutive successes before growing
+    max_consecutive_failures: int = 50  # terminate after this many
+    max_relative_change: float = 0.05   # fraction (5% max DC mole change per step)
+
+
+@dataclass
 class TimeConfig:
     """Configuration for simulation time parameters."""
     finaltime: float = 28.0  # days
     outtimes: List[float] = field(
         default_factory=lambda: [0.01, 0.1, 0.25, 0.5, 1, 3, 7, 14, 21, 28]
     )
+    adaptive_stepping: Optional[AdaptiveSteppingConfig] = None
 
 
 class SimParamsService:
@@ -673,10 +692,24 @@ class SimParamsService:
         Returns:
             Time parameters dictionary
         """
-        return {
+        result = {
             "finaltime": config.finaltime,
             "outtimes": config.outtimes
         }
+
+        if config.adaptive_stepping is not None:
+            result["adaptive_stepping"] = {
+                "enabled": config.adaptive_stepping.enabled,
+                "dt_initial": config.adaptive_stepping.dt_initial,
+                "dt_max": config.adaptive_stepping.dt_max,
+                "growth_factor": config.adaptive_stepping.growth_factor,
+                "shrink_factor": config.adaptive_stepping.shrink_factor,
+                "successes_for_growth": config.adaptive_stepping.successes_for_growth,
+                "max_consecutive_failures": config.adaptive_stepping.max_consecutive_failures,
+                "max_relative_change": config.adaptive_stepping.max_relative_change,
+            }
+
+        return result
 
     def write_simparams_file(
         self,

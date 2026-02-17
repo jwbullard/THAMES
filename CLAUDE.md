@@ -1195,13 +1195,114 @@ February 4, 2026
 | 14 | 13 | Glossary |
 | 15 | 14 | References |
 
+### Session 32: Configurable Adaptive Time Stepping UI & Runtime Concentration Safety
+February 11, 2026
+
+**Platform:** macOS (Darwin 25.3.0)
+
+**Context:** Continuation of previous session implementing configurable adaptive time stepping parameters exposed through the UI + simparams.json, plus runtime electrolyte concentration safety in the C++ backend.
+
+**Key Accomplishments:**
+
+1. **Configurable Adaptive Time Stepping (Tasks 1-4 Complete)**
+   - **Task 1 (simparams_service.py)**: Added `AdaptiveSteppingConfig` dataclass, optional `adaptive_stepping` field on `TimeConfig`, updated `_build_time_parameters()` to include the config in JSON output
+   - **Task 2 (hydration_input_service.py)**: Added `adaptive_stepping` field to `HydrationInputConfig`, wired through `to_dict()`/`from_dict()`/`_generate_simparams()`
+   - **Task 3 (thames_hydration_panel.py)**: Added "Adaptive Time Stepping" UI section with enable checkbox + Expander containing 7 SpinButtons (dt_initial, dt_max, growth_factor, shrink_factor, successes_for_growth, max_consecutive_failures, max_relative_change), updated `_build_config()` to collect values
+   - **Task 4 (Controller.cc/h)**: Added `maxRelativeChange_` member, initialized in constructor, read adaptive_stepping JSON section in `parseDoc()`, replaced hard-coded 0.05 values, re-computes kinetics-based initial timestep after config loaded
+
+2. **IC_FLOOR Proactive Depletion Prevention**
+   - **Problem**: Test simulation HY-TestAdaptiveUI-01 failed with E05IPM (R-matrix degeneration) due to ICs at 1e-5 to 1e-6 mol — above ICTHRESH (1e-8) but too small for numerical stability
+   - **Solution**: Added `IC_FLOOR = 1.0e-5` constant to `global.h` (separate from ICTHRESH)
+   - Updated `checkICMoles()` in `ChemicalSystem.h` to trigger at IC_FLOOR instead of ICTHRESH
+   - **User constraint**: IC_FLOOR must NOT go above 1e-5; if problems persist, a fundamentally different approach is needed
+
+3. **Runtime Electrolyte Concentration Safety**
+   - **Problem**: Default electrolyte concentrations (1e-6 mol/kg) can produce DC moles below IC_FLOOR when water mass is small
+   - **Solution**: In `setInitialElectrolyteComposition()` (ChemicalSystem.cc), computes `minConc = IC_FLOOR / waterMass` dynamically based on actual water mass
+   - Any DC concentration below `minConc` is automatically overridden
+   - Writes `concentration_overrides.json` to operation directory for UI notification
+   - Logs all overrides to `std::clog`
+
+4. **UI Notification of Concentration Overrides**
+   - Added `_check_concentration_overrides()` method to `operations_monitoring_panel.py`
+   - Reads `concentration_overrides.json` on first successful hydration progress update
+   - Shows info dialog listing adjusted species, minimum concentration, and water mass
+   - Each operation checked only once (tracked by `_overrides_checked` set)
+
+5. **Reverted Unnecessary Python UI Changes**
+   - Reverted default electrolyte concentrations back to 1e-6 mol/kg (simparams_service.py)
+   - Removed `MIN_RECOMMENDED_CONCENTRATION` constant and import
+   - Removed CSS warning provider and concentration warning logic from electrolyte_composition_editor.py
+   - Reverted new-DC and fallback defaults back to 1e-6
+   - Rationale: Runtime C++ check handles this dynamically, so static UI defaults/warnings are unnecessary
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule):*
+- `src/thameslib/Controller.h`: Added `maxRelativeChange_` member variable
+- `src/thameslib/Controller.cc`: Constructor init, `parseDoc()` JSON reading for adaptive_stepping, replaced hard-coded `0.05` values, re-computes kinetics-based initial timestep after config load
+- `src/thameslib/global.h`: Added `IC_FLOOR = 1.0e-5` with warning documentation
+- `src/thameslib/ChemicalSystem.h`: Updated `checkICMoles()` to use IC_FLOOR (3 places)
+- `src/thameslib/ChemicalSystem.cc`: Added runtime min_concentration check in `setInitialElectrolyteComposition()`, writes `concentration_overrides.json`
+
+*Python (main repo):*
+- `src/app/services/simparams_service.py`: Added `AdaptiveSteppingConfig` dataclass, updated `TimeConfig`, updated `_build_time_parameters()`, reverted electrolyte defaults to 1e-6, removed `MIN_RECOMMENDED_CONCENTRATION`
+- `src/app/services/hydration_input_service.py`: Added `adaptive_stepping` field to `HydrationInputConfig`, wired through `to_dict()`/`from_dict()`/`_generate_simparams()`
+- `src/app/windows/panels/thames_hydration_panel.py`: Added adaptive time stepping UI section (checkbox + expander + 7 SpinButtons), updated `_build_config()`
+- `src/app/widgets/electrolyte_composition_editor.py`: Removed `MIN_RECOMMENDED_CONCENTRATION` import, removed CSS warning provider, removed concentration warning logic, reverted defaults to 1e-6
+- `src/app/windows/panels/operations_monitoring_panel.py`: Added `_check_concentration_overrides()` method, hooked into hydration progress update
+
+**JSON Output Format (adaptive_stepping in simparams.json):**
+```json
+"time_parameters": {
+    "finaltime": 28.0,
+    "outtimes": [...],
+    "adaptive_stepping": {
+        "enabled": true,
+        "dt_initial": 0.001,
+        "dt_max": 4.0,
+        "growth_factor": 1.5,
+        "shrink_factor": 0.5,
+        "successes_for_growth": 2,
+        "max_consecutive_failures": 50,
+        "max_relative_change": 0.05
+    }
+}
+```
+
+**concentration_overrides.json Format:**
+```json
+{
+  "message": "Some electrolyte concentrations were below the minimum...",
+  "ic_floor_mol": 1e-05,
+  "min_concentration_mol_per_kg": 0.000227,
+  "water_mass_kg": 0.044,
+  "overrides": [
+    "AlO2H@: 1e-06 -> 0.000227 mol/kg",
+    "Fe(CO3)@: 1e-06 -> 0.000227 mol/kg"
+  ]
+}
+```
+
+**Key Technical Details:**
+- `minConc = IC_FLOOR / waterMass` where `waterMass = 0.001 × waterMoles × waterMolarMass` (kg)
+- `waterMoles = pscaledMass / waterMolarMass` where `pscaledMass = wsRatio × 100.0` (grams, normalized to 100g total solids)
+- Therefore `waterMass_kg = wsRatio × 0.1`
+- For W/S = 0.45: `waterMass = 0.045 kg`, `minConc = 1e-5 / 0.045 ≈ 2.2e-4 mol/kg`
+- Default DC concentrations (1e-6) will be overridden for most realistic W/S ratios
+
+**Test Status:**
+- C++ compiles cleanly, binary installed to `bin/thames`
+- HY-TestAdaptiveUI-01 test revealed E05IPM failure → fixed by IC_FLOOR
+- User testing runtime concentration override and UI notification — results pending
+
 ---
 
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)
 
-**Status:** Implementation complete. Simplified to unified parameters in Session 30.
+**Status:** Implementation complete including UI configuration (Session 32).
 
 **Implementation Plan:** `docs/adaptive_timestepping_implementation_plan.md`
 
@@ -1213,7 +1314,7 @@ February 4, 2026
 | 3 | Integrate into Controller::doCycle() | ✅ Complete |
 | 3d | Remove random guessing from calculateState() | ✅ Complete |
 | 4 | Kinetics-based initial timestep | ✅ Complete |
-| 5 | Configuration via simparams.json | Not started |
+| 5 | Configuration via simparams.json & UI | ✅ Complete (Session 32) |
 | 6 | Performance tuning | ✅ Complete (Session 30 - unified params) |
 
 **Unified Parameters (Session 30):**
@@ -1221,27 +1322,22 @@ February 4, 2026
 - Kinetics-based timestep constraint provides dynamic adaptation for all model types
 - Parameters: dt_initial=0.001h, dt_max=4h, growth_factor=1.5, successes_for_growth=2
 
+**UI Configuration (Session 32):**
+- Enable/disable checkbox + 7 SpinButtons in Hydration panel
+- Written to `adaptive_stepping` section in simparams.json
+- C++ reads in `parseDoc()` and applies via `AdaptiveTimeController::setConfig()`
+
 **Key Files Created:**
 - `AdaptiveTimeController.h` - Header with class definition
 - `AdaptiveTimeController.cc` - Implementation
 
 **Key Files Modified:**
 - `ChemicalSystem.h/cc` - Added getPCI(), getDXM(), getDetailedIterations(), getConvergenceRatio()
-- `Controller.h/cc` - Integrated adaptive controller into doCycle(), removed random guessing
-
-**To Test:**
-```bash
-# In thames-hydration submodule
-git checkout adaptive-timestepping
-
-# Run a simulation and look for log messages:
-# "AdaptiveTime: SUCCESS iter=..."
-# "AdaptiveTime: FAILURE code=..."
-# "##### Controller::doCycle - START NEW CYCLE (ADAPTIVE) ..."
-```
+- `Controller.h/cc` - Integrated adaptive controller into doCycle(), removed random guessing, reads config from JSON
 
 **To Disable Adaptive Stepping (if needed):**
 In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
+Or uncheck "Enable adaptive time stepping" in the Hydration panel UI.
 
 ### 2. Documentation and User Guide (MOSTLY COMPLETE)
 
@@ -1265,32 +1361,23 @@ In Controller constructor, change `useAdaptiveTimeStepping_ = true;` to `false`
 
 ---
 
-### 3. Adaptive Time Stepping Configuration (NOT STARTED)
+### 3. GEMS Error Recovery Strategies (SUBSTANTIALLY COMPLETE)
 
-**Status:** Phase 5 from adaptive time stepping - allow user configuration via simparams.json
+**Status:** IC depletion recovery + runtime concentration safety implemented
 
-**Potential Configuration Options:**
-- `adaptive_enabled`: true/false
-- `growth_factor`: 1.2-2.0
-- `shrink_factor`: 0.5
-- `dt_max`: maximum timestep in hours
-- `dt_min`: minimum timestep in hours
-- `successes_for_growth`: number of successes before growing timestep
+**Completed:**
+- ✅ IC depletion recovery: Add aqueous DC mass when ICs drop below IC_FLOOR (Session 30)
+- ✅ Charge compensation: Balance added ionic DCs with H+ or OH- (Session 30)
+- ✅ UI exit status messaging: Alert user when simulation fails abnormally (Session 30)
+- ✅ Maintainer documentation for extending IC-to-DC mapping (Session 30)
+- ✅ IC_FLOOR (1e-5) proactive depletion prevention in checkICMoles() (Session 32)
+- ✅ Runtime electrolyte concentration safety: minConc = IC_FLOOR / waterMass (Session 32)
+- ✅ concentration_overrides.json + UI notification dialog (Session 32)
 
----
-
-### 4. GEMS Error Recovery Strategies (PARTIALLY COMPLETE)
-
-**Status:** IC depletion recovery implemented in Session 30
-
-**Completed (Session 30):**
-- ✅ IC depletion recovery: Add aqueous DC mass when ICs drop below ICTHRESH
-- ✅ Charge compensation: Balance added ionic DCs with H+ or OH-
-- ✅ UI exit status messaging: Alert user when simulation fails abnormally
-- ✅ Maintainer documentation for extending IC-to-DC mapping
+**User Constraint:** IC_FLOOR must NOT exceed 1e-5 mol. If GEMS degeneration persists at this floor, a fundamentally different approach is needed (e.g., reformulating the system to remove trace ICs, or GEMS preconditioner adjustments).
 
 **Potential Future Improvements:**
-- Anticipatory IC monitoring before problems occur (detect when ICs approaching ICTHRESH)
+- Anticipatory IC monitoring before problems occur (detect when ICs approaching IC_FLOOR)
 - Classify error types (E05IPM vs E07IPM) and apply different recovery strategies
 
 ---
