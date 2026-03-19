@@ -30,7 +30,7 @@ class HelpDialog(Gtk.Dialog):
     
     def __init__(self, parent_window, help_manager: HelpManager):
         super().__init__(
-            title="VCCTL Help",
+            title="THAMES Help",
             transient_for=parent_window,
             modal=False,
             destroy_with_parent=False
@@ -716,7 +716,7 @@ class HelpDialog(Gtk.Dialog):
                 
                 # Print title
                 cr.move_to(50, 50)
-                cr.show_text(f"VCCTL Help: {topic.title}")
+                cr.show_text(f"THAMES Help: {topic.title}")
                 
                 # Print content (simplified)
                 y_pos = 80

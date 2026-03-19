@@ -1,7 +1,7 @@
 """
-VCCTL Help System
+THAMES Help System
 
-Provides comprehensive help and documentation system for VCCTL application.
+Provides comprehensive help and documentation system for THAMES application.
 """
 
 from .help_manager import HelpManager, HelpSection, HelpTopic

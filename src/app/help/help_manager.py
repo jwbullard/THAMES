@@ -93,18 +93,18 @@ class HelpManager(GObject.Object):
         section = HelpSection(
             "getting_started",
             "Getting Started",
-            "Learn the basics of using VCCTL",
+            "Learn the basics of using THAMES",
             "system-run"
         )
         
         # Overview topic
         overview_topic = HelpTopic(
             "overview",
-            "VCCTL Overview",
+            "THAMES Overview",
             """
-# VCCTL Overview
+# THAMES Overview
 
-VCCTL (Virtual Cement and Concrete Testing Laboratory) is a comprehensive simulation software for cement and concrete materials.
+THAMES is an advanced simulation software for cement hydration using thermodynamic modeling and the GEMS3K solver.
 
 ## Key Features
 
@@ -116,7 +116,7 @@ VCCTL (Virtual Cement and Concrete Testing Laboratory) is a comprehensive simula
 
 ## Workflow
 
-The typical VCCTL workflow follows these steps:
+The typical THAMES workflow follows these steps:
 
 1. **Define Materials**: Create cement, aggregates, and other materials
 2. **Design Mix**: Specify proportions and create mix design
@@ -142,7 +142,7 @@ The typical VCCTL workflow follows these steps:
             """
 # User Interface
 
-The VCCTL interface is organized into several main areas:
+The THAMES interface is organized into several main areas:
 
 ## Menu Bar
 
@@ -208,7 +208,7 @@ Displays current operation status, progress indicators, and help text.
             """
 # Cement Materials
 
-Cement is the primary binding agent in concrete. VCCTL supports various cement types with detailed chemical compositions.
+Cement is the primary binding agent in concrete. THAMES supports various cement types with detailed chemical compositions.
 
 ## Creating Cement Materials
 
@@ -232,7 +232,7 @@ Cement is the primary binding agent in concrete. VCCTL supports various cement t
 
 ## Validation
 
-VCCTL validates cement compositions:
+THAMES validates cement compositions:
 - Total oxides should sum to ~100%
 - Individual oxides within realistic ranges
 - Chemical compatibility checks
@@ -358,7 +358,7 @@ For 1 m³ of concrete:
 
 ## Design Methods
 
-VCCTL supports multiple design approaches:
+THAMES supports multiple design approaches:
 - ACI 211 method
 - DOE method
 - Density method
@@ -374,7 +374,7 @@ VCCTL supports multiple design approaches:
 
 ## Optimization
 
-Use VCCTL's optimization tools to:
+Use THAMES's optimization tools to:
 - Minimize cement content
 - Achieve target strength
 - Optimize workability
@@ -401,7 +401,7 @@ Use VCCTL's optimization tools to:
             """
 # Hydration Simulation
 
-VCCTL simulates the cement hydration process to predict concrete properties over time.
+THAMES simulates the cement hydration process to predict concrete properties over time.
 
 ## Simulation Setup
 

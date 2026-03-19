@@ -1298,6 +1298,57 @@ February 11, 2026
 
 ---
 
+### Session 33: Micgen Windows Crash Debugging
+March 19, 2026
+
+**Platform:** Windows 10 (MSYS2 MinGW-w64, Clang 21.1.1)
+
+**Context:** micgen.exe crashes with SIGSEGV on Windows but works on macOS. Same code, same input format. Previous (crashed) session had begun investigating but API errors lost context.
+
+**Key Accomplishments:**
+
+1. **Root Cause: Stack-Allocated Arrays Exceeding Windows Stack Size**
+   - `struct lineitem line[MAXLINES]` in `genparticles()` and `genonevoxparticles()` = ~1.7 MB each on stack
+   - `struct lineitem` = 568 bytes × MAXLINES (3000) = 1,704,000 bytes per array
+   - Windows default stack = 1 MB; macOS = 8 MB — explains platform-specific crash
+   - **Fix**: Made both arrays `static` to move to BSS segment
+   - Also added `-Wl,--stack,8388608` (8 MB) linker flag for Windows as defense-in-depth
+
+2. **Root Cause: Bbox Array Bounds Mismatch**
+   - `Bbox` allocated with `0.75 * systemsize` but particle size checks allow `0.8 * systemsize`
+   - For 110×120×100 system: BoxXsize=82 but particles up to nxp=87 allowed — buffer overflow
+   - **Fix**: Changed `0.75` to `0.8` in `getsystemsize()` for BoxXsize/BoxYsize/BoxZsize
+
+3. **SIGSEGV Crash Diagnostics Infrastructure**
+   - Created signal handler with TRACK macro for crash location diagnosis
+   - Avoids need for gdb (which was too slow with 929K+ lines of log output)
+   - TRACK calls placed at all key array access points in `checkpart()`, `image()`, `adjustvol()`, `addlayer()`
+
+4. **Successful Test Run**
+   - Paste152 simulation completed: 1,038,745 log lines, 910 seconds elapsed
+   - Output files created: `Paste152.thames.img` (4.0 MB) + `Paste152.thames.pimg` (4.7 MB)
+   - Minor: segfault on exit during `freemicgen()` cleanup (after output written — does not affect results)
+
+5. **lineitem Struct Analysis**
+   - `line[]` array reads `-geom.csv` shape file with 17 fields per entry
+   - Only `line[n1].name` is actually used during particle placement
+   - Other 16 numeric fields parsed but never referenced — future optimization candidate
+
+**Files Modified (worktree: `C:\Users\jwbullard\Desktop\foo\THAMES`):**
+- `backend/CMakeLists.txt`: Windows-only 8MB stack linker flag
+- `backend/src/micgen.c`: static line[], Bbox 0.8 fix, SIGSEGV handler + TRACK macros
+
+**Remaining Issue:**
+- Segfault during `freemicgen()` exit cleanup — low priority, output is valid
+- Debug fprintf lines and TRACK macros should be removed before final release
+
+**Detailed session notes:** `docs/session33_micgen_windows_crash_debug.md`
+
+**IMPORTANT — Windows Working Directory:**
+Always work from `C:\Users\jwbullard\Desktop\foo\THAMES` on Windows, NOT `C:\Users\jwbullard\THAMES`.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

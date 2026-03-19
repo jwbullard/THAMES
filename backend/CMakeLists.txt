@@ -57,6 +57,11 @@ add_subdirectory (${CMAKE_SOURCE_DIR}/src/zlib)
 add_executable (micgen ${CMAKE_SOURCE_DIR}/src/micgen.c)
 target_link_libraries (micgen  thamesaux ${EXTRA_LIBS})
 
+# Increase stack size on Windows (default 1MB is too small for large stack arrays)
+if(WIN32)
+    target_link_options(micgen PRIVATE "-Wl,--stack,8388608")  # 8 MB stack
+endif()
+
 #add_executable (elastic ${CMAKE_SOURCE_DIR}/src/elastic.c)
 #target_link_libraries (elastic  thamesaux ${EXTRA_LIBS})
 

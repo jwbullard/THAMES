@@ -51,24 +51,24 @@ class DocumentationViewer:
         Find built documentation in standard locations.
 
         Returns:
-            Path to site/ directory or None if not found
+            Path to docs/ directory or None if not found
         """
         # Try relative to current file
         current_file = Path(__file__).resolve()
         project_root = current_file.parent.parent.parent.parent
 
-        # Standard location: vcctl-docs/site/
-        docs_site = project_root / "vcctl-docs" / "site"
-        if docs_site.exists() and docs_site.is_dir():
-            logger.info(f"Found documentation at: {docs_site}")
-            return docs_site
+        # Standard location: docs/
+        docs_dir = project_root / "docs"
+        if docs_dir.exists() and docs_dir.is_dir():
+            logger.info(f"Found documentation at: {docs_dir}")
+            return docs_dir
 
         # Try installed location (for packaged app)
         import sys
         if getattr(sys, 'frozen', False):
             # Running in PyInstaller bundle
             bundle_dir = Path(sys._MEIPASS)
-            packaged_docs = bundle_dir / "docs" / "site"
+            packaged_docs = bundle_dir / "docs"
             if packaged_docs.exists():
                 logger.info(f"Found packaged documentation at: {packaged_docs}")
                 return packaged_docs
@@ -111,18 +111,39 @@ class DocumentationViewer:
 
     def open_user_guide(self, section: str = None, parent_window: Optional[Gtk.Window] = None):
         """
-        Open specific user guide section.
+        Open the THAMES User Manual.
 
         Args:
-            section: Section name (e.g., "elastic-calculations", "materials-management")
+            section: Section name (not currently used - opens full manual)
             parent_window: Parent window for error dialogs
         """
-        if section:
-            page = f"user-guide/{section}/index.html"
-        else:
-            page = "user-guide/materials-management/index.html"  # Default to first section
+        if self.docs_path is None or not self.docs_path.exists():
+            self._show_documentation_not_found_dialog(parent_window)
+            return
 
-        self.open_documentation(page, parent_window)
+        # Look for USER_MANUAL.md
+        user_manual = self.docs_path / "USER_MANUAL.md"
+        if not user_manual.exists():
+            self._show_documentation_not_found_dialog(parent_window)
+            return
+
+        # Open in default application (markdown viewer or text editor)
+        import os
+        import subprocess
+        import sys
+
+        logger.info(f"Opening user manual: {user_manual}")
+
+        try:
+            if sys.platform == 'win32':
+                os.startfile(str(user_manual))
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', str(user_manual)], check=True)
+            else:
+                subprocess.run(['xdg-open', str(user_manual)], check=True)
+        except Exception as e:
+            logger.error(f"Failed to open user manual: {e}")
+            self._show_browser_error_dialog(parent_window, str(e))
 
     def open_getting_started(self, parent_window: Optional[Gtk.Window] = None):
         """Open Getting Started guide."""
@@ -236,12 +257,11 @@ class DocumentationViewer:
             text="Documentation Not Found"
         )
         dialog.format_secondary_text(
-            "The VCCTL documentation could not be found.\n\n"
-            "Please ensure the documentation has been built:\n"
-            "  cd vcctl-docs\n"
-            "  mkdocs build\n\n"
-            "Or visit the online documentation at:\n"
-            "https://vcctl.readthedocs.io/"
+            "The THAMES User Manual could not be found.\n\n"
+            "The documentation should be located at:\n"
+            "  docs/USER_MANUAL.md\n\n"
+            "Please ensure the docs folder exists in the\n"
+            "THAMES installation directory."
         )
         dialog.run()
         dialog.destroy()

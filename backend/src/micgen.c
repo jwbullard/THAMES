@@ -25,10 +25,21 @@
 #include <getopt.h>
 #include <math.h>
 #include <setjmp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+/* Debug: track last known location for crash diagnosis */
+static const char *g_crash_location = "unknown";
+static int g_crash_line = 0;
+static void crash_handler(int sig) {
+  fprintf(stderr, "\n*** SEGFAULT at: %s (line %d) ***\n", g_crash_location, g_crash_line);
+  fflush(stderr);
+  _exit(139);
+}
+#define TRACK(loc) do { g_crash_location = loc; g_crash_line = __LINE__; } while(0)
 
 #ifdef _WIN32
 #define PATH_SEPARATOR "\\"
@@ -505,6 +516,9 @@ int main(int argc, char *argv[]) {
 
   Pi = 4.0 * atan(1.0);
 
+  /* Install crash handler */
+  signal(SIGSEGV, crash_handler);
+
   /* Initialize all volume fractions and size classes */
 
   for (i = 0; i < MAXNUMPHASES; i++) {
@@ -543,17 +557,20 @@ int main(int argc, char *argv[]) {
   fprintf(Logfile, "%d", nseed);
   fflush(Logfile);
   Seed = (&nseed);
+  fprintf(Logfile, "\nDEBUG: Seed ptr set"); fflush(Logfile);
 
   /* Initialize counters and system parameters */
 
   Npart = 0;
   Aggsize = 0;
   NumberOfFlocs = 0;
+  fprintf(Logfile, "\nDEBUG: counters init"); fflush(Logfile);
 
   /***
    *    Present menu and execute user choice
    ***/
 
+  fprintf(Logfile, "\nDEBUG: about to call filehandler"); fflush(Logfile);
   ProgressFile = filehandler("micgen", ProgressFileName, "WRITE");
   if (!ProgressFile) {
     freemicgen();
@@ -955,17 +972,17 @@ int getsystemsize(void) {
   fprintf(Logfile, "Enter X dimension of system \n");
   read_string(instring, sizeof(instring));
   Xsyssize = atoi(instring);
-  BoxXsize = (int)(0.75 * Xsyssize);
+  BoxXsize = (int)(0.8 * Xsyssize);
   fprintf(Logfile, "%d\n", Xsyssize);
   fprintf(Logfile, "Enter Y dimension of system \n");
   read_string(instring, sizeof(instring));
   Ysyssize = atoi(instring);
-  BoxYsize = (int)(0.75 * Ysyssize);
+  BoxYsize = (int)(0.8 * Ysyssize);
   fprintf(Logfile, "%d\n", Ysyssize);
   fprintf(Logfile, "Enter Z dimension of system \n");
   read_string(instring, sizeof(instring));
   Zsyssize = atoi(instring);
-  BoxZsize = (int)(0.75 * Zsyssize);
+  BoxZsize = (int)(0.8 * Zsyssize);
   fprintf(Logfile, "%d\n", Zsyssize);
 
   if ((Xsyssize <= 0) || (Xsyssize > MAXSIZE) || (Ysyssize <= 0) ||
@@ -1183,6 +1200,7 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
   int i1, i2, j1, k1, xc, yc, zc, found;
   int xmark;
 
+  TRACK("checkpart() entry");
   pnum = Npart;
 
   nofits = 0; /* Flag indicating if placement is possible */
@@ -1207,7 +1225,9 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
 
   xmark = (int)(xc);
 
+  TRACK("checkpart() before Check branch");
   if (wflg == Check) {
+    TRACK("checkpart() Check/Simwall search");
     if (Simwall) {
       /* Mark x position of a solid voxel somewhere in particle against which to
          check all others for straddling a fictitious wall if one is wanted */
@@ -1216,6 +1236,7 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
       j = (int)(yc);
       i = (int)(xc);
       found = 0;
+      TRACK("checkpart() Simwall for-loop");
       for (i = (int)(xc); (i <= nxp && !found); i++) {
         for (j = (int)(yc); (j <= nyp && !found); j++) {
           for (k = (int)(zc); (k <= nzp && !found); k++) {
@@ -1229,6 +1250,7 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
       }
     }
 
+    TRACK("checkpart() Check main loop");
     k = j = i = 1;
     nofits = 0;
     while (k <= nzp && !nofits) {
@@ -1243,7 +1265,9 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
           i1 = xin + i;
           i2 = i1;
           i1 += checkbc(i1, Xsyssize);
+          TRACK("checkpart() Check Bbox access");
           if (Bbox.val[getInt3dindex(Bbox, i, j, k)] != ELECTROLYTE) {
+            TRACK("checkpart() Check Cemreal access");
             if (Cemreal.val[getInt3dindex(Cemreal, i1, j1, k1)] !=
                 ELECTROLYTE) {
               nofits = 1;
@@ -1262,6 +1286,7 @@ int checkpart(int xin, int yin, int zin, int nxp, int nyp, int nzp, int vol,
 
   } else {
 
+    TRACK("checkpart() Place branch");
     k = j = i = 1;
     numpix = 0;
     while (k <= nzp) {
@@ -1885,7 +1910,7 @@ int genparticles(int numgen, int *numeach, float *sizeeach, int *pheach) {
   fcomplex r1, ddd, icmplx;
   char buff[MAXSTRING], filename[MAXSTRING], scratchname[MAXSTRING];
   char *name, *newstring;
-  struct lineitem line[MAXLINES];
+  static struct lineitem line[MAXLINES]; /* static to avoid ~1.7 MB stack usage */
   FILE *anmfile, *geomfile, *fscratch;
 
   /* Determine how many total particles should be placed */
@@ -2866,7 +2891,7 @@ int genonevoxparticles(int numeach, int pheach) {
   fcomplex r1, ddd, icmplx;
   char buff[MAXSTRING], filename[MAXSTRING], scratchname[MAXSTRING];
   char *name, *newstring;
-  struct lineitem line[MAXLINES];
+  static struct lineitem line[MAXLINES]; /* static to avoid ~1.7 MB stack usage */
   FILE *anmfile, *geomfile;
 
   nnxp = nnyp = nnzp = n1 = 0;

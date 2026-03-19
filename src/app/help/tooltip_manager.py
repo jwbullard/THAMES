@@ -2,7 +2,7 @@
 """
 Tooltip Manager
 
-Manages contextual tooltips throughout the VCCTL application.
+Manages contextual tooltips throughout the THAMES application.
 """
 
 import gi
@@ -36,7 +36,7 @@ class TooltipInfo:
 
 class TooltipManager(GObject.Object):
     """
-    Manages tooltips for VCCTL application.
+    Manages tooltips for THAMES application.
     
     Features:
     - Simple text tooltips
