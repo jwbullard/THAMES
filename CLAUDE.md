@@ -1347,6 +1347,76 @@ March 19, 2026
 **IMPORTANT — Windows Working Directory:**
 Always work from `C:\Users\jwbullard\Desktop\foo\THAMES` on Windows, NOT `C:\Users\jwbullard\THAMES`.
 
+### Session 34: Suppressed Phases, Time Unit Seconds & Submodule Merge
+March 20, 2026
+
+**Platform:** macOS (Darwin 25.3.0)
+
+**Context:** User running carbonation simulations (Portlandite dissolution + Calcite precipitation in Na2CO3 solution). Aragonite was forming instead of Calcite because GEMS was free to precipitate unchecked phases. Also added seconds as a time unit option and merged the thames-hydration submodule branch.
+
+**Key Accomplishments:**
+
+1. **Seconds Added to All Time Unit Dropdowns**
+   - Added "seconds" option to all 5 time unit combos in Time Parameters section
+   - Added unit dropdown combos next to dt_initial and dt_max in Adaptive Time Stepping section (previously hardcoded to hours)
+   - dt_initial defaults to 3.6 seconds, dt_max defaults to 4.0 hours
+   - SpinButton ranges auto-adjust when unit changes
+   - Values converted to hours before writing to simparams.json
+
+2. **Suppressed Phases Feature (Full Pipeline)**
+   - **Problem**: GEMS precipitated Aragonite (unchecked phase) instead of Calcite because no mechanism existed to prevent it
+   - **Python** (`hydration_input_service.py`): After generating simparams, computes `suppressed_phases = all_GEMS_phases - active_phases` and adds to JSON
+   - **C++** (`Controller.cc`): In `parseDoc()`, reads `suppressed_phases` array, builds phase-to-DC mapping from GEMS `nDCinPH` array, registers each DC via `addSuppressedDC()`
+   - **C++** (`ChemicalSystem.h`): Added `suppressedDCIds_` set and `addSuppressedDC()` method; modified `initDCUpperLimit()` to keep suppressed DCs at 0.0 instead of resetting to 1e6 each cycle
+   - **C++** (`global.h`): Added `#include <set>`
+   - **Key debugging insight**: `Controller::calculateState()` calls `initDCUpperLimit(1e6)` every cycle, which was wiping out suppression. Fix: `initDCUpperLimit` now skips DCs in `suppressedDCIds_`
+
+3. **Empty Category Row Fix** (`hydration_product_selector.py`)
+   - Skip category row in product tree if all its products are already microstructure phases
+   - Fixes "CH" category appearing as empty row when Portlandite is a microstructure phase
+
+4. **Merged thames-hydration Submodule to Main**
+   - Merged `adaptive-timestepping` branch (12 commits, +2236 lines) into `main`
+   - All future work continues on `main` branch
+
+5. **Carbonation Simulation Analysis**
+   - Analyzed CarbPort-03 series: identified Aragonite forming instead of Calcite (GEMS thermodynamic preference)
+   - After suppression fix: Calcite grows correctly, Aragonite=0
+   - Identified operator-splitting oscillations in aqueous speciation; resolved by reducing `max_relative_change` to 0.01
+   - Explained Portlandite SI behavior in carbonate solutions: Ca(CO3)@ complexation keeps ~79% of dissolved Ca bound, preventing Ca²⁺ accumulation and keeping Portlandite deeply undersaturated — correct thermodynamic behavior for carbonation
+
+**Files Modified:**
+
+*C++ (thames-hydration submodule, on main):*
+- `src/thameslib/Controller.cc`: Suppressed phases reading from JSON, phase-to-DC mapping via nDCinPH, addSuppressedDC calls
+- `src/thameslib/ChemicalSystem.h`: Added `suppressedDCIds_` set, `addSuppressedDC()`, modified `initDCUpperLimit()`
+- `src/thameslib/ChemicalSystem.cc`: Removed debug prints from calculateState
+- `src/thameslib/global.h`: Added `#include <set>`
+
+*Python (main repo):*
+- `src/app/windows/panels/thames_hydration_panel.py`: Added "seconds" to all time unit combos, added unit combos for dt_initial/dt_max, added `_convert_to_hours()` and `_on_adaptive_dt_unit_changed()` methods
+- `src/app/services/hydration_input_service.py`: Added suppressed_phases computation after simparams generation
+- `src/app/widgets/hydration_product_selector.py`: Skip empty category rows when all products are microstructure phases
+
+**Suppression Architecture:**
+```
+UI (unchecked phases) → hydration_input_service.py (suppressed_phases list)
+  → simparams.json ["suppressed_phases": [...]]
+  → Controller::parseDoc() reads list
+  → nDCinPH array maps phase→DC indices
+  → ChemicalSystem::addSuppressedDC(dcId) registers in suppressedDCIds_
+  → initDCUpperLimit(1e6) skips suppressed DCs (keeps at 0.0)
+  → GEM_from_MT receives DCUpperLimit_=0 for suppressed DCs
+```
+
+**Carbonation Analysis Findings:**
+- Fixed CO₃²⁻ acts as continuous carbon source, not a realistic boundary condition for most experiments
+- In carbonate solutions, ~79% of dissolved Ca is complexed as Ca(CO3)@ — free Ca²⁺ is suppressed
+- Portlandite SI cannot approach 1 in carbonate-rich solutions regardless of dissolution kinetics
+- Operator-splitting oscillations in aqueous speciation dampened by reducing max_relative_change to 0.01
+
+**Detailed session notes:** `docs/session34_summary.md`
+
 ---
 
 ## PRIORITY TASKS

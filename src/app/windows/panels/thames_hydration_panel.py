@@ -398,6 +398,7 @@ class THAMESHydrationPanel(Gtk.Box):
         final_time_box.pack_start(self.final_time_spin, True, True, 0)
 
         self.final_time_unit_combo = Gtk.ComboBoxText()
+        self.final_time_unit_combo.append("s", "seconds")
         self.final_time_unit_combo.append("min", "minutes")
         self.final_time_unit_combo.append("hr", "hours")
         self.final_time_unit_combo.append("d", "days")
@@ -447,6 +448,7 @@ class THAMESHydrationPanel(Gtk.Box):
         custom_row.pack_start(self.custom_times_entry, True, True, 0)
 
         self.custom_times_unit_combo = Gtk.ComboBoxText()
+        self.custom_times_unit_combo.append("s", "s")
         self.custom_times_unit_combo.append("min", "min")
         self.custom_times_unit_combo.append("hr", "hr")
         self.custom_times_unit_combo.append("d", "d")
@@ -489,6 +491,7 @@ class THAMESHydrationPanel(Gtk.Box):
         linear_spacing_box.pack_start(self.linear_spacing_spin, False, False, 0)
 
         self.linear_spacing_unit_combo = Gtk.ComboBoxText()
+        self.linear_spacing_unit_combo.append("s", "s")
         self.linear_spacing_unit_combo.append("min", "min")
         self.linear_spacing_unit_combo.append("hr", "hr")
         self.linear_spacing_unit_combo.append("d", "d")
@@ -515,6 +518,7 @@ class THAMESHydrationPanel(Gtk.Box):
         exp_t0_row.pack_start(self.exp_t0_spin, False, False, 0)
 
         self.exp_t0_unit_combo = Gtk.ComboBoxText()
+        self.exp_t0_unit_combo.append("s", "s")
         self.exp_t0_unit_combo.append("min", "min")
         self.exp_t0_unit_combo.append("hr", "hr")
         self.exp_t0_unit_combo.append("d", "d")
@@ -590,6 +594,7 @@ class THAMESHydrationPanel(Gtk.Box):
         exact_times_box.pack_start(self.exact_times_entry, True, True, 0)
 
         self.exact_times_unit_combo = Gtk.ComboBoxText()
+        self.exact_times_unit_combo.append("s", "s")
         self.exact_times_unit_combo.append("min", "min")
         self.exact_times_unit_combo.append("hr", "hr")
         self.exact_times_unit_combo.append("d", "d")
@@ -672,33 +677,57 @@ class THAMESHydrationPanel(Gtk.Box):
         arow = 0
 
         # dt_initial
-        dt_init_label = Gtk.Label("Initial timestep (hours):")
+        dt_init_label = Gtk.Label("Initial timestep:")
         dt_init_label.set_halign(Gtk.Align.START)
         adaptive_grid.attach(dt_init_label, 0, arow, 1, 1)
 
-        self.adaptive_dt_initial_spin = Gtk.SpinButton.new_with_range(0.00001, 1.0, 0.0001)
-        self.adaptive_dt_initial_spin.set_value(0.001)
-        self.adaptive_dt_initial_spin.set_digits(5)
+        dt_init_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.adaptive_dt_initial_spin = Gtk.SpinButton.new_with_range(0.001, 3600.0, 0.1)
+        self.adaptive_dt_initial_spin.set_value(3.6)
+        self.adaptive_dt_initial_spin.set_digits(3)
         self.adaptive_dt_initial_spin.set_tooltip_text(
-            "Starting timestep size in hours. Default: 0.001 (~3.6 seconds). "
+            "Starting timestep size. Default: 3.6 seconds (0.001 hours). "
             "May be overridden by kinetics-based estimate at startup."
         )
-        adaptive_grid.attach(self.adaptive_dt_initial_spin, 1, arow, 1, 1)
+        dt_init_box.pack_start(self.adaptive_dt_initial_spin, True, True, 0)
+
+        self.adaptive_dt_initial_unit_combo = Gtk.ComboBoxText()
+        self.adaptive_dt_initial_unit_combo.append("s", "seconds")
+        self.adaptive_dt_initial_unit_combo.append("min", "minutes")
+        self.adaptive_dt_initial_unit_combo.append("hr", "hours")
+        self.adaptive_dt_initial_unit_combo.set_active_id("s")
+        self.adaptive_dt_initial_unit_combo.connect(
+            "changed", self._on_adaptive_dt_unit_changed, "initial"
+        )
+        dt_init_box.pack_start(self.adaptive_dt_initial_unit_combo, False, False, 0)
+        adaptive_grid.attach(dt_init_box, 1, arow, 1, 1)
 
         arow += 1
 
         # dt_max
-        dt_max_label = Gtk.Label("Maximum timestep (hours):")
+        dt_max_label = Gtk.Label("Maximum timestep:")
         dt_max_label.set_halign(Gtk.Align.START)
         adaptive_grid.attach(dt_max_label, 0, arow, 1, 1)
 
+        dt_max_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.adaptive_dt_max_spin = Gtk.SpinButton.new_with_range(0.1, 48.0, 0.5)
         self.adaptive_dt_max_spin.set_value(4.0)
         self.adaptive_dt_max_spin.set_digits(1)
         self.adaptive_dt_max_spin.set_tooltip_text(
-            "Maximum allowed timestep in hours. Default: 4.0."
+            "Maximum allowed timestep. Default: 4.0 hours."
         )
-        adaptive_grid.attach(self.adaptive_dt_max_spin, 1, arow, 1, 1)
+        dt_max_box.pack_start(self.adaptive_dt_max_spin, True, True, 0)
+
+        self.adaptive_dt_max_unit_combo = Gtk.ComboBoxText()
+        self.adaptive_dt_max_unit_combo.append("s", "seconds")
+        self.adaptive_dt_max_unit_combo.append("min", "minutes")
+        self.adaptive_dt_max_unit_combo.append("hr", "hours")
+        self.adaptive_dt_max_unit_combo.set_active_id("hr")
+        self.adaptive_dt_max_unit_combo.connect(
+            "changed", self._on_adaptive_dt_unit_changed, "max"
+        )
+        dt_max_box.pack_start(self.adaptive_dt_max_unit_combo, False, False, 0)
+        adaptive_grid.attach(dt_max_box, 1, arow, 1, 1)
 
         arow += 1
 
@@ -982,11 +1011,39 @@ class THAMESHydrationPanel(Gtk.Box):
     def _get_unit_from_combo_id(self, combo_id: str) -> TimeUnit:
         """Convert combo box ID to TimeUnit enum."""
         unit_map = {
+            "s": TimeUnit.SECONDS,
             "min": TimeUnit.MINUTES,
             "hr": TimeUnit.HOURS,
             "d": TimeUnit.DAYS,
         }
         return unit_map.get(combo_id, TimeUnit.DAYS)
+
+    def _convert_to_hours(self, value: float, unit_combo_id: str) -> float:
+        """Convert a time value from the given unit to hours."""
+        conversions = {"s": 1.0 / 3600, "min": 1.0 / 60, "hr": 1.0}
+        return value * conversions.get(unit_combo_id, 1.0)
+
+    def _on_adaptive_dt_unit_changed(self, combo, which):
+        """Update SpinButton range/value when adaptive dt unit changes."""
+        unit_id = combo.get_active_id()
+        if which == "initial":
+            spin = self.adaptive_dt_initial_spin
+            # Default value in each unit: 0.001 hours = 0.06 min = 3.6 sec
+            defaults = {"s": (0.001, 3600.0, 0.1, 3, 3.6),
+                        "min": (0.001, 60.0, 0.01, 3, 0.06),
+                        "hr": (0.00001, 1.0, 0.0001, 5, 0.001)}
+        else:
+            spin = self.adaptive_dt_max_spin
+            # Default value in each unit: 4.0 hours = 240 min = 14400 sec
+            defaults = {"s": (1.0, 172800.0, 10.0, 0, 14400.0),
+                        "min": (0.1, 2880.0, 1.0, 1, 240.0),
+                        "hr": (0.1, 48.0, 0.5, 1, 4.0)}
+        if unit_id in defaults:
+            lo, hi, step, digits, default = defaults[unit_id]
+            spin.set_range(lo, hi)
+            spin.set_increments(step, step * 10)
+            spin.set_digits(digits)
+            spin.set_value(default)
 
     def _on_output_model_changed(self, combo: Gtk.ComboBoxText) -> None:
         """Handle output time model selection change."""
@@ -1385,11 +1442,17 @@ class THAMESHydrationPanel(Gtk.Box):
         # Get kinetic overrides from the product selector
         kinetic_overrides = self.product_selector.get_all_kinetic_configurations()
 
-        # Adaptive time stepping configuration
+        # Adaptive time stepping configuration (convert to hours for C++ backend)
+        dt_init_unit = self.adaptive_dt_initial_unit_combo.get_active_id() or "s"
+        dt_max_unit = self.adaptive_dt_max_unit_combo.get_active_id() or "hr"
         adaptive_stepping = {
             'enabled': self.adaptive_enabled_check.get_active(),
-            'dt_initial': self.adaptive_dt_initial_spin.get_value(),
-            'dt_max': self.adaptive_dt_max_spin.get_value(),
+            'dt_initial': self._convert_to_hours(
+                self.adaptive_dt_initial_spin.get_value(), dt_init_unit
+            ),
+            'dt_max': self._convert_to_hours(
+                self.adaptive_dt_max_spin.get_value(), dt_max_unit
+            ),
             'growth_factor': self.adaptive_growth_spin.get_value(),
             'shrink_factor': self.adaptive_shrink_spin.get_value(),
             'successes_for_growth': int(self.adaptive_successes_spin.get_value()),

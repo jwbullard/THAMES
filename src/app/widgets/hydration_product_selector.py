@@ -309,6 +309,11 @@ class HydrationProductSelectorWidget(Gtk.Box):
             if not products:
                 continue
 
+            # Skip category if all its products are already microstructure phases
+            non_micro_products = [p for p in products if p not in self.microstructure_phases]
+            if not non_micro_products:
+                continue
+
             # Add category row (parent)
             category_iter = self.store.append(None, [
                 False,  # not selectable

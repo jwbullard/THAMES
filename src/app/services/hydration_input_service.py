@@ -531,6 +531,20 @@ class HydrationInputService:
         # Apply product-specific configurations (PSD, Rd, affinity)
         self._apply_product_configurations(simparams, config)
 
+        # Build list of suppressed GEMS phases (all phases NOT in the
+        # microstructure section). The C++ backend will set DCUpperLimit_
+        # to a very small value for these phases, preventing GEMS from
+        # precipitating them.
+        active_gems_names = set()
+        for phase_entry in simparams.get("microstructure", {}).get("phases", []):
+            for gp in phase_entry.get("gemphase_data", []):
+                active_gems_names.add(gp["gemphasename"])
+
+        all_gems_names = set(self.gems_parser.get_phase_names())
+        suppressed = sorted(all_gems_names - active_gems_names)
+        if suppressed:
+            simparams["suppressed_phases"] = suppressed
+
         return simparams
 
     def _apply_product_configurations(
