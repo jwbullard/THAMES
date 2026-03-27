@@ -56,7 +56,17 @@
       "Bash(done)",
       "Bash(brew list --pinned 2>&1)",
       "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/CarbPort-03-bc1000j/Result/**)",
-      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/CarbPort-03-bc1000j/**)"
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/CarbPort-03-bc1000j/**)",
+      "Bash(pushd \"/Users/jwbullard/Library/Application Support/THAMES/operations/Diss-Gyp-LS100-smalltime\")",
+      "Bash(popd)",
+      "Read(//tmp/**)",
+      "Bash(codesign -v /Users/jwbullard/Software/THAMES/bin/thames)",
+      "Bash(xattr -l /Users/jwbullard/Software/THAMES/bin/thames)",
+      "Bash(git:*)",
+      "Bash(sysctl hw.memsize)",
+      "Bash(vm_stat)",
+      "Bash(codesign -dvvv /Users/jwbullard/Software/THAMES/bin/thames)",
+      "Bash(codesign --force --sign - /Users/jwbullard/Software/THAMES/bin/thames)"
     ],
     "deny": [],
     "ask": []

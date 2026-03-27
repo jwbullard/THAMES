@@ -684,7 +684,7 @@ class THAMESHydrationPanel(Gtk.Box):
         dt_init_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.adaptive_dt_initial_spin = Gtk.SpinButton.new_with_range(0.001, 3600.0, 0.1)
         self.adaptive_dt_initial_spin.set_value(3.6)
-        self.adaptive_dt_initial_spin.set_digits(3)
+        self.adaptive_dt_initial_spin.set_digits(4)
         self.adaptive_dt_initial_spin.set_tooltip_text(
             "Starting timestep size. Default: 3.6 seconds (0.001 hours). "
             "May be overridden by kinetics-based estimate at startup."
@@ -712,7 +712,7 @@ class THAMESHydrationPanel(Gtk.Box):
         dt_max_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         self.adaptive_dt_max_spin = Gtk.SpinButton.new_with_range(0.1, 48.0, 0.5)
         self.adaptive_dt_max_spin.set_value(4.0)
-        self.adaptive_dt_max_spin.set_digits(1)
+        self.adaptive_dt_max_spin.set_digits(4)
         self.adaptive_dt_max_spin.set_tooltip_text(
             "Maximum allowed timestep. Default: 4.0 hours."
         )
@@ -738,7 +738,7 @@ class THAMESHydrationPanel(Gtk.Box):
 
         self.adaptive_growth_spin = Gtk.SpinButton.new_with_range(1.01, 5.0, 0.1)
         self.adaptive_growth_spin.set_value(1.5)
-        self.adaptive_growth_spin.set_digits(2)
+        self.adaptive_growth_spin.set_digits(4)
         self.adaptive_growth_spin.set_tooltip_text(
             "Timestep multiplier after consecutive successes. Default: 1.5 (50% growth)."
         )
@@ -753,7 +753,7 @@ class THAMESHydrationPanel(Gtk.Box):
 
         self.adaptive_shrink_spin = Gtk.SpinButton.new_with_range(0.01, 0.99, 0.05)
         self.adaptive_shrink_spin.set_value(0.5)
-        self.adaptive_shrink_spin.set_digits(2)
+        self.adaptive_shrink_spin.set_digits(4)
         self.adaptive_shrink_spin.set_tooltip_text(
             "Timestep multiplier after GEMS failure. Default: 0.5 (halve timestep)."
         )
@@ -798,7 +798,7 @@ class THAMESHydrationPanel(Gtk.Box):
 
         self.adaptive_max_change_spin = Gtk.SpinButton.new_with_range(0.001, 0.5, 0.01)
         self.adaptive_max_change_spin.set_value(0.05)
-        self.adaptive_max_change_spin.set_digits(3)
+        self.adaptive_max_change_spin.set_digits(4)
         self.adaptive_max_change_spin.set_tooltip_text(
             "Maximum fractional change in DC moles per timestep (kinetics constraint). "
             "Default: 0.05 (5%). Lower values are more conservative."
@@ -1029,15 +1029,15 @@ class THAMESHydrationPanel(Gtk.Box):
         if which == "initial":
             spin = self.adaptive_dt_initial_spin
             # Default value in each unit: 0.001 hours = 0.06 min = 3.6 sec
-            defaults = {"s": (0.001, 3600.0, 0.1, 3, 3.6),
-                        "min": (0.001, 60.0, 0.01, 3, 0.06),
+            defaults = {"s": (0.001, 3600.0, 0.1, 4, 3.6),
+                        "min": (0.001, 60.0, 0.01, 4, 0.06),
                         "hr": (0.00001, 1.0, 0.0001, 5, 0.001)}
         else:
             spin = self.adaptive_dt_max_spin
             # Default value in each unit: 4.0 hours = 240 min = 14400 sec
-            defaults = {"s": (1.0, 172800.0, 10.0, 0, 14400.0),
-                        "min": (0.1, 2880.0, 1.0, 1, 240.0),
-                        "hr": (0.1, 48.0, 0.5, 1, 4.0)}
+            defaults = {"s": (1.0, 172800.0, 10.0, 4, 14400.0),
+                        "min": (0.1, 2880.0, 1.0, 4, 240.0),
+                        "hr": (0.1, 48.0, 0.5, 4, 4.0)}
         if unit_id in defaults:
             lo, hi, step, digits, default = defaults[unit_id]
             spin.set_range(lo, hi)

@@ -1419,6 +1419,37 @@ UI (unchecked phases) → hydration_input_service.py (suppressed_phases list)
 
 ---
 
+### Session 35: Early Termination Bug Fix, UI Decimal Places & macOS Signing
+March 27, 2026
+
+**Platform:** macOS (Darwin 25.4.0)
+
+**Key Accomplishments:**
+
+1. **Simulation Early Termination Bug Fix (Critical)**
+   - `time_[]` vector entries were being overwritten with actual cycle times during the simulation loop
+   - Three locations used `time_[timeSize-1]` as the final time, which became the current time after enough cycles
+   - Fixed by using `initialLastTime` (saved before modifications) in the main while loop, adaptive termination check, and progress.json output
+
+2. **UI Decimal Places**
+   - All floating-point SpinButtons in Adaptive Time Stepping and Kinetic Model Editor now show 4 decimal places
+   - Integer fields unchanged
+
+3. **macOS Code Signing Fix**
+   - macOS 26.4 update caused SIGKILL (exit 137) on all freshly-built binaries
+   - Added automatic `codesign --force --sign -` as POST_BUILD step in CMakeLists.txt
+   - Reinstalling Xcode Command Line Tools did not resolve; explicit ad-hoc signing required
+
+**Files Modified:**
+- `Controller.cc`: 3 uses of `time_[timeSize-1]` → `initialLastTime`
+- `CMakeLists.txt`: Added macOS post-build ad-hoc signing
+- `thames_hydration_panel.py`: 4 decimal places for adaptive stepping SpinButtons
+- `kinetic_model_editor.py`: 4 decimal places for all kinetic parameter fields
+
+**Detailed session notes:** `docs/session35_summary.md`
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

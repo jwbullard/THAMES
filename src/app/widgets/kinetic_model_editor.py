@@ -154,7 +154,7 @@ class KineticModelEditor(Gtk.Box):
         row = 0
 
         # k1 - nucleation/growth rate constant
-        spin = self._create_spin_button(defaults.k1, 0, 10, 0.01, 3)
+        spin = self._create_spin_button(defaults.k1, 0, 10, 0.01, 4)
         self._add_param_row(grid, row, "k1:", "Nucleation/growth rate constant", spin, "k1")
         row += 1
 
@@ -164,22 +164,22 @@ class KineticModelEditor(Gtk.Box):
         row += 1
 
         # k3 - late diffusion rate constant
-        spin = self._create_spin_button(defaults.k3, 0, 10, 0.01, 3)
+        spin = self._create_spin_button(defaults.k3, 0, 10, 0.01, 4)
         self._add_param_row(grid, row, "k3:", "Late diffusion rate constant", spin, "k3")
         row += 1
 
         # n1 - nucleation/growth exponent
-        spin = self._create_spin_button(defaults.n1, 0, 5, 0.01, 3)
+        spin = self._create_spin_button(defaults.n1, 0, 5, 0.01, 4)
         self._add_param_row(grid, row, "n1:", "Nucleation/growth exponent", spin, "n1")
         row += 1
 
         # n3 - late diffusion exponent
-        spin = self._create_spin_button(defaults.n3, 0, 10, 0.1, 2)
+        spin = self._create_spin_button(defaults.n3, 0, 10, 0.1, 4)
         self._add_param_row(grid, row, "n3:", "Late diffusion exponent", spin, "n3")
         row += 1
 
         # dorHcoeff - Lothenbach-Kulik H coefficient
-        spin = self._create_spin_button(defaults.dorHcoeff, 0, 5, 0.01, 3)
+        spin = self._create_spin_button(defaults.dorHcoeff, 0, 5, 0.01, 4)
         self._add_param_row(grid, row, "dorHcoeff:", "Lothenbach-Kulik H coefficient", spin, "dorHcoeff")
         row += 1
 
@@ -222,17 +222,17 @@ class KineticModelEditor(Gtk.Box):
         row += 1
 
         # siexp
-        spin = self._create_spin_button(defaults.siexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.siexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "SI exp:", "Saturation index exponent", spin, "siexp")
         row += 1
 
         # dfexp
-        spin = self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "DF exp:", "Driving force exponent", spin, "dfexp")
         row += 1
 
         # dorexp
-        spin = self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "DOR exp:", "Degree of reaction exponent", spin, "dorexp")
         row += 1
 
@@ -275,27 +275,27 @@ class KineticModelEditor(Gtk.Box):
         row += 1
 
         # siexp
-        spin = self._create_spin_button(defaults.siexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.siexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "SI exp:", "Saturation index exponent", spin, "siexp")
         row += 1
 
         # dfexp
-        spin = self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "DF exp:", "Driving force exponent", spin, "dfexp")
         row += 1
 
         # dorexp
-        spin = self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "DOR exp:", "Degree of reaction exponent", spin, "dorexp")
         row += 1
 
         # ohexp (pozzolanic-specific)
-        spin = self._create_spin_button(defaults.ohexp, 0, 5, 0.1, 2)
+        spin = self._create_spin_button(defaults.ohexp, 0, 5, 0.1, 4)
         self._add_param_row(grid, row, "OH exp:", "Hydroxyl ion activity exponent", spin, "ohexp")
         row += 1
 
         # sio2 (pozzolanic-specific)
-        spin = self._create_spin_button(defaults.sio2, 0, 1, 0.01, 3)
+        spin = self._create_spin_button(defaults.sio2, 0, 1, 0.01, 4)
         self._add_param_row(grid, row, "SiO₂:", "SiO₂ content (mass fraction)", spin, "sio2")
         row += 1
 
@@ -615,22 +615,22 @@ class KineticModelEditorDialog(Gtk.Dialog):
         """Create fields for Parrot-Killoh kinetics."""
         row = 0
         self._add_param_row(grid, row, "k1:", "Nucleation/growth rate constant",
-                           self._create_spin_button(defaults.k1, 0, 10, 0.01, 3), "k1")
+                           self._create_spin_button(defaults.k1, 0, 10, 0.01, 4), "k1")
         row += 1
         self._add_param_row(grid, row, "k2:", "Early diffusion rate constant",
                            self._create_spin_button(defaults.k2, 0, 1, 0.001, 4), "k2")
         row += 1
         self._add_param_row(grid, row, "k3:", "Late diffusion rate constant",
-                           self._create_spin_button(defaults.k3, 0, 10, 0.01, 3), "k3")
+                           self._create_spin_button(defaults.k3, 0, 10, 0.01, 4), "k3")
         row += 1
         self._add_param_row(grid, row, "n1:", "Nucleation/growth exponent",
-                           self._create_spin_button(defaults.n1, 0, 5, 0.01, 3), "n1")
+                           self._create_spin_button(defaults.n1, 0, 5, 0.01, 4), "n1")
         row += 1
         self._add_param_row(grid, row, "n3:", "Late diffusion exponent",
-                           self._create_spin_button(defaults.n3, 0, 10, 0.1, 2), "n3")
+                           self._create_spin_button(defaults.n3, 0, 10, 0.1, 4), "n3")
         row += 1
         self._add_param_row(grid, row, "dorHcoeff:", "Lothenbach-Kulik H coefficient",
-                           self._create_spin_button(defaults.dorHcoeff, 0, 5, 0.01, 3), "dorHcoeff")
+                           self._create_spin_button(defaults.dorHcoeff, 0, 5, 0.01, 4), "dorHcoeff")
         row += 1
         self._add_param_row(grid, row, "Ea (J/mol):", "Activation energy",
                            self._create_spin_button(defaults.activationEnergy, 0, 100000, 100, 0), "activationEnergy")
@@ -655,13 +655,13 @@ class KineticModelEditorDialog(Gtk.Dialog):
                            self._create_spin_button(defaults.dissolvedUnits, 1, 20, 1, 0), "dissolvedUnits")
         row += 1
         self._add_param_row(grid, row, "SI exp:", "Saturation index exponent",
-                           self._create_spin_button(defaults.siexp, 0, 5, 0.1, 2), "siexp")
+                           self._create_spin_button(defaults.siexp, 0, 5, 0.1, 4), "siexp")
         row += 1
         self._add_param_row(grid, row, "DF exp:", "Driving force exponent",
-                           self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 2), "dfexp")
+                           self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 4), "dfexp")
         row += 1
         self._add_param_row(grid, row, "DOR exp:", "Degree of reaction exponent",
-                           self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 2), "dorexp")
+                           self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 4), "dorexp")
         row += 1
         self._add_param_row(grid, row, "Ea (J/mol):", "Activation energy",
                            self._create_spin_button(defaults.activationEnergy, 0, 100000, 100, 0), "activationEnergy")
@@ -686,19 +686,19 @@ class KineticModelEditorDialog(Gtk.Dialog):
                            self._create_spin_button(defaults.dissolvedUnits, 1, 20, 1, 0), "dissolvedUnits")
         row += 1
         self._add_param_row(grid, row, "SI exp:", "Saturation index exponent",
-                           self._create_spin_button(defaults.siexp, 0, 5, 0.1, 2), "siexp")
+                           self._create_spin_button(defaults.siexp, 0, 5, 0.1, 4), "siexp")
         row += 1
         self._add_param_row(grid, row, "DF exp:", "Driving force exponent",
-                           self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 2), "dfexp")
+                           self._create_spin_button(defaults.dfexp, 0, 5, 0.1, 4), "dfexp")
         row += 1
         self._add_param_row(grid, row, "DOR exp:", "Degree of reaction exponent",
-                           self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 2), "dorexp")
+                           self._create_spin_button(defaults.dorexp, 0, 5, 0.1, 4), "dorexp")
         row += 1
         self._add_param_row(grid, row, "OH exp:", "Hydroxyl ion activity exponent",
-                           self._create_spin_button(defaults.ohexp, 0, 5, 0.1, 2), "ohexp")
+                           self._create_spin_button(defaults.ohexp, 0, 5, 0.1, 4), "ohexp")
         row += 1
         self._add_param_row(grid, row, "SiO₂:", "SiO₂ content (mass fraction)",
-                           self._create_spin_button(defaults.sio2, 0, 1, 0.01, 3), "sio2")
+                           self._create_spin_button(defaults.sio2, 0, 1, 0.01, 4), "sio2")
         row += 1
         self._add_param_row(grid, row, "Ea (J/mol):", "Activation energy",
                            self._create_spin_button(defaults.activationEnergy, 0, 100000, 100, 0), "activationEnergy")
