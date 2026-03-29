@@ -1450,6 +1450,33 @@ March 27, 2026
 
 ---
 
+### Session 36: Time Vector Bounds Fix, Kinetics Timestep Floor & False Termination Fix
+March 28, 2026
+
+**Platform:** macOS (Darwin 25.4.0)
+
+**Key Accomplishments:**
+
+1. **Time Vector Out-of-Bounds Write Fix**
+   - `time_[lastGoodI]` was writing past vector end when cycles exceeded vector size
+   - Added bounds check: only write when `lastGoodI < time_.size()`
+
+2. **Kinetics Timestep Floor**
+   - `computeKineticsBasedMaxTimestep()` could return ~1e-13 hours, causing stuck or falsely-terminated simulations
+   - Enforced `stepTimeTHR_` (1e-5 hours = 0.036 seconds) as minimum
+
+3. **False "FINAL TIME REACHED" Termination Fix**
+   - Termination check `timestep < 1e-12` now also requires `initialLastTime - lastGoodTime_ < 1e-6`
+   - Prevents early termination when kinetics constraint (not proximity to target) produces tiny timestep
+   - HY-OPC-FA-30 (28-day target) was terminating after 1 cycle at 0.41 seconds
+
+**Files Modified:**
+- `Controller.cc`: Bounds check on time_ write, kinetics floor, termination condition fix
+
+**Detailed session notes:** `docs/session36_summary.md`
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

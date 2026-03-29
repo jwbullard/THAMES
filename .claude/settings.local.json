@@ -66,7 +66,9 @@
       "Bash(sysctl hw.memsize)",
       "Bash(vm_stat)",
       "Bash(codesign -dvvv /Users/jwbullard/Software/THAMES/bin/thames)",
-      "Bash(codesign --force --sign - /Users/jwbullard/Software/THAMES/bin/thames)"
+      "Bash(codesign --force --sign - /Users/jwbullard/Software/THAMES/bin/thames)",
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/HY-OPC-FA-30/Result/**)",
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/HY-OPC-FA-30/**)"
     ],
     "deny": [],
     "ask": []
