@@ -766,8 +766,8 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         default_affinity=[],
     ),
 
-    "K6A2S": HydrationProductData(
-        gems_name="K6A2S",
+    "K6A2S(am)": HydrationProductData(
+        gems_name="K6A2S(am)",
         display_name="K6A2S Glass",
         category=ProductCategory.OTHER,
         description="Potassium aluminosilicate glass phase",
@@ -775,8 +775,8 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         default_affinity=[],
     ),
 
-    "CAS": HydrationProductData(
-        gems_name="CAS",
+    "CAS(am)": HydrationProductData(
+        gems_name="CAS(am)",
         display_name="CAS Glass",
         category=ProductCategory.OTHER,
         description="Calcium aluminosilicate glass - fly ash phase",
@@ -784,8 +784,8 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         default_affinity=[],
     ),
 
-    "CA2S": HydrationProductData(
-        gems_name="CA2S",
+    "CA2S(am)": HydrationProductData(
+        gems_name="CA2S(am)",
         display_name="CA2S Glass",
         category=ProductCategory.OTHER,
         description="Calcium dialuminosilicate glass - fly ash phase",
@@ -793,8 +793,8 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         default_affinity=[],
     ),
 
-    "C2AS": HydrationProductData(
-        gems_name="C2AS",
+    "C2AS(am)": HydrationProductData(
+        gems_name="C2AS(am)",
         display_name="C2AS Glass (Gehlenite)",
         category=ProductCategory.OTHER,
         description="Dicalcium aluminosilicate glass - gehlenite composition",
@@ -802,8 +802,8 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         default_affinity=[],
     ),
 
-    "CAS2": HydrationProductData(
-        gems_name="CAS2",
+    "CAS2(am)": HydrationProductData(
+        gems_name="CAS2(am)",
         display_name="CAS2 Glass (Anorthite)",
         category=ProductCategory.OTHER,
         description="Calcium aluminodisilicate glass - anorthite composition",

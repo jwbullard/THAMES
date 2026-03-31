@@ -1477,6 +1477,43 @@ March 28, 2026
 
 ---
 
+### Session 37: Lattice Retry Limit, UI Race Condition & Glass Phase Names
+March 29-31, 2026
+
+**Platform:** macOS (Darwin 25.4.0)
+
+**Key Accomplishments:**
+
+1. **Lattice Retry Limit with Voxel Mismatch Logging**
+   - `while (changeLattice == 0)` loop could run infinitely when lattice geometry couldn't satisfy GEMS request
+   - Added MAX_LATTICE_RETRIES=50; when reached, logs mismatch to `voxel_mismatch.log` and continues
+   - Observed in HY-OPC-FA-30: 329,350+ retries for 1 OH-hydrotalcite voxel with no interface site
+
+2. **UI Race Condition Fix**
+   - Progress polling started before simulation was registered in active_simulations
+   - Caused false "FAILED" / "ended unexpectedly" messages followed by "started successfully"
+   - Fixed by moving polling start into `_on_simulation_started()` callback
+
+3. **Glass Phase Name Corrections**
+   - GEMS database had dropped `(am)` suffix from 5 glass phases (C2AS, CA2S, CAS, CAS2, K6A2S)
+   - Without `(am)`, GEMS treated them as crystalline (much more stable), causing massive precipitation
+   - Updated `hydration_products_service.py` to use `(am)` suffixed names
+   - User updating GEMS database files separately
+
+4. **HY-OPC-FA-30 Diagnostic Analysis**
+   - Traced CA2S explosive precipitation (SI=3.6e9) to crystalline vs amorphous phase definitions
+   - IC recovery injected 60K mol Al, 20K mol Si from Mullite (SI=2.4e23)
+   - Nucleation failure: 735K sites requested, 1.4K available (CA2S consumed all space)
+
+**Files Modified:**
+- `Controller.cc`: Lattice retry limit + voxel_mismatch.log
+- `thames_hydration_panel.py`: Race condition fix (polling moved to _on_simulation_started)
+- `hydration_products_service.py`: 5 glass phases renamed with (am) suffix
+
+**Detailed session notes:** `docs/session37_summary.md`
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

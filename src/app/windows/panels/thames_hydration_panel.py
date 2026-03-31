@@ -1597,9 +1597,6 @@ class THAMESHydrationPanel(Gtk.Box):
         thread = threading.Thread(target=run_simulation, daemon=True)
         thread.start()
 
-        # Start progress polling
-        self.progress_timeout_id = GLib.timeout_add(1000, self._poll_progress)
-
     def _get_material_phases_from_microstructure(self) -> List[MaterialPhaseData]:
         """Get material phase data from the microstructure's phase mapping."""
         material_phases = []
@@ -1699,6 +1696,8 @@ class THAMESHydrationPanel(Gtk.Box):
         """Handle successful simulation start."""
         self._log_message("Simulation started successfully - monitoring progress...")
         self.status_label.set_text("Running")
+        # Start progress polling only after the simulation is confirmed running
+        self.progress_timeout_id = GLib.timeout_add(2000, self._poll_progress)
 
     def _on_simulation_complete(self, success: bool, errors: List[str]) -> None:
         """Handle simulation completion."""
