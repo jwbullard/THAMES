@@ -1514,6 +1514,32 @@ March 29-31, 2026
 
 ---
 
+### Session 38: Post-Failure Kinetics Constraint Fix
+March 31 - April 1, 2026
+
+**Platform:** macOS (Darwin 25.4.0)
+
+**Key Accomplishments:**
+
+1. **Post-Failure Kinetics Constraint Fix (Critical)**
+   - GEMS failure recovery path in `doCycle()` bypassed the kinetics timestep constraint
+   - After GEMS failure, `adaptiveTimeController_->recordFailure()` returned ~1.0h timestep
+   - Without kinetics constraint, this was 1000x larger than the kinetics-constrained steps
+   - Caused kinetic step overshoot → negative ICs → IC recovery injection → SI explosion → massive nucleation
+   - Fix: Apply same `computeKineticsBasedMaxTimestep()` check on failure path as success path
+   - Confirmed carbonation simulations unaffected (100% GEMS success rate, failure path never entered)
+
+2. **Diagnostic Analysis**
+   - Traced plain OPC simulation failure (HydrationOf-ccr152-wc45) through 10-step chain from GEMS failure to nucleation crash
+   - Confirmed HY-OPC-FA-30 had two compounding issues: missing kinetics constraint + crystalline glass phases
+
+**Files Modified:**
+- `Controller.cc`: Added kinetics constraint to GEMS failure recovery path (12 lines)
+
+**Detailed session notes:** `docs/session38_summary.md`
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)
