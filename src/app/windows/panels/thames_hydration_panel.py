@@ -883,6 +883,13 @@ class THAMESHydrationPanel(Gtk.Box):
         self.operation_name_entry.set_hexpand(True)
         name_row.pack_start(self.operation_name_entry, True, True, 0)
 
+        self.load_operation_btn = Gtk.Button.new_with_label("Load Operation...")
+        self.load_operation_btn.set_tooltip_text(
+            "Load configuration from a previous hydration operation"
+        )
+        self.load_operation_btn.connect("clicked", self._on_load_operation_clicked)
+        name_row.pack_start(self.load_operation_btn, False, False, 0)
+
         content.pack_start(name_row, False, False, 0)
 
         # Microstructure reference label (shows selected microstructure name for easy reference)
@@ -1736,6 +1743,225 @@ class THAMESHydrationPanel(Gtk.Box):
             self.validate_btn.set_sensitive(True)
         else:
             self._log_message("Failed to cancel simulation")
+
+    # ------------------------------------------------------------------
+    # Load Operation feature
+    # ------------------------------------------------------------------
+
+    def _on_load_operation_clicked(self, button: Gtk.Button) -> None:
+        """Show dialog to select and load a previous hydration operation."""
+        ops_dir = self.service_container.directories_service.get_operations_path()
+        if not ops_dir.exists():
+            self._log_message("No operations directory found")
+            return
+
+        # Scan for hydration config files
+        configs = []
+        for op_dir in ops_dir.iterdir():
+            if not op_dir.is_dir():
+                continue
+            for config_file in op_dir.glob("*_hydration_config.json"):
+                try:
+                    mtime = config_file.stat().st_mtime
+                    configs.append((op_dir.name, config_file, mtime))
+                except OSError:
+                    continue
+
+        if not configs:
+            dialog = Gtk.MessageDialog(
+                transient_for=self.main_window,
+                modal=True,
+                message_type=Gtk.MessageType.INFO,
+                buttons=Gtk.ButtonsType.OK,
+                text="No previous hydration operations found.",
+            )
+            dialog.run()
+            dialog.destroy()
+            return
+
+        # Sort newest first
+        configs.sort(key=lambda x: x[2], reverse=True)
+
+        # Build selection dialog
+        dialog = Gtk.Dialog(
+            title="Load Hydration Operation",
+            transient_for=self.main_window,
+            modal=True,
+            destroy_with_parent=True,
+        )
+        dialog.add_buttons(
+            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK,
+        )
+        dialog.set_default_size(450, 350)
+
+        content = dialog.get_content_area()
+        content.set_margin_start(10)
+        content.set_margin_end(10)
+        content.set_margin_top(10)
+        content.set_margin_bottom(10)
+
+        label = Gtk.Label("Select a hydration operation to load its configuration:")
+        label.set_halign(Gtk.Align.START)
+        label.set_margin_bottom(5)
+        content.pack_start(label, False, False, 0)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled.set_vexpand(True)
+        content.pack_start(scrolled, True, True, 0)
+
+        store = Gtk.ListStore(str, str, str)  # name, path, date
+        from datetime import datetime
+        for op_name, config_path, mtime in configs:
+            date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
+            store.append([op_name, str(config_path), date_str])
+
+        tree = Gtk.TreeView(model=store)
+        tree.set_headers_visible(True)
+
+        name_col = Gtk.TreeViewColumn("Operation", Gtk.CellRendererText(), text=0)
+        name_col.set_expand(True)
+        tree.append_column(name_col)
+
+        date_col = Gtk.TreeViewColumn("Date", Gtk.CellRendererText(), text=2)
+        date_col.set_min_width(130)
+        tree.append_column(date_col)
+
+        # Select first row by default
+        tree.get_selection().select_iter(store.get_iter_first())
+
+        scrolled.add(tree)
+        dialog.show_all()
+
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            selection = tree.get_selection()
+            model, tree_iter = selection.get_selected()
+            if tree_iter:
+                op_name = model[tree_iter][0]
+                config_path = Path(model[tree_iter][1])
+                self._load_from_operation(op_name, config_path)
+        dialog.destroy()
+
+    def _load_from_operation(self, operation_name: str, config_path: Path) -> None:
+        """Load a hydration config file and populate the UI."""
+        try:
+            config = self.hydration_input_service.load_hydration_config(config_path)
+            self._load_hydration_config(config, operation_name)
+            self._log_message(f"Loaded configuration from: {operation_name}")
+            self._log_message("Note: Select the desired input microstructure before running.")
+        except Exception as e:
+            self.logger.error(f"Failed to load hydration config: {e}")
+            self._log_message(f"ERROR: Failed to load configuration: {e}")
+
+    def _load_hydration_config(self, config, operation_name: str) -> None:
+        """Populate all UI widgets from a HydrationInputConfig."""
+
+        # Operation name: append -01, -02, etc. to make unique
+        new_name = self._generate_incremented_name(operation_name)
+        self.operation_name_entry.set_text(new_name)
+
+        # Resolution
+        self.resolution_spin.set_value(config.resolution)
+
+        # Temperature (config stores Kelvin, UI shows Celsius)
+        self.temperature_spin.set_value(config.temperature - 273.15)
+
+        # Moisture condition
+        if config.saturated:
+            self.saturated_radio.set_active(True)
+        else:
+            self.sealed_radio.set_active(True)
+
+        # Final time (config stores days)
+        self.final_time_unit_combo.set_active_id("d")
+        self.final_time_spin.set_value(config.final_time)
+
+        # Output times as Custom List (config stores list of days)
+        self.output_model_combo.set_active_id("custom")
+        self.custom_times_unit_combo.set_active_id("d")
+        if config.output_times:
+            # Format times: use enough precision but trim trailing zeros
+            times_strs = []
+            for t in config.output_times:
+                if t == 0:
+                    times_strs.append("0")
+                else:
+                    times_strs.append(f"{t:.8g}")
+            self.custom_times_entry.set_text(", ".join(times_strs))
+        self.exact_times_entry.set_text("")
+
+        # Electrolyte conditions
+        if config.electrolyte_conditions:
+            self.electrolyte_editor.set_electrolyte_conditions(
+                config.electrolyte_conditions
+            )
+
+        # Hydration products and configurations
+        if config.hydration_products:
+            self.product_selector.set_selected_products(config.hydration_products)
+
+        if config.product_configurations:
+            for gems_name, prod_config in config.product_configurations.items():
+                self.product_selector.set_product_configuration(
+                    gems_name, prod_config
+                )
+
+        if config.kinetic_overrides:
+            for phase_name, kinetics in config.kinetic_overrides.items():
+                self.product_selector.set_kinetic_configuration(
+                    phase_name, kinetics
+                )
+
+        # Adaptive time stepping
+        adaptive = config.adaptive_stepping
+        if adaptive:
+            self.adaptive_enabled_check.set_active(
+                adaptive.get("enabled", True)
+            )
+
+            # dt_initial: stored in hours, display in seconds
+            dt_init_hours = adaptive.get("dt_initial", 0.001)
+            self.adaptive_dt_initial_unit_combo.set_active_id("s")
+            self.adaptive_dt_initial_spin.set_value(dt_init_hours * 3600.0)
+
+            # dt_max: stored in hours, display in hours
+            self.adaptive_dt_max_unit_combo.set_active_id("hr")
+            self.adaptive_dt_max_spin.set_value(adaptive.get("dt_max", 4.0))
+
+            self.adaptive_growth_spin.set_value(
+                adaptive.get("growth_factor", 1.5)
+            )
+            self.adaptive_shrink_spin.set_value(
+                adaptive.get("shrink_factor", 0.5)
+            )
+            self.adaptive_successes_spin.set_value(
+                adaptive.get("successes_for_growth", 2)
+            )
+            self.adaptive_max_failures_spin.set_value(
+                adaptive.get("max_consecutive_failures", 50)
+            )
+            self.adaptive_max_change_spin.set_value(
+                adaptive.get("max_relative_change", 0.05)
+            )
+
+        # Runtime options
+        self.verbose_check.set_active(config.verbose)
+        self.suppress_warnings_check.set_active(config.suppress_warnings)
+        self.create_xyz_check.set_active(config.create_xyz_files)
+
+        # Refresh the time preview
+        self._update_time_preview()
+
+    def _generate_incremented_name(self, base_name: str) -> str:
+        """Generate an incremented operation name like '{base}-01'."""
+        ops_dir = self.service_container.directories_service.get_operations_path()
+        for i in range(1, 100):
+            candidate = f"{base_name}-{i:02d}"
+            if not (ops_dir / candidate).exists():
+                return candidate
+        return f"{base_name}-copy"
 
     def _log_message(self, message: str) -> None:
         """Add a message to the log view."""

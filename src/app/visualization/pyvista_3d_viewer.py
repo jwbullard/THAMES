@@ -420,17 +420,20 @@ class PyVistaViewer3D(Gtk.Box):
             self.logger.debug(f"Failed to sync axes camera: {e}")
 
     def _create_control_panel(self):
-        """Create control panel with PyVista-specific options."""
-        self.control_panel = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        """Create control panel with PyVista-specific options in two rows."""
+        self.control_panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.control_panel.set_margin_left(10)
         self.control_panel.set_margin_right(10)
         self.control_panel.set_margin_top(5)
         self.control_panel.set_margin_bottom(5)
-        
+
+        # --- Row 1: Rendering, View presets, Rotate, Zoom ---
+        row1 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
         # Rendering mode selection
         mode_label = Gtk.Label("Rendering:")
-        self.control_panel.pack_start(mode_label, False, False, 0)
-        
+        row1.pack_start(mode_label, False, False, 0)
+
         self.mode_combo = Gtk.ComboBoxText()
         self.mode_combo.append("volume", "Volume Rendering")
         self.mode_combo.append("isosurface", "Isosurface")
@@ -438,205 +441,148 @@ class PyVistaViewer3D(Gtk.Box):
         self.mode_combo.append("wireframe", "Wireframe")
         self.mode_combo.set_active_id("volume")
         self.mode_combo.connect('changed', self._on_rendering_mode_changed)
-        self.control_panel.pack_start(self.mode_combo, False, False, 0)
-        
-        # Separator
+        row1.pack_start(self.mode_combo, False, False, 0)
+
         separator1 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator1, False, False, 5)
-        
-        
-        # View controls
+        row1.pack_start(separator1, False, False, 3)
+
+        # View presets
         view_label = Gtk.Label("View:")
-        self.control_panel.pack_start(view_label, False, False, 0)
-        
-        # Preset views
-        iso_button = Gtk.Button("Isometric")
-        iso_button.connect('clicked', lambda b: self._set_camera_view('isometric'))
-        self.control_panel.pack_start(iso_button, False, False, 0)
-        
-        xy_button = Gtk.Button("XY")
-        xy_button.connect('clicked', lambda b: self._set_camera_view('xy'))
-        self.control_panel.pack_start(xy_button, False, False, 0)
-        
-        xz_button = Gtk.Button("XZ") 
-        xz_button.connect('clicked', lambda b: self._set_camera_view('xz'))
-        self.control_panel.pack_start(xz_button, False, False, 0)
-        
-        yz_button = Gtk.Button("YZ")
-        yz_button.connect('clicked', lambda b: self._set_camera_view('yz'))
-        self.control_panel.pack_start(yz_button, False, False, 0)
-        
-        # Separator
-        separator3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator3, False, False, 5)
-        
-        # Export button
-        export_button = Gtk.Button("Export View")
-        export_button.connect('clicked', self._on_export_clicked)
-        self.control_panel.pack_start(export_button, False, False, 0)
-        
-        # Reset button
-        # Interactive controls
-        separator4 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator4, False, False, 5)
-        
-        interact_label = Gtk.Label("Rotate:")
-        self.control_panel.pack_start(interact_label, False, False, 0)
-        
+        row1.pack_start(view_label, False, False, 0)
+
+        for name, view_id in [("Iso", "isometric"), ("XY", "xy"), ("XZ", "xz"), ("YZ", "yz")]:
+            btn = Gtk.Button(name)
+            btn.connect('clicked', lambda b, v=view_id: self._set_camera_view(v))
+            row1.pack_start(btn, False, False, 0)
+
+        separator2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        row1.pack_start(separator2, False, False, 3)
+
         # Rotation buttons
-        rotate_left = Gtk.Button("◀")
-        rotate_left.set_tooltip_text("Rotate left")
-        rotate_left.connect('clicked', self._on_rotate_left_clicked)
-        # Make left/right arrows larger to match up/down arrows
-        left_label = rotate_left.get_child()
-        left_label.set_markup('<span font="16">◀</span>')
-        self.control_panel.pack_start(rotate_left, False, False, 0)
+        interact_label = Gtk.Label("Rotate:")
+        row1.pack_start(interact_label, False, False, 0)
 
-        rotate_right = Gtk.Button("▶")
-        rotate_right.set_tooltip_text("Rotate right")
-        rotate_right.connect('clicked', self._on_rotate_right_clicked)
-        # Make left/right arrows larger to match up/down arrows
-        right_label = rotate_right.get_child()
-        right_label.set_markup('<span font="16">▶</span>')
-        self.control_panel.pack_start(rotate_right, False, False, 0)
+        for symbol, tooltip, handler in [
+            ("\u25C0", "Rotate left", self._on_rotate_left_clicked),
+            ("\u25B6", "Rotate right", self._on_rotate_right_clicked),
+            ("\u25B2", "Rotate up", self._on_rotate_up_clicked),
+            ("\u25BC", "Rotate down", self._on_rotate_down_clicked),
+        ]:
+            btn = Gtk.Button()
+            btn.set_tooltip_text(tooltip)
+            btn.connect('clicked', handler)
+            lbl = Gtk.Label()
+            lbl.set_markup(f'<span font="14">{symbol}</span>')
+            btn.add(lbl)
+            row1.pack_start(btn, False, False, 0)
 
-        rotate_up = Gtk.Button("▲")
-        rotate_up.set_tooltip_text("Rotate up")
-        rotate_up.connect('clicked', self._on_rotate_up_clicked)
-        self.control_panel.pack_start(rotate_up, False, False, 0)
+        separator3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        row1.pack_start(separator3, False, False, 3)
 
-        rotate_down = Gtk.Button("▼")
-        rotate_down.set_tooltip_text("Rotate down")
-        rotate_down.connect('clicked', self._on_rotate_down_clicked)
-        self.control_panel.pack_start(rotate_down, False, False, 0)
-        
         # Zoom controls
         zoom_in = Gtk.Button("Zoom+")
         zoom_in.connect('clicked', self._on_zoom_in_clicked)
-        self.control_panel.pack_start(zoom_in, False, False, 0)
-        
+        row1.pack_start(zoom_in, False, False, 0)
+
         zoom_out = Gtk.Button("Zoom-")
         zoom_out.connect('clicked', self._on_zoom_out_clicked)
-        self.control_panel.pack_start(zoom_out, False, False, 0)
-        
-        # Separator
-        separator3 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator3, False, False, 5)
-        
-        # Cross-section controls - create a vertical section
-        cross_section_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        
-        cross_section_label = Gtk.Label("Cross-Sections:")
-        cross_section_vbox.pack_start(cross_section_label, False, False, 0)
-        
-        # Create checkbox row
-        checkbox_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        
+        row1.pack_start(zoom_out, False, False, 0)
+
+        self.control_panel.pack_start(row1, False, False, 0)
+
+        # --- Row 2: Cross-sections, Reset, Export, Analysis ---
+        row2 = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+
+        # Cross-section controls
+        cross_label = Gtk.Label("Cross-Sections:")
+        row2.pack_start(cross_label, False, False, 0)
+
         # X cutting plane
         x_cut_check = Gtk.CheckButton("X")
         x_cut_check.set_tooltip_text("Enable YZ plane cutting")
         x_cut_check.connect('toggled', lambda btn: self._on_cross_section_toggled('x', btn))
-        checkbox_row.pack_start(x_cut_check, False, False, 0)
-        
+        row2.pack_start(x_cut_check, False, False, 0)
+
+        x_cut_spin = Gtk.SpinButton(adjustment=Gtk.Adjustment(0.5, 0.0, 1.0, 0.01, 0.1, 0.0), digits=3)
+        x_cut_spin.set_size_request(70, -1)
+        x_cut_spin.set_tooltip_text("X cutting plane position (0.0 to 1.0)")
+        x_cut_spin.set_sensitive(False)
+        x_cut_spin.connect('value-changed', lambda spin: self._on_cross_section_position_changed('x', spin))
+        row2.pack_start(x_cut_spin, False, False, 0)
+
         # Y cutting plane
         y_cut_check = Gtk.CheckButton("Y")
         y_cut_check.set_tooltip_text("Enable XZ plane cutting")
         y_cut_check.connect('toggled', lambda btn: self._on_cross_section_toggled('y', btn))
-        checkbox_row.pack_start(y_cut_check, False, False, 0)
-        
+        row2.pack_start(y_cut_check, False, False, 0)
+
+        y_cut_spin = Gtk.SpinButton(adjustment=Gtk.Adjustment(0.5, 0.0, 1.0, 0.01, 0.1, 0.0), digits=3)
+        y_cut_spin.set_size_request(70, -1)
+        y_cut_spin.set_tooltip_text("Y cutting plane position (0.0 to 1.0)")
+        y_cut_spin.set_sensitive(False)
+        y_cut_spin.connect('value-changed', lambda spin: self._on_cross_section_position_changed('y', spin))
+        row2.pack_start(y_cut_spin, False, False, 0)
+
         # Z cutting plane
         z_cut_check = Gtk.CheckButton("Z")
         z_cut_check.set_tooltip_text("Enable XY plane cutting")
         z_cut_check.connect('toggled', lambda btn: self._on_cross_section_toggled('z', btn))
-        checkbox_row.pack_start(z_cut_check, False, False, 0)
-        
-        cross_section_vbox.pack_start(checkbox_row, False, False, 0)
-        
-        # Create slider row
-        slider_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        
-        # X spin box
-        x_cut_spin = Gtk.SpinButton(adjustment=Gtk.Adjustment(0.5, 0.0, 1.0, 0.01, 0.1, 0.0), digits=3)
-        x_cut_spin.set_size_request(80, -1)
-        x_cut_spin.set_tooltip_text("X cutting plane position (0.0 to 1.0)")
-        x_cut_spin.set_sensitive(False)  # Initially disabled
-        x_cut_spin.connect('value-changed', lambda spin: self._on_cross_section_position_changed('x', spin))
-        slider_row.pack_start(x_cut_spin, False, False, 0)
-        
-        # Y spin box  
-        y_cut_spin = Gtk.SpinButton(adjustment=Gtk.Adjustment(0.5, 0.0, 1.0, 0.01, 0.1, 0.0), digits=3)
-        y_cut_spin.set_size_request(80, -1)
-        y_cut_spin.set_tooltip_text("Y cutting plane position (0.0 to 1.0)")
-        y_cut_spin.set_sensitive(False)  # Initially disabled
-        y_cut_spin.connect('value-changed', lambda spin: self._on_cross_section_position_changed('y', spin))
-        slider_row.pack_start(y_cut_spin, False, False, 0)
-        
-        # Z spin box
+        row2.pack_start(z_cut_check, False, False, 0)
+
         z_cut_spin = Gtk.SpinButton(adjustment=Gtk.Adjustment(0.5, 0.0, 1.0, 0.01, 0.1, 0.0), digits=3)
-        z_cut_spin.set_size_request(80, -1)
+        z_cut_spin.set_size_request(70, -1)
         z_cut_spin.set_tooltip_text("Z cutting plane position (0.0 to 1.0)")
-        z_cut_spin.set_sensitive(False)  # Initially disabled
+        z_cut_spin.set_sensitive(False)
         z_cut_spin.connect('value-changed', lambda spin: self._on_cross_section_position_changed('z', spin))
-        slider_row.pack_start(z_cut_spin, False, False, 0)
-        
-        cross_section_vbox.pack_start(slider_row, False, False, 0)
-        
-        # Add the cross-section controls to main panel  
-        self.control_panel.pack_start(cross_section_vbox, False, False, 0)
-        
+        row2.pack_start(z_cut_spin, False, False, 0)
+
         # Store references to controls
         self.cross_section_controls = {
             'x': (x_cut_check, x_cut_spin),
             'y': (y_cut_check, y_cut_spin),
             'z': (z_cut_check, z_cut_spin)
         }
-        
-        # Reset cuts button
+
         reset_cuts_button = Gtk.Button("Reset Cuts")
         reset_cuts_button.set_tooltip_text("Remove all cross-sections")
         reset_cuts_button.connect('clicked', self._on_reset_cuts_clicked)
-        self.control_panel.pack_start(reset_cuts_button, False, False, 0)
-        
-        # Separator
+        row2.pack_start(reset_cuts_button, False, False, 0)
+
         separator4 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator4, False, False, 5)
-        
-        # Reset view button
+        row2.pack_start(separator4, False, False, 3)
+
+        # Reset / Export / Cleanup
         reset_button = Gtk.Button("Reset View")
         reset_button.connect('clicked', self._on_reset_view_clicked)
-        self.control_panel.pack_start(reset_button, False, False, 0)
-        
-        # Memory cleanup button
+        row2.pack_start(reset_button, False, False, 0)
+
+        export_button = Gtk.Button("Export View")
+        export_button.connect('clicked', self._on_export_clicked)
+        row2.pack_start(export_button, False, False, 0)
+
         cleanup_button = Gtk.Button("Cleanup Memory")
         cleanup_button.set_tooltip_text("Force aggressive memory cleanup")
         cleanup_button.connect('clicked', self._on_cleanup_memory_clicked)
-        self.control_panel.pack_start(cleanup_button, False, False, 0)
-        
-        # Separator before measurement tools
-        separator_measure = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        self.control_panel.pack_start(separator_measure, False, False, 5)
-        
-        # Measurement tools section (grouped at far right)
+        row2.pack_start(cleanup_button, False, False, 0)
+
+        separator5 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        row2.pack_start(separator5, False, False, 3)
+
+        # Measurement tools
         measure_label = Gtk.Label("Measure:")
-        self.control_panel.pack_start(measure_label, False, False, 0)
-        
-        # Distance measurement button (hidden - not working as expected)
-        # distance_button = Gtk.Button("Distance")
-        # distance_button.set_tooltip_text("Measure distances between points")
-        # distance_button.connect('clicked', self._on_distance_measure_clicked)
-        # self.control_panel.pack_start(distance_button, False, False, 0)
-        
-        # Phase data analysis button
+        row2.pack_start(measure_label, False, False, 0)
+
         volume_button = Gtk.Button("Phase Data")
-        volume_button.set_tooltip_text("Analyze phase volumes, surface areas and statistics") 
+        volume_button.set_tooltip_text("Analyze phase volumes, surface areas and statistics")
         volume_button.connect('clicked', self._on_volume_analyze_clicked)
-        self.control_panel.pack_start(volume_button, False, False, 0)
-        
-        # Connectivity analysis button
+        row2.pack_start(volume_button, False, False, 0)
+
         connectivity_button = Gtk.Button("Connectivity")
         connectivity_button.set_tooltip_text("Analyze phase connectivity and percolation")
         connectivity_button.connect('clicked', self._on_connectivity_analyze_clicked)
-        self.control_panel.pack_start(connectivity_button, False, False, 0)
+        row2.pack_start(connectivity_button, False, False, 0)
+
+        self.control_panel.pack_start(row2, False, False, 0)
     
     def _create_phase_control_panel(self):
         """Create phase control panel for color customization."""

@@ -68,7 +68,17 @@
       "Bash(codesign -dvvv /Users/jwbullard/Software/THAMES/bin/thames)",
       "Bash(codesign --force --sign - /Users/jwbullard/Software/THAMES/bin/thames)",
       "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/HY-OPC-FA-30/Result/**)",
-      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/HY-OPC-FA-30/**)"
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/HY-OPC-FA-30/**)",
+      "Bash(git diff-index:*)",
+      "Bash(/c/msys64/mingw64/bin/mingw32-make.exe -j4 GEMS3K/GEMS3K-static)",
+      "Bash(mkdir -p C:/Users/jwbullard/Desktop/foo/THAMES/backend/thames-hydration/build)",
+      "Bash(/c/msys64/mingw64/bin/cmake.exe -G \"MinGW Makefiles\" -DCMAKE_C_COMPILER=/c/msys64/mingw64/bin/clang.exe -DCMAKE_CXX_COMPILER=/c/msys64/mingw64/bin/clang++.exe -DCMAKE_MAKE_PROGRAM=/c/msys64/mingw64/bin/mingw32-make.exe -DCMAKE_BUILD_TYPE=Release ..)",
+      "Bash(/c/msys64/mingw64/bin/mingw32-make.exe -j4)",
+      "Bash(/c/msys64/mingw64/bin/mingw32-make.exe micgen:*)",
+      "Bash(C:/Users/jwbullard/Desktop/foo/THAMES/bin/micgen.exe --help)",
+      "Bash(wc:*)",
+      "Bash(wmic process:*)",
+      "Bash(powershell -Command \"Get-Process -Name thames | Select-Object Id,StartTime,Path | Format-List\")"
     ],
     "deny": [],
     "ask": []

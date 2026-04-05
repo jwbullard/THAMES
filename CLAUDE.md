@@ -1540,6 +1540,77 @@ March 31 - April 1, 2026
 
 ---
 
+### Session 39: Windows Sync, Micgen Fix, 3D Layout & Load Operation Feature
+April 4, 2026
+
+**Platform:** Windows 10 (MSYS2 MinGW-w64, Clang 21.1.1)
+
+**Context:** First Windows session since Session 33. Synced 5 macOS commits (Sessions 34-38), rebuilt C++ backend, fixed micgen crash for dilute systems, and added hydration config reload feature.
+
+**Key Accomplishments:**
+
+1. **Pre-Session Sync & Clean C++ Rebuild**
+   - Pulled 5 commits from macOS (Sessions 34-38)
+   - Clean rebuild of GEMS3K, THAMES, and micgen with all recent changes
+   - All binaries installed to `bin/` (thames.exe 3.5 MB, micgen.exe 629 KB)
+
+2. **Cross-Platform Build Scripts**
+   - Created `build-windows.sh` (MSYS2 Clang + MinGW Makefiles)
+   - Created `build-macos.sh` (default cmake/make)
+   - Both handle GEMS3K, THAMES-Hydration, and micgen in sequence
+   - Windows script handles kva2json link failure and zlib DLL resource issue gracefully
+   - Support `clean` argument for fresh builds
+
+3. **Micgen Divide-by-Zero Fix (ch-100 crash)**
+   - **Problem**: micgen.exe crashed (SIGFPE/SIGSEGV) for dilute systems with <100 particles
+   - **Root Cause**: `numchunk = total_particles_to_place / 100` produced 0 (integer division), then `(numpartplaced + 1) % numchunk` was modulo-by-zero
+   - **Fix**: `if (numchunk < 1) numchunk = 1;` after the division
+   - **Diagnosis**: Added targeted debug prints, identified crash location inside `genparticles()`, confirmed fix with successful 200^3 microstructure generation (23 MB output in 2 seconds)
+   - **Not OS-specific**: Would crash on macOS too for <100 particles; just never tested with such dilute systems
+
+4. **3D Viewer Control Panel Layout Fix**
+   - **Problem**: All ~20 viz controls in single horizontal row made window extremely wide
+   - **Fix**: Reorganized into two rows:
+     - Row 1: Rendering mode, View presets (Iso/XY/XZ/YZ), Rotate arrows, Zoom
+     - Row 2: Cross-sections (X/Y/Z checkboxes + spinners), Reset/Export/Cleanup, Measure tools
+
+5. **Hydration "Load Operation" Feature (New)**
+   - Added "Load Operation..." button next to operation name entry in Hydration panel
+   - Shows dialog listing previous hydration operations (newest first, with dates)
+   - Loads `*_hydration_config.json` and populates ALL UI widgets:
+     - Temperature (K->C conversion), resolution, moisture condition
+     - Electrolyte composition (via `set_electrolyte_conditions()`)
+     - Hydration products + product configurations + kinetic overrides
+     - Time parameters loaded as "Custom List" with exact output times
+     - Adaptive time stepping parameters (hours->display unit conversion)
+     - Runtime options (verbose, suppress warnings, create xyz)
+   - Operation name auto-incremented: `{original}-01`, `-02`, etc.
+   - Log reminds user to select input microstructure before running
+   - All required API methods already existed on product_selector and electrolyte_editor
+
+6. **Orphaned Process & Operation Cleanup**
+   - Killed orphaned thames.exe (PID 22156) from CarbPort-bc05 — freed 5.4 GB RAM
+   - Deleted CarbPort-bc05 operation directory (532 MB) that wasn't visible in UI
+   - UI "stop and delete" may need more forceful process termination on Windows
+
+**Files Created:**
+- `build-windows.sh` - Windows build script
+- `build-macos.sh` - macOS build script
+
+**Files Modified:**
+- `backend/src/micgen.c`: `numchunk` divide-by-zero fix (1 line)
+- `src/app/visualization/pyvista_3d_viewer.py`: Two-row control panel layout (~266 lines changed)
+- `src/app/windows/panels/thames_hydration_panel.py`: Load Operation button + 4 new methods (~226 lines added)
+
+**Known Issues:**
+- UI freezes when holding large 200^3 microstructure data in memory (~5.9 GB)
+- micgen exit-time segfault during `freemicgen()` cleanup persists (output valid, low priority)
+- UI "stop and delete" operation may not fully kill thames.exe on Windows
+
+**Detailed session notes:** `docs/session39_summary.md`
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping Implementation (COMPLETE)

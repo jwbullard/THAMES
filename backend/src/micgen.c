@@ -1919,8 +1919,9 @@ int genparticles(int numgen, int *numeach, float *sizeeach, int *pheach) {
     total_particles_to_place += numeach[ig];
   }
 
-  /* Divide the total number to place into five chunks */
+  /* Divide the total number to place into percentage chunks for progress */
   numchunk = total_particles_to_place / 100;
+  if (numchunk < 1) numchunk = 1;
 
   /* Print progress message */
   ProgressFile = filehandler("micgen", "micgen_progress.txt", "WRITE");
@@ -3497,7 +3498,6 @@ void create(void) {
       }
     }
   }
-
   fprintf(Logfile, "Enter dispersion factor (separation distance ");
   fprintf(Logfile, "in voxels) for spheres (0-2)\n");
   fprintf(Logfile, "0 corresponds to totally random placement\n");
