@@ -175,9 +175,9 @@ class THAMESHydrationPanel(Gtk.Box):
         self.pack_start(header_box, False, False, 0)
 
     def _create_microstructure_section(self, parent: Gtk.Box) -> None:
-        """Create the microstructure selection section."""
+        """Create the microstructure selection section with option to load a previous operation."""
         frame = Gtk.Frame()
-        frame.set_label("  Input Microstructure  ")
+        frame.set_label("  Input  ")
         frame.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -186,22 +186,24 @@ class THAMESHydrationPanel(Gtk.Box):
         content.set_margin_top(10)
         content.set_margin_bottom(10)
 
-        # Instruction label
-        instruction = Gtk.Label()
-        instruction.set_markup(
-            '<span size="small">Select a completed microstructure operation to use as input for hydration.</span>'
+        # Option 1: New simulation from microstructure
+        self.input_new_radio = Gtk.RadioButton.new_with_label(
+            None, "New simulation from microstructure"
         )
-        instruction.set_halign(Gtk.Align.START)
-        instruction.set_line_wrap(True)
-        content.pack_start(instruction, False, False, 0)
+        self.input_new_radio.set_tooltip_text(
+            "Start a new hydration simulation by selecting a completed microstructure"
+        )
+        self.input_new_radio.connect("toggled", self._on_input_mode_toggled)
+        content.pack_start(self.input_new_radio, False, False, 0)
 
-        # Microstructure combo box with refresh button
-        combo_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        # Microstructure combo box with refresh button (indented under radio)
+        self.micro_combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.micro_combo_box.set_margin_start(24)
 
         combo_label = Gtk.Label("Microstructure:")
         combo_label.set_size_request(120, -1)
         combo_label.set_halign(Gtk.Align.START)
-        combo_row.pack_start(combo_label, False, False, 0)
+        self.micro_combo_box.pack_start(combo_label, False, False, 0)
 
         # ComboBox for microstructures
         self.microstructure_store = Gtk.ListStore(str, str)  # display_name, path
@@ -210,23 +212,66 @@ class THAMESHydrationPanel(Gtk.Box):
         self.microstructure_combo.pack_start(renderer, True)
         self.microstructure_combo.add_attribute(renderer, "text", 0)
         self.microstructure_combo.set_hexpand(True)
-        combo_row.pack_start(self.microstructure_combo, True, True, 0)
+        self.micro_combo_box.pack_start(self.microstructure_combo, True, True, 0)
 
         # Refresh button
         refresh_btn = Gtk.Button()
         refresh_btn.set_image(Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.BUTTON))
         refresh_btn.set_tooltip_text("Refresh microstructure list")
         refresh_btn.connect("clicked", lambda b: self._refresh_microstructure_list())
-        combo_row.pack_start(refresh_btn, False, False, 0)
+        self.micro_combo_box.pack_start(refresh_btn, False, False, 0)
 
-        content.pack_start(combo_row, False, False, 0)
+        content.pack_start(self.micro_combo_box, False, False, 0)
 
         # Info about selected microstructure
         self.micro_info_label = Gtk.Label()
         self.micro_info_label.set_halign(Gtk.Align.START)
+        self.micro_info_label.set_margin_start(24)
         self.micro_info_label.set_line_wrap(True)
         self.micro_info_label.get_style_context().add_class("dim-label")
         content.pack_start(self.micro_info_label, False, False, 0)
+
+        # Separator
+        content.pack_start(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL), False, False, 0)
+
+        # Option 2: Load from previous hydration operation
+        self.input_load_radio = Gtk.RadioButton.new_with_label_from_widget(
+            self.input_new_radio, "Load from previous hydration operation"
+        )
+        self.input_load_radio.set_tooltip_text(
+            "Load all parameters from a previous hydration run, then tweak and re-run"
+        )
+        self.input_load_radio.connect("toggled", self._on_input_mode_toggled)
+        content.pack_start(self.input_load_radio, False, False, 0)
+
+        # Load operation combo (indented under radio)
+        self.load_op_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.load_op_box.set_margin_start(24)
+
+        load_label = Gtk.Label("Operation:")
+        load_label.set_size_request(120, -1)
+        load_label.set_halign(Gtk.Align.START)
+        self.load_op_box.pack_start(load_label, False, False, 0)
+
+        # ComboBox for previous hydration operations
+        self.load_operation_store = Gtk.ListStore(str, str)  # display_name, config_path
+        self.load_operation_combo = Gtk.ComboBox.new_with_model(self.load_operation_store)
+        load_renderer = Gtk.CellRendererText()
+        self.load_operation_combo.pack_start(load_renderer, True)
+        self.load_operation_combo.add_attribute(load_renderer, "text", 0)
+        self.load_operation_combo.set_hexpand(True)
+        self.load_operation_combo.set_sensitive(False)
+        self.load_operation_combo.connect("changed", self._on_load_operation_selected)
+        self.load_op_box.pack_start(self.load_operation_combo, True, True, 0)
+
+        # Refresh button for operation list
+        load_refresh_btn = Gtk.Button()
+        load_refresh_btn.set_image(Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.BUTTON))
+        load_refresh_btn.set_tooltip_text("Refresh previous operations list")
+        load_refresh_btn.connect("clicked", lambda b: self._refresh_load_operation_list())
+        self.load_op_box.pack_start(load_refresh_btn, False, False, 0)
+
+        content.pack_start(self.load_op_box, False, False, 0)
 
         frame.add(content)
         parent.pack_start(frame, False, False, 0)
@@ -655,7 +700,7 @@ class THAMESHydrationPanel(Gtk.Box):
         )
         self.adaptive_enabled_check.set_active(True)
         self.adaptive_enabled_check.set_tooltip_text(
-            "When enabled, the simulation dynamically adjusts timestep size based on "
+            "When enabled, the simulation dynamically adjusts time step size based on "
             "GEMS solver performance. When disabled, uses pre-generated fixed time steps."
         )
         self.adaptive_enabled_check.connect("toggled", self._on_adaptive_enabled_toggled)
@@ -677,7 +722,7 @@ class THAMESHydrationPanel(Gtk.Box):
         arow = 0
 
         # dt_initial
-        dt_init_label = Gtk.Label("Initial timestep:")
+        dt_init_label = Gtk.Label("Initial time step:")
         dt_init_label.set_halign(Gtk.Align.START)
         adaptive_grid.attach(dt_init_label, 0, arow, 1, 1)
 
@@ -686,7 +731,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_dt_initial_spin.set_value(3.6)
         self.adaptive_dt_initial_spin.set_digits(4)
         self.adaptive_dt_initial_spin.set_tooltip_text(
-            "Starting timestep size. Default: 3.6 seconds (0.001 hours). "
+            "Starting time step size. Default: 3.6 seconds (0.001 hours). "
             "May be overridden by kinetics-based estimate at startup."
         )
         dt_init_box.pack_start(self.adaptive_dt_initial_spin, True, True, 0)
@@ -705,7 +750,7 @@ class THAMESHydrationPanel(Gtk.Box):
         arow += 1
 
         # dt_max
-        dt_max_label = Gtk.Label("Maximum timestep:")
+        dt_max_label = Gtk.Label("Maximum time step:")
         dt_max_label.set_halign(Gtk.Align.START)
         adaptive_grid.attach(dt_max_label, 0, arow, 1, 1)
 
@@ -714,7 +759,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_dt_max_spin.set_value(4.0)
         self.adaptive_dt_max_spin.set_digits(4)
         self.adaptive_dt_max_spin.set_tooltip_text(
-            "Maximum allowed timestep. Default: 4.0 hours."
+            "Maximum allowed time step. Default: 4.0 hours."
         )
         dt_max_box.pack_start(self.adaptive_dt_max_spin, True, True, 0)
 
@@ -740,7 +785,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_growth_spin.set_value(1.5)
         self.adaptive_growth_spin.set_digits(4)
         self.adaptive_growth_spin.set_tooltip_text(
-            "Timestep multiplier after consecutive successes. Default: 1.5 (50% growth)."
+            "Time step multiplier after consecutive successes. Default: 1.5 (50% growth)."
         )
         adaptive_grid.attach(self.adaptive_growth_spin, 1, arow, 1, 1)
 
@@ -755,7 +800,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_shrink_spin.set_value(0.5)
         self.adaptive_shrink_spin.set_digits(4)
         self.adaptive_shrink_spin.set_tooltip_text(
-            "Timestep multiplier after GEMS failure. Default: 0.5 (halve timestep)."
+            "Time step multiplier after GEMS failure. Default: 0.5 (halve time step)."
         )
         adaptive_grid.attach(self.adaptive_shrink_spin, 1, arow, 1, 1)
 
@@ -770,7 +815,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_successes_spin.set_value(2)
         self.adaptive_successes_spin.set_digits(0)
         self.adaptive_successes_spin.set_tooltip_text(
-            "Number of consecutive GEMS successes required before growing timestep. Default: 2."
+            "Number of consecutive GEMS successes required before growing time step. Default: 2."
         )
         adaptive_grid.attach(self.adaptive_successes_spin, 1, arow, 1, 1)
 
@@ -800,7 +845,7 @@ class THAMESHydrationPanel(Gtk.Box):
         self.adaptive_max_change_spin.set_value(0.05)
         self.adaptive_max_change_spin.set_digits(4)
         self.adaptive_max_change_spin.set_tooltip_text(
-            "Maximum fractional change in DC moles per timestep (kinetics constraint). "
+            "Maximum fractional change in DC moles per time step (kinetics constraint). "
             "Default: 0.05 (5%). Lower values are more conservative."
         )
         adaptive_grid.attach(self.adaptive_max_change_spin, 1, arow, 1, 1)
@@ -882,13 +927,6 @@ class THAMESHydrationPanel(Gtk.Box):
         self.operation_name_entry.set_placeholder_text("Enter operation name...")
         self.operation_name_entry.set_hexpand(True)
         name_row.pack_start(self.operation_name_entry, True, True, 0)
-
-        self.load_operation_btn = Gtk.Button.new_with_label("Load Operation...")
-        self.load_operation_btn.set_tooltip_text(
-            "Load configuration from a previous hydration operation"
-        )
-        self.load_operation_btn.connect("clicked", self._on_load_operation_clicked)
-        name_row.pack_start(self.load_operation_btn, False, False, 0)
 
         content.pack_start(name_row, False, False, 0)
 
@@ -1042,7 +1080,7 @@ class THAMESHydrationPanel(Gtk.Box):
         else:
             spin = self.adaptive_dt_max_spin
             # Default value in each unit: 4.0 hours = 240 min = 14400 sec
-            defaults = {"s": (1.0, 172800.0, 10.0, 4, 14400.0),
+            defaults = {"s": (0.001, 172800.0, 10.0, 4, 14400.0),
                         "min": (0.1, 2880.0, 1.0, 4, 240.0),
                         "hr": (0.1, 48.0, 0.5, 4, 4.0)}
         if unit_id in defaults:
@@ -1205,6 +1243,15 @@ class THAMESHydrationPanel(Gtk.Box):
 
         self.time_preview_text.get_buffer().set_text(preview_text)
         self.time_count_label.set_markup(count_text)
+
+    def _on_input_mode_toggled(self, radio: Gtk.RadioButton) -> None:
+        """Handle input mode radio button toggle."""
+        new_sim = self.input_new_radio.get_active()
+        # Enable/disable the microstructure combo vs load operation combo
+        self.micro_combo_box.set_sensitive(new_sim)
+        self.load_operation_combo.set_sensitive(not new_sim)
+        if not new_sim:
+            self._refresh_load_operation_list()
 
     def _on_microstructure_changed(self, combo: Gtk.ComboBox) -> None:
         """Handle microstructure selection change."""
@@ -1748,14 +1795,14 @@ class THAMESHydrationPanel(Gtk.Box):
     # Load Operation feature
     # ------------------------------------------------------------------
 
-    def _on_load_operation_clicked(self, button: Gtk.Button) -> None:
-        """Show dialog to select and load a previous hydration operation."""
+    def _refresh_load_operation_list(self) -> None:
+        """Populate the load operation combo with previous hydration operations."""
+        self.load_operation_combo.handler_block_by_func(self._on_load_operation_selected)
+        self.load_operation_store.clear()
         ops_dir = self.service_container.directories_service.get_operations_path()
         if not ops_dir.exists():
-            self._log_message("No operations directory found")
             return
 
-        # Scan for hydration config files
         configs = []
         for op_dir in ops_dir.iterdir():
             if not op_dir.is_dir():
@@ -1763,86 +1810,25 @@ class THAMESHydrationPanel(Gtk.Box):
             for config_file in op_dir.glob("*_hydration_config.json"):
                 try:
                     mtime = config_file.stat().st_mtime
-                    configs.append((op_dir.name, config_file, mtime))
+                    configs.append((op_dir.name, str(config_file), mtime))
                 except OSError:
                     continue
 
-        if not configs:
-            dialog = Gtk.MessageDialog(
-                transient_for=self.main_window,
-                modal=True,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK,
-                text="No previous hydration operations found.",
-            )
-            dialog.run()
-            dialog.destroy()
-            return
-
         # Sort newest first
         configs.sort(key=lambda x: x[2], reverse=True)
+        for op_name, config_path, _ in configs:
+            self.load_operation_store.append([op_name, config_path])
+        self.load_operation_combo.handler_unblock_by_func(self._on_load_operation_selected)
 
-        # Build selection dialog
-        dialog = Gtk.Dialog(
-            title="Load Hydration Operation",
-            transient_for=self.main_window,
-            modal=True,
-            destroy_with_parent=True,
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OK, Gtk.ResponseType.OK,
-        )
-        dialog.set_default_size(450, 350)
-
-        content = dialog.get_content_area()
-        content.set_margin_start(10)
-        content.set_margin_end(10)
-        content.set_margin_top(10)
-        content.set_margin_bottom(10)
-
-        label = Gtk.Label("Select a hydration operation to load its configuration:")
-        label.set_halign(Gtk.Align.START)
-        label.set_margin_bottom(5)
-        content.pack_start(label, False, False, 0)
-
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_vexpand(True)
-        content.pack_start(scrolled, True, True, 0)
-
-        store = Gtk.ListStore(str, str, str)  # name, path, date
-        from datetime import datetime
-        for op_name, config_path, mtime in configs:
-            date_str = datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M")
-            store.append([op_name, str(config_path), date_str])
-
-        tree = Gtk.TreeView(model=store)
-        tree.set_headers_visible(True)
-
-        name_col = Gtk.TreeViewColumn("Operation", Gtk.CellRendererText(), text=0)
-        name_col.set_expand(True)
-        tree.append_column(name_col)
-
-        date_col = Gtk.TreeViewColumn("Date", Gtk.CellRendererText(), text=2)
-        date_col.set_min_width(130)
-        tree.append_column(date_col)
-
-        # Select first row by default
-        tree.get_selection().select_iter(store.get_iter_first())
-
-        scrolled.add(tree)
-        dialog.show_all()
-
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            selection = tree.get_selection()
-            model, tree_iter = selection.get_selected()
-            if tree_iter:
-                op_name = model[tree_iter][0]
-                config_path = Path(model[tree_iter][1])
-                self._load_from_operation(op_name, config_path)
-        dialog.destroy()
+    def _on_load_operation_selected(self, combo: Gtk.ComboBox) -> None:
+        """Handle selection of a previous hydration operation from the combo."""
+        tree_iter = combo.get_active_iter()
+        if tree_iter is None:
+            return
+        model = combo.get_model()
+        op_name = model[tree_iter][0]
+        config_path = Path(model[tree_iter][1])
+        self._load_from_operation(op_name, config_path)
 
     def _load_from_operation(self, operation_name: str, config_path: Path) -> None:
         """Load a hydration config file and populate the UI."""

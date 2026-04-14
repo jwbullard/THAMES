@@ -418,150 +418,8 @@ class MaterialTable(Gtk.Box):
             self.list_store.clear()
             self.materials_data.clear()
             
-            # Load materials from all services
+            # Load THAMES materials
             materials = []
-            
-            # Load cement materials
-            try:
-                cement_service = self.service_container.cement_service
-                cements = cement_service.get_all()
-                for cement in cements:
-                    materials.append({
-                        'id': cement.name,  # Use name as ID since it's the primary key
-                        'name': cement.name,
-                        'type': 'cement',
-                        'specific_gravity': cement.specific_gravity,
-                        'created_date': cement.created_at.strftime('%Y-%m-%d') if cement.created_at else '',
-                        'modified_date': cement.updated_at.strftime('%Y-%m-%d') if cement.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': cement.description or '',
-                        'data': cement
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading cement materials: {e}")
-            
-            # Load fly ash materials
-            try:
-                fly_ash_service = self.service_container.fly_ash_service
-                fly_ashes = fly_ash_service.get_all()
-                for fly_ash in fly_ashes:
-                    materials.append({
-                        'id': fly_ash.name,
-                        'name': fly_ash.name,
-                        'type': 'fly_ash',
-                        'specific_gravity': fly_ash.specific_gravity,
-                        'created_date': fly_ash.created_at.strftime('%Y-%m-%d') if fly_ash.created_at else '',
-                        'modified_date': fly_ash.updated_at.strftime('%Y-%m-%d') if fly_ash.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': fly_ash.description or '',
-                        'data': fly_ash
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading fly ash materials: {e}")
-            
-            # Load slag materials
-            try:
-                slag_service = self.service_container.slag_service
-                slags = slag_service.get_all()
-                for slag in slags:
-                    materials.append({
-                        'id': slag.name,
-                        'name': slag.name,
-                        'type': 'slag',
-                        'specific_gravity': slag.specific_gravity,
-                        'created_date': slag.created_at.strftime('%Y-%m-%d') if slag.created_at else '',
-                        'modified_date': slag.updated_at.strftime('%Y-%m-%d') if slag.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': slag.description or '',
-                        'data': slag
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading slag materials: {e}")
-            
-            # Load filler materials
-            try:
-                filler_service = self.service_container.filler_service
-                fillers = filler_service.get_all()
-                for filler in fillers:
-                    materials.append({
-                        'id': filler.name,
-                        'name': filler.name,
-                        'type': 'filler',
-                        'specific_gravity': filler.specific_gravity,
-                        'created_date': filler.created_at.strftime('%Y-%m-%d') if filler.created_at else '',
-                        'modified_date': filler.updated_at.strftime('%Y-%m-%d') if filler.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': filler.description or '',
-                        'data': filler
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading filler materials: {e}")
-
-            # Load silica fume materials
-            try:
-                silica_fume_service = self.service_container.silica_fume_service
-                silica_fumes = silica_fume_service.get_all()
-                for silica_fume in silica_fumes:
-                    materials.append({
-                        'id': silica_fume.name,
-                        'name': silica_fume.name,
-                        'type': 'silica_fume',
-                        'specific_gravity': silica_fume.specific_gravity,
-                        'created_date': silica_fume.created_at.strftime('%Y-%m-%d') if silica_fume.created_at else '',
-                        'modified_date': silica_fume.updated_at.strftime('%Y-%m-%d') if silica_fume.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': silica_fume.description or '',
-                        'data': silica_fume
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading silica fume materials: {e}")
-
-            # Load limestone materials
-            try:
-                limestone_service = self.service_container.limestone_service
-                limestones = limestone_service.get_all()
-                for limestone in limestones:
-                    materials.append({
-                        'id': limestone.name,
-                        'name': limestone.name,
-                        'type': 'limestone',
-                        'specific_gravity': limestone.specific_gravity,
-                        'created_date': limestone.created_at.strftime('%Y-%m-%d') if limestone.created_at else '',
-                        'modified_date': limestone.updated_at.strftime('%Y-%m-%d') if limestone.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': limestone.description or '',
-                        'data': limestone
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading limestone materials: {e}")
-
-            # Load aggregate materials
-            try:
-                aggregate_service = self.service_container.aggregate_service
-                aggregates = aggregate_service.get_all()
-                for aggregate in aggregates:
-                    materials.append({
-                        'id': aggregate.display_name,  # Use display_name as ID since it's the primary key
-                        'name': aggregate.name,
-                        'type': 'aggregate',
-                        'specific_gravity': aggregate.specific_gravity,
-                        'created_date': aggregate.created_at.strftime('%Y-%m-%d') if aggregate.created_at else '',
-                        'modified_date': aggregate.updated_at.strftime('%Y-%m-%d') if aggregate.updated_at else '',
-                        'tags': '',  # VCCTL materials don't have tags
-                        'clinker_source': '',  # VCCTL materials don't have clinker source
-                        'description': getattr(aggregate, 'description', '') or '',
-                        'data': aggregate
-                    })
-            except Exception as e:
-                self.logger.warning(f"Error loading aggregate materials: {e}")
-
-            # Load THAMES tag-based materials
             if self.material_service:
                 try:
                     thames_materials = self.material_service.get_all()
@@ -584,35 +442,23 @@ class MaterialTable(Gtk.Box):
                                 self.logger.warning(f"Error loading clinker source for material {material.name}: {e}")
 
                         materials.append({
-                            'id': str(material.id),  # Use numeric ID as string
+                            'id': str(material.id),
                             'name': material.name,
-                            'type': 'thames',  # Special type for THAMES materials
+                            'type': 'thames',
                             'specific_gravity': material.specific_gravity or 3.15,
                             'created_date': created_date,
                             'modified_date': modified_date,
-                            'tags': tags_str,  # Display tags in Tags column
-                            'clinker_source': clinker_source_str,  # Display clinker source
+                            'tags': tags_str,
+                            'clinker_source': clinker_source_str,
                             'description': material.description or '',
                             'data': material
                         })
-                    self.logger.info(f"Loaded {len(thames_materials)} THAMES materials")
+                    self.logger.info(f"Loaded {len(thames_materials)} materials")
                 except Exception as e:
-                    self.logger.warning(f"Error loading THAMES materials: {e}")
-
-            # Filter out VCCTL duplicates if THAMES version exists
-            thames_material_names = {m['name'] for m in materials if m['type'] == 'thames'}
-            filtered_materials = []
-            for material in materials:
-                # Skip VCCTL cement/limestone if THAMES version exists
-                if material['type'] in ['cement', 'limestone'] and material['name'] in thames_material_names:
-                    self.logger.debug(f"Hiding VCCTL duplicate: {material['name']} (THAMES version exists)")
-                    continue
-                filtered_materials.append(material)
-
-            self.logger.info(f"Filtered {len(materials) - len(filtered_materials)} VCCTL duplicates, showing {len(filtered_materials)} materials")
+                    self.logger.warning(f"Error loading materials: {e}")
 
             # Store materials data
-            self.materials_data = filtered_materials
+            self.materials_data = materials
 
             # Update display with pagination
             self._populate_current_page()
@@ -771,27 +617,13 @@ class MaterialTable(Gtk.Box):
         if not self.selected_materials:
             return
 
-        # Check for immutable THAMES materials in the selection
+        # Check for immutable materials in the selection
         immutable_materials = []
         for material_id in self.selected_materials:
             for material in self.materials_data:
                 data_obj = material['data']
-                material_type = material['type']
-
-                # Check if this is the selected material
-                is_selected = False
-                if material_type == 'thames' and getattr(data_obj, 'id', None) == material_id:
-                    is_selected = True
-                elif material_type == 'cement' and getattr(data_obj, 'name', None) == material_id:
-                    is_selected = True
-                elif material_type == 'aggregate' and getattr(data_obj, 'display_name', None) == material_id:
-                    is_selected = True
-                elif getattr(data_obj, 'name', None) == material_id:
-                    is_selected = True
-
-                if is_selected:
-                    # Check if THAMES material is immutable
-                    if material_type == 'thames' and hasattr(data_obj, 'immutable') and data_obj.immutable:
+                if getattr(data_obj, 'id', None) == material_id:
+                    if hasattr(data_obj, 'immutable') and data_obj.immutable:
                         immutable_materials.append(data_obj.name)
                     break
 
@@ -806,7 +638,7 @@ class MaterialTable(Gtk.Box):
             )
             if len(immutable_materials) == 1:
                 error_dialog.format_secondary_text(
-                    f"'{immutable_materials[0]}' was migrated from VCCTL and cannot be deleted. "
+                    f"'{immutable_materials[0]}' is read-only and cannot be deleted. "
                     "You can duplicate it to create an editable copy."
                 )
             else:
@@ -814,7 +646,7 @@ class MaterialTable(Gtk.Box):
                 if len(immutable_materials) > 3:
                     materials_list += f", and {len(immutable_materials) - 3} more"
                 error_dialog.format_secondary_text(
-                    f"The following materials were migrated from VCCTL and cannot be deleted: {materials_list}"
+                    f"The following materials are read-only and cannot be deleted: {materials_list}"
                 )
             error_dialog.run()
             error_dialog.destroy()
@@ -926,22 +758,9 @@ class MaterialTable(Gtk.Box):
             tree_iter = model.get_iter(path)
             material_data = model.get_value(tree_iter, 7)  # material data column
             if material_data:
-                # Use the correct identifier based on material type
-                if hasattr(material_data, '__tablename__'):
-                    if material_data.__tablename__ == 'cement':
-                        material_id = material_data.name
-                    elif material_data.__tablename__ == 'aggregate':
-                        material_id = material_data.display_name
-                    elif material_data.__tablename__ in ['limestone', 'silica_fume', 'filler']:
-                        # These materials have id=None, so use name
-                        material_id = material_data.name
-                    else:
-                        # For other materials, use id if it's not None, otherwise use name
-                        material_id = material_data.id if material_data.id is not None else material_data.name
-                else:
-                    material_id = getattr(material_data, 'name', getattr(material_data, 'display_name', None))
-                
-                self.selected_materials.add(material_id)
+                material_id = getattr(material_data, 'id', None)
+                if material_id is not None:
+                    self.selected_materials.add(material_id)
         
         self._update_status()
         
@@ -1054,20 +873,7 @@ class MaterialTable(Gtk.Box):
             tree_iter = model.get_iter(tree_paths[0])
             material_data = model.get_value(tree_iter, 7)
             if material_data:
-                # Use the correct identifier based on material type
-                if hasattr(material_data, '__tablename__'):
-                    if material_data.__tablename__ == 'material':  # THAMES material
-                        material_id = material_data.id
-                    elif material_data.__tablename__ == 'cement':
-                        material_id = material_data.name
-                    elif material_data.__tablename__ == 'aggregate':
-                        material_id = material_data.display_name
-                    else:
-                        material_id = getattr(material_data, 'id', material_data.name)
-                else:
-                    material_id = getattr(material_data, 'name', getattr(material_data, 'display_name', None))
-
-                self.selected_materials = {material_id}
+                self.selected_materials = {material_data.id}
                 self._on_bulk_delete_clicked(None)
     
     def _on_context_export(self, item) -> None:
@@ -1079,18 +885,7 @@ class MaterialTable(Gtk.Box):
             tree_iter = model.get_iter(tree_paths[0])
             material_data = model.get_value(tree_iter, 7)
             if material_data:
-                # Use the correct identifier based on material type
-                if hasattr(material_data, '__tablename__'):
-                    if material_data.__tablename__ == 'cement':
-                        material_id = material_data.name
-                    elif material_data.__tablename__ == 'aggregate':
-                        material_id = material_data.display_name
-                    else:
-                        material_id = getattr(material_data, 'id', material_data.name)
-                else:
-                    material_id = getattr(material_data, 'name', getattr(material_data, 'display_name', None))
-                
-                self.selected_materials = {material_id}
+                self.selected_materials = {material_data.id}
                 self._on_bulk_export_clicked(None)
     
     def _delete_selected_materials(self) -> None:
@@ -1103,81 +898,23 @@ class MaterialTable(Gtk.Box):
                 material_data = None
                 for material in self.materials_data:
                     data_obj = material['data']
-                    material_type = material['type']
-                    
-                    # Debug: show what we're checking
-                    name_attr = getattr(data_obj, 'name', None)
-                    display_name_attr = getattr(data_obj, 'display_name', None)
-                    id_attr = getattr(data_obj, 'id', None)
-                    
-                    
-                    # Check the correct identifier based on material type
-                    if material['type'] == 'thames' and id_attr == material_id:
+                    if getattr(data_obj, 'id', None) == material_id:
                         material_data = material
                         break
-                    elif material['type'] == 'cement' and name_attr == material_id:
-                        material_data = material
-                        break
-                    elif material['type'] == 'aggregate' and display_name_attr == material_id:
-                        material_data = material
-                        break
-                    elif material['type'] in ['limestone', 'silica_fume', 'filler'] and name_attr == material_id:
-                        material_data = material
-                        break
-                    elif material['type'] in ['slag', 'fly_ash'] and name_attr == material_id:
-                        material_data = material
-                        break
-                    elif id_attr == material_id:
-                        material_data = material
-                        break
-                
+
                 if material_data:
-                    material_type = material_data['type']
                     data_obj = material_data['data']
 
-                    # Check for immutable THAMES materials
-                    if material_type == 'thames':
-                        if hasattr(data_obj, 'immutable') and data_obj.immutable:
-                            self.logger.warning(f"Skipping deletion of immutable material: {data_obj.name}")
-                            self.main_window.update_status(
-                                f"Cannot delete '{data_obj.name}': This material was migrated from VCCTL and is read-only",
-                                "error", 5
-                            )
-                            continue
-
-                    # Delete from appropriate service
-                    if material_type == 'thames':
-                        service = self.material_service
-                    elif material_type == 'cement':
-                        service = self.service_container.cement_service
-                    elif material_type == 'aggregate':
-                        service = self.service_container.aggregate_service
-                    elif material_type == 'fly_ash':
-                        service = self.service_container.fly_ash_service
-                    elif material_type == 'slag':
-                        service = self.service_container.slag_service
-                    elif material_type == 'filler':
-                        service = self.service_container.filler_service
-                    elif material_type == 'silica_fume':
-                        service = self.service_container.silica_fume_service
-                    elif material_type == 'limestone':
-                        service = self.service_container.limestone_service
-                    else:
+                    # Check for immutable materials
+                    if hasattr(data_obj, 'immutable') and data_obj.immutable:
+                        self.logger.warning(f"Skipping deletion of immutable material: {data_obj.name}")
+                        self.main_window.update_status(
+                            f"Cannot delete '{data_obj.name}': This material is read-only",
+                            "error", 5
+                        )
                         continue
-                    
-                    # Delete using the correct identifier for each material type
-                    if material_type == 'thames':
-                        delete_param = data_obj.id
-                    elif material_type == 'cement':
-                        delete_param = data_obj.name
-                    elif material_type == 'aggregate':
-                        delete_param = data_obj.display_name
-                    elif material_type in ['limestone', 'silica_fume', 'filler', 'fly_ash', 'slag']:
-                        delete_param = data_obj.name
-                    else:
-                        delete_param = data_obj.id
-                    
-                    service.delete(delete_param)
+
+                    self.material_service.delete(data_obj.id)
                     deleted_count += 1
             
             # Clear selection and reload

@@ -37,6 +37,8 @@ cmake .. \
     -DCMAKE_CXX_FLAGS=-fPIC \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=../../Resources
+# Build libraries first to avoid kva2json link race condition
+make -j$JOBS GEMS3K_STATIC GEMS3K_SHARED
 make -j$JOBS
 make install
 echo "GEMS3K: OK"

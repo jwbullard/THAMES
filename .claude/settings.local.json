@@ -78,7 +78,14 @@
       "Bash(C:/Users/jwbullard/Desktop/foo/THAMES/bin/micgen.exe --help)",
       "Bash(wc:*)",
       "Bash(wmic process:*)",
-      "Bash(powershell -Command \"Get-Process -Name thames | Select-Object Id,StartTime,Path | Format-List\")"
+      "Bash(powershell -Command \"Get-Process -Name thames | Select-Object Id,StartTime,Path | Format-List\")",
+      "Bash(bash:*)",
+      "Bash(mkdir -p /Users/jwbullard/Software/THAMES/bin)",
+      "Bash(cp /Users/jwbullard/Software/THAMES/backend/thames-hydration/build/thames /Users/jwbullard/Software/THAMES/bin/thames)",
+      "Bash(cp /Users/jwbullard/Software/THAMES/backend/build/micgen /Users/jwbullard/Software/THAMES/bin/micgen)",
+      "Bash(kill 67692)",
+      "Bash(du -sh /Users/jwbullard/Software/vcctl-gtk/aggregate/*/)",
+      "Bash(tar xzf:*)"
     ],
     "deny": [],
     "ask": []

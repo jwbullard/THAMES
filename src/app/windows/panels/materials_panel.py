@@ -357,33 +357,17 @@ class MaterialsPanel(Gtk.Box):
     def _load_initial_data(self) -> None:
         """Load initial data into the materials table."""
         try:
-            # Get material counts for display
-            service_container = get_service_container()
-            
-            total_materials = 0
-            
-            # Count cement materials
+            # Get material count for display
             try:
-                cement_count = len(service_container.cement_service.get_all())
-                total_materials += cement_count
+                total_materials = len(self.material_service.get_all())
             except Exception as e:
-                self.logger.warning(f"Error counting cement materials: {e}")
-                cement_count = 0
-            
-            # Count aggregate materials
-            try:
-                aggregate_count = len(service_container.aggregate_service.get_all())
-                total_materials += aggregate_count
-            except Exception as e:
-                self.logger.warning(f"Error counting aggregate materials: {e}")
-                aggregate_count = 0
-            
-            # Update material count display
+                self.logger.warning(f"Error counting materials: {e}")
+                total_materials = 0
+
             self.material_count_label.set_markup(
                 f'<span size="small" style="italic">{total_materials} materials total</span>'
             )
-            
-            self.logger.info(f"Loaded material counts: {cement_count} cement, {aggregate_count} aggregate")
+            self.logger.info(f"Loaded {total_materials} materials")
             
         except Exception as e:
             self.logger.error(f"Error loading initial data: {e}")
@@ -579,17 +563,7 @@ class MaterialsPanel(Gtk.Box):
     
     def _get_service_for_type(self, material_type: str):
         """Get the appropriate service for a material type."""
-        service_container = get_service_container()
-        service_map = {
-            'cement': service_container.cement_service,
-            'filler': service_container.filler_service,
-            'aggregate': service_container.aggregate_service,
-            'fly_ash': service_container.fly_ash_service,
-            'slag': service_container.slag_service,
-            'silica_fume': service_container.silica_fume_service,
-            'limestone': service_container.limestone_service
-        }
-        return service_map.get(material_type)
+        return self.material_service
     
     def _on_edit_material_clicked(self, button) -> None:
         """Handle edit material button click."""
@@ -690,7 +664,7 @@ class MaterialsPanel(Gtk.Box):
                     text=f"Cannot delete '{self.selected_material.name}'"
                 )
                 error_dialog.format_secondary_text(
-                    "This material was migrated from VCCTL and is read-only. "
+                    "This material is read-only. "
                     "You can duplicate it to create an editable copy."
                 )
                 error_dialog.run()
@@ -1248,44 +1222,7 @@ class MaterialsPanel(Gtk.Box):
     
     def _get_material_type(self, material_data) -> str:
         """Determine the material type from the material data object."""
-        if hasattr(material_data, '__tablename__'):
-            tablename = material_data.__tablename__
-            if tablename == 'material':
-                return 'thames'  # THAMES tag-based material
-            elif tablename == 'cement':
-                return 'cement'
-            elif tablename == 'aggregate':
-                return 'aggregate'
-            elif tablename == 'fly_ash':
-                return 'fly_ash'
-            elif tablename == 'slag':
-                return 'slag'
-            elif tablename == 'filler':
-                return 'filler'
-            elif tablename == 'silica_fume':
-                return 'silica_fume'
-            elif tablename == 'limestone':
-                return 'limestone'
-        
-        # Fallback: try to detect from class name
-        class_name = material_data.__class__.__name__.lower()
-        if 'cement' in class_name:
-            return 'cement'
-        elif 'aggregate' in class_name:
-            return 'aggregate'
-        elif 'flyash' in class_name or 'fly_ash' in class_name:
-            return 'fly_ash'
-        elif 'slag' in class_name:
-            return 'slag'
-        elif 'filler' in class_name:
-            return 'filler'
-        elif 'silica_fume' in class_name or 'silicafume' in class_name:
-            return 'silica_fume'
-        elif 'limestone' in class_name:
-            return 'limestone'
-        
-        # Default fallback
-        return 'cement'
+        return 'thames'
     
     def _decode_description_if_hex(self, description: str) -> str:
         """Decode description from hex if it appears to be hex-encoded."""
@@ -1461,103 +1398,43 @@ class MaterialsPanel(Gtk.Box):
     def _duplicate_material(self, original_material, material_type: str) -> None:
         """Create a duplicate of the given material with a new name."""
         try:
-            # Generate a unique name for the duplicate
-            if material_type == 'aggregate':
-                base_name = original_material.display_name
-            else:
-                base_name = original_material.name
+            base_name = original_material.name
             new_name = self._generate_unique_material_name(base_name, material_type)
 
-            # Get the appropriate service
-            service_container = get_service_container()
-            if material_type == 'thames':
-                service = self.material_service
-            elif material_type == 'cement':
-                service = service_container.cement_service
-            elif material_type == 'aggregate':
-                service = service_container.aggregate_service
-            elif material_type == 'filler':
-                service = service_container.filler_service
-            elif material_type == 'fly_ash':
-                service = service_container.fly_ash_service
-            elif material_type == 'slag':
-                service = service_container.slag_service
-            elif material_type == 'silica_fume':
-                service = service_container.silica_fume_service
-            elif material_type == 'limestone':
-                service = service_container.limestone_service
-            elif material_type == 'filler':
-                service = service_container.filler_service
-            else:
-                raise ValueError(f"Unsupported material type for duplication: {material_type}")
+            service = self.material_service
 
             # Create a new material instance with copied data
             duplicate_data = self._copy_material_data(original_material, new_name, material_type)
-            
-            # Save the duplicate to the database
-            if material_type == 'thames':
-                from app.models import MaterialCreate
-                # Ensure duplicate is always mutable (even if original was immutable)
-                duplicate_data['immutable'] = False
-                material_create = MaterialCreate(**duplicate_data)
 
-                # Fetch phases fresh from database to avoid lazy-loading issues
-                # Use get_phases_as_dicts which returns plain dicts, not ORM objects
-                phase_compositions = None
-                original_id = getattr(original_material, 'id', None)
-                if original_id:
-                    phase_compositions = service.get_phases_as_dicts(original_id)
-                    if phase_compositions:
-                        self.logger.info(f"Copying {len(phase_compositions)} phases from original material")
-                    else:
-                        self.logger.warning(f"No phases found for material ID {original_id}")
+            from app.models import MaterialCreate
+            # Ensure duplicate is always mutable (even if original was immutable)
+            duplicate_data['immutable'] = False
+            material_create = MaterialCreate(**duplicate_data)
 
-                # Create material with phases
-                new_material = service.create(material_create, phase_compositions=phase_compositions)
-
-                # If original has clinker data, copy clinker extension data
-                # Note: is_clinker=True for pure clinker materials, has_clinker=True for cements containing clinker
-                is_clinker = getattr(original_material, 'is_clinker', False)
-                has_clinker = getattr(original_material, 'has_clinker', False)
-                self.logger.info(f"Duplication clinker check: is_clinker={is_clinker}, has_clinker={has_clinker}, "
-                               f"new_material={new_material is not None}, original_id={original_id}")
-                if (is_clinker or has_clinker) and new_material and original_id:
-                    self.logger.info(f"Calling _copy_clinker_extension_data for material {original_id} -> {new_material.id}")
-                    self._copy_clinker_extension_data(service, original_id, new_material.id)
+            # Fetch phases fresh from database to avoid lazy-loading issues
+            # Use get_phases_as_dicts which returns plain dicts, not ORM objects
+            phase_compositions = None
+            original_id = getattr(original_material, 'id', None)
+            if original_id:
+                phase_compositions = service.get_phases_as_dicts(original_id)
+                if phase_compositions:
+                    self.logger.info(f"Copying {len(phase_compositions)} phases from original material")
                 else:
-                    self.logger.info(f"Skipping clinker extension copy - condition not met")
-            elif material_type == 'cement':
-                from app.models.cement import CementCreate
-                cement_create = CementCreate(**duplicate_data)
-                service.create(cement_create)
-            elif material_type == 'aggregate':
-                from app.models.aggregate import AggregateCreate
-                aggregate_create = AggregateCreate(**duplicate_data)
-                service.create(aggregate_create)
-            elif material_type == 'filler':
-                from app.models.filler import FillerCreate
-                filler_create = FillerCreate(**duplicate_data)
-                service.create(filler_create)
-            elif material_type == 'fly_ash':
-                from app.models.fly_ash import FlyAshCreate
-                fly_ash_create = FlyAshCreate(**duplicate_data)
-                service.create(fly_ash_create)
-            elif material_type == 'slag':
-                from app.models.slag import SlagCreate
-                slag_create = SlagCreate(**duplicate_data)
-                service.create(slag_create)
-            elif material_type == 'silica_fume':
-                from app.models.silica_fume import SilicaFumeCreate
-                silica_fume_create = SilicaFumeCreate(**duplicate_data)
-                service.create(silica_fume_create)
-            elif material_type == 'limestone':
-                from app.models.limestone import LimestoneCreate
-                limestone_create = LimestoneCreate(**duplicate_data)
-                service.create(limestone_create)
-            elif material_type == 'filler':
-                from app.models.filler import FillerCreate
-                filler_create = FillerCreate(**duplicate_data)
-                service.create(filler_create)
+                    self.logger.warning(f"No phases found for material ID {original_id}")
+
+            # Create material with phases
+            new_material = service.create(material_create, phase_compositions=phase_compositions)
+
+            # If original has clinker data, copy clinker extension data
+            is_clinker = getattr(original_material, 'is_clinker', False)
+            has_clinker = getattr(original_material, 'has_clinker', False)
+            self.logger.info(f"Duplication clinker check: is_clinker={is_clinker}, has_clinker={has_clinker}, "
+                           f"new_material={new_material is not None}, original_id={original_id}")
+            if (is_clinker or has_clinker) and new_material and original_id:
+                self.logger.info(f"Calling _copy_clinker_extension_data for material {original_id} -> {new_material.id}")
+                self._copy_clinker_extension_data(service, original_id, new_material.id)
+            else:
+                self.logger.info(f"Skipping clinker extension copy - condition not met")
             
             # Refresh the table to show the new material
             self.material_table.refresh_data()
@@ -1571,30 +1448,8 @@ class MaterialsPanel(Gtk.Box):
     
     def _generate_unique_material_name(self, base_name: str, material_type: str) -> str:
         """Generate a unique name for a duplicated material."""
-        service_container = get_service_container()
+        service = self.material_service
 
-        # Get the appropriate service
-        if material_type == 'thames':
-            service = self.material_service
-        elif material_type == 'cement':
-            service = service_container.cement_service
-        elif material_type == 'aggregate':
-            service = service_container.aggregate_service
-        elif material_type == 'filler':
-            service = service_container.filler_service
-        elif material_type == 'fly_ash':
-            service = service_container.fly_ash_service
-        elif material_type == 'slag':
-            service = service_container.slag_service
-        elif material_type == 'silica_fume':
-            service = service_container.silica_fume_service
-        elif material_type == 'limestone':
-            service = service_container.limestone_service
-        elif material_type == 'filler':
-            service = service_container.filler_service
-        else:
-            raise ValueError(f"Unsupported material type: {material_type}")
-        
         # Try different suffixes until we find a unique name
         counter = 1
         while True:
@@ -1602,14 +1457,7 @@ class MaterialsPanel(Gtk.Box):
             
             # Check if this name already exists
             try:
-                if material_type == 'cement':
-                    existing = service.get_by_name(new_name)
-                elif material_type == 'aggregate':
-                    # For aggregate, we need to check by display_name (primary key)
-                    with service.db_service.get_read_only_session() as session:
-                        existing = session.query(service.model).filter_by(display_name=new_name).first()
-                else:
-                    existing = service.get_by_name(new_name)
+                existing = service.get_by_name(new_name)
                 
                 if existing is None:
                     return new_name
@@ -1626,26 +1474,7 @@ class MaterialsPanel(Gtk.Box):
     def _copy_material_data(self, original_material, new_name: str, material_type: str) -> dict:
         """Create a copy of material data for duplication."""
         try:
-            if material_type == 'thames':
-                return self._copy_thames_material_data(original_material, new_name)
-            elif material_type == 'cement':
-                return self._copy_cement_data(original_material, new_name)
-            elif material_type == 'aggregate':
-                return self._copy_aggregate_data(original_material, new_name)
-            elif material_type == 'filler':
-                return self._copy_filler_data(original_material, new_name)
-            elif material_type == 'fly_ash':
-                return self._copy_fly_ash_data(original_material, new_name)
-            elif material_type == 'slag':
-                return self._copy_slag_data(original_material, new_name)
-            elif material_type == 'silica_fume':
-                return self._copy_silica_fume_data(original_material, new_name)
-            elif material_type == 'limestone':
-                return self._copy_limestone_data(original_material, new_name)
-            elif material_type == 'filler':
-                return self._copy_filler_data(original_material, new_name)
-            else:
-                raise ValueError(f"Unsupported material type: {material_type}")
+            return self._copy_thames_material_data(original_material, new_name)
         except Exception as e:
             self.logger.error(f"Error copying material data: {e}")
             raise
@@ -1696,295 +1525,6 @@ class MaterialsPanel(Gtk.Box):
         except Exception as e:
             self.logger.error(f"Error copying clinker extension data: {e}")
             # Don't fail the whole duplication - material was already created
-
-    def _copy_cement_data(self, original_cement, new_name: str) -> dict:
-        """Create a copy of cement data."""
-        # Handle description carefully - don't truncate hex-encoded data
-        description = original_cement.description or ''
-        
-        if description:
-            # Check if it looks like hex and preserve it completely
-            hex_only = ''.join(description.strip().split())
-            if (len(hex_only) % 2 == 0 and 
-                len(hex_only) > 10 and
-                all(c in '0123456789abcdefABCDEF' for c in hex_only)):
-                # This is hex-encoded data, preserve it completely
-                truncated_description = description
-            else:
-                # Regular text, safe to truncate
-                truncated_description = description[:255]
-        else:
-            truncated_description = ''
-        
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': original_cement.specific_gravity,
-            'description': truncated_description,
-            'psd_data_id': original_cement.psd_data_id,
-            'alkali_file': original_cement.alkali_file,
-        }
-        
-        # Copy phase fractions if available
-        phase_fields = [
-            'c3s_mass_fraction', 'c2s_mass_fraction', 'c3a_mass_fraction', 'c4af_mass_fraction',
-            'k2so4_mass_fraction', 'na2so4_mass_fraction'
-        ]
-        for field in phase_fields:
-            if hasattr(original_cement, field):
-                copy_data[field] = getattr(original_cement, field)
-        
-        # Copy volume fractions if available
-        volume_fields = [
-            'c3s_volume_fraction', 'c2s_volume_fraction', 'c3a_volume_fraction', 'c4af_volume_fraction',
-            'k2so4_volume_fraction', 'na2so4_volume_fraction'
-        ]
-        for field in volume_fields:
-            if hasattr(original_cement, field):
-                copy_data[field] = getattr(original_cement, field)
-        
-        # Copy surface fractions if available
-        surface_fields = [
-            'c3s_surface_fraction', 'c2s_surface_fraction', 'c3a_surface_fraction', 'c4af_surface_fraction',
-            'k2so4_surface_fraction', 'na2so4_surface_fraction'
-        ]
-        for field in surface_fields:
-            if hasattr(original_cement, field):
-                copy_data[field] = getattr(original_cement, field)
-        
-        # Copy gypsum data if available
-        gypsum_fields = ['dihyd', 'anhyd', 'hemihyd']
-        print(f"DEBUG: _copy_cement_data - copying gypsum data from {original_cement.name}")
-        for field in gypsum_fields:
-            if hasattr(original_cement, field):
-                value = getattr(original_cement, field)
-                copy_data[field] = value
-                print(f"DEBUG: Copied {field} = {value}")
-            else:
-                print(f"DEBUG: Original cement missing field {field}")
-        
-        # Copy new fields (setting times, fineness, PSD parameters)
-        new_fields = [
-            'initial_set_time', 'final_set_time', 'specific_surface_area',
-            'psd_mode', 'psd_d50', 'psd_n', 'psd_dmax', 'psd_exponent', 'psd_custom_points',
-            'source', 'notes'
-        ]
-        for field in new_fields:
-            if hasattr(original_cement, field):
-                copy_data[field] = getattr(original_cement, field)
-        
-        # Copy binary data fields (but not the actual binary data to avoid issues)
-        # We'll skip binary data copying to avoid potential memory/storage issues
-        binary_fields = ['pfc', 'gif', 'legend_gif', 'sil', 'c3s', 'c3a', 'n2o', 'k2o', 'alu', 'txt', 'xrd', 'inf', 'c4f']
-        for field in binary_fields:
-            if hasattr(original_cement, field):
-                binary_data = getattr(original_cement, field)
-                if binary_data is not None:
-                    copy_data[field] = binary_data
-        
-        return copy_data
-    
-    def _copy_aggregate_data(self, original_aggregate, new_name: str) -> dict:
-        """Create a copy of aggregate data."""
-        copy_data = {
-            'display_name': new_name,  # Primary key for aggregate
-            'name': getattr(original_aggregate, 'name', new_name),
-            'type': getattr(original_aggregate, 'type', None),
-            'specific_gravity': original_aggregate.specific_gravity,
-            'bulk_modulus': getattr(original_aggregate, 'bulk_modulus', None),
-            'shear_modulus': getattr(original_aggregate, 'shear_modulus', None),
-            'conductivity': getattr(original_aggregate, 'conductivity', 0.0),
-        }
-        
-        # Copy new fields (source, notes)
-        new_fields = ['source', 'notes']
-        for field in new_fields:
-            if hasattr(original_aggregate, field):
-                copy_data[field] = getattr(original_aggregate, field)
-        
-        # Copy binary data if available
-        binary_fields = ['image', 'txt', 'inf', 'shape_stats']
-        for field in binary_fields:
-            if hasattr(original_aggregate, field):
-                binary_data = getattr(original_aggregate, field)
-                if binary_data is not None:
-                    copy_data[field] = binary_data
-        
-        return copy_data
-
-    def _copy_filler_data(self, original_filler, new_name: str) -> dict:
-        """Create a copy of filler data."""
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': getattr(original_filler, 'specific_gravity', None),
-            'description': getattr(original_filler, 'description', None),
-            'source': getattr(original_filler, 'source', None),
-            'specific_surface_area': getattr(original_filler, 'specific_surface_area', None),
-            'water_absorption': getattr(original_filler, 'water_absorption', None),
-            'filler_type': getattr(original_filler, 'filler_type', None),
-            'color': getattr(original_filler, 'color', None),
-            'notes': getattr(original_filler, 'notes', None),
-        }
-        
-        # Copy PSD data if available
-        psd_fields = [
-            'diameter_percentile_10', 'diameter_percentile_50', 'diameter_percentile_90'
-        ]
-        for field in psd_fields:
-            if hasattr(original_filler, field):
-                copy_data[field] = getattr(original_filler, field)
-        
-        return copy_data
-
-    def _copy_fly_ash_data(self, original_fly_ash, new_name: str) -> dict:
-        """Create a copy of fly ash data."""
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': getattr(original_fly_ash, 'specific_gravity', None),
-            'description': getattr(original_fly_ash, 'description', None),
-            'source': getattr(original_fly_ash, 'source', None),
-            'notes': getattr(original_fly_ash, 'notes', None),
-        }
-        
-        # Copy all PSD fields
-        psd_fields = [
-            'psd', 'psd_custom_points', 'psd_mode', 'psd_d50', 'psd_n', 'psd_dmax',
-            'psd_median', 'psd_spread', 'psd_exponent'
-        ]
-        for field in psd_fields:
-            if hasattr(original_fly_ash, field):
-                copy_data[field] = getattr(original_fly_ash, field)
-        
-        # Copy phase distribution and fractions
-        phase_fields = [
-            'distribute_phases_by', 'aluminosilicate_glass_fraction',
-            'calcium_aluminum_disilicate_fraction', 'tricalcium_aluminate_fraction',
-            'calcium_chloride_fraction', 'silica_fraction', 'anhydrate_fraction'
-        ]
-        for field in phase_fields:
-            if hasattr(original_fly_ash, field):
-                copy_data[field] = getattr(original_fly_ash, field)
-        
-        # Copy chemical composition
-        chemical_fields = [
-            'sio2_content', 'al2o3_content', 'fe2o3_content', 'cao_content',
-            'mgo_content', 'so3_content', 'na2o', 'k2o', 'na2o_equivalent',
-            'loi', 'fineness_45um'
-        ]
-        for field in chemical_fields:
-            if hasattr(original_fly_ash, field):
-                copy_data[field] = getattr(original_fly_ash, field)
-        
-        # Copy activity and classification fields
-        activity_fields = [
-            'astm_class', 'activity_index', 'pozzolanic_activity', 'activation_energy'
-        ]
-        for field in activity_fields:
-            if hasattr(original_fly_ash, field):
-                copy_data[field] = getattr(original_fly_ash, field)
-        
-        return copy_data
-
-    def _copy_slag_data(self, original_slag, new_name: str) -> dict:
-        """Create a copy of slag data."""
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': getattr(original_slag, 'specific_gravity', None),
-            'description': getattr(original_slag, 'description', None),
-            'source': getattr(original_slag, 'source', None),
-            'notes': getattr(original_slag, 'notes', None),
-        }
-        
-        # Copy all PSD fields
-        psd_fields = [
-            'psd', 'psd_custom_points', 'psd_mode', 'psd_d50', 'psd_n', 'psd_dmax',
-            'psd_median', 'psd_spread', 'psd_exponent'
-        ]
-        for field in psd_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        # Copy basic slag properties
-        basic_fields = [
-            'glass_content', 'activity_index'
-        ]
-        for field in basic_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        # Copy chemical composition (oxide content)
-        chemical_fields = [
-            'sio2_content', 'cao_content', 'al2o3_content', 'mgo_content',
-            'fe2o3_content', 'so3_content'
-        ]
-        for field in chemical_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        # Copy reaction parameters
-        reaction_fields = [
-            'activation_energy', 'reactivity_factor', 'rate_constant'
-        ]
-        for field in reaction_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        # Copy molecular and chemical properties
-        molecular_fields = [
-            'molecular_mass', 'casi_mol_ratio', 'si_per_mole',
-            'base_slag_reactivity', 'c3a_per_mole'
-        ]
-        for field in molecular_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        # Copy hydration product (HP) properties
-        hp_fields = [
-            'hp_molecular_mass', 'hp_density', 'hp_casi_mol_ratio', 'hp_h2o_sio2_mol_ratio'
-        ]
-        for field in hp_fields:
-            if hasattr(original_slag, field):
-                copy_data[field] = getattr(original_slag, field)
-        
-        return copy_data
-
-    def _copy_silica_fume_data(self, original_silica_fume, new_name: str) -> dict:
-        """Create a copy of silica fume data."""
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': getattr(original_silica_fume, 'specific_gravity', 2.22),
-            'description': getattr(original_silica_fume, 'description', None),
-            'source': getattr(original_silica_fume, 'source', None),
-            'notes': getattr(original_silica_fume, 'notes', None),
-            'psd': getattr(original_silica_fume, 'psd', 'cement141'),
-            'psd_custom_points': getattr(original_silica_fume, 'psd_custom_points', None),
-            'distribute_phases_by': getattr(original_silica_fume, 'distribute_phases_by', None),
-            'silica_fume_fraction': getattr(original_silica_fume, 'silica_fume_fraction', 1.0),
-            'activation_energy': getattr(original_silica_fume, 'activation_energy', 54000.0),
-        }
-        
-        return copy_data
-
-    def _copy_limestone_data(self, original_limestone, new_name: str) -> dict:
-        """Create a copy of limestone data."""
-        copy_data = {
-            'name': new_name,
-            'specific_gravity': getattr(original_limestone, 'specific_gravity', 2.71),
-            'description': getattr(original_limestone, 'description', None),
-            'source': getattr(original_limestone, 'source', None),
-            'notes': getattr(original_limestone, 'notes', None),
-            'psd': getattr(original_limestone, 'psd', 'cement141'),
-            'psd_custom_points': getattr(original_limestone, 'psd_custom_points', None),
-            'distribute_phases_by': getattr(original_limestone, 'distribute_phases_by', None),
-            'limestone_fraction': getattr(original_limestone, 'limestone_fraction', 1.0),
-            'caco3_content': getattr(original_limestone, 'caco3_content', 97.0),
-            'hardness': getattr(original_limestone, 'hardness', 3.0),
-            'psd_median': getattr(original_limestone, 'psd_median', 5.0),
-            'psd_spread': getattr(original_limestone, 'psd_spread', 2.0),
-            'activation_energy': getattr(original_limestone, 'activation_energy', 54000.0),
-        }
-        
-        return copy_data
-
 
     def _show_material_dialog(self, material_type: str, material_data=None) -> None:
         """Show the material dialog for adding or editing."""
@@ -2057,51 +1597,15 @@ class MaterialsPanel(Gtk.Box):
     def _delete_material(self, material_data) -> None:
         """Delete a material."""
         try:
-            material_type = self._get_material_type(material_data)
+            # Check if material is immutable
+            if hasattr(material_data, 'immutable') and material_data.immutable:
+                self.main_window.update_status(
+                    f"Cannot delete '{material_data.name}': This material is read-only",
+                    "error", 5
+                )
+                return
 
-            # Check if THAMES material is immutable
-            if material_type == 'thames':
-                if hasattr(material_data, 'immutable') and material_data.immutable:
-                    self.main_window.update_status(
-                        f"Cannot delete '{material_data.name}': This material was migrated from VCCTL and is read-only",
-                        "error", 5
-                    )
-                    return
-
-            # Get appropriate service
-            service_container = get_service_container()
-            if material_type == 'thames':
-                service = self.material_service
-            elif material_type == 'cement':
-                service = service_container.cement_service
-            elif material_type == 'aggregate':
-                service = service_container.aggregate_service
-            elif material_type == 'fly_ash':
-                service = service_container.fly_ash_service
-            elif material_type == 'slag':
-                service = service_container.slag_service
-            elif material_type == 'filler':
-                service = service_container.filler_service
-            elif material_type == 'silica_fume':
-                service = service_container.silica_fume_service
-            elif material_type == 'limestone':
-                service = service_container.limestone_service
-            else:
-                raise ValueError(f"Unsupported material type: {material_type}")
-
-            # Delete the material using the correct primary key
-            if material_type == 'thames':
-                service.delete(material_data.id)
-            elif material_type == 'cement':
-                service.delete(material_data.name)
-            elif material_type == 'aggregate':
-                service.delete(material_data.display_name)
-            elif material_type in ['limestone', 'silica_fume', 'filler', 'fly_ash', 'slag']:
-                # These services use name-based delete
-                service.delete(material_data.name)
-            else:
-                # Fallback for any other material types
-                service.delete(material_data.id)
+            self.material_service.delete(material_data.id)
             
             # Refresh data
             self.material_table.refresh_data()
