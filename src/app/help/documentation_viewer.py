@@ -19,7 +19,7 @@ from pathlib import Path
 import logging
 import tempfile
 import webbrowser
-from typing import Optional
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +68,13 @@ class DocumentationViewer:
         if self.docs_path is None:
             self.docs_path = self._find_documentation()
 
-        # Cached path to the most recently rendered HTML file. We keep one
-        # stable file per process so we don't leak temp files on every help
-        # click, and so the browser's back/forward history survives.
-        self._cached_html_path: Optional[Path] = None
+        # Cached state for rendering. We keep one HTML file per target
+        # section (keyed by anchor slug, or None for "top of document"),
+        # because URL fragments are unreliable through the macOS
+        # osascript -> browser pipeline. Instead, each target gets its own
+        # rendered file with the destination baked in as a JavaScript
+        # constant; the URL passed to the browser has no hash.
+        self._cached_html_paths: Dict[str, Path] = {}
         self._cached_md_mtime: Optional[float] = None
 
     # ------------------------------------------------------------------
@@ -103,8 +106,13 @@ class DocumentationViewer:
     # Rendering
     # ------------------------------------------------------------------
 
-    def _render_manual_html(self) -> Optional[Path]:
+    def _render_manual_html(self, target_section: Optional[str] = None) -> Optional[Path]:
         """Convert USER_MANUAL.md to a cached HTML file and return its path.
+
+        Each distinct ``target_section`` gets its own cached file with the
+        anchor slug baked into a JavaScript constant. On load, a small script
+        scrolls to that element. This avoids URL fragments, which are
+        unreliably handled by the macOS osascript -> browser pipeline.
 
         Regenerates only when the source markdown has changed since the last
         render. Returns None if the manual is missing or the markdown
@@ -127,11 +135,13 @@ class DocumentationViewer:
             )
             return None
 
+        cache_key = target_section or ""
         current_mtime = manual_md.stat().st_mtime
-        if (self._cached_html_path is not None
-                and self._cached_html_path.exists()
+        cached = self._cached_html_paths.get(cache_key)
+        if (cached is not None
+                and cached.exists()
                 and self._cached_md_mtime == current_mtime):
-            return self._cached_html_path
+            return cached
 
         # Read source
         md_text = manual_md.read_text(encoding="utf-8")
@@ -147,19 +157,60 @@ class DocumentationViewer:
             output_format="html5",
         )
 
-        # Images in the source use relative paths like `images/foo.png`. Make
-        # those resolve correctly by pointing the <base> at the docs dir.
-        # file:// URI ensures the browser loads them from disk.
-        base_uri = self.docs_path.as_uri().rstrip("/") + "/"
+        # Rewrite relative image references (src="images/...") to absolute
+        # file:// URIs so they load from the docs/images directory regardless
+        # of where the rendered HTML is stored. Deliberately avoid a <base>
+        # tag here — that would also rebase the manual's fragment-only TOC
+        # links (href="#..."), turning them into docs/#... and sending the
+        # browser to a directory listing instead of scrolling within the page.
+        import re
+        images_uri = (self.docs_path / "images").as_uri().rstrip("/") + "/"
+        html_body = re.sub(
+            r'(<img[^>]*\ssrc=["\'])images/',
+            r'\1' + images_uri,
+            html_body,
+        )
+
+        # The target anchor is baked into the HTML as a JS constant rather
+        # than passed through a URL fragment. Rationale: on macOS the
+        # webbrowser -> osascript -> browser path is inconsistent with
+        # fragment preservation (some combinations strip the hash; others
+        # let the browser's scroll-restoration override the hash jump).
+        # A baked-in constant is fully under our control and survives any
+        # URL-handoff quirks.
+        import json as _json
+        target_js_literal = _json.dumps(target_section) if target_section else "null"
+        boot_script = (
+            "<script>"
+            f"window.__THAMES_TARGET_SECTION={target_js_literal};"
+            "(function(){"
+            "if(window.history&&'scrollRestoration' in window.history){"
+            "window.history.scrollRestoration='manual';"
+            "}"
+            "function jumpToTarget(){"
+            "var t=window.__THAMES_TARGET_SECTION;"
+            "if(!t) return;"
+            "var el=document.getElementById(t);"
+            "if(el){el.scrollIntoView({block:'start'});}"
+            "}"
+            "if(document.readyState==='complete'||document.readyState==='interactive'){"
+            "setTimeout(jumpToTarget,0);"
+            "}else{"
+            "document.addEventListener('DOMContentLoaded',function(){setTimeout(jumpToTarget,0);});"
+            "}"
+            "window.addEventListener('load',function(){setTimeout(jumpToTarget,0);});"
+            "})();"
+            "</script>"
+        )
 
         html_doc = (
             "<!DOCTYPE html>\n"
             "<html lang=\"en\">\n"
             "<head>\n"
             "<meta charset=\"utf-8\">\n"
-            f"<base href=\"{base_uri}\">\n"
             "<title>THAMES User Manual</title>\n"
             f"<style>{_MANUAL_CSS}</style>\n"
+            f"{boot_script}\n"
             "</head>\n"
             "<body>\n"
             f"{html_body}\n"
@@ -167,20 +218,25 @@ class DocumentationViewer:
             "</html>\n"
         )
 
-        # Write to a stable per-process temp file so repeat opens don't leak
-        # new files and the browser can keep the tab open.
-        if self._cached_html_path is None:
+        # Write to a stable per-process, per-section temp file so repeat
+        # opens don't leak new files and the browser can keep the tab open.
+        if cached is None:
+            suffix_hint = f"_{cache_key}" if cache_key else ""
             fd, path_str = tempfile.mkstemp(
-                prefix="thames_user_manual_", suffix=".html"
+                prefix=f"thames_user_manual{suffix_hint}_", suffix=".html"
             )
             import os as _os
             _os.close(fd)
-            self._cached_html_path = Path(path_str)
+            cached = Path(path_str)
+            self._cached_html_paths[cache_key] = cached
 
-        self._cached_html_path.write_text(html_doc, encoding="utf-8")
+        cached.write_text(html_doc, encoding="utf-8")
         self._cached_md_mtime = current_mtime
-        logger.info(f"Rendered user manual to {self._cached_html_path}")
-        return self._cached_html_path
+        logger.info(
+            f"Rendered user manual to {cached}"
+            f"{' (target=' + cache_key + ')' if cache_key else ''}"
+        )
+        return cached
 
     # ------------------------------------------------------------------
     # Public API used by the Help menu
@@ -195,15 +251,14 @@ class DocumentationViewer:
                 heading's ``id``. If None, opens at the top.
             parent_window: Parent window for error dialogs.
         """
-        html_path = self._render_manual_html()
+        html_path = self._render_manual_html(target_section=section)
         if html_path is None:
             self._show_documentation_not_found_dialog(parent_window)
             return
 
-        url = html_path.as_uri()
-        if section:
-            url = f"{url}#{section}"
-        self._open_in_browser(url, parent_window)
+        # No URL fragment — the target section is baked into the rendered
+        # HTML as a JS constant and handled by an in-page script.
+        self._open_in_browser(html_path.as_uri(), parent_window)
 
     def open_getting_started(self, parent_window: Optional[Gtk.Window] = None):
         """Open the Getting Started section of the User Manual."""

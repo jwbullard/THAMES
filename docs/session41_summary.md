@@ -152,3 +152,38 @@ CLAUDE.md gains a one-line pointer under PRIORITY TASKS #5. Convention logged to
 ## Known Issue Surfaced (deferred to post-alpha)
 
 During a 28-day hydration of a 100³ ccr152-concrete microstructure, the adaptive timestep collapsed to ~0.06 ms per cycle at ~9 days due to near-depletion of Arcanite (K₂SO₄) at 2 voxels. The kinetics constraint's denominator becomes the pathology. Paste-scale results through 7 days were captured and are valid. Full entry logged in `docs/POST_ALPHA_TODOS.md`.
+
+## Help menu fixes (late-session trilogy)
+
+Three Help-menu bugs surfaced during alpha smoke testing, all fixed in a sequence of iterations:
+
+1. **Help → Getting Started / Troubleshooting → "Documentation Not Found"** — handlers still pointed at defunct MkDocs paths (`workflows/troubleshooting/index.html`, `getting-started/index.html`). Rewrote `documentation_viewer.py` to convert `docs/USER_MANUAL.md` to a single-file HTML document on demand using Python-Markdown (new dependency: `markdown>=3.4.0`) with the `toc`, `tables`, and `fenced_code` extensions. Opens in the user's default browser. Troubleshooting handler in `main_window.py` now calls `open_section("11-troubleshooting")`.
+
+2. **Help → User Guide opened whatever external markdown viewer was installed** — users without a native markdown viewer saw nothing useful, and anchor handling varied wildly by viewer. The Python-Markdown + browser approach replaces the external-viewer handoff with an in-process render that the app fully controls.
+
+3. **Internal TOC links were dead** — solved by Python-Markdown's `toc` extension, which generates heading IDs matching the GitHub-convention slugs the manual's TOC already uses.
+
+Two follow-on iterations were needed after the initial rewrite:
+
+- The first render added `<base href="file:///.../docs/">` so `<img src="images/...">` would resolve. That broke all fragment-only TOC links, because the browser resolved `href="#1-introduction"` against the base and sent it to the `docs/` directory listing. Dropped the `<base>` tag; rewrite `src="images/..."` to absolute `file://` URIs at render time.
+- Direct-anchor navigation (Help → Getting Started) still landed on the TOC. Diagnosed as URL-fragment loss somewhere in the macOS `webbrowser → osascript open location → browser` pipeline, or scroll-restoration overriding on initial load. Fix: don't pass the target as a URL fragment. Render one HTML per target section with the target baked in as `window.__THAMES_TARGET_SECTION`; an in-page script reads that constant and scrolls. Internal TOC links still work because same-page hash changes never leave the page.
+
+## About dialog / version bump
+
+- Credits pane rendered `<span size="small">Texas A&M University</span>` literally for the first author. Root cause: GTK's Credits pane runs each author line through the Pango markup parser, which interprets `&` as the start of an entity. `"A&M University"` fails to parse, so Pango wraps the broken source in `<span>` and displays it verbatim. Fix: pre-escape `&` → `&amp;` in the authors list.
+- Cleaned up the About dialog to read every field (`APP_VERSION`, `APP_TITLE`, `APP_WEBSITE`, `ORG_NAME`, `AUTHORS`, `LICENSE_TEXT`) from `src/app/resources/app_info.py`. Eliminates duplicated hard-coded copies in `main_window.py`.
+- **`APP_VERSION` bumped from `10.0.0` to `1.0.0-alpha.1`** (SemVer 2.0.0 pre-release identifier). THAMES forks off the VCCTL v10 architecture but ships a different hydration engine, so it starts its own 1.x line rather than continuing 10.x.
+- New `APP_VERSION_STAGE = "alpha"` constant drives a visible "ALPHA pre-release, not for production use" banner next to the tagline in the About dialog.
+- `USER_MANUAL.md` gains a version/status line under the title so the rendered HTML immediately shows the alpha status.
+- Annotated git tag `v1.0.0-alpha.1` created on `main` and pushed to origin.
+
+## Windows alpha prep document
+
+New `docs/ALPHA_RELEASE_PREPARATION.md` captures the end-to-end Windows packaging recipe: pre-session sync, dependency refresh, C++ verification, smoke tests, PyInstaller build, Inno Setup wrap, README template, GitHub pre-release marking, and feedback triage. Designed so the next session can follow the steps in order without having to reconstruct context.
+
+## Cumulative file changes for Session 41
+
+New services/tests: `concelas_service.py`, `concelas_runner.py`, `test_concelas_service.py`, `test_concelas_runner.py`.
+New docs: `POST_ALPHA_TODOS.md`, `session41_summary.md`, `ALPHA_RELEASE_PREPARATION.md`, six screenshot PNGs.
+Modified: `documentation_viewer.py`, `effective_moduli_viewer.py`, `elastic_moduli_panel.py`, `mix_design_panel.py`, `operations_monitoring_panel.py`, `main_window.py`, `app_info.py`, `USER_MANUAL.md`, `requirements.txt`, both PyInstaller specs, `CLAUDE.md`. DB direct-reconciled for orphan RUNNING op.
+Tag: `v1.0.0-alpha.1`.
