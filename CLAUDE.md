@@ -114,6 +114,18 @@ April 14, 2026 — macOS
 - **Build script fix**: Fixed kva2json linker race condition in `build-macos.sh`
 - **Hydration panel**: dt_max lower bound reduced to 0.001 seconds; "timestep" → "time step" rename; Load Operation UI restructured with radio buttons + combo box
 
+### Session 41: Concelas Integration — Concrete-Scale Elastic Moduli
+April 20-21, 2026 — macOS
+
+- **Python concelas port**: Ported multi-scale concrete moduli algorithm from VCCTL `backend/src/elastic.c:2942-3559` to `src/app/services/concelas_service.py` (pure algorithms) and `concelas_runner.py` (CSV I/O + orchestration); no C++ backend changes; 37 unit tests passing
+- **Completion hook wiring**: Post-completion hook in `operations_monitoring_panel.py` reads `concelas_inputs.json` and calls `run_and_append()` after `thames -s 5` completes; appends 13 Concrete/ITZ/Mortar rows to `EffectiveModuli.csv` plus `ConcelasLog.txt`
+- **UI unblock**: Removed four `thames_mode` gating points in `elastic_moduli_panel.py` (warning banner, ITZ checkbox hide, disable-aggregate-settings, lineage fallback text); ITZ checkbox now auto-enabled when lineage returns aggregate
+- **Effective Moduli Viewer**: Added ITZ property bucket, renamed EFFECTIVE MODULI → BINDER EFFECTIVE MODULI, ordered sections Binder / Concrete / ITZ
+- **UX polish**: Source label shows red VF=0 warning when microstructure has no aggregate slab; Mix Design pops pre-generation dialog for orphan aggregate metadata (name set, mass=0)
+- **Post-alpha TODO system**: Created `docs/POST_ALPHA_TODOS.md` with format template; seeded with 5 entries (headline: adaptive-timestep near-depletion stall)
+- **Stop/cancel persistence bug fix**: `_stop_operation` and `cancel_operation` in `operations_monitoring_panel.py` never persisted `CANCELLED` to the database — stopped ops kept showing as `RUNNING` and resurrected on every app launch (phantom "restart" dialog). Added DB write on both paths plus a startup reconciliation in `_load_operations_from_database` that flips any orphaned `RUNNING` record (no live process) to `CANCELLED`. Reconciled existing DB state once via direct SQL.
+- End-to-end validated on 7-day ccr152-concrete: paste K=19.5 G=10.2, concrete K=22.9 G=12.7, ITZ K=16.8 G=8.5, concrete cube strength 20.2 MPa (reasonable for 7-day mortar)
+
 ---
 
 ## PRIORITY TASKS
@@ -133,6 +145,10 @@ User Manual at `docs/USER_MANUAL.md` (~1,200 lines) with 26 screenshots. 2 scree
 - UI memory bloat: Loading 200^3 microstructures causes ~5.9 GB RAM usage
 - Windows process termination: UI "stop and delete" may not fully kill thames.exe
 - micgen exit segfault during `freemicgen()` cleanup (after output written, low priority)
+- Near-depletion phases can collapse adaptive timestep at late ages (see post-alpha list)
+
+### 5. Post-Alpha TODO List
+Deferred improvements are tracked in `docs/POST_ALPHA_TODOS.md`. Append there whenever a "later" / "post-alpha" / "not blocking alpha" item comes up in conversation; do NOT add post-alpha items directly to this file.
 
 ---
 

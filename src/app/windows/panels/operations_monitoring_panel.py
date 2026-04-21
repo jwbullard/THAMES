@@ -1826,6 +1826,11 @@ class OperationsMonitoringPanel(Gtk.Box):
                         operation.operation_type == OperationType.MICROSTRUCTURE_GENERATION):
                         self._on_microstructure_generation_completed(operation)
 
+                    # Run concelas post-processing for elastic operations (if ITZ requested)
+                    if (operation.status == OperationStatus.COMPLETED and
+                        operation.operation_type == OperationType.ELASTIC_MODULI_CALCULATION):
+                        self._on_elastic_moduli_calculation_completed(operation)
+
                 elif operation.status == OperationStatus.RUNNING:
                     # Update process resource usage for running operations
                     process_info = operation.get_process_info()
@@ -2054,6 +2059,97 @@ class OperationsMonitoringPanel(Gtk.Box):
             import traceback
             self.logger.error(traceback.format_exc())
             # Don't fail the operation - these are post-processing optimizations
+
+    def _on_elastic_moduli_calculation_completed(self, operation) -> None:
+        """Post-completion hook for elastic moduli operations.
+
+        If the elastic launch wrote concelas_inputs.json alongside the
+        paste-scale results, this hook reads it and invokes concelas_runner
+        to append concrete-scale moduli and strengths to EffectiveModuli.csv.
+
+        Fails silently (logs and returns) so a concelas problem never
+        downgrades an otherwise-successful paste-scale elastic result.
+        """
+        try:
+            output_dir = self._get_operation_directory(operation)
+            if not output_dir:
+                self.logger.debug(
+                    f"No output directory for elastic operation {operation.name}; "
+                    "skipping concelas post-processing"
+                )
+                return
+
+            output_path = Path(output_dir)
+            concelas_inputs_path = output_path / "concelas_inputs.json"
+            if not concelas_inputs_path.exists():
+                self.logger.debug(
+                    f"No concelas_inputs.json in {output_dir}; "
+                    "this is expected for paste-only (non-ITZ) runs"
+                )
+                return
+
+            import json as _json
+            with concelas_inputs_path.open("r") as f:
+                payload = _json.load(f)
+
+            from app.services.concelas_service import AggregateSource
+            from app.services.concelas_runner import run_and_append
+
+            fine = None
+            if "fine" in payload and payload["fine"].get("grading"):
+                f_data = payload["fine"]
+                fine = AggregateSource(
+                    volume_fraction=f_data["volume_fraction"],
+                    bulk_modulus_gpa=f_data["bulk_modulus_gpa"],
+                    shear_modulus_gpa=f_data["shear_modulus_gpa"],
+                    grading=[(d, v) for d, v in f_data["grading"]],
+                )
+
+            coarse = None
+            if "coarse" in payload and payload["coarse"].get("grading"):
+                c_data = payload["coarse"]
+                coarse = AggregateSource(
+                    volume_fraction=c_data["volume_fraction"],
+                    bulk_modulus_gpa=c_data["bulk_modulus_gpa"],
+                    shear_modulus_gpa=c_data["shear_modulus_gpa"],
+                    grading=[(d, v) for d, v in c_data["grading"]],
+                )
+
+            cement_psd_path = payload.get("cement_psd_path")
+            cement_psd_file = Path(cement_psd_path) if cement_psd_path else None
+
+            # Result subdirectory is where thames -s 5 writes EffectiveModuli.csv
+            result_dir = output_path / "Result"
+            elastic_output_dir = result_dir if result_dir.exists() else output_path
+
+            self.logger.info(
+                f"Running concelas post-processing in {elastic_output_dir} "
+                f"(fine={fine is not None}, coarse={coarse is not None})"
+            )
+
+            result = run_and_append(
+                elastic_output_dir=elastic_output_dir,
+                fine=fine,
+                coarse=coarse,
+                cement_psd_path=cement_psd_file,
+                air_volume_fraction=float(payload.get("air_volume_fraction", 0.0)),
+                write_log=True,
+            )
+
+            self.logger.info(
+                f"Concelas complete: K={result.concrete_bulk_gpa:.3f} GPa, "
+                f"G={result.concrete_shear_gpa:.3f} GPa, "
+                f"E={result.concrete_young_gpa:.3f} GPa, "
+                f"concrete_cube_strength={result.concrete_cube_strength_mpa:.2f} MPa"
+            )
+
+        except Exception as e:
+            self.logger.error(
+                f"Concelas post-processing failed for {operation.name}: {e}"
+            )
+            import traceback
+            self.logger.error(traceback.format_exc())
+            # Swallow: paste-scale elastic results are still valid
 
     def _remap_phase_colors(self, colors_path: Path, old_to_new: Dict[int, int]) -> None:
         """Update phase colors JSON file with remapped IDs."""
@@ -3655,7 +3751,12 @@ class OperationsMonitoringPanel(Gtk.Box):
                 operation.status = OperationStatus.CANCELLED
                 operation.end_time = datetime.utcnow()
                 self._add_log_entry(f"Operation marked as stopped: {operation.name} (process may have already ended)")
-            
+
+            # Persist the cancellation to the database. Without this, the DB keeps
+            # the operation marked RUNNING forever and subsequent app launches
+            # re-load it as a live operation, causing phantom "restarting" dialogs.
+            self._update_operation_in_database(operation)
+
             self._update_operations_list()
     
     def _pause_operation(self, operation_id: str) -> None:
@@ -3984,10 +4085,13 @@ class OperationsMonitoringPanel(Gtk.Box):
         if operation and operation.status in [OperationStatus.RUNNING, OperationStatus.PAUSED, OperationStatus.PENDING]:
             operation.status = OperationStatus.CANCELLED
             operation.end_time = datetime.utcnow()
-            
+
             self._add_log_entry(f"Cancelled operation: {operation.name}")
+            # Persist the cancellation. The monitoring loop only writes status
+            # changes to the DB on COMPLETED/FAILED transitions it detects itself,
+            # so an externally-driven cancel must push the update explicitly.
+            self._update_operation_in_database(operation)
             self._update_operations_list()
-            # Database automatically updated through operation monitoring
             return True
         return False
     
@@ -5460,7 +5564,45 @@ class OperationsMonitoringPanel(Gtk.Box):
                     self.logger.warning(f"Failed to convert database operation {db_op.name}: {e}")
             
             self.logger.info(f"Successfully loaded {successful_conversions} operations from database ({failed_conversions} failed)")
-            
+
+            # Reconcile orphaned RUNNING operations. An op marked RUNNING in the
+            # database with no live process attached (either preserved from a
+            # previous in-memory refresh, or still responding to is_process_running())
+            # is a leftover from a previous session that crashed, was force-quit,
+            # or was stopped via a code path that did not persist CANCELLED.
+            # Reclassify these as CANCELLED and write back, so subsequent loads
+            # don't treat them as live and downstream sync code (e.g. hydration
+            # progress polling) doesn't get confused.
+            reconciled = 0
+            for ui_op in list(self.operations.values()):
+                if ui_op.status != OperationStatus.RUNNING:
+                    continue
+                # Preserved process means the caller of _load_operations_from_database
+                # had a live reference before the refresh; keep those untouched.
+                if ui_op.name in preserved_processes:
+                    continue
+                # Live process still alive? (rare: another instance or attached-by-pid)
+                try:
+                    if ui_op.is_process_running():
+                        continue
+                except Exception:
+                    pass
+                self.logger.info(
+                    f"Reconciling orphaned RUNNING operation on load: {ui_op.name} "
+                    "-> CANCELLED (no live process attached)"
+                )
+                ui_op.status = OperationStatus.CANCELLED
+                ui_op.end_time = datetime.utcnow()
+                if not ui_op.current_step:
+                    ui_op.current_step = "Cancelled (no live process detected on load)"
+                try:
+                    self._update_operation_in_database(ui_op)
+                except Exception as e:
+                    self.logger.warning(f"Failed to persist reconciled CANCELLED status for {ui_op.name}: {e}")
+                reconciled += 1
+            if reconciled:
+                self.logger.info(f"Reconciled {reconciled} orphaned RUNNING operation(s) on load")
+
             # Force UI update after loading - CRITICAL for fixing empty panel issue
             from gi.repository import GLib
             GLib.idle_add(self._update_operations_list)

@@ -262,22 +262,29 @@ class EffectiveModuliViewer(Gtk.Dialog):
         """Populate the tree view with moduli data."""
         self.liststore.clear()
 
-        # Group data by type: metadata vs moduli vs other
+        # Group data by type: metadata vs moduli vs other.
+        # The itz bucket must be tested before the generic moduli bucket so
+        # that "ITZ_bulk_modulus" and "ITZ_width" land in the ITZ section
+        # rather than in EFFECTIVE MODULI or OTHER PROPERTIES.
         metadata_props = ['microstructure', 'dimension', 'resolution']
         moduli_props = ['modulus', 'ratio']
         paste_props = ['paste']
         concrete_props = ['concrete', 'mortar']
+        itz_props = ['itz']
 
         metadata_data = []
         moduli_data = []
         paste_data = []
         concrete_data = []
+        itz_data = []
         other_data = []
 
         for property_name, value, units in data:
             name_lower = property_name.lower()
             if any(prop in name_lower for prop in metadata_props):
                 metadata_data.append((property_name, value, units))
+            elif any(prop in name_lower for prop in itz_props):
+                itz_data.append((property_name, value, units))
             elif any(prop in name_lower for prop in moduli_props):
                 # Further categorize moduli by paste/concrete/general
                 if any(prop in name_lower for prop in paste_props):
@@ -300,9 +307,9 @@ class EffectiveModuliViewer(Gtk.Dialog):
                 self.liststore.append(item)
             self.liststore.append(["", "", ""])  # Separator
 
-        # Add effective moduli section (THAMES format)
+        # Add binder effective moduli section (paste-scale FEM output)
         if moduli_data:
-            self.liststore.append(["EFFECTIVE MODULI", "", ""])
+            self.liststore.append(["BINDER EFFECTIVE MODULI", "", ""])
             for item in moduli_data:
                 self.liststore.append(item)
             self.liststore.append(["", "", ""])  # Separator
@@ -318,6 +325,15 @@ class EffectiveModuliViewer(Gtk.Dialog):
         if concrete_data:
             self.liststore.append(["CONCRETE PROPERTIES", "", ""])
             for item in concrete_data:
+                self.liststore.append(item)
+            self.liststore.append(["", "", ""])  # Separator
+
+        # Add ITZ section last — the ITZ is a characterization of the
+        # paste-aggregate interface, so its properties read most naturally
+        # after the composite and constituent sections.
+        if itz_data:
+            self.liststore.append(["ITZ PROPERTIES", "", ""])
+            for item in itz_data:
                 self.liststore.append(item)
             self.liststore.append(["", "", ""])  # Separator
 

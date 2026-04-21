@@ -2033,6 +2033,54 @@ class MixDesignPanel(Gtk.Box):
             if has_aggregate:
                 self.logger.info("Aggregate detected in mix - will add aggregate slab to microstructure")
 
+            # Warn if aggregate metadata is set but mass is 0 — the slab won't be placed
+            # and downstream concelas post-processing will have nothing to work with.
+            orphan_fine = (
+                db_mix_design.fine_aggregate_name
+                and (db_mix_design.fine_aggregate_mass or 0.0) == 0.0
+            )
+            orphan_coarse = (
+                db_mix_design.coarse_aggregate_name
+                and (db_mix_design.coarse_aggregate_mass or 0.0) == 0.0
+            )
+            if orphan_fine or orphan_coarse:
+                details = []
+                if orphan_fine:
+                    details.append(
+                        f"Fine aggregate '{db_mix_design.fine_aggregate_name}' has mass = 0."
+                    )
+                if orphan_coarse:
+                    details.append(
+                        f"Coarse aggregate '{db_mix_design.coarse_aggregate_name}' has mass = 0."
+                    )
+                warn_text = (
+                    "\n".join(details)
+                    + "\n\nThe aggregate will NOT be placed in the microstructure "
+                    "(micgen only adds an aggregate slab when at least one "
+                    "aggregate has a non-zero mass). Concrete-scale elastic moduli "
+                    "(concelas) will also be skipped for this microstructure.\n\n"
+                    "Proceed anyway, or cancel and set an aggregate mass?"
+                )
+                dialog = Gtk.MessageDialog(
+                    transient_for=self.main_window,
+                    message_type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.OK_CANCEL,
+                    text="Aggregate specified but mass is zero",
+                )
+                dialog.format_secondary_text(warn_text)
+                response = dialog.run()
+                dialog.destroy()
+                if response != Gtk.ResponseType.OK:
+                    self.logger.info(
+                        "User cancelled microstructure generation due to orphan aggregate metadata"
+                    )
+                    self.main_window.update_status(
+                        "Microstructure generation cancelled - set aggregate mass in Mix Design",
+                        "info",
+                        5,
+                    )
+                    return
+
             # Get shape database path for real-shape particles
             # Check if any material in the mix uses real shapes (particle_shape_type = 1)
             shape_database_path = None

@@ -170,8 +170,8 @@ class ElasticModuliPanel(Gtk.Box):
             )
             info_text = (
                 '<span size="small" style="italic">'
-                'FEM calculation on paste microstructures. '
-                'Aggregate/ITZ support coming with concelas integration.'
+                'Multi-scale elastic moduli: paste FEM plus concrete-scale '
+                'homogenization with aggregate grading and ITZ.'
                 '</span>'
             )
         else:
@@ -379,17 +379,13 @@ class ElasticModuliPanel(Gtk.Box):
 
         row += 1
 
-        # ITZ flag (only relevant in VCCTL mode with aggregates)
+        # ITZ flag — enabled for both THAMES and VCCTL backends
         self.has_itz_check = Gtk.CheckButton(
             "Include ITZ (Interfacial Transition Zone)"
         )
         self.has_itz_check.set_tooltip_text(
             "Include ITZ calculations for aggregate interfaces"
         )
-        if self.thames_mode:
-            self.has_itz_check.set_active(False)
-            self.has_itz_check.set_sensitive(False)
-            self.has_itz_check.set_visible(False)  # Hide in THAMES mode
         grid.attach(self.has_itz_check, 0, row, 3, 1)
 
         main_box.pack_start(grid, False, False, 0)
@@ -407,24 +403,6 @@ class ElasticModuliPanel(Gtk.Box):
         main_box.set_margin_left(15)
         main_box.set_margin_right(15)
 
-        # THAMES mode notice - aggregate support requires concelas integration
-        if self.thames_mode:
-            notice_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-            notice_box.set_margin_bottom(10)
-
-            notice_label = Gtk.Label()
-            notice_label.set_markup(
-                '<span size="small" foreground="#F57C00">'
-                '⚠ Aggregate support not yet available in THAMES mode. '
-                'These settings will be enabled after concelas integration.'
-                '</span>'
-            )
-            notice_label.set_halign(Gtk.Align.START)
-            notice_label.set_line_wrap(True)
-            notice_box.pack_start(notice_label, True, True, 0)
-
-            main_box.pack_start(notice_box, False, False, 0)
-
         # Fine aggregate section
         fine_frame = Gtk.Frame(label="Fine Aggregate")
         fine_frame.set_label_align(0.02, 0.5)
@@ -441,10 +419,6 @@ class ElasticModuliPanel(Gtk.Box):
 
         frame.add(main_box)
         parent.pack_start(frame, False, False, 0)
-
-        # Disable aggregate controls in THAMES mode
-        if self.thames_mode:
-            self._disable_aggregate_settings()
 
     def _create_aggregate_grid(self, agg_type: str) -> Gtk.Grid:
         """Create aggregate property grid for fine or coarse aggregate."""
@@ -924,7 +898,13 @@ class ElasticModuliPanel(Gtk.Box):
             )
 
     def _update_lineage_display_thames_fallback(self, hydration_id: int) -> None:
-        """Update lineage display when lineage resolution fails in THAMES mode."""
+        """Update lineage display when full lineage resolution fails.
+
+        This path is exercised when the hydration operation's parent_operation_id
+        linkage cannot be traced back to the mix design (e.g. a legacy run, a
+        hand-imported directory, or a partially migrated database). The panel
+        still allows the user to fill in aggregate properties manually.
+        """
         try:
             from app.models.operation import Operation
             with self.service_container.database_service.get_session() as session:
@@ -934,7 +914,7 @@ class ElasticModuliPanel(Gtk.Box):
                         f'<span size="small">'
                         f'Hydration: <b>{hydration_op.name}</b>\n'
                         f'<span style="italic" foreground="#888888">'
-                        f'(THAMES mode - lineage not available for aggregate properties)'
+                        f'(Mix-design lineage not found — fill aggregate properties manually if needed)'
                         f'</span>'
                         f'</span>'
                     )
@@ -943,7 +923,7 @@ class ElasticModuliPanel(Gtk.Box):
                         '<span size="small" style="italic">Lineage data not available</span>'
                     )
         except Exception as e:
-            self.logger.error(f"Error updating THAMES fallback display: {e}")
+            self.logger.error(f"Error updating lineage fallback display: {e}")
             self.lineage_info_label.set_markup(
                 '<span size="small" style="italic">Lineage data not available</span>'
             )
@@ -1169,10 +1149,17 @@ class ElasticModuliPanel(Gtk.Box):
                     self.fine_grading_status_label.set_markup(
                         '<span size="small" style="italic" color="orange">⚠ No grading template found</span>'
                     )
-                # Update source label
-                self.fine_agg_source_label.set_markup(
-                    f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b></span>'
-                )
+                # Update source label — flag volume-fraction 0 as a microstructure-generation issue
+                if fine_agg.volume_fraction and fine_agg.volume_fraction > 0.0:
+                    self.fine_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b></span>'
+                    )
+                else:
+                    self.fine_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b>  '
+                        f'<span foreground="#D32F2F">⚠ Volume fraction is 0 — microstructure likely has no aggregate slab '
+                        f'(set Fine Aggregate Mass &gt; 0 in Mix Design and regenerate).</span></span>'
+                    )
                 self.logger.info(
                     f"Populated fine aggregate: {fine_agg.name} (VF: {fine_agg.volume_fraction:.3f})"
                 )
@@ -1215,10 +1202,17 @@ class ElasticModuliPanel(Gtk.Box):
                     self.coarse_grading_status_label.set_markup(
                         '<span size="small" style="italic" color="orange">⚠ No grading template found</span>'
                     )
-                # Update source label
-                self.coarse_agg_source_label.set_markup(
-                    f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b></span>'
-                )
+                # Update source label — flag volume-fraction 0 as a microstructure-generation issue
+                if coarse_agg.volume_fraction and coarse_agg.volume_fraction > 0.0:
+                    self.coarse_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b></span>'
+                    )
+                else:
+                    self.coarse_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b>  '
+                        f'<span foreground="#D32F2F">⚠ Volume fraction is 0 — microstructure likely has no aggregate slab '
+                        f'(set Coarse Aggregate Mass &gt; 0 in Mix Design and regenerate).</span></span>'
+                    )
                 self.logger.info(
                     f"Populated coarse aggregate: {coarse_agg.name} (VF: {coarse_agg.volume_fraction:.3f})"
                 )
@@ -1360,31 +1354,6 @@ class ElasticModuliPanel(Gtk.Box):
         for control in controls:
             if control:
                 control.set_sensitive(sensitive)
-
-    def _disable_aggregate_settings(self) -> None:
-        """Disable all aggregate settings in THAMES mode.
-
-        In THAMES mode, aggregate support is not yet available (requires concelas).
-        This method greys out all aggregate-related controls.
-        """
-        # Disable fine aggregate controls
-        if self.fine_agg_check:
-            self.fine_agg_check.set_active(False)
-            self.fine_agg_check.set_sensitive(False)
-        self._set_aggregate_controls_sensitive("fine", False)
-
-        # Disable coarse aggregate controls
-        if self.coarse_agg_check:
-            self.coarse_agg_check.set_active(False)
-            self.coarse_agg_check.set_sensitive(False)
-        self._set_aggregate_controls_sensitive("coarse", False)
-
-        # Disable ITZ checkbox
-        if self.has_itz_check:
-            self.has_itz_check.set_active(False)
-            self.has_itz_check.set_sensitive(False)
-
-        self.logger.info("Aggregate settings disabled in THAMES mode")
 
     def _on_fine_aggregate_toggled(self, checkbox: Gtk.CheckButton) -> None:
         """Handle fine aggregate checkbox toggle."""
@@ -1714,6 +1683,7 @@ class ElasticModuliPanel(Gtk.Box):
                     hydration_id=hydration_id,
                     hydration_name=hydration_name,
                     output_dir=output_dir,
+                    elastic_operation=elastic_operation,
                     selected_microstructure=selected_microstructure,
                     ui_parameters=ui_parameters,
                     operations_panel=operations_panel,
@@ -1744,6 +1714,7 @@ class ElasticModuliPanel(Gtk.Box):
         hydration_id: int,
         hydration_name: str,
         output_dir: Path,
+        elastic_operation: ElasticModuliOperation,
         selected_microstructure,
         ui_parameters: Dict[str, Any],
         operations_panel,
@@ -1837,6 +1808,16 @@ class ElasticModuliPanel(Gtk.Box):
                 shutil.copy2(src, dst)
                 self.logger.info(f"Copied {gems_file} to output directory")
 
+        # Write concelas post-processing inputs if ITZ is enabled.
+        # The operations monitoring panel picks this file up after the elastic
+        # subprocess completes and invokes concelas_runner on the output dir.
+        if elastic_operation.has_itz:
+            self._write_concelas_inputs_json(
+                output_dir=output_dir,
+                hydration_dir=hydration_dir,
+                elastic_operation=elastic_operation,
+            )
+
         # Create input.in file for THAMES
         # THAMES reads from stdin, so we create an input file with:
         # 1. Simulation type (5 = ELASTIC_CALC)
@@ -1891,6 +1872,72 @@ class ElasticModuliPanel(Gtk.Box):
             f"Launched THAMES elastic operation '{operation_name}' with database ID: {operation_id}"
         )
         return operation_id
+
+    def _write_concelas_inputs_json(
+        self,
+        output_dir: Path,
+        hydration_dir: Path,
+        elastic_operation: ElasticModuliOperation,
+    ) -> None:
+        """Write concelas_inputs.json in the elastic output directory.
+
+        The operations monitoring panel reads this file after the elastic
+        subprocess completes and runs concelas_runner.run_and_append() to
+        post-process the paste results into concrete-scale moduli.
+
+        Writes nothing if neither fine nor coarse aggregate is present — the
+        post-completion hook will then skip concelas gracefully.
+        """
+        import json
+
+        payload: Dict[str, Any] = {
+            "air_volume_fraction": float(elastic_operation.air_volume_fraction or 0.0),
+            "cement_psd_path": str(hydration_dir / "cement_psd.csv"),
+        }
+
+        def _grading_points(grading_path: Optional[str]) -> List[List[float]]:
+            if not grading_path:
+                return []
+            # Grading paths may be relative to the output dir (e.g., "./MA106A-fine.csv")
+            candidate = Path(grading_path)
+            if not candidate.is_absolute():
+                candidate = (output_dir / grading_path).resolve()
+            if not candidate.exists():
+                self.logger.warning(
+                    f"Grading file not found: {candidate} (raw path: {grading_path})"
+                )
+                return []
+            from app.services.concelas_runner import read_grading_file
+            return [[d, v] for d, v in read_grading_file(candidate)]
+
+        if elastic_operation.has_fine_aggregate and elastic_operation.fine_aggregate_volume_fraction:
+            payload["fine"] = {
+                "volume_fraction": float(elastic_operation.fine_aggregate_volume_fraction),
+                "bulk_modulus_gpa": float(elastic_operation.fine_aggregate_bulk_modulus or 0.0),
+                "shear_modulus_gpa": float(elastic_operation.fine_aggregate_shear_modulus or 0.0),
+                "grading": _grading_points(elastic_operation.fine_aggregate_grading_path),
+            }
+
+        if elastic_operation.has_coarse_aggregate and elastic_operation.coarse_aggregate_volume_fraction:
+            payload["coarse"] = {
+                "volume_fraction": float(elastic_operation.coarse_aggregate_volume_fraction),
+                "bulk_modulus_gpa": float(elastic_operation.coarse_aggregate_bulk_modulus or 0.0),
+                "shear_modulus_gpa": float(elastic_operation.coarse_aggregate_shear_modulus or 0.0),
+                "grading": _grading_points(elastic_operation.coarse_aggregate_grading_path),
+            }
+
+        if "fine" not in payload and "coarse" not in payload:
+            # No aggregate data worth post-processing; skip writing the file
+            # so the completion hook short-circuits.
+            self.logger.info(
+                "ITZ flag set but no aggregate sources supplied; skipping concelas post-processing"
+            )
+            return
+
+        json_path = output_dir / "concelas_inputs.json"
+        with json_path.open("w") as f:
+            json.dump(payload, f, indent=2)
+        self.logger.info(f"Wrote concelas inputs to {json_path}")
 
     def _launch_vcctl_elastic(
         self,

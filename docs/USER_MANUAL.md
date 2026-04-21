@@ -40,6 +40,7 @@
    - 8.1 [Operation States](#81-operation-states)
    - 8.2 [Progress Tracking](#82-progress-tracking)
    - 8.3 [Viewing Operation Details](#83-viewing-operation-details)
+   - 8.4 [Runtime Alerts](#84-runtime-alerts)
 9. [Results Analysis](#9-results-analysis)
    - 9.1 [3D Visualization](#91-3d-visualization)
    - 9.2 [Data Plots](#92-data-plots)
@@ -396,7 +397,19 @@ THAMES supports both fine and coarse aggregates in mix designs.
 
 1. Select an aggregate material from the **Fine Aggregate** or **Coarse Aggregate** dropdown
 2. Enter the **Mass** of aggregate in the mix
-3. Click the **Grading** button to configure the particle size grading
+3. Select a **Shape Set** for each aggregate (see below)
+4. Click the **Grading** button to configure the particle size grading
+
+#### Aggregate Shape Sets
+
+Each aggregate has an associated shape set — a library of 3D particle geometries (represented as spherical-harmonic coefficients) that the microstructure generator uses to place realistic particles.
+
+- **Fine aggregate shapes**: sands and fine manufactured aggregates (e.g., MA106A-1-fine, Ottawa-sand, SiamSand, Cubic, spheres)
+- **Coarse aggregate shapes**: gravels, crushed stone, and manufactured coarse aggregates (e.g., GR-coarse, AZ-coarse, FDOT-57, Cubic, spheres, Slab)
+
+The shape set affects the generated microstructure geometry and — through that geometry — the elastic moduli calculation. When in doubt, `spheres` is a safe default for exploratory runs; named sets derived from real aggregates give more realistic geometry for elastic predictions.
+
+Shape data is bundled with the application as `aggregate.tar.gz` and is automatically extracted to the user data directory on first launch.
 
 #### Aggregate Grading
 
@@ -435,6 +448,7 @@ Physical size = Dimensions × Resolution
 **Example**: 200 × 200 × 200 voxels at 1.0 μm = 200 × 200 × 200 μm = 0.2 mm cube
 
 **Memory considerations:**
+
 | Dimensions | Voxels | Approximate RAM |
 |------------|--------|-----------------|
 | 100³ | 1 million | ~100 MB |
@@ -475,10 +489,26 @@ After generation completes:
 
 ### 6.1 Simulation Setup
 
-To configure a hydration simulation:
+To configure a hydration simulation, navigate to the **Hydration** tab. At the top of the panel, choose one of two input modes:
 
-1. Navigate to the **Hydration** tab
-2. Select a microstructure from the dropdown (must be previously generated)
+#### New Simulation from Microstructure
+
+Select this radio button to start a fresh simulation from a completed microstructure.
+
+1. Pick a microstructure from the **Microstructure** dropdown (must be previously generated)
+2. Use the refresh button next to the dropdown if a newly generated microstructure does not appear
+3. The info line below the dropdown confirms the selected microstructure's size, resolution, and mix design
+
+#### Load from Previous Hydration Operation
+
+Select this radio button to pre-fill all simulation parameters from a previous run. Use this when you want to re-run a simulation with small tweaks, or reproduce a prior study with a different microstructure size.
+
+1. Pick a prior operation from the **Operation** dropdown — the list is populated from every `*_hydration_config.json` file in the operations directory
+2. All Hydration panel widgets (temperature, moisture condition, electrolyte, products, kinetic parameters, time parameters, adaptive stepping, suppressed phases, runtime options) are loaded from the chosen config
+3. Edit any field before re-running
+
+![Hydration Input Mode](images/28-hydration-input-mode.png)
+*Figure 6.1a: Input mode selection with "New simulation" and "Load from previous hydration operation" radio buttons*
 
 #### Temperature
 
@@ -492,7 +522,7 @@ To configure a hydration simulation:
 - **Sealed**: Fixed water content (typical for real concrete)
 
 ![Hydration Panel Overview](images/12-hydration-panel.png)
-*Figure 6.1: Hydration panel showing microstructure selection and simulation parameters*
+*Figure 6.1b: Hydration panel showing microstructure selection and simulation parameters*
 
 ### 6.2 Kinetic Models
 
@@ -577,6 +607,12 @@ Select which hydration products can precipitate:
 
 Enable/disable entire categories or individual phases.
 
+#### Suppressing Phases
+
+Unchecking a phase in the products tree does more than hide it from the UI — it adds the phase to a `suppressed_phases` list written into `simparams.json`. At runtime, the controller maps each suppressed phase to its GEMS dependent components (DCs) and applies a zero upper bound so GEMS cannot precipitate them at any step.
+
+Use suppression to exclude phases that are thermodynamically stable but known to be kinetically inhibited in your system (for example, metastable polymorphs, or carbonates in a carbonation-free experiment). Microstructure phases shown in blue are locked and cannot be suppressed.
+
 ![Hydration Products Tree](images/15-hydration-products.png)
 *Figure 6.4: Hydration products tree with category checkboxes and phase selection*
 
@@ -584,18 +620,55 @@ Enable/disable entire categories or individual phases.
 
 #### Final Simulation Time
 
-- **Units**: Minutes, hours, or days
-- **Typical values**: 28 days for standard, up to 1 year for long-term
+- **Units**: Seconds, minutes, hours, or days (selectable from the unit combo next to the value)
+- **Typical values**: 28 days for standard characterization, up to 1 year for long-term durability studies
 
 #### Output Times
 
 Control when microstructure snapshots are saved:
 
-- **Spacing**: Time interval between outputs
+- **Spacing**: Time interval between outputs (seconds, minutes, hours, or days)
 - **Preview**: Shows the number of output times that will be generated
+- Snapshot file names include seconds, e.g., `00d00h00m18s`, so that sub-minute outputs are distinguishable
 
 ![Time Parameters](images/16-time-parameters.png)
 *Figure 6.5: Time parameters configuration with output time preview*
+
+#### Adaptive Time Stepping
+
+THAMES adjusts the simulation time step dynamically to balance accuracy, stability, and speed. The controller grows the step after consecutive GEMS successes and shrinks it after failures, always respecting a kinetics-based physics limit.
+
+Enable or disable adaptive stepping with the **Enable adaptive time stepping** checkbox at the top of the section. When disabled, the simulation uses the fixed output-spacing as its time step. Most users should leave adaptive stepping enabled.
+
+Click **Advanced Parameters** to expose the seven tunable parameters:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Initial time step | 3.6 s (0.001 h) | First step attempted after the induction period |
+| Maximum time step | 4.0 h | Upper bound on any step, regardless of success history |
+| Growth factor | 1.5 | Multiplier applied after consecutive successes |
+| Shrink factor | 0.5 | Multiplier applied after a GEMS failure |
+| Successes before growth | 2 | Consecutive successes required before growing the step |
+| Max consecutive failures | 50 | Simulation terminates after this many consecutive GEMS failures |
+| Max relative change per step | 0.05 (5%) | Kinetics constraint: maximum fractional change in any DC's moles per step |
+
+Both **Initial time step** and **Maximum time step** have their own unit combo (seconds / minutes / hours); internally, values are stored in hours.
+
+**When to tune:**
+- Lower **Max relative change** (e.g., 0.02) for stiff systems that oscillate or fail frequently
+- Raise **Maximum time step** only for very long (months to years) simulations where late-age evolution is slow
+- Lower **Growth factor** (e.g., 1.2) for conservative pacing if you see late-stage instabilities
+- Raise **Successes before growth** (e.g., 5) to pace more cautiously after recovery from failures
+
+![Adaptive Time Stepping Panel](images/29-adaptive-time-stepping.png)
+*Figure 6.5b: Adaptive time stepping section with advanced parameters expanded*
+
+#### Runtime Safety Options
+
+Two runtime safeguards are surfaced in the Hydration panel:
+
+- **IC floor and charge compensation**: If an independent component (IC) is driven toward depletion, THAMES injects a minimum amount (controlled internally by `IC_FLOOR = 1e-5`) and compensates the charge balance. This prevents GEMS failures from trace-element exhaustion.
+- **Electrolyte concentration overrides**: If the initial electrolyte concentrations are low enough that the IC floor would be breached at step 1, THAMES raises those concentrations to a safe minimum and records the change in `concentration_overrides.json`. The Operations panel displays a notification when this occurs so the override is visible to the user.
 
 ### 6.6 Running Simulations
 
@@ -619,6 +692,12 @@ Control when microstructure snapshots are saved:
 
 ## 7. Elastic Properties
 
+THAMES computes elastic moduli in up to three scales depending on what the microstructure contains:
+
+1. **Binder (paste) scale** — always computed. A voxel-level finite-element solve on the paste microstructure returns the effective bulk, shear, and Young's moduli and Poisson's ratio of the hydrated paste.
+2. **ITZ scale** — computed automatically when the microstructure contains an aggregate slab. The FEM solver additionally records K and G averaged over planes parallel to the slab, giving a profile from the aggregate surface outward that captures the softened interfacial transition zone (ITZ).
+3. **Concrete scale** — computed when aggregate data is present. The paste + ITZ profile is homogenized with the aggregate grading, volume fraction, and intrinsic moduli (*concelas* post-processing) to give concrete-scale effective moduli and empirical compressive strength fits.
+
 ### 7.1 Configuration
 
 To calculate elastic properties:
@@ -630,6 +709,8 @@ To calculate elastic properties:
    - **Number of loading directions**: 3 minimum, 6 recommended
    - **Convergence tolerance**: Default 1×10⁻⁶
 
+When the parent hydration operation was run on a microstructure that contains a one-voxel aggregate slab, the panel auto-populates the **Aggregate Properties** section from the mix-design lineage (fine and/or coarse volume fraction, bulk modulus, shear modulus, and grading template) and auto-checks the **Include ITZ** checkbox. If lineage returns a zero volume fraction for an aggregate whose name is set, the Source label displays a red warning — this indicates the microstructure has no aggregate slab (most commonly because `fine_aggregate_mass` or `coarse_aggregate_mass` was left at 0 in Mix Design).
+
 ![Elastic Panel](images/17-elastic-panel.png)
 *Figure 7.1: Elastic properties panel with hydration selection and microstructure time point*
 
@@ -638,22 +719,56 @@ To calculate elastic properties:
 1. Click **Calculate**
 2. The calculation applies virtual strains and measures stresses
 3. Progress is shown in the Operations tab
-4. Calculation takes 5–30 minutes depending on microstructure size
+4. Calculation takes 5–30 minutes for a 100³ microstructure; 2–4 hours for 200³
+
+When ITZ is enabled and aggregate data is present, `concelas_inputs.json` is written to the operation directory at launch. After the finite-element solver finishes, the concelas post-processor reads it and appends concrete-scale moduli and strengths to `EffectiveModuli.csv`. A `ConcelasLog.txt` is written alongside the CSV for debugging.
 
 ### 7.3 Viewing Results
 
-Results include:
+Open the **Effective Moduli Viewer** to see the numerical results grouped into sections. For a paste-only run only the binder section is populated; for an aggregate-bearing run all four sections appear.
 
-#### Effective Moduli
+#### Binder Effective Moduli (always present)
 
-- **Young's modulus (E)**: Stiffness in GPa
+- **Bulk modulus (K)**: Resistance to compression, GPa
+- **Shear modulus (G)**: Resistance to shear, GPa
+- **Young's modulus (E)**: Stiffness, GPa
 - **Poisson's ratio (ν)**: Lateral strain ratio
-- **Bulk modulus (K)**: Resistance to compression
-- **Shear modulus (G)**: Resistance to shear
 
-#### ITZ Moduli
+These come from the paste-scale FEM and represent the hydrated paste as a single homogeneous composite.
 
-If aggregate is present, the interface transition zone (ITZ) properties are calculated separately.
+#### Concrete Properties (when aggregate present)
+
+Volume fractions:
+- **Concrete aggregate fraction**: Total aggregate volume in the concrete
+- **Concrete air fraction**: Entrained air volume fraction
+- **Concrete matrix fraction**: Paste volume fraction (1 − aggregate − air)
+
+Moduli (multi-scale homogenization from paste + ITZ + grading + aggregate intrinsic moduli):
+- **Concrete bulk modulus**, **shear modulus**, **Young's modulus**, **Poisson's ratio** (GPa)
+
+Empirical compressive strengths (power-law fits of E<sub>concrete</sub>):
+- **Mortar cube strength** (MPa): fit from SCG mortars, 2013 revision
+- **Concrete cube strength** (MPa): fit from Pichet (SCG/SRI), 2013 revision
+- **Concrete cylinder strength** (MPa): 0.624 × cube strength
+
+These strength fits are empirical — use them as indicators, not as replacements for laboratory testing.
+
+#### ITZ Properties (when aggregate present)
+
+- **ITZ bulk modulus** and **ITZ shear modulus** (GPa): averaged over a voxel-thick shell of width equal to the median cement particle diameter, immediately adjacent to the aggregate surface
+- **ITZ width** (μm): auto-derived from the cement PSD's d₅₀
+
+The ITZ is typically softer than the bulk paste (often by 20–40%) because the aggregate surface disrupts cement packing and creates a locally high-porosity region. You will see this directly as K<sub>ITZ</sub> < K<sub>paste</sub> in the table.
+
+![Elastic Results — Tabular](images/18-elastic-results-tabular.png)
+*Figure 7.3a: Effective Moduli Viewer for an aggregate-bearing 7-day mortar. Four sections are visible: MICROSTRUCTURE INFO, BINDER EFFECTIVE MODULI (paste K, G, E, ν), CONCRETE PROPERTIES (volume fractions, concrete K, G, E, ν, and strength fits), and ITZ PROPERTIES (K, G, and width). A paste-only run shows only the binder section.*
+
+#### ITZ Profile Plot
+
+The `ITZModuli.csv` file written by the FEM contains K, G, E, and ν averaged over voxel-thick layers at successively larger distances from the aggregate surface. Plotting these as a function of distance shows the softening-with-distance signature of the ITZ and its transition into bulk paste.
+
+![Elastic Results — ITZ Plot](images/18-elastic-results-itzplot.png)
+*Figure 7.3b: ITZ property profile as a function of distance from the aggregate surface. The leftmost layers (< ~10 μm) are the ITZ proper; values stabilize at the bulk-paste moduli beyond that range.*
 
 #### Strain Energy
 
@@ -708,6 +823,18 @@ Click on an operation to view:
 - **Output files**: Generated files and their locations
 - **Logs**: Detailed execution logs
 - **Errors**: Any error messages
+
+### 8.4 Runtime Alerts
+
+The Operations panel surfaces non-fatal runtime events that change the simulation state from what was configured in the UI.
+
+#### Exit Status Alerts
+
+Hydration runs write an `exit_status.json` file on termination. When an operation ends abnormally (GEMS solver unrecoverable, consecutive-failure limit reached, IC depletion unrecoverable, early final-time detection), the Operations panel raises an alert on the operation's status with the reason recorded in `exit_status.json`. A normal end-of-simulation exit does not raise an alert.
+
+#### Concentration Override Notifications
+
+If the IC-floor safety raised any initial electrolyte concentrations (see Section 6.5), a notification appears with a pointer to `concentration_overrides.json` in the operation directory. The file lists each species that was raised, the requested concentration, and the applied concentration. Review these before trusting the early-age chemistry of the run.
 
 ---
 
@@ -854,6 +981,12 @@ To remove a comparison simulation, select it in the list and click **Remove**.
    - View 3D microstructure evolution
    - Plot phase volumes vs. time
    - Export data as needed
+
+![Workflow 1 — 3D Microstructure](images/25-workflow1-results-3d.png)
+*Figure 10.1a: 3D view of the hydrated paste microstructure at late age. C–S–H, Portlandite, and residual clinker are the dominant visible phases.*
+
+![Workflow 1 — Phase Plots](images/25-workflow1-results-plot.png)
+*Figure 10.1b: Phase volume fractions vs. time for the basic OPC workflow. The characteristic induction, acceleration, and deceleration stages of C₃S hydration are visible.*
 
 ### 10.2 Blended Cement with Fly Ash
 
