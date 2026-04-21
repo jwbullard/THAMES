@@ -11,7 +11,15 @@ from pathlib import Path
 # Application metadata
 APP_NAME = "THAMES"
 APP_ID = "edu.tamu.thames.gtk"
-APP_VERSION = "10.0.0"
+
+# SemVer 2.0.0 pre-release identifier. THAMES is a fresh release line built on
+# the VCCTL v10 architecture but with a different hydration engine, so we start
+# a new 1.x series rather than continuing 10.x. Bump APP_VERSION to
+# "1.0.0-alpha.2", "1.0.0-beta.1", "1.0.0-rc.1", "1.0.0" as the release
+# progresses, and create an annotated git tag matching each (e.g. `v1.0.0-alpha.1`).
+APP_VERSION = "1.0.0-alpha.1"
+APP_VERSION_STAGE = "alpha"  # one of: alpha, beta, rc, release
+
 APP_TITLE = "Thermodynamic Hydration And Microstructure Evolution Simulator"
 APP_DESCRIPTION = "Desktop application for advanced cement hydration simulation using GEMS thermodynamic database"
 APP_WEBSITE = "https://github.com/jwbullard/THAMES"

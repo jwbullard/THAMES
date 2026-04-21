@@ -1,5 +1,7 @@
 # THAMES User Manual
 
+**Version:** 1.0.0-alpha.1 (pre-release — not for production use)
+
 ## Table of Contents
 
 1. [Introduction](#1-introduction)
