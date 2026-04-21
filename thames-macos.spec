@@ -41,6 +41,11 @@ a = Analysis(
     datas=[
         # Include MkDocs built documentation
         ('vcctl-docs/site/', 'docs/site/'),
+        # Include THAMES User Manual source + figure directory (in-app Help menu
+        # renders USER_MANUAL.md to HTML on demand; figures are loaded by the
+        # rendered HTML via a <base href> pointing at this directory)
+        ('docs/USER_MANUAL.md', 'docs/'),
+        ('docs/images/', 'docs/images/'),
         # Include application resources
         ('src/app/resources/', 'app/resources/'),
         # Include Carbon icons (2,371 SVG icons for UI)
@@ -94,6 +99,11 @@ a = Analysis(
         'numpy',
         'pandas',
         'PIL',
+        'markdown',
+        'markdown.extensions',
+        'markdown.extensions.toc',
+        'markdown.extensions.tables',
+        'markdown.extensions.fenced_code',
         'pyvista',
         'vtkmodules',
         'vtkmodules.all',

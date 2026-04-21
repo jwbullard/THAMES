@@ -112,6 +112,11 @@ hiddenimports = [
     'PIL',
     'yaml',
     'psutil',
+    'markdown',
+    'markdown.extensions',
+    'markdown.extensions.toc',
+    'markdown.extensions.tables',
+    'markdown.extensions.fenced_code',
     'app',
     'app.application',
 ]
@@ -156,6 +161,10 @@ a = Analysis(
     binaries=platform_binaries,
     datas=[
         ('vcctl-docs/site', 'docs/site'),  # Include built documentation
+        # THAMES User Manual source + figures (in-app Help menu renders
+        # USER_MANUAL.md to HTML on demand; figures resolve via <base href>)
+        ('docs/USER_MANUAL.md', 'docs'),
+        ('docs/images', 'docs/images'),
         ('src/app/resources', 'app/resources'),  # Include application resources
         ('icons', 'icons'),  # Include Carbon icons
         ('src/data', 'data'),  # Include database and data files
