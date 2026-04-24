@@ -117,6 +117,11 @@ hiddenimports = [
     'markdown.extensions.toc',
     'markdown.extensions.tables',
     'markdown.extensions.fenced_code',
+    # Scientific computing - scipy used by micgen_input_service for log-normal PSD discretization
+    'scipy',
+    'scipy.stats',
+    'scipy.ndimage',
+    'scipy.sparse',
     'app',
     'app.application',
 ]

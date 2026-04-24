@@ -1,11 +1,41 @@
+# --------------------------------------------------------------------------
+# Windows (MSYS2) note
+# --------------------------------------------------------------------------
+# On Windows we run inside thames-env-windows, a venv created with
+# --system-site-packages against MSYS2's mingw-w64 Python. Most of the
+# packages below (PyGObject, SQLAlchemy, pandas, numpy, pydantic, PyYAML,
+# Pillow, matplotlib, pyvista 0.36, reportlab, openpyxl, lxml, ...) are
+# already provided by pacman and are visible via system-site-packages.
+#
+# Running `pip install -r requirements.txt` on Windows will often try to
+# UPGRADE those MSYS2-supplied packages (e.g. pyvista 0.36 -> 0.47) and
+# cascade into source builds (numpy / meson-python / ninja) that fail
+# because MSYS2 does not ship ninja by default. For the alpha release,
+# install only the deps that MSYS2 does NOT provide:
+#
+#     pip install "markdown>=3.4.0"
+#
+# That is the only pip-managed dependency introduced by Session 41. All
+# other imports the app actually uses are already satisfied by MSYS2.
+# See docs/ALPHA_RELEASE_PREPARATION.md Step 2.
+# --------------------------------------------------------------------------
+
 # Core GUI and Database
-PyGObject==3.52.3        # GTK3 bindings for Python (pinned - 3.54.5 has brew compatibility issues)
+# PyGObject: pin exact version on macOS only (Homebrew 3.54.5 has compatibility issues).
+# On Windows it comes from MSYS2 (typically 3.54.3); pinning 3.52.3 forces a source build
+# that fails (ninja bootstrap / meson-python). On Linux, the distro package satisfies the floor.
+PyGObject==3.52.3; sys_platform == "darwin"
+PyGObject>=3.52.3; sys_platform != "darwin"
 SQLAlchemy>=2.0.0        # ORM for database operations
 alembic>=1.12.0          # Database migrations
 
 # Data Processing and Validation
 pandas>=2.0.0            # Data manipulation and analysis
 numpy>=1.24.0            # Numerical computing
+# scipy: lazy-imported by micgen_input_service for log-normal PSD (scipy.stats.lognorm).
+# On Windows, install via MSYS2: `pacman -S mingw-w64-x86_64-python-scipy` (pip scipy
+# on Windows needs BLAS/LAPACK toolchain). On macOS/Linux, pip is fine.
+scipy>=1.10.0; sys_platform != "win32"
 pydantic>=2.0.0          # Data validation and settings management
 
 # Configuration and Utilities

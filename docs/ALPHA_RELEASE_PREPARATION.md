@@ -24,15 +24,33 @@ git describe                     # should print v1.0.0-alpha.1
 
 ## 2. Refresh the Python environment
 
-The help viewer work added `markdown` as a new dependency.
+The help viewer work added `markdown` as the only new pip-managed dependency.
+Install just that; do **not** run the full `pip install -r requirements.txt`
+on Windows — see the note below.
 
 ```bash
 # In your Windows MSYS2 / native shell, with thames-env-windows activated:
-pip install -r requirements.txt
-python -c "import markdown; print('markdown', markdown.__version__)"
+./thames-env-windows/bin/python.exe -m pip install "markdown>=3.4.0"
+./thames-env-windows/bin/python.exe -c "import markdown; print('markdown', markdown.__version__)"
+
+# scipy is a runtime dep for Mix Design (log-normal PSD). Install via MSYS2 on Windows:
+/c/msys64/usr/bin/pacman.exe -S --noconfirm mingw-w64-x86_64-python-scipy
+./thames-env-windows/bin/python.exe -c "from scipy.stats import lognorm; print('scipy OK')"
 ```
 
-**Verify:** `markdown 3.x.y` prints, no errors.
+**Verify:** `markdown 3.x.y` and `scipy OK` both print, no errors.
+
+**Why not `pip install -r requirements.txt` on Windows?** `thames-env-windows`
+is created with `--system-site-packages` against MSYS2's mingw-w64 Python,
+so most requirements (PyGObject, SQLAlchemy, pandas, numpy, pydantic,
+PyYAML, Pillow, matplotlib, pyvista 0.36, reportlab, openpyxl, lxml, ...)
+are already supplied by `pacman`. Re-running the full requirements file
+makes pip try to **upgrade** the MSYS2-supplied packages (e.g. pyvista
+0.36 → 0.47), which cascades into source builds of numpy via
+meson-python + ninja. MSYS2 does not ship `ninja` by default, so those
+builds fail. `markdown` is the only dependency Session 41 actually added,
+and MSYS2 doesn't provide it, so installing it alone is sufficient.
+See the header comment in `requirements.txt`.
 
 ---
 

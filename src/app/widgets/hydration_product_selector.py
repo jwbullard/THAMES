@@ -15,7 +15,7 @@ All phases can have kinetic models edited (or set to "Thermodynamic" for no kine
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject, Pango, GdkPixbuf
+from gi.repository import Gtk, Gdk, GObject, Pango, GdkPixbuf
 import logging
 from typing import List, Dict, Optional, Any, Set
 
@@ -190,12 +190,16 @@ class HydrationProductSelectorWidget(Gtk.Box):
         column_gems.set_sort_column_id(1)
         self.treeview.append_column(column_gems)
 
-        # Column 5: Configure button (icon)
+        # Column 5: Configure button (icon) — clickable; opens phase config dialog
         renderer_config = Gtk.CellRendererPixbuf()
-        column_config = Gtk.TreeViewColumn("", renderer_config)
-        column_config.set_cell_data_func(renderer_config, self._config_cell_data_func)
-        column_config.set_min_width(30)
-        self.treeview.append_column(column_config)
+        self.column_config = Gtk.TreeViewColumn("", renderer_config)
+        self.column_config.set_cell_data_func(renderer_config, self._config_cell_data_func)
+        self.column_config.set_min_width(30)
+        self.treeview.append_column(self.column_config)
+
+        # Single-click on the pencil icon column opens the phase configuration
+        # dialog for that row (matches what users expect from a clickable icon).
+        self.treeview.connect('button-press-event', self._on_treeview_button_press)
 
         scrolled.add(self.treeview)
         self.pack_start(scrolled, True, True, 0)
@@ -580,6 +584,36 @@ class HydrationProductSelectorWidget(Gtk.Box):
         # Emit configure-phase signal with has_csh_data info for the combined dialog
         has_csh = self.store.get_value(iter, 5)
         self.emit('configure-phase', gems_name, has_csh)
+
+    def _on_treeview_button_press(self, treeview, event):
+        """Open the phase configuration dialog when the pencil-icon column is clicked.
+
+        The icon is only rendered for selected, non-category phase rows
+        (see _config_cell_data_func), so clicks on rows without an icon are
+        ignored. Other clicks (checkbox, name, kinetics, GEMS columns) fall
+        through to default tree handling.
+        """
+        # Only handle primary single-click; let double-click fall through to row-activated.
+        if event.button != 1 or event.type != Gdk.EventType.BUTTON_PRESS:
+            return False
+
+        hit = treeview.get_path_at_pos(int(event.x), int(event.y))
+        if hit is None:
+            return False
+        path, column, _cell_x, _cell_y = hit
+        if column is not self.column_config:
+            return False
+
+        iter = self.store.get_iter(path)
+        gems_name = self.store.get_value(iter, 1)
+        is_selected = self.store.get_value(iter, 0)
+        if not gems_name or not is_selected:
+            # Category row, or unselected row that has no icon — nothing to configure.
+            return False
+
+        has_csh = self.store.get_value(iter, 5)
+        self.emit('configure-phase', gems_name, has_csh)
+        return True
 
     def _on_selection_changed(self, selection):
         """Handle tree selection change."""

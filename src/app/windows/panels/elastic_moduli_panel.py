@@ -1107,19 +1107,36 @@ class ElasticModuliPanel(Gtk.Box):
             aggregate_props = self.resolved_lineage.get("aggregate_properties", {})
             volume_fractions = self.resolved_lineage.get("volume_fractions", {})
 
-            # Set ITZ calculation based on aggregate presence
-            has_itz = self.elastic_moduli_service.lineage_service.get_itz_detection(
-                aggregate_props
+            fine_agg = aggregate_props.get("fine_aggregate")
+            coarse_agg = aggregate_props.get("coarse_aggregate")
+            fine_has_real_aggregate = bool(
+                fine_agg and fine_agg.volume_fraction and fine_agg.volume_fraction > 0.0
             )
-            self.has_itz_check.set_active(has_itz)
+            coarse_has_real_aggregate = bool(
+                coarse_agg and coarse_agg.volume_fraction and coarse_agg.volume_fraction > 0.0
+            )
+            any_real_aggregate = fine_has_real_aggregate or coarse_has_real_aggregate
+
+            # ITZ requires an actual aggregate slab in the microstructure. If none, force off
+            # and lock the checkbox so the user cannot request concelas post-processing.
+            if any_real_aggregate:
+                self.has_itz_check.set_sensitive(True)
+                has_itz = self.elastic_moduli_service.lineage_service.get_itz_detection(
+                    aggregate_props
+                )
+                self.has_itz_check.set_active(has_itz)
+            else:
+                self.has_itz_check.set_active(False)
+                self.has_itz_check.set_sensitive(False)
+                has_itz = False
 
             # Set air volume fraction
             air_vf = volume_fractions.get("air_volume_fraction", 0.0)
             self.air_volume_spin.set_value(air_vf)
 
             # Set fine aggregate properties
-            fine_agg = aggregate_props.get("fine_aggregate")
-            if fine_agg:
+            if fine_has_real_aggregate:
+                self.fine_agg_check.set_sensitive(True)
                 self.fine_agg_check.set_active(True)
                 self._set_aggregate_controls_sensitive("fine", True)
                 self.fine_volume_spin.set_value(fine_agg.volume_fraction)
@@ -1149,30 +1166,35 @@ class ElasticModuliPanel(Gtk.Box):
                     self.fine_grading_status_label.set_markup(
                         '<span size="small" style="italic" color="orange">⚠ No grading template found</span>'
                     )
-                # Update source label — flag volume-fraction 0 as a microstructure-generation issue
-                if fine_agg.volume_fraction and fine_agg.volume_fraction > 0.0:
-                    self.fine_agg_source_label.set_markup(
-                        f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b></span>'
-                    )
-                else:
-                    self.fine_agg_source_label.set_markup(
-                        f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b>  '
-                        f'<span foreground="#D32F2F">⚠ Volume fraction is 0 — microstructure likely has no aggregate slab '
-                        f'(set Fine Aggregate Mass &gt; 0 in Mix Design and regenerate).</span></span>'
-                    )
+                self.fine_agg_source_label.set_markup(
+                    f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b></span>'
+                )
                 self.logger.info(
                     f"Populated fine aggregate: {fine_agg.name} (VF: {fine_agg.volume_fraction:.3f})"
                 )
             else:
+                # No real fine aggregate in the microstructure. Lock the include
+                # checkbox so the user cannot opt into concelas after the fact.
                 self.fine_agg_check.set_active(False)
+                self.fine_agg_check.set_sensitive(False)
                 self._set_aggregate_controls_sensitive("fine", False)
-                self.fine_agg_source_label.set_markup(
-                    '<span size="small" style="italic">Source: Not specified</span>'
-                )
+                self._reset_aggregate_inputs("fine")
+                if fine_agg:
+                    self.fine_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{fine_agg.name}</b>  '
+                        f'<span foreground="#B8860B">⚠ Volume fraction is 0 — microstructure has no aggregate slab. '
+                        f'Set Fine Aggregate Mass &gt; 0 in Mix Design and regenerate to enable.</span></span>'
+                    )
+                else:
+                    self.fine_agg_source_label.set_markup(
+                        '<span size="small" style="italic">Source: Not specified  '
+                        '<span foreground="#B8860B">⚠ Microstructure has no fine aggregate; '
+                        'add it in Mix Design and regenerate to enable.</span></span>'
+                    )
 
             # Set coarse aggregate properties
-            coarse_agg = aggregate_props.get("coarse_aggregate")
-            if coarse_agg:
+            if coarse_has_real_aggregate:
+                self.coarse_agg_check.set_sensitive(True)
                 self.coarse_agg_check.set_active(True)
                 self._set_aggregate_controls_sensitive("coarse", True)
                 self.coarse_volume_spin.set_value(coarse_agg.volume_fraction)
@@ -1202,32 +1224,38 @@ class ElasticModuliPanel(Gtk.Box):
                     self.coarse_grading_status_label.set_markup(
                         '<span size="small" style="italic" color="orange">⚠ No grading template found</span>'
                     )
-                # Update source label — flag volume-fraction 0 as a microstructure-generation issue
-                if coarse_agg.volume_fraction and coarse_agg.volume_fraction > 0.0:
-                    self.coarse_agg_source_label.set_markup(
-                        f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b></span>'
-                    )
-                else:
-                    self.coarse_agg_source_label.set_markup(
-                        f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b>  '
-                        f'<span foreground="#D32F2F">⚠ Volume fraction is 0 — microstructure likely has no aggregate slab '
-                        f'(set Coarse Aggregate Mass &gt; 0 in Mix Design and regenerate).</span></span>'
-                    )
+                self.coarse_agg_source_label.set_markup(
+                    f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b></span>'
+                )
                 self.logger.info(
                     f"Populated coarse aggregate: {coarse_agg.name} (VF: {coarse_agg.volume_fraction:.3f})"
                 )
             else:
+                # No real coarse aggregate in the microstructure. Lock the include
+                # checkbox so the user cannot opt into concelas after the fact.
                 self.coarse_agg_check.set_active(False)
+                self.coarse_agg_check.set_sensitive(False)
                 self._set_aggregate_controls_sensitive("coarse", False)
-                self.coarse_agg_source_label.set_markup(
-                    '<span size="small" style="italic">Source: Not specified</span>'
-                )
+                self._reset_aggregate_inputs("coarse")
+                if coarse_agg:
+                    self.coarse_agg_source_label.set_markup(
+                        f'<span size="small" style="italic">Source: <b>{coarse_agg.name}</b>  '
+                        f'<span foreground="#B8860B">⚠ Volume fraction is 0 — microstructure has no aggregate slab. '
+                        f'Set Coarse Aggregate Mass &gt; 0 in Mix Design and regenerate to enable.</span></span>'
+                    )
+                else:
+                    self.coarse_agg_source_label.set_markup(
+                        '<span size="small" style="italic">Source: Not specified  '
+                        '<span foreground="#B8860B">⚠ Microstructure has no coarse aggregate; '
+                        'add it in Mix Design and regenerate to enable.</span></span>'
+                    )
 
-            # Show success message
+            # Show success message — only count aggregates that are actually present
+            # in the microstructure (VF > 0); orphan entries don't qualify.
             populated_items = []
-            if fine_agg:
+            if fine_has_real_aggregate:
                 populated_items.append(f"fine aggregate ({fine_agg.name})")
-            if coarse_agg:
+            if coarse_has_real_aggregate:
                 populated_items.append(f"coarse aggregate ({coarse_agg.name})")
             if air_vf > 0:
                 populated_items.append(f"air content ({air_vf:.1%})")
@@ -1279,6 +1307,7 @@ class ElasticModuliPanel(Gtk.Box):
         else:
             self.fine_agg_check.set_active(False)
             self._set_aggregate_controls_sensitive("fine", False)
+            self._reset_aggregate_inputs("fine")
 
         # Update coarse aggregate properties
         if operation.has_coarse_aggregate:
@@ -1311,6 +1340,7 @@ class ElasticModuliPanel(Gtk.Box):
         else:
             self.coarse_agg_check.set_active(False)
             self._set_aggregate_controls_sensitive("coarse", False)
+            self._reset_aggregate_inputs("coarse")
 
         # Show a user-friendly message about what was auto-populated
         populated_items = []
@@ -1333,6 +1363,38 @@ class ElasticModuliPanel(Gtk.Box):
             )
             self.logger.info(message)
             # You could show this message to the user via a temporary info bar or status message
+
+    def _reset_aggregate_inputs(self, agg_type: str) -> None:
+        """Reset one side's aggregate input fields to their creation defaults.
+
+        Used when the microstructure has no real aggregate on that side, so the
+        disabled controls don't display stale values from a prior selection.
+        Defaults match the values used in `_create_aggregate_grid` and
+        `_create_aggregate_settings`.
+        """
+        if agg_type == "fine":
+            volume_spin = self.fine_volume_spin
+            bulk_spin = self.fine_bulk_spin
+            shear_spin = self.fine_shear_spin
+            grading_entry = self.fine_grading_entry
+            grading_status_label = getattr(self, "fine_grading_status_label", None)
+        else:
+            volume_spin = self.coarse_volume_spin
+            bulk_spin = self.coarse_bulk_spin
+            shear_spin = self.coarse_shear_spin
+            grading_entry = self.coarse_grading_entry
+            grading_status_label = getattr(self, "coarse_grading_status_label", None)
+
+        if volume_spin:
+            volume_spin.set_value(0.0)
+        if bulk_spin:
+            bulk_spin.set_value(37.0)
+        if shear_spin:
+            shear_spin.set_value(44.0)
+        if grading_entry:
+            grading_entry.set_text("")
+        if grading_status_label:
+            grading_status_label.set_markup('<span size="small" style="italic"></span>')
 
     def _set_aggregate_controls_sensitive(self, agg_type: str, sensitive: bool) -> None:
         """Enable/disable aggregate controls based on checkbox state."""

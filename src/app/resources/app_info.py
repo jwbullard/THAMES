@@ -17,7 +17,7 @@ APP_ID = "edu.tamu.thames.gtk"
 # a new 1.x series rather than continuing 10.x. Bump APP_VERSION to
 # "1.0.0-alpha.2", "1.0.0-beta.1", "1.0.0-rc.1", "1.0.0" as the release
 # progresses, and create an annotated git tag matching each (e.g. `v1.0.0-alpha.1`).
-APP_VERSION = "1.0.0-alpha.1"
+APP_VERSION = "1.0.0-alpha.2"
 APP_VERSION_STAGE = "alpha"  # one of: alpha, beta, rc, release
 
 APP_TITLE = "Thermodynamic Hydration And Microstructure Evolution Simulator"

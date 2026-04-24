@@ -83,7 +83,8 @@ class MixDesignPanel(Gtk.Box):
         self._setup_ui()
         self._connect_signals()
         self._load_material_lists()
-        
+        self._apply_aggregate_gating()
+
         self.logger.info("Mix design panel initialized")
     
     def _setup_ui(self) -> None:
@@ -861,15 +862,85 @@ class MixDesignPanel(Gtk.Box):
     
     def _on_mass_changed(self, widget) -> None:
         """Handle aggregate mass changes and update validation."""
+        # Gate aggregate-related fields by mass; skip during bulk loading so
+        # the load flow doesn't fight us mid-sequence (the load function calls
+        # _apply_aggregate_gating() once at the end).
+        if not getattr(self, "_loading_in_progress", False):
+            self._apply_aggregate_gating()
+
         # Real-time validation feedback
         self._update_real_time_validation()
-        
+
         # Update total volume fraction display
         self._calculate_total_volume_fractions()
-        
+
         # Trigger normal calculation if enabled
         if self.auto_calculate_enabled:
             self._trigger_calculation()
+
+    def _apply_aggregate_gating(self) -> None:
+        """Enable aggregate metadata fields only when that side's mass > 0.
+
+        Prevents orphan aggregate metadata (combo selection, grading template,
+        shape) from being saved when the user has no actual aggregate. Air
+        content is enabled only when at least one aggregate side has mass.
+        Re-entering mass = 0 clears any previously-set fields for that side.
+        """
+        try:
+            fine_mass = self.fine_agg_mass_spin.get_value()
+            coarse_mass = self.coarse_agg_mass_spin.get_value()
+            fine_active = fine_mass > 0.0
+            coarse_active = coarse_mass > 0.0
+
+            # --- Fine side ---
+            self.fine_agg_combo.set_sensitive(fine_active)
+            self.fine_agg_shape_combo.set_sensitive(fine_active)
+            if fine_active:
+                # Grading button still requires an aggregate to be selected
+                aggregate_selected = bool(self.fine_agg_combo.get_active_id())
+                self.fine_agg_grading_button.set_sensitive(aggregate_selected)
+            else:
+                self.fine_agg_grading_button.set_sensitive(False)
+                # Reset selections so we don't persist orphan metadata
+                if self.fine_agg_combo.get_active() != 0:
+                    self.fine_agg_combo.set_active(0)
+                if self.fine_agg_shape_combo.get_active() != 0:
+                    self.fine_agg_shape_combo.set_active(0)
+                if hasattr(self, "fine_grading_template_label"):
+                    self.fine_grading_template_label.set_markup(
+                        '<span size="small" style="italic"></span>'
+                    )
+                self._fine_aggregate_grading_template_name = None
+                if hasattr(self, "_fine_aggregate_grading_data"):
+                    self._fine_aggregate_grading_data = None
+
+            # --- Coarse side ---
+            self.coarse_agg_combo.set_sensitive(coarse_active)
+            self.coarse_agg_shape_combo.set_sensitive(coarse_active)
+            if coarse_active:
+                aggregate_selected = bool(self.coarse_agg_combo.get_active_id())
+                self.coarse_agg_grading_button.set_sensitive(aggregate_selected)
+            else:
+                self.coarse_agg_grading_button.set_sensitive(False)
+                if self.coarse_agg_combo.get_active() != 0:
+                    self.coarse_agg_combo.set_active(0)
+                if self.coarse_agg_shape_combo.get_active() != 0:
+                    self.coarse_agg_shape_combo.set_active(0)
+                if hasattr(self, "coarse_grading_template_label"):
+                    self.coarse_grading_template_label.set_markup(
+                        '<span size="small" style="italic"></span>'
+                    )
+                self._coarse_aggregate_grading_template_name = None
+                if hasattr(self, "_coarse_aggregate_grading_data"):
+                    self._coarse_aggregate_grading_data = None
+
+            # --- Air content (mortar/concrete only) ---
+            air_active = fine_active or coarse_active
+            self.micro_air_content_spin.set_sensitive(air_active)
+            if not air_active and self.micro_air_content_spin.get_value() != 0.0:
+                self.micro_air_content_spin.set_value(0.0)
+        except Exception as e:
+            self.logger.error(f"Failed to apply aggregate gating: {e}")
     
     def _on_volume_fraction_changed(self, widget) -> None:
         """Handle volume fraction changes and update validation."""
@@ -5326,6 +5397,9 @@ class MixDesignPanel(Gtk.Box):
             # Always clear the loading flag
             self._loading_in_progress = False
             self.logger.info("Loading completed - constraint checking re-enabled")
+            # Reconcile aggregate-field sensitivity once everything is loaded.
+            # Any orphan metadata (mass=0 with combo/template set) is cleared here.
+            self._apply_aggregate_gating()
 
     def _load_mix_design(self, mix_id: int) -> None:
         """Load a mix design from database."""

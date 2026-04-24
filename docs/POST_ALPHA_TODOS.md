@@ -60,6 +60,22 @@ Add new items at the bottom with date, short title, context, and proposed fix. S
 
 ---
 
+### Reconciler marks live operations CANCELLED when UI is restarted
+
+**Identified:** 2026-04-23 (Windows alpha smoke-test session)
+
+**Symptom.** When the THAMES UI process (`python.exe`) is killed or crashes while a child operation (e.g. `micgen.exe`, `thames.exe`) is still running, the next UI launch flips that operation's DB row from `RUNNING` to `CANCELLED` — even though the child process is alive and continues to write output. The user, seeing "Cancelled," deletes the operation; the DB row is removed but the on-disk operation folder is left behind, and the still-running child process eventually finishes work that nobody is tracking.
+
+**Root cause.** The Session 41 reconciliation in `operations_monitoring_panel.py::_load_operations_from_database` was designed for the case where the UI was killed cleanly *with no surviving children*: any `RUNNING` row with no live process must be stale. The check is "is the original UI-tracked PID alive?" — but child processes spawned by the previous UI process have a different PID and are not tracked across UI restarts. So a live grandchild looks identical to a crashed operation.
+
+**Proposed fix.** Persist the *child* PID (the spawned process, not the UI's own PID) in the operations DB row at launch time, plus enough identification (image name, working dir, start time) to reattach across UI restarts. On startup reconciliation: if any of those identifiers still match a live process, leave the row as `RUNNING` and re-attach the monitor; only flip to `CANCELLED` when no matching process can be found. On Windows use `psutil.process_iter(['pid','name','cwd','create_time'])`; on POSIX, the same `psutil` call is fine.
+
+**Secondary fix.** When the user deletes a `CANCELLED`/`FAILED` operation from the Operations panel, either (a) delete the on-disk folder too, or (b) check `psutil` first and warn if a process with that working directory is still alive. Otherwise live-but-untracked processes silently keep writing to a directory the user thought was gone.
+
+**Workarounds available during alpha.** After UI crash/restart, before deleting any "Cancelled" operation, check Task Manager / `tasklist` for live `micgen.exe`/`thames.exe`. If found, let them finish and treat the result folder as authoritative.
+
+---
+
 ### Delete unused VCCTL legacy files
 
 **Identified:** 2026-04-14 (Session 40).
