@@ -15,37 +15,15 @@ IS_LINUX = sys.platform.startswith('linux')
 
 # Platform-specific binary executables
 if IS_WINDOWS:
+    # THAMES ships only two compiled backends: the C++ hydration simulator
+    # (thames.exe) and the C microstructure generator (micgen.exe). They live
+    # in bin/ at the repo root — kept in sync by build-windows.sh — and are
+    # bundled to bin/ inside the packaged app. Code paths that locate them go
+    # through DirectoriesService.bin_path, which resolves both layouts.
     platform_binaries = [
-        ('backend/bin-windows/genmic.exe', 'backend/bin/'),
-        ('backend/bin-windows/disrealnew.exe', 'backend/bin/'),
-        ('backend/bin-windows/elastic.exe', 'backend/bin/'),
-        ('backend/bin-windows/genaggpack.exe', 'backend/bin/'),
-        ('backend/bin-windows/perc3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/stat3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/oneimage.exe', 'backend/bin/'),
-        ('backend/bin-windows/aggvrml.exe', 'backend/bin/'),
-        ('backend/bin-windows/apstats.exe', 'backend/bin/'),
-        ('backend/bin-windows/chlorattack3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/distfapart.exe', 'backend/bin/'),
-        ('backend/bin-windows/distfarand.exe', 'backend/bin/'),
-        ('backend/bin-windows/dryout.exe', 'backend/bin/'),
-        ('backend/bin-windows/hydmovie.exe', 'backend/bin/'),
-        ('backend/bin-windows/image100.exe', 'backend/bin/'),
-        ('backend/bin-windows/leach3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/measagg.exe', 'backend/bin/'),
-        ('backend/bin-windows/onepimage.exe', 'backend/bin/'),
-        ('backend/bin-windows/perc3d-leach.exe', 'backend/bin/'),
-        ('backend/bin-windows/poredist3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/rand3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/sulfattack3d.exe', 'backend/bin/'),
-        ('backend/bin-windows/thames2vcctl.exe', 'backend/bin/'),
-        ('backend/bin-windows/thames2vcctlcorr.exe', 'backend/bin/'),
-        ('backend/bin-windows/totsurf.exe', 'backend/bin/'),
-        ('backend/bin-windows/transport.exe', 'backend/bin/'),
-        # Add DLL dependencies for C executables
-        ('backend/build-windows/Release/getopt.dll', 'backend/bin/'),
-        ('backend/build-windows/Release/libpng16.dll', 'backend/bin/'),
-        ('backend/build-windows/Release/zlib1.dll', 'backend/bin/'),
+        ('bin/thames.exe', 'bin/'),
+        ('bin/micgen.exe', 'bin/'),
+        ('bin/libpng16-16.dll', 'bin/'),
     ]
 elif IS_MACOS:
     platform_binaries = [
@@ -165,7 +143,6 @@ a = Analysis(
     pathex=['src'],  # Add src directory so app module can be found
     binaries=platform_binaries,
     datas=[
-        ('vcctl-docs/site', 'docs/site'),  # Include built documentation
         # THAMES User Manual source + figures (in-app Help menu renders
         # USER_MANUAL.md to HTML on demand; figures resolve via <base href>)
         ('docs/USER_MANUAL.md', 'docs'),
@@ -175,7 +152,6 @@ a = Analysis(
         ('src/data', 'data'),  # Include database and data files
         ('particle_shape_set.tar.gz', 'data/'),  # Include compressed particle shape data (extracted on first launch)
         ('aggregate.tar.gz', 'data/'),  # Include compressed aggregate shape data (extracted on first launch)
-        ('colors', 'colors'),  # Include phase colors CSV file
     ] + gi_typelibs,
     hiddenimports=hiddenimports,
     hookspath=[],
