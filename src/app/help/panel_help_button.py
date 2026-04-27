@@ -17,17 +17,25 @@ from app.help.documentation_viewer import get_documentation_viewer
 logger = logging.getLogger(__name__)
 
 
-# Mapping of panel class names to their documentation URLs
+# Mapping of panel class names to USER_MANUAL.md section anchor slugs.
+# The slugs match the heading IDs the Python-Markdown TOC extension generates
+# from the corresponding "## N. Heading" lines in docs/USER_MANUAL.md (see
+# documentation_viewer._render_manual_html). Keep this map in sync with the
+# manual's section numbering. Previously these were defunct MkDocs URLs
+# (`user-guide/.../index.html`) that the rewritten viewer's legacy
+# `open_documentation` alias silently routed back to the top of the manual,
+# which is why every panel's info icon looked broken.
 PANEL_DOCUMENTATION_MAP = {
-    'MaterialsPanel': 'user-guide/materials-management/index.html',
-    'MixDesignPanel': 'user-guide/mix-design/index.html',
-    'MicrostructurePanel': 'user-guide/mix-design/index.html',  # Microstructure is part of mix design
-    'HydrationPanel': 'user-guide/hydration-simulation/index.html',
-    'ElasticModuliPanel': 'user-guide/elastic-calculations/index.html',
-    'ResultsPanel': 'user-guide/results-visualization/index.html',
-    'OperationsMonitoringPanel': 'user-guide/operations-monitoring/index.html',
-    'FileManagementPanel': 'getting-started/index.html',  # File management covered in getting started
-    'AggregatePanel': 'user-guide/materials-management/index.html',  # Aggregates part of materials
+    'MaterialsPanel':            '4-materials-management',
+    'MixDesignPanel':            '5-mix-design',
+    'MicrostructurePanel':       '5-mix-design',          # Microstructure is part of mix design
+    'HydrationPanel':            '6-hydration-simulation',
+    'THAMESHydrationPanel':      '6-hydration-simulation',  # Active panel class on Hydration page
+    'ElasticModuliPanel':        '7-elastic-properties',
+    'ResultsPanel':              '9-results-analysis',
+    'OperationsMonitoringPanel': '8-operations-monitoring',
+    'FileManagementPanel':       '2-getting-started',     # File management covered in getting started
+    'AggregatePanel':            '4-materials-management', # Aggregates part of materials
 }
 
 
@@ -78,6 +86,7 @@ def _get_panel_display_name(panel_name: str) -> str:
         'MixDesignPanel': 'Mix Design',
         'MicrostructurePanel': 'Microstructure Generation',
         'HydrationPanel': 'Hydration Simulation',
+        'THAMESHydrationPanel': 'Hydration Simulation',
         'ElasticModuliPanel': 'Elastic Calculations',
         'ResultsPanel': 'Results Visualization',
         'OperationsMonitoringPanel': 'Operations Monitoring',
@@ -90,25 +99,24 @@ def _get_panel_display_name(panel_name: str) -> str:
 
 def _on_help_button_clicked(panel_name: str, parent_window: Optional[Gtk.Window]):
     """
-    Handle help button click - open context-specific documentation.
+    Handle help button click - open the User Manual at this panel's section.
 
     Args:
         panel_name: Panel class name
         parent_window: Parent window for error dialogs
     """
-    # Get documentation URL for this panel
-    doc_url = PANEL_DOCUMENTATION_MAP.get(panel_name)
-
-    if not doc_url:
-        logger.warning(f"No documentation URL mapped for panel: {panel_name}")
-        # Fall back to main documentation index
-        doc_url = "index.html"
-
-    # Open documentation
+    anchor = PANEL_DOCUMENTATION_MAP.get(panel_name)
     doc_viewer = get_documentation_viewer()
-    doc_viewer.open_documentation(doc_url, parent_window)
 
-    logger.info(f"Opened documentation for {panel_name}: {doc_url}")
+    if anchor:
+        # Route through open_section so the rendered manual scrolls to the
+        # right heading. (Going through open_documentation discards the
+        # target and lands at the top of the manual.)
+        doc_viewer.open_section(anchor, parent_window)
+        logger.info(f"Opened User Manual section '{anchor}' for {panel_name}")
+    else:
+        logger.warning(f"No User Manual section mapped for panel: {panel_name}; opening manual at top")
+        doc_viewer.open_user_guide(parent_window=parent_window)
 
 
 def get_panel_documentation_url(panel_name: str) -> Optional[str]:

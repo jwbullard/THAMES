@@ -255,6 +255,28 @@ class KineticDefaultsService:
             activationEnergy=40000.0,
             loi=2.0
         ),
+
+        # Microstructure aggregate slab (UI alias; not a real GEMS phase --
+        # the underlying GEMS phase is Quartz, but the slab is a structural
+        # element that should not react with the cement paste). Treat as
+        # essentially inert: rate constants pinned to 1e-12 mol/m^2/s,
+        # matching the spin-button minimum non-zero value (0.000001 μmol/m^2/s).
+        # A literal zero would risk divide-by-zero issues in the kinetic
+        # solver and adaptive-timestep loop; the tiny positive floor avoids
+        # that while contributing no measurable mass transfer.
+        "Aggregate": PozzolanicKinetics(
+            dissolutionRateConst=1.0e-12,
+            diffusionRateConstEarly=1.0e-12,
+            diffusionRateConstLate=1.0e-12,
+            dissolvedUnits=1,
+            siexp=1.0,
+            dfexp=1.0,
+            dorexp=0.5,
+            ohexp=1.0,
+            sio2=1.0,            # Pure quartz: 100% SiO2
+            activationEnergy=40000.0,
+            loi=0.0,             # Crystalline quartz: no loss on ignition
+        ),
     }
 
     # =========================================================================

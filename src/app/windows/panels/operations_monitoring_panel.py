@@ -645,25 +645,13 @@ class OperationsMonitoringPanel(Gtk.Box):
         self.sync_filesystem_button.set_icon_name("folder-sync")
         set_tool_button_custom_icon(self.sync_filesystem_button, "view-refresh", 24)
         self.sync_filesystem_button.set_label("Sync with Filesystem")
-        self.sync_filesystem_button.set_tooltip_text("Remove database records for operations with no folders, and clean up orphaned folders")
+        self.sync_filesystem_button.set_tooltip_text("Reconcile database with filesystem: delete database records whose folders are missing, and delete folders that have no database record")
         self.sync_filesystem_button.set_is_important(True)  # Force label to show
         self.sync_filesystem_button.connect('clicked', self._on_sync_filesystem_clicked)
         toolbar.insert(self.sync_filesystem_button, -1)
 
         # Note: View 3D Results and Plot Data buttons moved to dedicated Results panel
 
-        # Separator
-        toolbar.insert(Gtk.SeparatorToolItem(), -1)
-        
-        # Settings button
-        self.settings_button = Gtk.ToolButton()
-        self.settings_button.set_icon_name("settings")
-        set_tool_button_custom_icon(self.settings_button, "settings", 24)
-        self.settings_button.set_label("Settings")
-        self.settings_button.set_tooltip_text("Configure operation monitoring preferences and resource limits")
-        self.settings_button.connect('clicked', self._on_settings_clicked)
-        toolbar.insert(self.settings_button, -1)
-        
         self.pack_start(toolbar, False, False, 0)
     
     def _update_button_sensitivity(self) -> None:
@@ -709,11 +697,10 @@ class OperationsMonitoringPanel(Gtk.Box):
             
             # Note: 3D Results and Plot Data functionality moved to dedicated Results panel
             
-            # Refresh, Clean Duplicates, Sync Filesystem, and Settings: Always enabled
+            # Refresh, Clean Duplicates, Sync Filesystem: Always enabled
             self.refresh_button.set_sensitive(True)
             self.clean_duplicates_button.set_sensitive(True)
             self.sync_filesystem_button.set_sensitive(True)
-            self.settings_button.set_sensitive(True)
             
         except Exception as e:
             self.logger.error(f"Error updating button sensitivity: {e}")
@@ -3487,7 +3474,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                 dialog_text += "\n"
 
             if orphaned_folders:
-                dialog_text += f"**{len(orphaned_folders)} Orphaned Folders** (will be imported to database):\n"
+                dialog_text += f"**{len(orphaned_folders)} Orphaned Folders** (will be deleted from filesystem):\n"
                 for name in sorted(list(orphaned_folders)[:10]):  # Show first 10
                     dialog_text += f"  • {name}\n"
                 if len(orphaned_folders) > 10:
@@ -3520,48 +3507,44 @@ class OperationsMonitoringPanel(Gtk.Box):
                     except Exception as e:
                         self.logger.error(f"Failed to delete database record {op_name}: {e}")
 
-                # Import orphaned folders as new operations
-                imported_count = 0
+                # Delete orphaned folders from the filesystem.
+                # An "orphan folder" is one whose database record has already been
+                # removed (e.g., via the Delete button). The user expectation is
+                # that sync = clean up trash, so the folder should disappear too.
+                # If a tester ever needs to recover a stranded folder, they can
+                # do it manually with file-system tools — far rarer than the
+                # cleanup case.
+                folder_deleted_count = 0
+                folder_failed_count = 0
+                import shutil
                 for folder_name in orphaned_folders:
+                    folder_path = operations_dir / folder_name
                     try:
-                        folder_path = operations_dir / folder_name
-
-                        # Infer operation type from folder name
-                        if folder_name.startswith("HydrationOf-") or folder_name.startswith("Hydration"):
-                            op_type = "Hydration Simulation"
-                        elif folder_name.startswith("Elastic-"):
-                            op_type = "Elastic Moduli Calculation"
-                        elif folder_name.endswith("-ElMod"):
-                            op_type = "Elastic Moduli Calculation"
-                        else:
-                            op_type = "Microstructure Generation"
-
-                        # Create basic database record
-                        from app.models.operation import Operation as OperationModel
-                        new_op = OperationModel(
-                            name=folder_name,
-                            operation_type=op_type,
-                            status="completed",  # Assume completed since folder exists
-                            output_directory=str(folder_path)
-                        )
-                        operation_service.save(new_op)
-                        imported_count += 1
-                        self.logger.info(f"Imported folder as operation: {folder_name}")
+                        if folder_path.is_dir():
+                            shutil.rmtree(folder_path)
+                            folder_deleted_count += 1
+                            self.logger.info(f"Deleted orphan folder: {folder_path}")
                     except Exception as e:
-                        self.logger.error(f"Failed to import folder {folder_name}: {e}")
+                        folder_failed_count += 1
+                        self.logger.error(f"Failed to delete orphan folder {folder_path}: {e}")
 
-                # Refresh from database to show new operations
+                # Refresh from database to reflect any record removals
                 self._smart_refresh_from_database()
                 self._update_ui()
+                # Refresh the file browser so the deleted folders disappear
+                try:
+                    self._load_operations_files()
+                except Exception:
+                    pass
 
                 # Report results
-                if imported_count > 0:
-                    self._update_status(
-                        f"Sync complete! Removed {deleted_count} orphaned database records. "
-                        f"Imported {imported_count} folders as operations."
-                    )
-                else:
-                    self._update_status(f"Sync complete! Removed {deleted_count} orphaned database records.")
+                msg = f"Sync complete! Removed {deleted_count} orphaned DB record(s)"
+                if orphaned_folders:
+                    msg += f", deleted {folder_deleted_count} orphan folder(s)"
+                    if folder_failed_count:
+                        msg += f" ({folder_failed_count} failed — see logs)"
+                msg += "."
+                self._update_status(msg)
             else:
                 self._update_status("Sync cancelled.")
 
@@ -3618,10 +3601,6 @@ class OperationsMonitoringPanel(Gtk.Box):
         # If at least 2 of the 3 key output files exist, consider it successful
         return vcctl_count >= 2
     
-    def _on_settings_clicked(self, button: Gtk.Button) -> None:
-        """Handle settings button click."""
-        # TODO: Show monitoring settings dialog
-        self._update_status("Monitoring settings not yet implemented")
     
     def _on_set_priority_clicked(self, button: Gtk.Button) -> None:
         """Handle set priority button click."""

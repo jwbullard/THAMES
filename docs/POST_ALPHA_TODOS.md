@@ -76,6 +76,24 @@ Add new items at the bottom with date, short title, context, and proposed fix. S
 
 ---
 
+### Materials Panel: delete sometimes silently fails for user-created materials
+
+**Identified:** 2026-04-27 (Windows alpha-2 testing)
+
+**Symptom.** A user-created material (`Clinker152`) could not be deleted via the Materials Panel UI. Clicking Delete appeared to do nothing — no error, no prompt, no row removal. The material had no foreign-key references and was not flagged immutable in the database, so direct SQL deletion succeeded immediately.
+
+**Root cause (suspected, not yet confirmed).** The deletion code path in `materials_panel.py` likely guards on `immutable` OR on a `is_clinker`/`has_clinker` heuristic and silently no-ops if a condition is met. `Clinker152` has `is_clinker=0, has_clinker=1` which may trip a stale check. Alternatively the delete handler may dispatch by tag (the `material_tags` table) and silently skip unfamiliar tags.
+
+**Proposed fix.** Walk the delete path: `_delete_material` → `_get_material_type` → tag lookup. Either (a) make the check authoritative via the `immutable` column only, or (b) when a delete is silently refused, raise a visible dialog explaining why. Today the user has no way to tell that a click did nothing.
+
+**Workarounds available during alpha.** Direct SQL on `%LOCALAPPDATA%\THAMES\database\thames.db`:
+```sql
+DELETE FROM material WHERE name='<material-name>';
+```
+Always backup the database first.
+
+---
+
 ### Delete unused VCCTL legacy files
 
 **Identified:** 2026-04-14 (Session 40).

@@ -169,11 +169,18 @@ class MaterialsPanel(Gtk.Box):
         self.import_button.set_tooltip_text("Import materials from file")
         io_box.pack_start(self.import_button, False, False, 0)
         
+        # Panel-level Export button intentionally hidden. The MaterialTable
+        # widget already exposes its own "Export Selected" button which is
+        # wired to a working save dialog. The panel-level wrapper here was
+        # a no-op (handler did `pass`) and only confused testers. To restore
+        # it, give it real behavior in _on_export_clicked and unhide.
         self.export_button = Gtk.Button(label="Export")
         export_icon = create_icon_image("save", 16)
         self.export_button.set_image(export_icon)
         self.export_button.set_always_show_image(True)
         self.export_button.set_tooltip_text("Export materials to file")
+        self.export_button.set_no_show_all(True)
+        self.export_button.hide()
         io_box.pack_start(self.export_button, False, False, 0)
         
         controls_box.pack_start(io_box, False, False, 0)
@@ -1502,26 +1509,59 @@ class MaterialsPanel(Gtk.Box):
         return copy_data
 
     def _copy_clinker_extension_data(self, service, source_material_id: int, target_material_id: int) -> None:
-        """Copy clinker extension data (surface fractions and correlations) from source to target material."""
+        """Copy the clinker_extension row from source to target via direct SQL.
+
+        Bypasses the public service setters (and their validators) because we
+        are mirroring an existing row faithfully -- including any NULL or
+        unsummed fractions inherited from the original VCCTL migration. The
+        validators in MaterialService.set_clinker_surface_fractions reject
+        any composition that doesn't sum to ~1.0, which previously caused the
+        whole copy to abort early and leave the target with no row at all
+        (then the input generator failed at runtime with
+        "ClinkerExtension not found"). A faithful row -- even with NULLs --
+        is the right outcome: the source material is already in this state
+        and is treated as valid by the rest of the application.
+        """
         self.logger.info(f"Copying clinker extension data from material {source_material_id} to {target_material_id}")
         try:
-            # Copy surface fractions
-            surface_fractions = service.get_clinker_surface_fractions(source_material_id)
-            self.logger.info(f"Got surface fractions from source: {surface_fractions}")
-            if surface_fractions:
-                service.set_clinker_surface_fractions(target_material_id, surface_fractions)
-                self.logger.info(f"Copied clinker surface fractions to new material {target_material_id}")
-            else:
-                self.logger.warning(f"No surface fractions found for source material {source_material_id}")
+            db = service.db_service
+            with db.get_session() as session:
+                from sqlalchemy import text
+                source = session.execute(
+                    text("SELECT * FROM clinker_extension WHERE material_id=:mid"),
+                    {"mid": source_material_id},
+                ).mappings().first()
+                if source is None:
+                    self.logger.warning(
+                        f"Source material {source_material_id} has no clinker_extension row; nothing to copy"
+                    )
+                    return
 
-            # Copy correlation functions
-            correlation_types = ['sil', 'c3s', 'alu', 'c3a', 'c4af', 'k2o', 'n2o']
-            for corr_type in correlation_types:
-                corr_data = service.get_clinker_correlation(source_material_id, corr_type)
-                if corr_data:
-                    service.set_clinker_correlation(target_material_id, corr_type, corr_data)
-                    self.logger.info(f"Copied correlation '{corr_type}' to new material {target_material_id}")
+                # Build a row for the target with every column from the source
+                # except material_id (use target) and timestamps (refresh).
+                cols = [k for k in source.keys() if k not in ("material_id", "created_at", "updated_at")]
+                placeholders = ", ".join(f":{c}" for c in cols)
+                col_list = ", ".join(cols)
+                params = {c: source[c] for c in cols}
+                params["mid"] = target_material_id
 
+                # Replace any pre-existing row for the target (idempotent).
+                session.execute(
+                    text("DELETE FROM clinker_extension WHERE material_id=:mid"),
+                    {"mid": target_material_id},
+                )
+                session.execute(
+                    text(
+                        f"INSERT INTO clinker_extension (material_id, {col_list}, created_at, updated_at) "
+                        f"VALUES (:mid, {placeholders}, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                    ),
+                    params,
+                )
+                session.commit()
+                self.logger.info(
+                    f"Copied clinker_extension row from material {source_material_id} to {target_material_id} "
+                    f"({len(cols)} columns)"
+                )
         except Exception as e:
             self.logger.error(f"Error copying clinker extension data: {e}")
             # Don't fail the whole duplication - material was already created

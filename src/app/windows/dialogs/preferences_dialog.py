@@ -406,7 +406,7 @@ class KineticDefaultsTab(Gtk.Box):
         self.phase_tree.append_column(column_source)
 
     def _load_phases(self) -> None:
-        """Load all GEM phases into the list."""
+        """Load all GEM phases into the list, plus the special "Aggregate" pseudo-phase."""
         if not self.gems_parser:
             self.logger.error("GEMS parser not available")
             return
@@ -423,28 +423,35 @@ class KineticDefaultsTab(Gtk.Box):
                 if phase_name in ['Electrolyte', 'aq_gen', 'Das']:
                     continue
 
-                # Get kinetic type and source
-                kinetic_type = self.defaults_service.get_kinetic_type(phase_name)
-                is_user_defined = self.defaults_service.has_user_override(phase_name)
+                self._append_phase_row(phase_name)
 
-                if kinetic_type:
-                    type_display = kinetic_type
-                else:
-                    type_display = "Thermodynamic"
-
-                if is_user_defined:
-                    source = "User-Defined"
-                elif kinetic_type:
-                    source = "Built-in"
-                else:
-                    source = "-"
-
-                self.phase_store.append([phase_name, type_display, source, is_user_defined])
+            # "Aggregate" is a UI alias for the structural aggregate slab in
+            # the microstructure (the underlying GEMS phase is Quartz, but
+            # the slab is treated separately so users can give it inert
+            # kinetics independent of any pozzolanic Quartz in fly ash, etc.).
+            # It is NOT in gems_parser.get_all_phases(), so we inject it here
+            # to make it editable from Preferences alongside the real phases.
+            self._append_phase_row('Aggregate')
 
             self.logger.info(f"Loaded {len(self.phase_store)} phases")
 
         except Exception as e:
             self.logger.error(f"Error loading phases: {e}")
+
+    def _append_phase_row(self, phase_name: str) -> None:
+        """Append a single phase row to phase_store using the kinetic-defaults service."""
+        kinetic_type = self.defaults_service.get_kinetic_type(phase_name)
+        is_user_defined = self.defaults_service.has_user_override(phase_name)
+
+        type_display = kinetic_type if kinetic_type else "Thermodynamic"
+        if is_user_defined:
+            source = "User-Defined"
+        elif kinetic_type:
+            source = "Built-in"
+        else:
+            source = "-"
+
+        self.phase_store.append([phase_name, type_display, source, is_user_defined])
 
     def _filter_visible_func(self, model, iter, data) -> bool:
         """Filter function for the phase list."""

@@ -220,10 +220,15 @@ class MaterialTable(Gtk.Box):
     
     def _setup_columns(self) -> None:
         """Setup tree view columns."""
-        # Selection column with checkbox
+        # Selection column with checkbox.
+        # The model has no boolean column for "checked"; we drive the cell's
+        # state from the live `self.selected_materials` set via a data-func,
+        # so toggling and row-highlight selection stay in sync.
         selection_renderer = Gtk.CellRendererToggle()
+        selection_renderer.set_property('activatable', True)
+        selection_renderer.connect('toggled', self._on_checkbox_toggled)
         selection_column = Gtk.TreeViewColumn("", selection_renderer)
-        selection_column.set_clickable(True)
+        selection_column.set_cell_data_func(selection_renderer, self._checkbox_cell_data_func)
         selection_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
         selection_column.set_fixed_width(30)
         self.tree_view.append_column(selection_column)
@@ -940,13 +945,20 @@ class MaterialTable(Gtk.Box):
                         break
             
             file_path = Path(filename)
-            
+            # If the user typed a name with no extension, default to CSV so
+            # the export silently succeeds instead of erroring with
+            # "Unsupported file format".
+            if file_path.suffix == '':
+                file_path = file_path.with_suffix('.csv')
+
             if file_path.suffix.lower() == '.csv':
                 self._export_to_csv(selected_data, file_path)
             elif file_path.suffix.lower() == '.json':
                 self._export_to_json(selected_data, file_path)
             else:
-                raise ValueError("Unsupported file format")
+                raise ValueError(
+                    f"Unsupported export format '{file_path.suffix}'. Use .csv or .json."
+                )
             
             self.main_window.update_status(f"Exported {len(selected_data)} materials to {file_path.name}", "success", 3)
             
@@ -1014,9 +1026,65 @@ class MaterialTable(Gtk.Box):
         self._update_pagination()
         self._update_status()
     
+    def _checkbox_cell_data_func(self, column, cell, model, iter_, _data):
+        """Drive the row's checkbox state from the live selected_materials set."""
+        material_data = model.get_value(iter_, 7)
+        material_id = getattr(material_data, 'id', None) if material_data else None
+        cell.set_property('active', material_id in self.selected_materials)
+
+    def _on_checkbox_toggled(self, _renderer, path_str):
+        """Toggle a row's membership in selected_materials when its checkbox is clicked."""
+        try:
+            iter_ = self.sort_model.get_iter_from_string(path_str)
+        except (ValueError, TypeError):
+            return
+        material_data = self.sort_model.get_value(iter_, 7)
+        material_id = getattr(material_data, 'id', None) if material_data else None
+        if material_id is None:
+            return
+        if material_id in self.selected_materials:
+            self.selected_materials.discard(material_id)
+        else:
+            self.selected_materials.add(material_id)
+        # Repaint just the affected row and refresh dependent UI state.
+        self.sort_model.row_changed(self.sort_model.get_path(iter_), iter_)
+        self._update_status()
+
     def refresh_data(self) -> None:
-        """Refresh the table data."""
+        """Refresh the table data, preserving the highlighted row across the reload.
+
+        Without this, the cursor jumps back to the top of the list every time
+        the panel calls refresh_data() after a duplicate or delete -- jarring
+        when the user is working through a long material list.
+        """
+        cursor_material_id = None
+        try:
+            selection = self.tree_view.get_selection()
+            model, paths = selection.get_selected_rows()
+            if paths:
+                it = model.get_iter(paths[0])
+                md = model.get_value(it, 7)
+                cursor_material_id = getattr(md, 'id', None) if md else None
+        except Exception:
+            cursor_material_id = None
+
         self._load_materials()
+
+        if cursor_material_id is None:
+            return
+        # Try to find the previously-cursored row again and re-cursor it.
+        try:
+            it = self.sort_model.get_iter_first()
+            while it is not None:
+                md = self.sort_model.get_value(it, 7)
+                if md and getattr(md, 'id', None) == cursor_material_id:
+                    path = self.sort_model.get_path(it)
+                    self.tree_view.set_cursor(path, None, False)
+                    self.tree_view.scroll_to_cell(path, None, True, 0.5, 0.0)
+                    break
+                it = self.sort_model.iter_next(it)
+        except Exception:
+            pass
     
     def get_selected_materials(self) -> List[Any]:
         """Get the currently selected materials."""
