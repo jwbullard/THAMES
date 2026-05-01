@@ -906,14 +906,25 @@ class ResultsPanel(Gtk.Box):
     
     def _on_operation_selection_changed(self, selection) -> None:
         """Handle operation selection change."""
-        model, tree_iter = selection.get_selected()
-        if tree_iter is not None:
-            # Get selected operation
-            self.selected_operation = model[tree_iter][3]  # operation object
-            self._show_analysis_tools(self.selected_operation)
-        else:
-            self.selected_operation = None
-            self._show_no_selection_message()
+        try:
+            model, tree_iter = selection.get_selected()
+            if tree_iter is not None:
+                # Get selected operation
+                self.selected_operation = model[tree_iter][3]  # operation object
+                self.logger.info(
+                    f"Results panel: selection changed to '{getattr(self.selected_operation, 'name', '?')}' "
+                    f"(folder={getattr(self.selected_operation, 'folder_path', '?')})"
+                )
+                self._show_analysis_tools(self.selected_operation)
+            else:
+                self.selected_operation = None
+                self._show_no_selection_message()
+        except Exception as e:
+            self.logger.error(f"Results panel: selection handler crashed: {e}", exc_info=True)
+            try:
+                self._show_error_dialog("Error", f"Failed to load operation analysis: {e}")
+            except Exception:
+                pass
     
     def _on_view_3d_results_clicked(self, button) -> None:
         """Handle View 3D Results button click."""

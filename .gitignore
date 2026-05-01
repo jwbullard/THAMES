@@ -185,6 +185,8 @@ Desktop.ini
 src/data/database/*.db
 src/data/database/*.sqlite
 src/data/database/*.sqlite3
+# Seed DB shipped with the installer (copied to user data dir on first launch)
+!src/data/database/thames.db
 logs/
 *.log
 

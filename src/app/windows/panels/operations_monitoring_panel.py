@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 from app.services.service_container import get_service_container
 from app.services.phase_id_mapping_service import PhaseIdMappingService
 from app.utils.icon_utils import set_tool_button_custom_icon, create_button_with_icon
+from app.utils.thread_safety import assert_main_thread
 from app.help.panel_help_button import create_panel_help_button
 
 
@@ -1847,6 +1848,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _update_ui(self) -> None:
         """Update the UI with current data."""
+        assert_main_thread()
         try:
             # Update operations list
             self._update_operations_list()
@@ -2797,6 +2799,7 @@ class OperationsMonitoringPanel(Gtk.Box):
 
     def _update_operations_list(self) -> None:
         """Update the operations list view efficiently without clearing."""
+        assert_main_thread()
         if not self.operations_store:
             return
         
@@ -2906,6 +2909,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _update_performance_metrics(self) -> None:
         """Update performance metrics display."""
+        assert_main_thread()
         # Calculate metrics from operations
         total_ops = len(self.operations)
         completed_ops = len([op for op in self.operations.values() 
@@ -3014,6 +3018,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _update_operation_details(self, operation: Operation) -> None:
         """Update operation details display."""
+        assert_main_thread()
         self.operation_name_value.set_text(operation.name)
         self.operation_type_value.set_text(operation.operation_type.value.replace('_', ' ').title())
         self.operation_status_value.set_text(operation.status.value.title())
@@ -4656,6 +4661,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _refresh_results_analysis(self) -> None:
         """Refresh all results analysis data."""
+        assert_main_thread()
         try:
             # Throttle dashboard refresh to prevent excessive performance impact
             import time
@@ -5124,6 +5130,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _set_error_analysis(self, error_message: str) -> None:
         """Set error message in analysis display."""
+        assert_main_thread()
         buffer = self.results_error_text.get_buffer()
         buffer.set_text(f"❌ Error performing analysis:\n\n{error_message}")
     
@@ -5824,18 +5831,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                     
         except Exception as e:
             self.logger.error(f"Failed to update operation in database: {operation.name}: {e}")
-        self._sync_with_active_hydration_simulations()
-        
-        # Update UI with all loaded operations
-        if self.operations:
-            self._update_operations_list()
-            self._update_performance_metrics()
-            # Refresh results analysis with loaded data
-            try:
-                self._refresh_results_analysis()
-            except Exception as e:
-                self.logger.warning(f"Error refreshing results analysis on load: {e}")
-    
+
     def _convert_db_operation_to_ui_operation(self, db_op) -> Operation:
         """Convert database Operation to UI Operation format."""
         from app.models.operation import OperationStatus as DBOperationStatus, OperationType as DBOperationType

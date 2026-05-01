@@ -49,16 +49,34 @@ class VCCTLApplication(Gtk.Application):
         self.logger.info(f"VCCTL Application {self.app_version} initialized")
     
     def _setup_logging(self) -> None:
-        """Setup application logging."""
+        """Setup application logging.
+
+        Always write to a file in the user data dir so packaged builds
+        (console=False, stdout discarded) leave a trace when something
+        goes wrong. Resolve the path the same way app_info.py does to
+        avoid a circular import.
+        """
+        import os
+        from pathlib import Path
+        if os.name == 'nt':
+            logs_dir = Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')) / 'THAMES' / 'logs'
+        elif os.name == 'posix' and os.uname().sysname == 'Darwin':
+            logs_dir = Path.home() / 'Library' / 'Application Support' / 'THAMES' / 'logs'
+        else:
+            logs_dir = Path.home() / '.local' / 'share' / 'THAMES' / 'logs'
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        log_file = logs_dir / 'thames.log'
+
+        file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        stream_handler = logging.StreamHandler(sys.stdout)
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.StreamHandler(sys.stdout),
-                # TODO: Add file handler when we have a logs directory
-            ]
+            handlers=[file_handler, stream_handler],
+            force=True,  # override any earlier basicConfig (e.g. third-party imports)
         )
         self.logger = logging.getLogger('VCCTL')
+        self.logger.info(f"Logging to {log_file}")
     
     def _on_startup(self, app: Gtk.Application) -> None:
         """Called once when the application starts."""

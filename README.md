@@ -24,6 +24,22 @@ post-processing the results into multi-scale elastic moduli.
 
 ---
 
+## System requirements
+
+- **Windows 10 or 11 (x64)**, macOS 12+, or a recent Linux distribution.
+- **2 GB RAM minimum, 8 GB recommended.** Loading a 200³ microstructure into the
+  3D viewer can use ~5 GB of RAM by itself.
+- **A working OpenGL-capable graphics driver** for the 3D microstructure viewer
+  and elastic strain-energy visualization. Any modern integrated or discrete
+  GPU with vendor drivers (Intel, AMD, NVIDIA) is sufficient.
+  *Headless / virtualized environments without GPU acceleration —
+  including Windows Sandbox, some RDP sessions, and bare VMs without a
+  passthrough GPU — will crash when the 3D viewer attempts to render.* All
+  other features (Materials, Mix Design, Hydration simulation, data plots,
+  scalar elastic-moduli output) work without a GPU.
+
+---
+
 ## Download
 
 Pre-built binaries are published as GitHub releases. Pick the latest pre-release

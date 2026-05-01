@@ -797,6 +797,40 @@ Operations progress through states:
 ![Operations Panel](images/19-operations-panel.png)
 *Figure 8.1: Operations panel showing different operation states*
 
+> **⚠️ Alpha limitation: closing THAMES while an operation is running**
+>
+> If you close (or crash) the THAMES application while a Mix or Hydration
+> operation is running, the simulator process (`micgen.exe` /
+> `thames.exe`) keeps running in the background and continues to write
+> output. **However, the next time you launch THAMES it cannot tell that
+> the simulator is still alive**, and will display the operation as
+> *Cancelled*. The simulator process itself is unaffected — it will run
+> to completion and the output folder under
+> `%LOCALAPPDATA%\THAMES\operations\<name>\` (macOS:
+> `~/Library/Application Support/THAMES/operations/<name>/`) will contain
+> the final result files when it finishes.
+>
+> **What to do if this happens:**
+> 1. **Do not delete the "Cancelled" operation from the panel yet.** Use
+>    Task Manager (Windows) or Activity Monitor / `ps aux | grep` (macOS)
+>    to check whether `micgen.exe` / `thames.exe` is still alive.
+> 2. If it's alive, wait for it to finish. The output folder is
+>    authoritative — once the .img and CSV files are present, the run is
+>    complete regardless of what the Operations panel says.
+> 3. The Results panel scans the operations folder directly, so a
+>    finished run is visible there even if the Operations panel still
+>    labels it "Cancelled."
+>
+> **What to do to avoid it:**
+> - Use the operation's *Stop* button before closing THAMES if you want
+>   to actually cancel the run.
+> - If you want the run to keep going, simply leave THAMES open until it
+>   completes. THAMES does not need to be foregrounded; you can minimize
+>   the window and use other applications.
+>
+> Reattaching to live operations across app restarts is on the post-alpha
+> roadmap.
+
 ### 8.2 Progress Tracking
 
 For hydration simulations, progress displays:

@@ -512,33 +512,38 @@ class MixDesignPanel(Gtk.Box):
             self.main_window.update_status(f"Error loading materials: {e}", "error", 5)
 
     def refresh_shape_sets(self) -> None:
-        """Refresh particle shape sets dropdown after extraction completes.
+        """Refresh shape set dropdowns after extraction completes.
 
         Called by DirectoriesService after first-launch extraction completes.
+        Refreshes the cement particle combo plus the fine/coarse aggregate
+        combos — all three are populated at panel-creation time, before
+        extraction has finished, so they otherwise show only "sphere" until
+        the next app launch.
         """
-        try:
-            self.logger.info("Refreshing particle shape sets dropdown")
-            # Get current selection to restore if possible
-            current_selection = self.cement_shape_combo.get_active_id()
-
-            # Clear existing items
-            self.cement_shape_combo.remove_all()
-
-            # Reload shape sets from service (cache was invalidated)
-            shape_sets = self.microstructure_service.get_supported_shape_sets()
+        def _repopulate(combo, shape_sets):
+            current = combo.get_active_id()
+            combo.remove_all()
             for shape_id, shape_desc in shape_sets.items():
-                self.cement_shape_combo.append(shape_id, shape_desc)
+                combo.append(shape_id, shape_desc)
+            if current and current in shape_sets:
+                combo.set_active_id(current)
+            elif len(shape_sets) > 0:
+                combo.set_active(0)
 
-            # Restore previous selection if it still exists, otherwise select first item
-            if current_selection and current_selection in shape_sets:
-                for i in range(len(shape_sets)):
-                    if self.cement_shape_combo.get_active_id() == current_selection:
-                        self.cement_shape_combo.set_active(i)
-                        break
-            else:
-                self.cement_shape_combo.set_active(0)
+        try:
+            cement_shapes = self.microstructure_service.get_supported_shape_sets()
+            _repopulate(self.cement_shape_combo, cement_shapes)
 
-            self.logger.debug(f"Refreshed hidden cement shape combo with {len(shape_sets)} shape sets")
+            fine_shapes = self.microstructure_service.get_fine_aggregate_shapes()
+            _repopulate(self.fine_agg_shape_combo, fine_shapes)
+
+            coarse_shapes = self.microstructure_service.get_coarse_aggregate_shapes()
+            _repopulate(self.coarse_agg_shape_combo, coarse_shapes)
+
+            self.logger.info(
+                f"Refreshed shape combos: {len(cement_shapes)} cement, "
+                f"{len(fine_shapes)} fine aggregate, {len(coarse_shapes)} coarse aggregate"
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to refresh shape sets: {e}")
