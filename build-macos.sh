@@ -68,10 +68,33 @@ mkdir -p "$BIN_DIR"
 cp "$THAMES_DIR/build/thames" "$BIN_DIR/thames"
 cp "$MICGEN_DIR/build/micgen" "$BIN_DIR/micgen"
 
+# Step 5: Bundle Homebrew libpng so the .app runs on machines without Homebrew.
+# Both binaries link /opt/homebrew/opt/libpng/lib/libpng16.16.dylib at build time;
+# rewrite that to @rpath/libpng16.16.dylib and add @loader_path to LC_RPATH so
+# they resolve the dylib next to themselves inside bin/.
+echo ""
+echo "--- Bundling libpng ---"
+LIBPNG_SRC=/opt/homebrew/opt/libpng/lib/libpng16.16.dylib
+LIBPNG_DST="$BIN_DIR/libpng16.16.dylib"
+cp -L "$LIBPNG_SRC" "$LIBPNG_DST"
+chmod u+w "$LIBPNG_DST"
+install_name_tool -id @rpath/libpng16.16.dylib "$LIBPNG_DST"
+codesign --force --sign - "$LIBPNG_DST"
+for BIN in "$BIN_DIR/thames" "$BIN_DIR/micgen"; do
+    install_name_tool -change "$LIBPNG_SRC" @rpath/libpng16.16.dylib "$BIN"
+    # Add LC_RPATH only if not already present (re-runs are idempotent).
+    if ! otool -l "$BIN" | grep -q "path @loader_path "; then
+        install_name_tool -add_rpath @loader_path "$BIN"
+    fi
+    codesign --force --sign - "$BIN"
+done
+echo "libpng: bundled to bin/, @rpath rewritten, ad-hoc re-signed"
+
 echo ""
 echo "========================================="
 echo "Build complete!"
 echo "========================================="
-echo "  bin/thames  - $(ls -lh "$BIN_DIR/thames" | awk '{print $5}')"
-echo "  bin/micgen  - $(ls -lh "$BIN_DIR/micgen" | awk '{print $5}')"
+echo "  bin/thames               - $(ls -lh "$BIN_DIR/thames" | awk '{print $5}')"
+echo "  bin/micgen               - $(ls -lh "$BIN_DIR/micgen" | awk '{print $5}')"
+echo "  bin/libpng16.16.dylib    - $(ls -lh "$BIN_DIR/libpng16.16.dylib" | awk '{print $5}')"
 echo ""

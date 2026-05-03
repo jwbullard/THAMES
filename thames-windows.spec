@@ -26,14 +26,15 @@ if IS_WINDOWS:
         ('bin/libpng16-16.dll', 'bin/'),
     ]
 elif IS_MACOS:
+    # THAMES on macOS ships the same two compiled backends as Windows: the C++
+    # hydration simulator (thames) and the C microstructure generator (micgen).
+    # Both live in bin/ at the repo root (produced by build-macos.sh) along with
+    # the bundled Homebrew libpng16 dylib that build-macos.sh rewrites to
+    # @rpath/libpng16.16.dylib so testers don't need Homebrew installed.
     platform_binaries = [
-        ('backend/bin/genmic', 'backend/bin/'),
-        ('backend/bin/disrealnew', 'backend/bin/'),
-        ('backend/bin/elastic', 'backend/bin/'),
-        ('backend/bin/genaggpack', 'backend/bin/'),
-        ('backend/bin/perc3d', 'backend/bin/'),
-        ('backend/bin/stat3d', 'backend/bin/'),
-        ('backend/bin/oneimage', 'backend/bin/'),
+        ('bin/thames', 'bin/'),
+        ('bin/micgen', 'bin/'),
+        ('bin/libpng16.16.dylib', 'bin/'),
     ]
 elif IS_LINUX:
     platform_binaries = [
@@ -206,8 +207,58 @@ if IS_MACOS:
         info_plist={
             'CFBundleName': 'THAMES',
             'CFBundleDisplayName': 'Thermodynamic Hydration And Microstructure Evolution Simulator',
-            'CFBundleVersion': '10.0.0',
-            'CFBundleShortVersionString': '10.0.0',
+            'CFBundleVersion': '1.0.0-alpha.2',
+            'CFBundleShortVersionString': '1.0.0-alpha.2',
             'NSHighResolutionCapable': True,
+            'LSMinimumSystemVersion': '10.14',
+            'LSApplicationCategoryType': 'public.app-category.education',
         },
     )
+
+    # Post-bundle fix: replace PIL's bundled libharfbuzz with Homebrew's copy.
+    #
+    # PyInstaller's PIL hook bundles a minimal libharfbuzz built without
+    # CoreText support, and on macOS PyInstaller resolves the canonical
+    # Contents/Frameworks/libharfbuzz.0.dylib through PIL's copy (via a
+    # symlink chain). But Homebrew's libpangocairo — which the GI hook
+    # collects to run GTK — links against the Homebrew harfbuzz that DOES
+    # have CoreText. Loading Gdk-3.0.typelib then fails with
+    # "Symbol not found: _hb_coretext_font_create" and the app exits at
+    # startup before any UI shows. Replacing the single physical PIL copy
+    # (everything else points to it) with Homebrew's cures it.
+    import shutil
+    import subprocess
+    bundle_root = os.path.join('dist', 'THAMES.app')
+    target = os.path.join(bundle_root, 'Contents', 'Frameworks',
+                          'PIL', '__dot__dylibs', 'libharfbuzz.0.dylib')
+    homebrew_src = '/opt/homebrew/opt/harfbuzz/lib/libharfbuzz.0.dylib'
+    if not os.path.exists(homebrew_src):
+        raise RuntimeError(
+            f"Homebrew libharfbuzz not found at {homebrew_src}. "
+            "Install with: brew install harfbuzz"
+        )
+    if not os.path.exists(target):
+        raise RuntimeError(
+            f"Expected PyInstaller-bundled PIL harfbuzz at {target}, not found. "
+            "PyInstaller bundle layout may have changed; re-investigate."
+        )
+    shutil.copy2(homebrew_src, target)
+    os.chmod(target, 0o755)
+    for cmd in [
+        ['install_name_tool', '-id', '@rpath/libharfbuzz.0.dylib', target],
+        ['install_name_tool', '-change',
+         '/opt/homebrew/opt/freetype/lib/libfreetype.6.dylib',
+         '@rpath/libfreetype.6.dylib', target],
+        ['install_name_tool', '-change',
+         '/opt/homebrew/opt/glib/lib/libglib-2.0.0.dylib',
+         '@rpath/libglib-2.0.0.dylib', target],
+        ['install_name_tool', '-change',
+         '/opt/homebrew/opt/graphite2/lib/libgraphite2.3.dylib',
+         '@rpath/libgraphite2.3.dylib', target],
+        ['codesign', '--force', '--sign', '-', target],
+        # Re-sign the parent bundle since the nested dylib changed.
+        ['codesign', '--force', '--deep', '--sign', '-', bundle_root],
+    ]:
+        subprocess.run(cmd, check=True)
+    print('[thames-spec] libharfbuzz: PIL copy replaced with Homebrew, '
+          'install_names rewritten to @rpath/, bundle re-signed.')
