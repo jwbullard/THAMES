@@ -46,6 +46,25 @@ sys.excepthook = _excepthook
 # Add the src directory to the Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+# Dev-mode GSettings schema fix (macOS only, no effect when bundled).
+#
+# In a PyInstaller bundle the GI runtime hook points GSETTINGS_SCHEMA_DIR at
+# Contents/Resources/share/glib-2.0/schemas, which carries the compiled
+# gschemas.compiled cache. In dev mode (`python src/main.py`), GLib expects
+# to find schemas via XDG_DATA_DIRS — which some terminals (Ghostty among
+# them) override in a way that strips /opt/homebrew/share. `gsettings
+# list-schemas` then returns nothing, and clicking GTK's ColorButton tries
+# to open a color-chooser dialog that requires the
+# `org.gtk.Settings.ColorChooser` schema and aborts the process via
+# g_log_abort (SIGTRAP, no Python traceback). Point GSETTINGS_SCHEMA_DIR
+# at Homebrew's compiled cache so dev launches work regardless of the
+# terminal env.
+if not getattr(sys, 'frozen', False) and sys.platform == 'darwin':
+    if 'GSETTINGS_SCHEMA_DIR' not in os.environ:
+        _brew_schemas = Path('/opt/homebrew/share/glib-2.0/schemas')
+        if (_brew_schemas / 'gschemas.compiled').exists():
+            os.environ['GSETTINGS_SCHEMA_DIR'] = str(_brew_schemas)
+
 try:
     from app.application import VCCTLApplication
 except ImportError as e:
