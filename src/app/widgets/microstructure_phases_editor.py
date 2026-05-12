@@ -231,10 +231,22 @@ class MicrostructurePhasesEditor(Gtk.Box):
 
         if response == Gtk.ResponseType.OK:
             new_params = dialog.get_kinetic_parameters()
-            if new_params:
+            if new_params is not None:
+                # User selected a non-Thermodynamic kinetic model.
                 self.phase_data[phase_name]['kinetics'] = new_params
-                self.emit('kinetics-changed')
-                self.logger.debug(f"Updated kinetics for {phase_name}")
+            else:
+                # User selected "Thermodynamic" (KineticModelEditorDialog
+                # returns None for that case). Persist explicitly so the
+                # selection isn't silently dropped — the C++ side reads
+                # absence-of-kinetic_data as Thermodynamic, but we need a
+                # concrete in-memory record so re-opening the dialog shows
+                # the correct selection and downstream serializers see it.
+                self.phase_data[phase_name]['kinetics'] = {"type": "Thermodynamic"}
+            self.emit('kinetics-changed')
+            self.logger.debug(
+                f"Updated kinetics for {phase_name}: "
+                f"{self.phase_data[phase_name]['kinetics'].get('type')}"
+            )
 
         dialog.destroy()
 

@@ -45,6 +45,7 @@ from app.services.thames_execution_service import (
     get_thames_execution_service,
 )
 from app.services.hydration_products_service import get_hydration_products_service
+from app.services.kinetic_preferences_service import get_kinetic_preferences_service
 from app.services.phase_id_mapping_service import normalize_phase_name
 from app.services.time_generator_service import (
     get_time_generator_service,
@@ -1417,13 +1418,22 @@ class THAMESHydrationPanel(Gtk.Box):
         response = dialog.run()
         if response == Gtk.ResponseType.OK:
             new_kinetics = dialog.get_kinetic_parameters()
+            # Persist to user preferences so the choice survives UI restarts.
+            # Without this, switching Portlandite (or any micro phase) to
+            # Thermodynamic only updates the in-session dict — a UI restart
+            # re-seeds the dict from built-in defaults and the user's intent
+            # is silently lost on the next run.
+            prefs_service = get_kinetic_preferences_service()
             if new_kinetics:
-                # User selected a kinetic model
+                # User selected a kinetic model (Standard/PK/Pozzolanic).
                 self.product_selector.set_kinetic_configuration(gems_name, new_kinetics)
+                prefs_service.set_user_default(gems_name, new_kinetics)
                 self._log_message(f"Updated kinetics for {gems_name}: {new_kinetics.get('type')}")
             else:
-                # User selected "Thermodynamic" (no kinetics) - remove any existing configuration
+                # User selected "Thermodynamic" - clear any existing config
+                # and persist the Thermodynamic preference explicitly.
                 self.product_selector.remove_kinetic_configuration(gems_name)
+                prefs_service.set_user_default(gems_name, {"type": "Thermodynamic"})
                 self._log_message(f"Removed kinetics for {gems_name} (now thermodynamic)")
 
         dialog.destroy()
