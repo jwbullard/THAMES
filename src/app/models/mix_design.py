@@ -151,7 +151,7 @@ class MixDesignCreate(BaseModel):
     system_size_x: int = Field(ge=25, le=400, default=100)
     system_size_y: int = Field(ge=25, le=400, default=100)
     system_size_z: int = Field(ge=25, le=400, default=100)
-    system_size: int = Field(ge=50, le=500, default=100)  # Keep for backward compatibility
+    system_size: int = Field(ge=25, le=400, default=100)  # Keep for backward compatibility
     
     # Resolution parameter
     resolution: float = Field(ge=0.01, le=100.0, default=1.0)
@@ -252,7 +252,7 @@ class MixDesignUpdate(BaseModel):
     system_size_x: Optional[int] = Field(None, ge=25, le=400)
     system_size_y: Optional[int] = Field(None, ge=25, le=400)
     system_size_z: Optional[int] = Field(None, ge=25, le=400)
-    system_size: Optional[int] = Field(None, ge=50, le=500)
+    system_size: Optional[int] = Field(None, ge=25, le=400)
     
     # Resolution parameter
     resolution: Optional[float] = Field(None, ge=0.01, le=100.0)

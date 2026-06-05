@@ -172,6 +172,69 @@ The same coercion should happen on `simparams.json` generation (`hydration_input
 
 ---
 
+### Lattice-trapped phase blocks GEMS at later ages (encapsulated-remnant stall)
+
+**Identified:** 2026-06-04 (root-causing `HY-ccr152-sf15-ws45-04`, cement + 15% silica fume).
+
+**Symptom.** A run that has reached late age (sim time 305.86 h ≈ 12.7 d in this example) and a healthy adaptive timestep (dt grew to 4 h before the cliff) suddenly clips dt to the 1e-5 h floor on every cycle and eventually exits via `GEMS solver exceeded maximum consecutive failures` (50 failures in a row). Wall time was ~4.7 h, total cycles 2719 with 2654 ok / 65 failed (97.6% success rate up to the cliff). `Result/exit_status.json` is written cleanly so the failure is detected, not silent.
+
+The log signature, starting ~80 cycles before termination, is identical on every cycle:
+
+```
+DISS_INI for ettr : count_=26  dim_isite=0  numleft=26
+WAIT to dissolve 26 voxels ...
+anormal end for phases : ettr, numDiff=26
+=> recall GEM after (re)setDCLowerLimit
+...
+Kinetics constraint: reducing timestep from 4.000e+00 to 1.000e-05 h
+```
+
+At the cliff cycle (2648 in this run), the recall-GEM-with-locked-DCLowerLimit call itself stops converging; every subsequent retry uses identical state at identical `currTime`, so the 50-failure budget drains with zero progress.
+
+**Root cause.** A small number of voxels of a minor late-age phase (here: 26 voxels of ettringite, 3×10⁻⁶ of the total 8M voxel system) become **inaccessible to the dissolution interface** during the AFt → AFm conversion. `count_=26` says they exist; `dim_isite=0` says none of them have any neighbor a dissolution event can be placed on — they have been encapsulated by the surrounding AFm/CSH phases (here: C4AsH14, monosulf-AlFe, C3AH6) and lost contact with porosity or electrolyte. GEMS still demands ettr → 0 because the equilibrium AFt → AFm conversion is in progress at this age. The system's coping path (recall GEMS with `DCLowerLimit = residual ettr moles`, locking the trapped voxels into the GEMS state) works for ~80 cycles but forces `dt → 1e-5 h` every cycle because the kinetic-constraint detector reads the lattice mismatch as a near-depletion signal. Eventually the locked-state GEMS call itself stops converging and the run exits.
+
+Silica fume appears to be the trigger because the extra CSHQ growth (Sfume → CSHQ) and aggressive AFt → AFm reshuffle bury ettringite remnants from outside-in before they finish dissolving. The companion run without silica fume (`HY-ccr152-ws45`) reached 28 days cleanly. The pattern is not unique to ettringite — any phase whose GEMS-equilibrium goes to zero while small encapsulated remnants survive in the lattice should produce the same signature.
+
+**Proposed fix.** Three options, increasing cost:
+
+1. **Lattice sweep when a phase becomes inaccessible** (cheapest backend fix). In `Lattice::dissolvePhase`, when `dim_isite == 0` AND `count_ > 0` AND the count is below a threshold (e.g. `< 1e-5` of total voxels), sweep the residual voxels directly to electrolyte/void and update the DC moles accordingly. This bypasses the interface system entirely for tiny encapsulated remnants. Risk: charge balance — sweeping requires re-balancing IC moles the same way `checkICMoles` does.
+2. **Adaptive-timestep oscillation detector**. Add a counter for "consecutive cycles where `dim_isite=0` triggered a GEM recall for the same phase"; after N (e.g. 20) such cycles, treat the phase as effectively-locked, suppress it from the kinetic-constraint denominator (so dt is no longer clipped), and let the simulation continue with the residual voxels frozen in place.
+3. **Pre-run heuristic**: when silica fume volume fraction exceeds a threshold (~5%), default ettr (and possibly other AFt phases) to suppressed in the simparams generator, with a UI note. Cheapest UX path but kills early-age realism — ettringite formation in the first hours is a real and important kinetic event for cement chemistry.
+
+Long-term, (1) + (2) together are the right answer; (3) is a workaround for the UI to surface.
+
+**Files.** `backend/thames-hydration/src/thameslib/Lattice.cc` (`dissolvePhase`, `changeMicrostructure`); `backend/thames-hydration/src/thameslib/Controller.cc` (`computeKineticsBasedMaxTimestep`, the kinetic-constraint clipping path); `backend/thames-hydration/src/thameslib/AdaptiveTimeController.{h,cc}` (oscillation-detector state).
+
+**Workarounds available during alpha.** Add the trapped phase to `suppressed_phases` in simparams (via the Hydration Product Selector — uncheck the phase before launching). For cement + silica-fume systems specifically, uncheck `ettr` so GEMS routes sulfate straight to monosulf-AlFe / C4AsH14 from the start with no AFt → AFm transition. The 26 trapped voxels at 12 days are chemically negligible (3×10⁻⁶ of system volume). Alternative workaround: assign the affected phase a slow Pozzolanic kinetic model so it drains gradually instead of GEMS demanding instantaneous full dissolution at conversion time.
+
+---
+
+### Mix Design auto-save: surface Pydantic ValidationError instead of silently failing
+
+**Identified:** 2026-06-04 (Session 47, root-causing the empty `ccr152-ws45-32` orphan folder).
+
+**Symptom.** User entered a system size of 32 in the Mix Design panel and clicked Generate. The operation folder was created at `~/Library/Application Support/THAMES/operations/ccr152-ws45-32` but stayed empty: no input file, no `micgen` launch, no error dialog, no toast, no status-bar message. From the user's perspective the click did nothing. The only evidence was a buried `❌ Error auto-saving mix design` line in `thames.log` showing a Pydantic `ValidationError` with `Input should be greater than or equal to 50` for `system_size`. (The schema constraint itself was also wrong — a stale `ge=50` on the legacy `system_size` field while the per-axis `system_size_x/y/z` allow `ge=25`. That part was fixed in-session by relaxing `mix_design.py:154` and `:255` to `ge=25, le=400` to match the per-axis bounds.)
+
+**Root cause.** `MixDesignPanel._auto_save_mix_design_before_generation` (around `mix_design_panel.py:5628`) wraps the `MixDesignCreate(**data)` call in a broad `try/except` that logs the traceback and returns `None`. The caller in `_generate_microstructure_input` (or equivalent) checks for `None` and logs `No saved mix design ID - cannot generate input file` — and then **just returns**. No `MessageDialog`, no status update. The empty folder was created earlier in the flow (the `Created mix folder` log line precedes the validation), so the failure also leaves orphan directories that have to be cleaned up via Sync with Filesystem.
+
+This pattern (catch → log → return None → silently abort) is the same shape as Bug 2 from Session 44 (orphan widget calls from a background thread). Both expose the same underlying issue: errors that should be user-visible are being demoted to log noise.
+
+**Proposed fix.** In `_auto_save_mix_design_before_generation`, distinguish `pydantic.ValidationError` from other exceptions. For the ValidationError path:
+
+1. Pretty-format `e.errors()` into a human-readable list (`field` → `msg`).
+2. Show a `Gtk.MessageDialog(MessageType.ERROR)` with the list of failing fields, parent set to the panel's toplevel window.
+3. Still return `None` so the caller aborts — but the user knows why.
+
+For the unexpected-exception path, keep the current log-and-return behavior but also pop a "An unexpected error occurred — see the log file at ~/Library/Application Support/THAMES/logs/thames.log" dialog. Silent failure is the bigger UX bug than the specific schema rejection.
+
+**Defense in depth.** Also do not create the operation folder until after auto-save succeeds. Current order: create folder → extract data → validate → fail. Better order: extract data → validate → create folder → write input file. Eliminates the empty-orphan-folder side effect entirely.
+
+**Files.** `src/app/windows/panels/mix_design_panel.py` (`_auto_save_mix_design_before_generation` and its caller; also the folder-creation order).
+
+**Workarounds available during alpha.** If a microstructure generation "does nothing," check `~/Library/Application Support/THAMES/logs/thames.log` for a `❌ Error auto-saving mix design` line near the end. The Pydantic message identifies the offending field. On Windows, the log path is `%LOCALAPPDATA%\THAMES\logs\thames.log`.
+
+---
+
 ### Delete unused VCCTL legacy files
 
 **Identified:** 2026-04-14 (Session 40).
