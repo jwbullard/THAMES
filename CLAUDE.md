@@ -261,6 +261,22 @@ Started as a memory check and a scoping conversation about a publication-quality
 - **New memory** `feedback_alpha_release_notes_workflow.md`: when a fix lands in source but the published alpha bundle still has the bug, BOTH update `release-notes-alpha-N.md` AND amend the published release's Known Limitations via `gh release edit`. The published-release edit is a shared-state action — confirm with the user before running it, even after a prior in-session authorization. `MEMORY.md` pointer added.
 - **Pre-existing dirty file committed alongside Session 47 work**: `docs/POST_ALPHA_TODOS.md` already contained the "Lattice-trapped phase blocks GEMS at later ages (encapsulated-remnant stall)" entry from earlier today (root-causing `HY-ccr152-sf15-ws45-04` — 26 voxels of ettringite become inaccessible to the dissolution interface at 12.7 d after AFt→AFm conversion buries them in C4AsH14/monosulf-AlFe). That entry is the user's pre-session work and is bundled into the Session 47 commit.
 
+### Session 48: THAMES Architecture Triangle Slide Graphic
+June 7, 2026 — macOS
+
+Pedagogical / artistic graphic for slides and papers explaining the three pillars of THAMES (GEMS3K thermodynamics, kinetic constraints, 3D microstructure) and their bidirectional coupling. No runtime code touched; entirely a `docs/` artifact built by a Python script. Full narrative: `docs/session48_summary.md`.
+
+- **Output**: two transparent-background SVGs at 1200×1000 — `docs/thames-architecture-triangle-dark.svg` (cream text/arrows for dark slide backgrounds like `#121217`) and `docs/thames-architecture-triangle-light.svg` (dark-charcoal text/arrows for white-page rendering). Identical panel content between themes; only the surrounding text + arrow colors flip.
+- **Composition**: triangle with microstructure on top, GEMS bottom-left, kinetics bottom-right. Each edge is a "lens" of two unidirectional Bezier curves with one arrowhead per curve. Panel colors after a mid-session swap: microstructure = ember `#E07A2C`, GEMS = teal `#397B8A`, kinetics = jade `#5FAA82`. Each flow label is colored to its source panel so a viewer can trace any label back to where the data comes from without reading the arrowhead direction.
+- **Panel content**: real `ThamesRender` output (HY-ccr152-ws45 at 12 h, downsampled 1920×1440 → 520×390) on top; schematic 3D Gibbs surface with marked minimum in GEMS; shrinking-particle dissolution schematic over the THAMES Standard rate equation `R = k A (1 − Ω^p)^q` in kinetics. `feDropShadow` on each panel rect at theme-dependent opacity (0.45 dark / 0.22 light) to lift the cards off the page.
+- **Builder script** (`docs/scripts/build_triangle_svgs.py`) is the source of truth — both SVGs are generated outputs. Run with `~/Code/Python/Envs/Default/bin/python` from the THAMES master venv. The Gibbs surface PNG has its own regenerator at `docs/scripts/make_gibbs_surface.py`; the rate-equation PNG is generated inline by the builder via matplotlib mathtext.
+- **Three Affinity Designer SVG-compatibility battles** worth remembering — they're all baked into the builder so they don't recur:
+  1. **Tspan superscripts are broken in Affinity**. `dy`, `baseline-shift="super"`, and absolute-y per-tspan all rendered `p` and `q` at the parent baseline. The fix that works: render the equation as a matplotlib mathtext PNG and inline as `<image>`. The equation is no longer live-editable as text inside Affinity but pedagogically that doesn't matter.
+  2. **CSS `font-family` is ignored everywhere in Affinity** — not inherited from root `<svg>`, not applied from `<style>` rules. Inline `font-family="Inter"` must be present on every individual `<text>` element. The builder template applies this attribute to all 13 text elements.
+  3. **CSS `fill` rules are unreliable in Affinity**. Class name `.label-teal` was dropped (CSS color-keyword collision); even after renaming to `.src-gems` etc, fill via `<style>` was inconsistent. Final fix: inline `fill=` attributes on the colored tspans. CSS classes stay for font-size/weight/opacity which Affinity does honor.
+- **GIMP, browsers, and Inkscape rendered the SVG correctly throughout** — every issue listed above was Affinity-specific.
+- **No source code touched.** This is purely a `docs/` artifact for talks and (possibly) the manuscript. No `POST_ALPHA_TODOS.md` items generated; no `release-notes-alpha-3.md` updates triggered.
+
 ---
 
 ## PRIORITY TASKS
