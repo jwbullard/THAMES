@@ -222,3 +222,16 @@ thames-env/
 *.db-wal
 *.dmg
 dmg-staging/
+
+# Per-machine output / working data (large, not for version control)
+Data/
+Runs/
+tests-legacy/
+
+# Working / source files for documentation artifacts (binaries; SVG outputs are tracked)
+ThamesColors.key
+ThamesColors.pdf
+*.af
+
+# Python backup files
+*.py.bak
