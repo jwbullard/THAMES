@@ -12,7 +12,8 @@
       "Bash(awk NR>=968637 && NR<=968800 *)",
       "Bash(fc-list)",
       "Bash(open *)",
-      "Bash(~/Code/Python/Envs/Default/bin/python *)"
+      "Bash(~/Code/Python/Envs/Default/bin/python *)",
+      "Bash(~/Code/Python/Envs/Default/bin/jupyter nbconvert *)"
     ]
   }
 }
