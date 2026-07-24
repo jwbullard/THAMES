@@ -251,6 +251,93 @@ For **heterogeneous** nucleation (θ < 180°) — planned for C-S-H, ettringite,
 
 ---
 
+### Refactor Lattice::changeMicrostructure into extracted helpers
+
+**Identified:** 2026-07-24 (Session 51, backend audit sweep).
+
+**Context.** `Lattice::changeMicrostructure` (Lattice.cc:3676–4534, 859 lines in a single function body) is the microstructure-update workhorse called every cycle after GEMS equilibration. Its original author's own `@todo` at Lattice.cc:3720 says "This function is very large; consider breaking it into small pieces for ease of maintenance and readability." First-year grad students consistently get stuck here first — it's the widest single-method complexity in the backend.
+
+The function has clearly-separable responsibilities that can each become a private method. A skim of the current body identifies at least seven blocks:
+
+1. **Bookkeeping / recall accounting** (lines ~3682–3717): argument handling, recall-cycle diff vector cleanup, static call counting, porosity vector refresh from ChemicalSystem.
+2. **Load target state from ChemicalSystem** (~3717–3780): reads target volume fractions and phase names, calls `adjustMicrostructureVolumes`, logs before/after volumes.
+3. **Compute per-phase target voxel counts** (~3809–3838): converts target volumes to integer voxel counts (`netsites` deltas).
+4. **Sulfate-attack transformation branch** (~3839–4132, ~293 lines): huge conditional block that only runs when `simtype == SULFATE_ATTACK` and `time > sulfateAttackTime_`. Handles molar-volume ratios for phase transformations, crystallization-pressure calculations, and post-transformation microstructure updates. Two existing `@todo` markers inside note "Find out why we need to do all of this just because there will eventually be sulfate attack" — a clear signal this block deserves its own function AND its own audit.
+5. **Standard normalization branch** (~4133–4193): the `else` for non-sulfate-attack cycles, computes voxel counts from normalized volume fractions.
+6. **Partition into dissolve vs grow lists** (~4194–4220): iterates from `FIRST_SOLID`, splits phase IDs into two vectors based on `netsites` sign. An existing `@todo` at line 4224 notes "Consider making the starting index more general."
+7. **Grow-list ordering + dissolve/grow execution** (~4220–4285 dissolve, ~4285–end grow): calls `dissolvePhase()` and `growPhase()` in turn, with GEMS-recall bookkeeping if either fails.
+
+**Proposed fix.** Extract each block into a private method with a descriptive name and clear inputs/outputs. Candidate signatures:
+
+```cpp
+// bookkeeping / recall accounting
+void trackChangeMicrostructureCall(int recalls,
+                                   const vector<int> &vectPhIdDiff,
+                                   const vector<int> &vectPhNumDiff);
+
+// target-state ingestion
+void loadTargetVolumesFromChemSys(vector<double> &vol_next,
+                                  vector<string> &phasenames,
+                                  int cyc);
+
+// integer voxel-count computation
+void computeNetVoxelCounts(const vector<double> &vol_next,
+                           vector<int> &netsites);
+
+// sulfate-attack path (large; probably breaks further into 3–4 sub-methods)
+int handleSulfateAttackTransformation(double time, int cyc, ...);
+
+// dissolve/grow partitioning
+void partitionPhasesByNetChange(const vector<int> &netsites,
+                                vector<int> &dissPhaseIDVect,
+                                vector<int> &growPhaseIDVect);
+
+// execution (or two methods, one per direction)
+int executeDissolutions(vector<int> &dissPhaseIDVect, ...);
+int executeGrowths(vector<int> &growPhaseIDVect, ...);
+```
+
+`changeMicrostructure` itself then becomes an orchestrator: ~40 lines of numbered calls to the extracted methods, each with a one-line comment saying what stage it represents.
+
+**Constraints and validation.** This is a behavior-preserving refactor. No observable simulation output should change. The verification pattern from the CNT integration (§7 in `docs/CNT_ARCHITECTURE.md`) applies:
+
+- Standalone math tests (already in place) must stay green.
+- CNT-off byte-parity: rerun `HY-ccr152-ws45` (Portland) and diff every CSV column against a pre-refactor baseline; expect 100% identity for the first 20 cycles minimum.
+- Sulfate-attack path: rerun one archived sulfate-attack config end-to-end (e.g. from the Session-31/32 SA test set) and diff outputs. This is critical because the SA block is the largest extracted piece and the least frequently exercised.
+
+**Suggested sequencing.** Do the extraction in this order to keep each PR reviewable:
+
+1. Extract blocks 1–3 (bookkeeping, target-state ingestion, netsite computation). Small, low-risk. Verify byte-parity.
+2. Extract block 6 (partitioning) and blocks 5+7 (normalization + execution). Medium risk; touches the hot path. Verify byte-parity.
+3. Extract block 4 (sulfate-attack transformation). Largest and least-familiar block; may require breaking further into sub-methods once the code is isolated. Verify against a real SA config.
+
+**Files.** `backend/thames-hydration/src/thameslib/Lattice.h` (new private method declarations) and `Lattice.cc` (extraction body). No other files touched unless the extracted methods need to become public.
+
+**Why this is worth doing.** Beyond readability, the extracted methods become unit-testable in isolation. The sulfate-attack block in particular carries known design debt (per the existing `@todo` markers) that is invisible while it's buried inside a 859-line function. Extracting it makes the debt actionable.
+
+---
+
+### Backend documentation gaps (systemic)
+
+**Identified:** 2026-07-24 (Session 51, backend audit sweep).
+
+**Context.** A systematic pass through `backend/thames-hydration/src/thameslib/` fixed obvious misleading docstrings (Standard/Pozzolanic model @briefs, `KineticModel` "not used" claim), added rationale to a handful of magic numbers (`stepTimeTHR_`, `elemTimeInterval`, `corPorCSHQ`, `seedRNG`), and added lifecycle notes to `Site::visit_` and cross-references to `docs/CNT_ARCHITECTURE.md`. Larger structural gaps were flagged for later:
+
+1. **`Lattice::changeMicrostructure`** — Refactor tracked as its own dedicated entry below ("Refactor Lattice::changeMicrostructure into extracted helpers").
+2. **Phase-ID conventions** are scattered across `global.h` (VOIDID, ELECTROLYTEID, FIRST_SOLID, clinker IDs), `Site.h` (isPorousSolid boundary check), and `Lattice.cc` (many bare integer comparisons). Belongs in a `docs/PHASE_IDS.md` reference document with the ordering convention documented once, cross-referenced from the code.
+3. **`Exceptions.h`** — every class here follows the same shape and would benefit from a shared base class; noted in the file docstring.
+4. **`RanGen`** — RNG state is process-global via `ran3.cc` statics. Warning added to `ran3.cc` header block; if THAMES is ever parallelized this must be replaced.
+5. **`Interface.cc`** — the `Interface` class has hazardous non-owning pointer semantics (constructor takes `Site*` refs whose lifetime it doesn't manage). No fix; noted for a future ownership pass.
+6. **`ElasticModel` family** (`ThermalStrain`, `AppliedStrain`) — Voigt-notation index mapping documented once (lines 101-109 in `ElasticModel.h`) but used throughout without reminders; `hasAggregateSlab_` gates ITZ vectors without explanation. Not touched.
+7. **`Site.h` position fields** (`inGrowInterfacePos_`, `inDissInterfacePos_`, `inGrowthVectorPos_`, `inDissolutionVectorPos_`) — four fields, subtly different roles, no overview of which is current/stale/updated-when. Not touched.
+8. **Legacy commented-out code blocks** — Controller.cc has a large commented-out sulfate-attack path (lines ~1703-1819); Lattice.cc has forward-designed `nucleatePhaseAff` calls commented out at Lattice.cc:1342 and 1701. Not touched (some are intentional design breadcrumbs, some are stale; requires per-block judgment).
+
+**Proposed fix.** Assign each numbered gap above as a stand-alone documentation task. None require code changes to the underlying behavior; each is a targeted comment / docstring / architecture-doc addition. Priority: (1) is highest-value because `Lattice::changeMicrostructure` is where every new grad student will get stuck first.
+
+**Files.** Scattered across `src/thameslib/`. Any doc-only PR should cite this TODO entry so the audit trail is discoverable.
+
+---
+
 ### UI support for CNT (nucleation) parameter input
 
 **Identified:** 2026-07-23 (Session 51, CNT integration Step 6).
