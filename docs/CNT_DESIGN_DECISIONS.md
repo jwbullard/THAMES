@@ -181,19 +181,17 @@ verification.
 
 ## 8. Handoff to future work
 
-- **`SaturatingRateModel` thread** — implement Han et al. Eq. (7):
-  `r = k (1 − exp[−(−B ln Ω)^n])`. Saturates at k in the
-  far-from-equilibrium limit; captures the etch-pit → step-flow
-  mechanism transition Eq. (6) can't reproduce. Design must support
-  asymmetric dissolution vs precipitation parameter blocks (near
-  equilibrium they mirror by microscopic reversibility; far from
-  equilibrium they can differ). Portlandite has published dissolution
-  parameters (k = 4.05×10⁻⁴ mol/m²/s at 24 °C, B = 0.74, n = 1.9,
-  ΔH‡ = 13.9 kJ/mol) from Han et al. 2025 CEJ, PDF at
-  `~/Documents/Papers/Han/Han-2025-Calcium-hydroxide-di.pdf`.
-  Precipitation parameters are unknown; use dissolution values as the
-  symmetric default and expose an asymmetric override for when
-  precipitation data become available.
+- **`SaturatingRateModel` thread — LANDED 2026-07-24.** Han et al. Eq. (7)
+  `r = k (1 − exp[−(−B ln Ω)^n])` implemented as a fourth `KineticModel`
+  subclass alongside Standard, Pozzolanic, ParrotKilloh. Asymmetric
+  dissolution / precipitation parameter blocks supported (precipitation
+  optional; falls back to dissolution values with a one-time log line
+  per phase). CNT hooks symmetric with Standard/Pozzolanic. Portlandite
+  calibration: k = 4.05×10⁻⁴ mol/m²/s at 24 °C, B = 0.74, n = 1.9,
+  ΔH‡ = 13.9 kJ/mol from Han et al. 2025 CEJ. Details in
+  `docs/SATURATING_RATE.md`. Validation:
+  `~/tmp/thames-satrate-val/saturating_rate_validation.md` — resolved
+  the Step-6 6b dt-collapse pathology on the Portlandite baseline.
 
 - **UI CNT parameter input** — Hydration Panel editor for the
   per-phase nucleation block, top-level `useNucleationKinetics`, and

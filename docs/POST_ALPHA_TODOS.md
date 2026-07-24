@@ -352,6 +352,71 @@ int executeGrowths(vector<int> &growPhaseIDVect, ...);
 
 ---
 
+### CNT vs. Lattice::changeMicrostructure mass-balance mismatch
+
+**Identified:** 2026-07-24 (SaturatingRateModel Step S4 validation).
+
+**Context.** CNT for Portlandite in `HY-ccr152-ws45-sat-portlandite-cnt` shows the following pattern every cycle once Portlandite SI climbs into the 9–10 range:
+
+1. `computeNucleationVoxels` returns ~1e5 voxels/cycle at S ≈ 10.
+2. The adaptive-timestep cap fires and shrinks dt so N_want ≈ N_cap (~92,000 voxels ≈ 1.2 % of lattice).
+3. `Lattice::nucleatePhaseRnd` successfully places ~92,000 voxels of Portlandite into random electrolyte sites; `count_[Portlandite]` jumps from ~125 to ~91,800.
+4. GEMS runs with `DCLowerLimit == DCUpperLimit == DCMoles_after_placement`, GEMS returns OK.
+5. `Lattice::changeMicrostructure` then reports `sites to grow/dissolve: -91,707` for Portlandite — reverting to `newsites: 125`.
+
+Ca-in-solution can only support ~125 voxels of Portlandite; GEMS' `vfrac_next` reflects the mass-balance limit, and `changeMicrostructure` uses vfrac_next rather than DCLowerLimit as its target. Net growth ends up at 2–5 voxels/cycle at SI ~ 10 (stuck), instead of tracking Ca influx smoothly.
+
+The Standard-model Step-6 6b baseline stalled at the same point because Standard's Eq-6 rate law diverges at high S. SaturatingRate replaced that divergent rate law with a saturating one and cleared 6b's dt collapse — the run makes it past the stall — but the CNT+GEMS mass-balance conflict now dominates the throttle. This is orthogonal to the SaturatingRate work.
+
+**Proposed fixes (three, in ascending correctness):**
+- **(a) LANDED 2026-07-24 as a guardrail** — CNT cap now accounts for aqueous IC mass availability, not just electrolyte-voxel count. `computeNucleationBasedMaxTimestep` in `KineticController.cc` computes `N_mass_cap = min_over_ICs(aqICMoles[ic] / (vVoxel/vMolar_DC * DCStoich[ic]))` and uses `min(nCap_electrolyte, N_mass_cap)`. Prevents CNT from overshooting when a required IC is legitimately scarce. **Does not resolve the Portlandite-in-Portland-paste symptom** because aqueous Ca in that system (~8.4e-5 mol) supports ~2.8×10⁹ Portlandite voxels — 30,000× larger than the electrolyte cap. The bottleneck there is GEMS's full equilibrium landscape, not raw IC availability.
+- **(b)** `Lattice::changeMicrostructure` should treat `DCLowerLimit` as a floor for CNT-placed phases. If GEMS' `vfrac_next` < placed level, either request more IC from the pre-eq loop or short-circuit the removal. **Prerequisite investigation** — see next entry — needs to explain why GEMS returns DCMoles below DCLowerLimit despite the CNT-lock at `KineticController.cc:1492–1493` setting equal upper and lower limits.
+- **(c)** Split CNT into "just nucleate a seed, let SaturatingRate do the growth". This is the physical model — CNT gives you a critical nucleus, then the phase grows by ion attachment which the rate law handles. Sub-voxel nuclei would need fractional-voxel bookkeeping (deferred to the transport-kinetics thread).
+
+Option (c) is the eventual right answer. Option (b) is the near-term correct fix once the prerequisite investigation names the mechanism.
+
+**Files.** `backend/thames-hydration/src/thameslib/KineticController.cc` (mass cap landed at `computeNucleationBasedMaxTimestep` ~line 1853), `backend/thames-hydration/src/thameslib/Lattice.cc` (changeMicrostructure — for option (b)), `backend/thames-hydration/src/thameslib/StandardKineticModel.cc` / `SaturatingRateModel.cc` (if the fractional-voxel path is taken for option (c)).
+
+**Workarounds available now.** For alpha, users who enable CNT on a phase whose supersaturation runs far above the calibration onset should expect throttled growth. Portlandite in Portland pastes is the most affected. SaturatingRate without CNT is well-behaved and recommended.
+
+**Evidence.** `~/tmp/thames-satrate-val/comparison.png`, `~/tmp/thames-satrate-val/saturating_rate_validation.md`.
+
+---
+
+### Investigate: GEMS returns DCMoles below DCLowerLimit after CNT-lock
+
+**Identified:** 2026-07-24 (Option-(a) mass-cap follow-up during SaturatingRateModel S4).
+
+**Context.** `KineticController::calculateKineticStep` at lines 1492–1493 raises both `DCLowerLimit` and `DCUpperLimit` to the just-placed `DCMoles_[dcId]` value after every CNT placement. The stated intent (see `docs/CNT_ARCHITECTURE.md` §4) is: prevent GEMS from immediately dissolving the placed nuclei back to the pre-placement floor. GEMS is supposed to be constrained by these bounds.
+
+Nevertheless, in the S4 validation of `HY-ccr152-ws45-sat-portlandite-cnt`, every cycle showed:
+- CNT places ~91,796 Portlandite voxels; `DCMoles` and both DC limits updated to the placed level.
+- Log records `GEM_run OK` at the end of the cycle.
+- `Lattice::changeMicrostructure` reads `vol_next = chemSys_->getMicroPhaseVolume()`, which comes from `GEMPhaseVolume_[]` (`ChemicalSystem.cc:2801, 2813`) — GEMS's own reported phase volumes — and finds Portlandite volume equivalent to only ~125 voxels, not the ~91,796 that CNT locked.
+- Net result: 91,707 voxels are dissolved by `changeMicrostructure` in the same cycle, and Portlandite grows at only ~2–5 voxels/cycle at SI ≈ 10.
+
+Three possibilities we haven't distinguished:
+1. GEMS receives the constraint but violates it (GEMS bug or usage error at the C_API boundary).
+2. GEMS receives and respects the constraint, but downstream volume post-processing in `ChemicalSystem::calculateState` overrides `GEMPhaseVolume_[]` between the GEMS call and `changeMicrostructure`'s read.
+3. `DCLowerLimit_[dcId]` gets reset somewhere between the CNT placement at `KineticController.cc:1492` and the next GEMS invocation.
+
+Without knowing which, Option (b) of the "CNT vs. Lattice::changeMicrostructure mass-balance mismatch" entry (above) is a patch on an unclear invariant. Option (a) landed 2026-07-24 helps in low-mass-IC systems but doesn't resolve the Portland-paste case.
+
+**Proposed investigation, 1–2 hours:**
+
+1. Add a one-shot debug print immediately before and after the `TNode::GEM_run(true)` call at `ChemicalSystem::calculateState` for the target phase's DC: print `DCLowerLimit_[dcId]`, `DCUpperLimit_[dcId]`, `DCMoles_[dcId]`, `node_->DC_n(dcId)`. This tells us what GEMS was given and what it returned.
+2. If GEMS returned `DC_n < DCLowerLimit`, the failure is inside GEMS or in how the constraint is passed via `node_->pCNode()->bIC` / `dul` / `dll` arrays. Trace back through `ChemicalSystem::calculateState` for the DC-bounds-to-GEMS handoff.
+3. If GEMS returned `DC_n ≥ DCLowerLimit` but `GEMPhaseVolume_[]` was later overwritten, the failure is in the volume post-processing loop around `ChemicalSystem.cc:2800`. Look for any code path that recomputes `GEMPhaseVolume_[]` after GEMS returns.
+4. If `DCLowerLimit_[dcId]` is not what was set at `KineticController.cc:1492` by the time GEMS is called, the failure is a reset somewhere in between. Grep for all writes to `DCLowerLimit_[dcId]` and audit call order.
+
+**Blocks:** Option (b) of "CNT vs. Lattice::changeMicrostructure mass-balance mismatch" cannot be safely implemented until this investigation names the mechanism.
+
+**Files to instrument.** `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` around `calculateState` (search for `GEM_run(true)` calls). Debug prints for `DCMoles_[dcId]`, `DCLowerLimit_[dcId]`, `DCUpperLimit_[dcId]`, `node_->DC_n(dcId)`.
+
+**Evidence.** Same as previous entry: `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/thames.log` shows the placement/roll-back oscillation cycle-by-cycle.
+
+---
+
 ### Delete unused VCCTL legacy files
 
 **Identified:** 2026-04-14 (Session 40).

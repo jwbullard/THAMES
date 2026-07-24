@@ -30,6 +30,9 @@ coordinate cycle-by-cycle.
 | `src/thameslib/KineticModel.h` | Base-class virtual method declarations (default: no-op), so `KineticController` can iterate polymorphically |
 | `src/thameslib/StandardKineticModel.h/.cc` | Per-phase CNT state (`nucleation_`, accumulator) + rate computation + zero-mass bypass |
 | `src/thameslib/PozzolanicModel.h/.cc` | Symmetric to Standard — same members, same rate calc, same bypass |
+| `src/thameslib/SaturatingRateModel.h/.cc` | Bullard 2015 / Han 2025 Eq. 7 saturating rate law; same four CNT virtuals as Standard/Pozzolanic. Alternative to Standard when the phase needs SI ≫ 1 handling without Eq-6 divergence. See `docs/SATURATING_RATE.md`. |
+| `src/thameslib/SaturatingRate.h/.cc` | Pure-math free functions in `namespace sat` — dissolution/precipitation rates and Arrhenius scale. Unit-tested standalone. |
+| `src/thameslib/SaturatingRateParameters.h` | POD struct holding rateConstant / B / n for one direction (dissolution or precipitation) |
 | `src/thameslib/KineticController.h/.cc` | Per-cycle orchestration: pre-loop CNT-lock, cap check, placement, mass-balance update |
 | `src/thameslib/Controller.h/.cc` | Reads global CNT flags from simparams.json; wires the CNT-based dt cap into the two dt-selection sites |
 | `src/unit_tests/test_nucleation_rate.cc` + `build_and_run.sh` | Standalone math regression test — zero external dependencies |
