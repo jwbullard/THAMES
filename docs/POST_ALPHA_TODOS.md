@@ -235,6 +235,36 @@ For the unexpected-exception path, keep the current log-and-return behavior but 
 
 ---
 
+### Site-saturation gating for heterogeneous CNT (θ < 180°)
+
+**Identified:** 2026-07-23 (Session 51, CNT integration Step 7 correction).
+
+**Context.** The CNT rate calculation currently returns a fractional voxel count whenever `nucleation_.has_value()` and `S > 1`, symmetrically for `StandardKineticModel` and `PozzolanicModel`. This is physically correct for **homogeneous** nucleation (θ = 180°): every electrolyte voxel is a valid site, so the "site saturation" regime (nucleation blocked because sites are scarce) never engages in practice.
+
+For **heterogeneous** nucleation (θ < 180°) — planned for C-S-H, ettringite, and other later phases — nuclei form only on scarce substrate voxels. In that regime the available site count is a genuine physical constraint that must limit the CNT rate, otherwise the model over-produces nuclei at high S.
+
+**Proposed fix.** When heterogeneous CNT is added, extend `computeNucleationVoxels` (both Standard and Pozzolanic paths) to divide by an available-substrate-voxel count and cap the fractional-voxel result when that count is small. Implementation depends on which phase's substrate is being sampled and how substrate voxels are identified; probably a lookup into `Lattice::count_[substrateID]` gated by the `theta_deg` parameter in `NucleationParameters`.
+
+**Files.** `backend/thames-hydration/src/thameslib/StandardKineticModel.cc`, `PozzolanicModel.cc`, possibly `NucleationRate.h/.cc` if the gating math is factored out.
+
+**Not blocking alpha.** No θ<180° phase is enabled by default; homogeneous portlandite nucleation is the only Step-6-configured example.
+
+---
+
+### UI support for CNT (nucleation) parameter input
+
+**Identified:** 2026-07-23 (Session 51, CNT integration Step 6).
+
+**Context.** The CNT integration thread added a per-phase `nucleation` sub-block to `kinetic_data` in `simparams.json` (fields `gamma`, `theta`, `A0` — each with `value` / `range` / `provenance` sub-fields per the Session-50 schema decision) plus a top-level `useNucleationKinetics` boolean and `nucleationCapFraction`. The C++ backend fully consumes these; the GTK UI does not yet expose them. Alpha testers who want to enable CNT for a phase have to edit `simparams.json` by hand after the UI generates it.
+
+**Proposed fix.** Extend the Hydration Panel's per-phase kinetic-editor dialog so that when the user selects Standard (or Pozzolanic, once Step 7 lands) as the model type for a phase, an optional "Nucleation" section appears with three parameter widgets (γ, θ, A₀) matching the JSON structure. Add a global switch (checkbox) in the Hydration Panel for `useNucleationKinetics` and a spin-button for `nucleationCapFraction`. Round-trip via the same `simparams_service.py` that already handles suppression state.
+
+**Files.** UI-side: `src/app/windows/panels/thames_hydration_panel.py`, `src/app/widgets/microstructure_phases_editor.py`, `src/app/services/simparams_service.py`, plus preferences persistence.
+
+**Workarounds available during alpha.** Users can hand-edit `simparams.json` in the operation folder before launching a run. Not friendly; documenting the JSON schema in the User Manual would help.
+
+---
+
 ### Delete unused VCCTL legacy files
 
 **Identified:** 2026-04-14 (Session 40).
