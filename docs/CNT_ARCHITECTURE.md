@@ -63,9 +63,9 @@ Pozzolanic-model phase to enable CNT for that phase):
     "provenance": "Homogeneous limit; SEM shows Ca(OH)2 nucleating near but not on C3S surfaces"
   },
   "A0": {
-    "value": 1.0e30,
-    "range": [1.0e28, 1.0e32],
-    "provenance": "Kashchiev textbook order for solution nucleation"
+    "value": 1.0e25,
+    "range": [1.0e22, 1.0e32],
+    "provenance": "Interim value (2026-07-27) after CNT-scaling-fix exposed over-nucleation from the Session-50 A0=1e30 default; see docs/POST_ALPHA_TODOS.md 'CNT Portlandite calibration...'. The 1e25 default is a bounded-behavior placeholder pending Option (c) accumulator implementation, which is required to give physical Session-46-style trajectories."
   }
 }
 ```

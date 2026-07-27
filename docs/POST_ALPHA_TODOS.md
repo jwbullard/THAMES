@@ -474,9 +474,10 @@ Only added the Part-B fix (setScaledMass + updateMicroPhaseMasses). Because the 
 
 ---
 
-### CNT Portlandite calibration is now way too aggressive (Session-50 numbers were tuned against a broken pipeline)
+### CNT model needs Option (c) sub-voxel accumulator — pure-A₀ recalibration is not sufficient
 
 **Identified:** 2026-07-27 while verifying the CNT scaling bug fix above.
+**Interim action:** default A₀ lowered from 1×10³⁰ → 1×10²⁵ /(m³·s) in `docs/CNT_ARCHITECTURE.md`, `docs/CNT_DESIGN_DECISIONS.md`, and (as a placeholder) test-config `nucleation` blocks. This gives bounded behavior for alpha testing but does **not** reproduce Session-46 archive trajectories. Full fix requires the code change described in "The required fix (Option c)" below.
 
 **Context.** Session 50's Python prototype at `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` calibrated Portlandite CNT to γ = 0.044 J/m², A₀ = 1×10³⁰ /(m³·s), θ = 180°, targeting "~1 voxel/cycle at S = 4.5 onset" and giving ~7×10⁵ voxels/cycle at S = 10 per the prototype's sanity numbers. Those parameters landed in every subsequent test config.
 
@@ -498,20 +499,56 @@ SI_Portlandite trajectory keeps climbing (4.6 → 10.6 over the observed cycles)
 
 **Root cause of the overshoot.** The prototype's simplifying assumption — "each placed voxel implicitly absorbs the post-critical sub-voxel-scale growth" — breaks down at high S. Nature produces critical nuclei of ~1 nm size; a lattice voxel is ~1 µm. The ratio is (1e-9/1e-6)³ = 10⁻⁹. So one nucleation event ≠ one voxel; one voxel ≈ 10⁹ nuclei's worth of Portlandite. At S = 10 the true nucleation rate might be 7×10⁵ events/cycle, which is only ~7×10⁻⁴ voxels-worth if we didn't over-count. The prototype over-counts by a factor of 10⁹.
 
-**Options for the recalibration:**
+**Empirical sweep confirming pure-A₀ recalibration is insufficient** (2026-07-27, in `~/tmp/thames-cnt-recal/`):
 
-1. **Raise γ** to shift onset upward. γ = 0.055 J/m² (within the 0.030–0.070 range Session 50 called out) reduces J at S=10 by 1e-5, dropping voxels/cycle from 7e5 to ~7. But onset also shifts from S=4.5 to ~S=8.2 (higher S needed to overcome the raised barrier).
-2. **Lower A₀** to scale all rates down. A₀ = 1.4×10²⁵ /(m³·s) (down 7×10⁴× from 1×10³⁰) also drops voxels/cycle at S=10 to ~10, and onset moves from S=4.5 to S≈7.
-3. **Combined γ and A₀** to keep onset near S=4.5 while dropping rate at high S. Requires more knobs than we have — the two parameters are jointly under-determined for these two targets.
-4. **The correct long-term fix (Option c of the earlier "CNT vs. changeMicrostructure" entry):** split CNT into "seed only" plus SaturatingRate-driven growth. Nucleation events place tiny sub-voxel seeds; the rate law does the growth to voxel scale. Requires sub-voxel bookkeeping (transport-kinetics thread territory).
+| A₀ | end sim t (h) | Portlandite vfrac | SI_Port | verdict |
+|---|---|---|---|---|
+| 1×10³⁰ (Session-50) | 0.94 | 32.4% | 10.5 | 20× over-nucleation |
+| 1×10²⁶ | 1.80 | 21.9% | 121 | still overshoots; SR area-catalyzed runaway |
+| 1×10²⁴ | 1.97 | 0.40% | 172 | onset delayed, SR too little area, SI runaway |
+| 1×10²² | 2.35 | 0.008% | 326 | very slow CNT, SI unphysical |
+| 1×10¹⁰ | 1.96 | 0 | 168 | CNT never fires; SR bypassed at zero mass |
 
-**Recommendation for near-term recalibration** (matches this fix): retune γ + A₀ together to give ~14% Portlandite at 24 h in `HY-ccr152-ws45-sat-portlandite-cnt`. Start with A₀ = 1×10²⁶ /(m³·s) and adjust from there. Accept that onset will shift to S ≈ 6–7 (slightly later than the 4.5 target from Session 50) — that's a less-bad calibration compromise than 20× over-nucleation.
+**No A₀ in the swept range recovers Session-46's ~14 %-at-24-h trajectory.** Two competing failure modes:
 
-**Files.**
-- `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` — update prototype to reflect the fixed pipeline; re-run bisection with new physical target (~1 voxel/cycle at CHOSEN onset S) plus a rate cap at high S.
-- Every 4b-style config's `nucleation` block in `simparams.json` — update `gamma` and `A0` value fields.
+- **A₀ too high (≥ 10²⁶):** CNT places abundant nuclei; SR growth (rate ∝ area ∝ mass) is exponential; cement dissolution keeps SI ≈ 10 as CNT+SR consume Ca; Portlandite overshoots equilibrium volume fraction rapidly.
+- **A₀ too low (≤ 10²⁴):** CNT places minimal nuclei; SR has too little area to consume Ca fast enough; SI accumulates unphysically to 100 – 300+; Portlandite grows very slowly regardless.
 
-**Evidence.** `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/` — full 52-cycle 4b re-run showing the overshoot.
+Middle ground does not exist for this system: SR growth's exponential-in-mass nature means once CNT places any nuclei, growth accelerates to consume Ca as fast as cement dissolves it. Both the initial nucleation rate (CNT) and the growth-to-voxel-scale rate (SR) are compressed into the same "place a voxel" event in the current model. That's the physics limitation, not a calibration knob.
+
+### The required fix (Option c) — sub-voxel CNT accumulator + SR-only growth
+
+The physical model that would reproduce Session-46 trajectories has two independent processes:
+
+1. **Nucleation** creates critical nuclei (~1 nm size) at rate J(S) per unit volume of electrolyte per unit time. These are far smaller than a lattice voxel.
+2. **Growth** by ion attachment turns nuclei into visible crystals. Rate is governed by SaturatingRate (Bullard/Han Eq. 7), bounded by k at high S, and proportional to surface area.
+
+In the current code, both are conflated into "place a whole voxel of the phase". Nature does not: critical nuclei are tiny, subsequent growth is rate-limited by SR (which caps at k), so at high S the growth is bounded, not runaway. The current model can't express this.
+
+**Proposed implementation:**
+
+- Add a `subVoxelAccumulator_[phase]` in `KineticController` (fractional voxels of pre-growth-to-voxel-scale material).
+- Every cycle, CNT nucleation contributes `J·V·dt·V_crit` where `V_crit = (4/3)π r*³` (with r* from Kelvin formula). This is fractional-voxel-scale nucleation mass. Add it to the accumulator.
+- Concurrently, SR growth contributes to the accumulator (or directly to a phase voxel once one is seeded): `rate_SR · area_current · dt` in voxel units.
+- When accumulator crosses 1.0, drain floor(accumulator) whole voxels via `Lattice::nucleatePhaseRnd`, carry fractional remainder.
+- The SR area used above is `area_current_voxels · V_voxel^(2/3)` plus a sub-voxel contribution proportional to accumulator. Details need design.
+
+**Complexity:** ~1 day of design + implementation + verification. Design decisions to lock:
+- Whether the "SR growth" contribution comes from voxels of the phase already present (surface area from lattice) or from the accumulator (surface area from fractional-mass proxy).
+- Interaction with the CNT-lock: does DCLowerLimit reflect voxels only, or voxels + accumulator?
+- Interaction with `Lattice::changeMicrostructure`: same as now once whole voxels are placed.
+
+**Blocks:** removing the "CNT Portlandite calibration ..." entry (this one) and getting realistic physical trajectories for alpha demo of CNT-enabled Portlandite. Also blocks the Alite migration for SaturatingRate (Alite would have the same runaway).
+
+**Files (proposed):**
+- `backend/thames-hydration/src/thameslib/KineticController.h/.cc` — accumulator storage + drain logic
+- `backend/thames-hydration/src/thameslib/StandardKineticModel.h/.cc`, `SaturatingRateModel.h/.cc`, `PozzolanicModel.h/.cc` — sub-voxel SR contribution
+- `backend/thames-hydration/src/thameslib/NucleationRate.h/.cc` — expose V_crit as a helper if not already
+- `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` — re-derive expected voxels/cycle with the new model and re-run bisection
+
+**Interim workaround (landed 2026-07-27):** A₀ = 1×10²⁵ /(m³·s) as the recommended default. Bounds CNT rate to a value between the "explosive overshoot" and "SI runaway" failure modes. Does not match Session-46 trajectories but does not exhibit either pathology. Onset shifts from S ≈ 4.6 (Session-50 target) to S ≈ 7.
+
+**Evidence.** `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/` (original overshoot) and `~/tmp/thames-cnt-recal/cal-A0-1e{22,24,26,10}/` (parameter sweep).
 
 ---
 

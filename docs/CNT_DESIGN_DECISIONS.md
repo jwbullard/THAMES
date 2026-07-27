@@ -96,23 +96,44 @@ the Avrami-Cottrell fit would double-count nucleation.
 
 | Parameter | Value | Range | Provenance |
 |---|---|---|---|
-| γ | 0.044 J/m² | 0.030 – 0.070 | Basal-plane habit; DFT ~0.25 J/m² dry (Galmarini); dielectric screening in water ~1 order of magnitude; bisected at A₀ = 1e30 to onset S ≈ 4.6 in C3S paste |
+| γ | 0.044 J/m² | 0.030 – 0.070 | Basal-plane habit. DFT vacuum surface energies for Ca(OH)₂ basal plane are ~0.25 – 0.35 J/m² (Galmarini et al., Cem. Concr. Res. 2011). Experimental **solid–liquid interfacial** energies γ_(s-l) for portlandite in aqueous solution — from induction-time analysis in cement pastes (e.g., Garrault/Nonat/Scherer literature) — sit in the ~0.03 – 0.10 J/m² range. The ~10× empirical ratio between DFT-vacuum and aqueous-measured values reflects a combination of dielectric screening of the electrostatic contribution, hydration structure at the interface, and surface reconstruction; it should not be attributed to dielectric screening alone. The 0.044 J/m² value bisected at A₀ = 1e30 to give onset S ≈ 4.6 in C3S paste (Session-50 prototype, pre-fix pipeline) sits well within the aqueous experimental envelope.|
 | θ | 180° (pinned) | 1 – 180 | Homogeneous limit; SEM shows Ca(OH)₂ nucleating near but not on C3S surfaces (JWB observation) |
-| A₀ | 1e30 /(m³·s) | 1e28 – 1e32 | Kashchiev textbook order for solution nucleation; jointly degenerate with γ |
+| A₀ | **1e25 /(m³·s)** (interim, 2026-07-27) | 1e22 – 1e32 | Session-50 originally recommended 1e30 /(m³·s) based on Kashchiev textbook order. After the CNT scaling fix landed 2026-07-27, that value produced ~32 % Portlandite by 1 h in Portland paste (vs Session-46 archive ~14 % at 24 h). Reduced to 1e25 as a bounded-behavior placeholder. **Pure-A₀ recalibration cannot recover Session-46-style trajectories** because SR growth is exponential-in-mass once nuclei exist; the correct fix requires Option (c) — see `docs/POST_ALPHA_TODOS.md` "CNT Portlandite calibration ..." for the full analysis. |
 | V_m | 33.08 cm³/mol | fixed | GEMS CemData18 at 298 K (comes from GEMS at runtime) |
 | T | 298.15 K | 277 – 353 | GEMS thermodynamic-database supported range |
 
 γ and A₀ are **jointly constrained but individually degenerate** — the
 feasibility ridge in the prototype notebook's Cell 17 shows a family of
-(γ, A₀) pairs that all reproduce the empirical S ≈ 4–5 onset.
-Independent constraint on either requires a measured induction time
-under known S(t), which we do not currently have. Both must remain
-user knobs.
+(γ, A₀) pairs that all reproduce the empirical S ≈ 4–5 onset (in the
+prototype's simplified model). Independent constraint on either
+requires a measured induction time under known S(t), which we do not
+currently have. Both must remain user knobs.
 
-Basal-plane cleavage energy for M(OH)₂ minerals is ~0.25 J/m² in vacuum
-per literature. Dielectric screening in water drops these by
-approximately one order of magnitude, so the calibrated 0.044 J/m² for
-water-facing Ca(OH)₂ is in the physically defensible envelope.
+Basal-plane cleavage energy for Ca(OH)₂ in vacuum is ~0.25 – 0.35 J/m²
+per DFT calculations (Galmarini et al., Cem. Concr. Res. 2011).
+Experimental **interfacial** energies γ_(s-l) for portlandite in
+aqueous solution — extracted from induction-time analysis in cement
+pastes (Garrault, Nonat, Scherer, and others) — are in the
+~0.03 – 0.10 J/m² range. The ~10× ratio between DFT-vacuum surface
+energy and measured aqueous interfacial energy reflects dielectric
+screening of electrostatics AND hydration-structure energetics AND
+surface-reconstruction effects, not any single mechanism. The
+calibrated 0.044 J/m² sits well within the aqueous experimental
+envelope.
+
+**About the A₀ change from 1e30 to 1e25.** The Session-50 A₀ was
+calibrated against a broken production pipeline (Session-51 CNT
+placement had a ~10⁷× scaling bug plus a missing microPhaseVolume_
+sync; both fixed 2026-07-27 — see `POST_ALPHA_TODOS.md`). With the
+fix landed, the same A₀ = 1e30 produced ~50 000–70 000 Portlandite
+voxels per cycle at Portland-paste SI ~ 10, and Portlandite reached
+32 % by 1 h. A sweep across A₀ ∈ {1e30, 1e26, 1e24, 1e22, 1e10}
+showed no single A₀ recovers Session-46's ~14 %-at-24-h trajectory:
+too high → overshoot from CNT over-placement plus SR area-catalyzed
+runaway; too low → SR area too small, SI accumulates unphysically to
+>100. The 1e25 value lands in a "bounded but still fast" regime that
+does not match Session-46 in absolute rate but does not exhibit
+either failure mode either. The physical fix is Option (c).
 
 ## 5. Sanity numbers at the calibrated defaults
 
