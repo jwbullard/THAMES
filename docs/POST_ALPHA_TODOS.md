@@ -543,14 +543,14 @@ This decouples growth rate from lattice-face surface area, which was the mismatc
 
 **Design decisions to lock during implementation:**
 
-1. **Cohort binning granularity.** Two options: (a) per-voxel state — one `X_i` scalar per seeded voxel; (b) age-cohort binning — bin voxels by cycle-of-seeding, evolve one `X_c` per cohort. (b) is likely sufficient and lighter on memory (~10⁴ cohorts vs ~10⁵ voxels). Start with (b).
+1. **Generation binning granularity.** Two options: (a) per-voxel state — one `X_i` scalar per seeded voxel; (b) age-generation binning — bin voxels by cycle-of-seeding, evolve one `X_c` per generation. (b) is likely sufficient and lighter on memory (~10⁴ generations vs ~10⁵ voxels). Start with (b).
 2. **Growth velocity G(S) mapping.** SaturatingRate gives surface-normal rate as mol/m²/s. Convert to linear velocity via `G = r_SR × v_molar` where r_SR is the surface-normal rate at current S. Handles time-varying S via cumulative integration.
 3. **Avrami exponent n.** Start with n = 3 (three-dimensional growth, site-saturated nucleation). Range [2.5, 4] is user-tunable via JSON; n outside that range should trigger a validation error.
-4. **Boundary rule at X = 1.** A cohort with X = 1 has all its voxels fully transformed. Whole voxels are then present in the lattice; further growth into neighboring electrolyte voxels is handled by the *existing* SR-on-lattice-surface machinery (rate law times lattice face area, which is now genuinely the growth surface between Portlandite and electrolyte).
+4. **Boundary rule at X = 1.** A generation with X = 1 has all its voxels fully transformed. Whole voxels are then present in the lattice; further growth into neighboring electrolyte voxels is handled by the *existing* SR-on-lattice-surface machinery (rate law times lattice face area, which is now genuinely the growth surface between Portlandite and electrolyte).
 5. **Time-varying J and G.** Use additivity-rule (Ávramov / Šesták) form: extended volume `Y(t) = ∫ J(τ) · V_electrolyte(τ) · [∫_τ^t G(s) ds]^n · (4π/3) · dτ`, discretized cycle by cycle. `X(t) = 1 − exp(−Y(t))`.
 6. **Interaction with CNT-lock and Lattice::changeMicrostructure.** DCLowerLimit set based on total transformed volume (seeded voxels × X + Portlandite voxels in lattice). Existing `updateMicroPhaseMasses` call after placement remains valid.
 
-**Complexity.** ~2–3 days of design + implementation + calibration + verification, considerably more than the sub-voxel accumulator proposal. Not "1 day" — reflects the algebra to derive G from SR, plus cohort bookkeeping, plus validation against Session-46 without new tuning knobs.
+**Complexity.** ~2–3 days of design + implementation + calibration + verification, considerably more than the sub-voxel accumulator proposal. Not "1 day" — reflects the algebra to derive G from SR, plus generation bookkeeping, plus validation against Session-46 without new tuning knobs.
 
 **Blocks.** Alpha-quality CNT-enabled Portlandite trajectories. Also blocks Alite migration for SaturatingRate (Alite + CNT would exhibit the same runaway with the pre-2026-07-28 model).
 
@@ -559,7 +559,7 @@ This decouples growth rate from lattice-face surface area, which was the mismatc
 **Files (proposed for JMAK implementation):**
 - `backend/thames-hydration/src/thameslib/JMAKGrowth.h/.cc` — new, pure-math free functions for JMAK integrand and additivity-rule integration (mirrors `NucleationRate.h/.cc` pattern)
 - `backend/thames-hydration/src/thameslib/JMAKParameters.h` — new, POD `{n, ...}` for per-phase Avrami-exponent + any morphology parameters
-- `backend/thames-hydration/src/thameslib/KineticController.h/.cc` — cohort storage per phase; per-cycle update of `Y_c` and `X_c`; whole-voxel drain to the lattice
+- `backend/thames-hydration/src/thameslib/KineticController.h/.cc` — generation storage per phase; per-cycle update of `Y_c` and `X_c`; whole-voxel drain to the lattice
 - `backend/thames-hydration/src/thameslib/StandardKineticModel.h/.cc`, `PozzolanicModel.h/.cc`, `SaturatingRateModel.h/.cc` — expose `getGrowthVelocity(S)` returning m/s
 - `backend/thames-hydration/src/thameslib/KineticData.h` — parse `jmak.n` sub-block
 - `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` — re-derive expected voxels/cycle with JMAK; validate against Session-46 archive
