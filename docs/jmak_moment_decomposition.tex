@@ -1,0 +1,329 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+\usepackage[numbers]{natbib}
+\usepackage{booktabs}
+\usepackage{parskip}
+
+\title{The moment decomposition for time-varying \\
+       Johnson--Mehl--Avrami--Kolmogorov kinetics}
+\author{Documentation for the JMAK per-voxel machinery in THAMES \\
+        \texttt{namespace jmak} in \texttt{JMAKGrowth.h/.cc}}
+\date{28 July 2026}
+
+\begin{document}
+\maketitle
+
+\section{Purpose}
+
+This note explains how the four moment accumulators
+$M_0, M_1, M_2, M_3$ used in the THAMES JMAK code
+(\texttt{jmak::GlobalMoments}) reduce the doubly-nested time integral
+of extended volume to a per-cycle constant-time update, when both
+the nucleation rate $J(t)$ and the linear growth velocity $G(t)$
+depend on time.
+The classical constant-$J$, constant-$G$ result is assumed familiar;
+we build on it directly and derive the moment identity used in the
+implementation.
+
+The technique complements two treatments the reader may already know:
+Scherer and Bellmann\cite{Scherer2018} handle time-varying driving
+force via an \emph{effective time} variable
+$\xi(t)$; Bullard, Scherer, and Thomas\cite{Bullard2015} handle it in
+HydratiCA by discretizing rate laws numerically at each time step.
+The moment decomposition is a third route: it is algebraic (no change
+of variable, no numerical quadrature over history) and matches the
+structure of the JMAK integrand exactly for integer $n=4$
+three-dimensional continuous nucleation, which is the case implemented
+in the current THAMES code.
+
+\section{Classical JMAK, briefly}
+
+For constant $J$ (events per unit volume per unit time) and constant
+$G$ (linear growth velocity of the nucleus--matrix interface), the
+Johnson--Mehl--Avrami--Kolmogorov result for the transformed volume
+fraction in a bulk sample is
+\begin{equation}
+X(t) \;=\; 1 - \exp\!\left(-K t^{n}\right)\,,
+\label{eq:classical-jmak}
+\end{equation}
+where $K = (\pi / 3)\, J\, G^{3}$ and $n = 4$ for three-dimensional
+isotropic growth with continuous (site-nonsaturating) nucleation;
+$n = 3$ if all nuclei are present at $t=0$ (site-saturated).
+Equation~\eqref{eq:classical-jmak} follows from the observation that
+the naive
+``extended'' volume fraction $Y_e(t)$, ignoring impingement between
+growing particles, is
+\begin{equation}
+Y_e(t) \;=\; \frac{4\pi}{3}\int_{0}^{t} J\,\bigl[G\,(t-\tau)\bigr]^{3}\,\mathrm{d}\tau
+       \;=\; \frac{\pi}{3}\, J\, G^{3}\, t^{4}\,,
+\label{eq:Ye-constant-JG}
+\end{equation}
+and the transformation from extended to actual is
+\begin{equation}
+X(t) \;=\; 1 - \exp[-Y_e(t)]\,,
+\label{eq:X-from-Ye}
+\end{equation}
+Kolmogorov's Poisson-impingement correction.
+The integrand of \eqref{eq:Ye-constant-JG} is
+\emph{(events per unit volume per unit time)} $\times$
+\emph{(volume of a spherical nucleus that has grown for
+$t - \tau$)}, integrated over the birth time $\tau$.
+
+\section{Time-varying $J$ and $G$}
+
+When the driving force changes with time, both $J$ and $G$ become
+functions of $t$ (through the current saturation index or
+supersaturation, which in cement systems is governed by the coupled
+evolution of the dissolving reactants and the solid product).
+The nucleus born at $\tau$ then has, at time $t > \tau$, a radius
+\begin{equation}
+r(\tau, t) \;=\; \int_{\tau}^{t} G(s)\, \mathrm{d}s\,,
+\label{eq:r-tau-t}
+\end{equation}
+which is not simply $G\,(t-\tau)$ because $G$ varies over the growth
+interval.
+The extended volume in a fixed system volume becomes the doubly-nested
+integral
+\begin{equation}
+Y_e(t) \;=\; \frac{4\pi}{3}\int_{0}^{t}\!\! J(\tau)\,
+    \Bigl[\underbrace{\int_{\tau}^{t}\! G(s)\, \mathrm{d}s}_{r(\tau, t)}\Bigr]^{3}
+    \mathrm{d}\tau\,.
+\label{eq:Ye-varying}
+\end{equation}
+Equation~\eqref{eq:Ye-varying} is what a naive discretization would
+carry: at each cycle $t_k$ we would need to evaluate the outer
+integral by iterating over every past cycle, and for each we would
+evaluate the inner integral over the interval $[\tau, t_k]$.
+The cost per cycle is proportional to the number of past cycles, so
+total work over $N$ cycles is $O(N^2)$.
+For $N \sim 10^4$ cycles this is $10^8$ operations per phase per
+cycle; expensive but not prohibitive.
+The moment identity below reduces it to $O(1)$ per cycle per phase
+without approximation, which matters when the code has multiple
+phases and the run is long.
+
+\section{Change of accumulator}
+
+Introduce the cumulative growth arc
+\begin{equation}
+r_{\text{acc}}(t) \;=\; \int_{0}^{t}\! G(s)\, \mathrm{d}s\,.
+\label{eq:racc-def}
+\end{equation}
+This is a length, not a rate; it is the radius that a hypothetical
+nucleus born at $t = 0$ would have reached by time $t$
+if $G$ had continued at its actual (possibly time-varying) values.
+For a nucleus actually born at $\tau > 0$, its radius at time $t$
+follows immediately from~\eqref{eq:r-tau-t}:
+\begin{equation}
+r(\tau, t) \;=\; r_{\text{acc}}(t) \;-\; r_{\text{acc}}(\tau)\,.
+\label{eq:r-tau-t-diff}
+\end{equation}
+The \emph{difference} of the same accumulator, evaluated at the
+current time and at the birth time.
+This is the key.
+
+Substitute~\eqref{eq:r-tau-t-diff} into~\eqref{eq:Ye-varying}:
+\begin{equation}
+Y_e(t) \;=\; \frac{4\pi}{3}\int_{0}^{t}\! J(\tau)\,
+    \bigl[r_{\text{acc}}(t) - r_{\text{acc}}(\tau)\bigr]^{3}\, \mathrm{d}\tau\,.
+\label{eq:Ye-with-racc}
+\end{equation}
+The cube in the integrand can now be expanded by the binomial theorem.
+The term $r_{\text{acc}}(t)$ is independent of the integration variable
+$\tau$, so it can be pulled out of the integral, exposing the
+$\tau$-dependence entirely in powers of $r_{\text{acc}}(\tau)$.
+
+\section{Moment decomposition}
+
+Expanding the cube,
+\begin{align}
+\bigl[r_{\text{acc}}(t) - r_{\text{acc}}(\tau)\bigr]^{3} &=
+     r_{\text{acc}}(t)^{3} - 3\, r_{\text{acc}}(t)^{2}\, r_{\text{acc}}(\tau) \notag \\
+&\quad + 3\, r_{\text{acc}}(t)\, r_{\text{acc}}(\tau)^{2} - r_{\text{acc}}(\tau)^{3}\,.
+\end{align}
+Substituting into~\eqref{eq:Ye-with-racc} and separating
+$t$-dependent factors from $\tau$-dependent factors,
+\begin{align}
+Y_e(t) &= \frac{4\pi}{3}\left[
+    r_{\text{acc}}(t)^{3}\, \int_{0}^{t}\! J(\tau)\, \mathrm{d}\tau
+  - 3\, r_{\text{acc}}(t)^{2}\, \int_{0}^{t}\! J(\tau)\, r_{\text{acc}}(\tau)\, \mathrm{d}\tau
+  \right. \notag \\
+&\hphantom{= \frac{4\pi}{3}\left[\right.}\left.
+  + 3\, r_{\text{acc}}(t)\,     \int_{0}^{t}\! J(\tau)\, r_{\text{acc}}(\tau)^{2}\, \mathrm{d}\tau
+  -                              \int_{0}^{t}\! J(\tau)\, r_{\text{acc}}(\tau)^{3}\, \mathrm{d}\tau
+  \right]\,.
+\label{eq:Ye-decomposed}
+\end{align}
+Define the four \emph{moments} of the accumulated growth radius:
+\begin{equation}
+M_{k}(t) \;=\; \int_{0}^{t}\! J(\tau)\, r_{\text{acc}}(\tau)^{k}\, \mathrm{d}\tau\,,
+\qquad k \in \{0, 1, 2, 3\}\,.
+\label{eq:moments-def}
+\end{equation}
+$M_k(t)$ is the number-density-weighted $k$-th moment of the growth
+radius at time $t$: how many nuclei have been produced up to $t$,
+weighted by the $k$-th power of the accumulated growth radius they
+have seen since $t=0$.
+
+With this definition,~\eqref{eq:Ye-decomposed} becomes
+\begin{equation}
+\boxed{\;
+Y_e(t) \;=\; \frac{4\pi}{3}\left[
+     r_{\text{acc}}(t)^{3}\, M_{0}(t)
+  \;-\; 3\, r_{\text{acc}}(t)^{2}\, M_{1}(t)
+  \;+\; 3\, r_{\text{acc}}(t)\, M_{2}(t)
+  \;-\; M_{3}(t)
+\right]\,.
+\;}
+\label{eq:Ye-moments}
+\end{equation}
+This is the identity implemented in
+\texttt{jmak::extendedVolumePerVoxel} (with \texttt{alpha} for the
+morphology coefficient in place of $4\pi/3$).
+Each moment $M_k(t)$ satisfies the trivial update rule
+\begin{equation}
+M_k(t + \Delta t) \;=\; M_k(t) + J(t)\, r_{\text{acc}}(t)^{k}\, \Delta t\,,
+\label{eq:moment-update}
+\end{equation}
+at first order in $\Delta t$, which is one addition and $k$
+multiplications per cycle.
+Similarly $r_{\text{acc}}(t + \Delta t) = r_{\text{acc}}(t) + G(t)\, \Delta t$.
+Once a phase's $r_{\text{acc}}$ and $M_0, \dots, M_3$ are updated for the
+current cycle, the extended volume is one arithmetic evaluation of
+\eqref{eq:Ye-moments}: five scalars in, one scalar out, no history
+lookup.
+
+For a single sample of volume $V$, the transformed fraction is the
+usual $X(t) = 1 - \exp[-Y_e(t)/V]$; in the THAMES per-voxel setting,
+$V$ is the volume of a single lattice voxel and each seeded voxel
+carries its own $M_k$ snapshot taken at seed time (its ``generation''
+in the code) so that a voxel's own $Y_e$ starts from zero when it
+seeds, not from $t = 0$.
+The generation snapshot is subtracted:
+$Y_e^{\text{gen}}(t) = Y_e(t; \text{using } M_k(t) - M_k(t_{\text{seed}}))$.
+
+\section{Per-cycle numerical update}
+
+Only five scalars are stored per phase, plus a small snapshot per
+generation. The per-cycle work is:
+\begin{itemize}
+\item Evaluate $J(t)$ from the CNT rate law at current $S(t)$
+      (\texttt{cnt::nucleationRate}).
+\item Evaluate $G(t)$ from the phase's surface-normal rate law times
+      the molar volume: $G = r_{\text{surface}}(S)\, v_{\text{molar}}$
+      (\texttt{getGrowthVelocity} in each concrete
+      \texttt{KineticModel} subclass).
+\item Advance $r_{\text{acc}}$ by $G\, \Delta t$.
+\item Advance each $M_k$ by $J\, r_{\text{acc}}^{k}\, \Delta t$.
+\item For each generation, evaluate~\eqref{eq:Ye-moments} using the
+      difference between the current $M_k$ and the generation's
+      snapshot; convert to $X_{\text{gen}}$ via $-\text{expm1}(-Y_e/V)$.
+\end{itemize}
+None of these steps looks up the past values of $J$ or $G$.
+The full growth history is encoded in $r_{\text{acc}}$ and the four
+moments.
+
+\section{Connection with Scherer's effective-time formulation}
+
+Scherer and Bellmann\cite{Scherer2018} handle a time-varying driving
+force by defining an effective time
+\begin{equation}
+\xi(t) \;=\; \int_{0}^{t} \bigl(\beta_{\text{Tot}}(t')^{1/m} - 1\bigr)^{n}\, \mathrm{d}t'\,,
+\label{eq:scherer-xi}
+\end{equation}
+where $\beta_{\text{Tot}}$ is the total-saturation ratio.
+In their treatment, the linear dimension of each particle is
+$x_i = G_{0i}\, \xi$: the entire time evolution is absorbed into a
+single monotone variable~$\xi$, and the classical JMAK expressions
+for constant growth rate apply in the $\xi$ coordinate.
+The two devices — Scherer's effective time and this note's moment
+decomposition — are addressing the same computational problem
+(algebraic simplification of a double integral with a time-varying
+kernel) via different mathematical routes.
+Scherer's change of variable is exact when the shape factor $g$
+(their Eq.~8) and the ratio $G_{0i}/G_{0j}$ are constants, i.e., when
+the driving-force time dependence is separable from the direction
+dependence.
+The moment decomposition presented here is exact when the growth
+kernel $r(\tau, t) = r_{\text{acc}}(t) - r_{\text{acc}}(\tau)$
+separates into $t$- and $\tau$-dependent pieces after binomial
+expansion, which is possible for integer positive powers of the
+kernel.
+The two coincide in the special case where the whole time-dependence
+of the rates is captured by a single $\xi$.
+
+\section{Extensions and limitations}
+
+\begin{itemize}
+\item \textbf{Non-integer exponent $n$.} The moment identity
+      \eqref{eq:Ye-moments} requires $[r_{\text{acc}}(t) -
+      r_{\text{acc}}(\tau)]^{m}$ to be expandable as a finite sum of
+      products of $t$-only and $\tau$-only factors. This is possible
+      for integer $m$ (via the binomial theorem). For non-integer
+      $m$ — physically defensible for non-spherical or fractal
+      morphologies where $n \in [2.5, 4]$ — the identity does not
+      close, and per-cohort numerical integration of the growth
+      kernel is required. The THAMES code currently implements only
+      $m = 3$ (equivalently $n = 4$); non-integer $n$ is planned as
+      an extension.
+
+\item \textbf{Site-saturated nucleation.} If all nuclei are placed
+      instantaneously at $t = t_c$ and no further nucleation occurs,
+      $J(t) = N_0\, \delta(t - t_c)$ and
+      $M_k(t) = N_0\, r_{\text{acc}}(t_c)^{k}$ for $t \geq t_c$.
+      The formulation still applies, and the classical result
+      $Y_e = (4\pi/3)\, N_0\, r(t_c, t)^{3}$ is recovered.
+
+\item \textbf{Non-spherical shapes and heterogeneous nucleation.} The
+      morphology coefficient $\alpha$ replaces $4\pi/3$ for
+      non-spherical growth (e.g., $\alpha \approx \pi g / 2$ for
+      blade-like C-S-H per Scherer's shape factor). For heterogeneous
+      nucleation on a scarce substrate the effective $J$ must be
+      further weighted by the fraction of available substrate; the
+      moment update still applies to the effective $J$, but the
+      substrate-availability multiplier is a separate factor whose
+      time dependence must be tracked. In THAMES, the CNT rate law
+      \texttt{cnt::nucleationRate} already carries a $\theta$
+      parameter for that (Turnbull--Vonnegut $f(\theta)$).
+
+\item \textbf{Impingement between voxels.} JMAK's Poisson-impingement
+      correction $X = 1 - \exp(-Y_e/V)$ operates \emph{within a
+      voxel}. Impingement between neighboring lattice voxels is
+      handled at the placement stage
+      (\texttt{Lattice::nucleatePhaseRnd}): once a voxel is fully
+      transformed ($X_{\text{gen}} \approx 1$), its Portlandite
+      contribution is committed as a whole voxel of the phase and no
+      further JMAK evolution applies to it. Growth into neighboring
+      electrolyte is handled by the standard THAMES rate-law/
+      lattice-face mechanics.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{Scherer2018}
+G.\,W. Scherer, F. Bellmann,
+\emph{Kinetic analysis of C-S-H growth on calcite},
+Cement and Concrete Research \textbf{103}, 226--235 (2018).
+
+\bibitem{Bullard2015}
+J.\,W. Bullard, G.\,W. Scherer, J.\,J. Thomas,
+\emph{Time dependent driving forces and the kinetics of tricalcium
+silicate hydration},
+Cement and Concrete Research \textbf{74}, 26--34 (2015).
+
+\bibitem{Christian2002}
+J.\,W. Christian,
+\emph{The Theory of Transformations in Metals and Alloys},
+Pergamon (2002).
+
+\bibitem{AvramovSestak}
+I. Avramov, J. \v{S}est\'{a}k,
+Generalized kinetics of non-isothermal transformation phenomena,
+\emph{Journal of Thermal Analysis and Calorimetry} \textbf{79},
+595--602 (2005).
+\end{thebibliography}
+
+\end{document}
