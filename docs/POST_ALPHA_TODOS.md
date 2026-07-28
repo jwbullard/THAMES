@@ -474,7 +474,7 @@ Only added the Part-B fix (setScaledMass + updateMicroPhaseMasses). Because the 
 
 ---
 
-### CNT model needs Option (c) sub-voxel accumulator — pure-A₀ recalibration is not sufficient
+### CNT growth model needs JMAK-per-voxel — pure-A₀ recalibration is not sufficient
 
 **Identified:** 2026-07-27 while verifying the CNT scaling bug fix above.
 **Interim action:** default A₀ lowered from 1×10³⁰ → 1×10²⁵ /(m³·s) in `docs/CNT_ARCHITECTURE.md`, `docs/CNT_DESIGN_DECISIONS.md`, and (as a placeholder) test-config `nucleation` blocks. This gives bounded behavior for alpha testing but does **not** reproduce Session-46 archive trajectories. Full fix requires the code change described in "The required fix (Option c)" below.
@@ -516,39 +516,59 @@ SI_Portlandite trajectory keeps climbing (4.6 → 10.6 over the observed cycles)
 
 Middle ground does not exist for this system: SR growth's exponential-in-mass nature means once CNT places any nuclei, growth accelerates to consume Ca as fast as cement dissolves it. Both the initial nucleation rate (CNT) and the growth-to-voxel-scale rate (SR) are compressed into the same "place a voxel" event in the current model. That's the physics limitation, not a calibration knob.
 
-### The required fix (Option c) — sub-voxel CNT accumulator + SR-only growth
+### The required fix — JMAK-per-voxel growth model (design revised 2026-07-28)
 
-The physical model that would reproduce Session-46 trajectories has two independent processes:
+The physical model that would reproduce Session-46 trajectories has two independent processes operating at different length scales:
 
-1. **Nucleation** creates critical nuclei (~1 nm size) at rate J(S) per unit volume of electrolyte per unit time. These are far smaller than a lattice voxel.
-2. **Growth** by ion attachment turns nuclei into visible crystals. Rate is governed by SaturatingRate (Bullard/Han Eq. 7), bounded by k at high S, and proportional to surface area.
+1. **Nucleation** — creates critical nuclei (~1 nm size) at rate J(S) per unit volume of electrolyte per unit time. Discrete events distributed among voxels via Poisson statistics.
+2. **Growth** — ion attachment onto existing nuclei, with linear velocity G(S) derived from the SaturatingRate (or Standard) surface-normal rate law. Once nuclei impinge on each other within a voxel, growth stalls locally.
 
-In the current code, both are conflated into "place a whole voxel of the phase". Nature does not: critical nuclei are tiny, subsequent growth is rate-limited by SR (which caps at k), so at high S the growth is bounded, not runaway. The current model can't express this.
+In the current code both are conflated into "place a whole voxel of the phase" at the CNT step. Nature does not: critical nuclei are ~1 nm, a lattice voxel is ~1 μm, and the Poisson math says at low S the events distribute one-per-voxel while at higher S multiple events land in the same voxel and grow-and-impinge internally.
 
-**Proposed implementation:**
+**Revised design (2026-07-28) — Johnson–Mehl–Avrami–Kolmogorov per voxel.**
 
-- Add a `subVoxelAccumulator_[phase]` in `KineticController` (fractional voxels of pre-growth-to-voxel-scale material).
-- Every cycle, CNT nucleation contributes `J·V·dt·V_crit` where `V_crit = (4/3)π r*³` (with r* from Kelvin formula). This is fractional-voxel-scale nucleation mass. Add it to the accumulator.
-- Concurrently, SR growth contributes to the accumulator (or directly to a phase voxel once one is seeded): `rate_SR · area_current · dt` in voxel units.
-- When accumulator crosses 1.0, drain floor(accumulator) whole voxels via `Lattice::nucleatePhaseRnd`, carry fractional remainder.
-- The SR area used above is `area_current_voxels · V_voxel^(2/3)` plus a sub-voxel contribution proportional to accumulator. Details need design.
+The user's insight (session ending 2026-07-28) is that this scenario is exactly what JMAK was formulated for: random nucleation + finite-velocity growth + Poisson impingement in a fixed volume. Applying JMAK at the *voxel* scale gives:
 
-**Complexity:** ~1 day of design + implementation + verification. Design decisions to lock:
-- Whether the "SR growth" contribution comes from voxels of the phase already present (surface area from lattice) or from the accumulator (surface area from fractional-mass proxy).
-- Interaction with the CNT-lock: does DCLowerLimit reflect voxels only, or voxels + accumulator?
-- Interaction with `Lattice::changeMicrostructure`: same as now once whole voxels are placed.
+- **Between voxels:** CNT places nucleation events into random electrolyte voxels via Poisson. A voxel is "seeded" the first time it gets any nucleus. Multi-event coincidence within a single voxel is negligible at low S/early time, but expected at higher S/late time — JMAK handles both regimes.
+- **Within a seeded voxel:** internal Portlandite fraction X(t) evolves per JMAK from 0 to 1, driven by:
+  - the accumulating extended volume from nucleation events that landed inside during the voxel's history (each contributes `(4/3)π · [∫G(s)ds]³` per nucleus)
+  - **Avrami exponent n** (physically defensible in the range n ∈ [2.5, 4] for non-spherical / possibly fractal growth morphologies inside a 1 μm³ voxel)
+- **Aggregate lattice sync:** track total transformed volume across all seeded voxels; when the cumulative transformed voxel-count exceeds the number of Portlandite voxels currently in the lattice, place the next voxel via `nucleatePhaseRnd`.
 
-**Blocks:** removing the "CNT Portlandite calibration ..." entry (this one) and getting realistic physical trajectories for alpha demo of CNT-enabled Portlandite. Also blocks the Alite migration for SaturatingRate (Alite would have the same runaway).
+This decouples growth rate from lattice-face surface area, which was the mismatch that made SR ineffective. Growth velocity G(S) is intrinsic; it does not care about our voxel size.
 
-**Files (proposed):**
-- `backend/thames-hydration/src/thameslib/KineticController.h/.cc` — accumulator storage + drain logic
-- `backend/thames-hydration/src/thameslib/StandardKineticModel.h/.cc`, `SaturatingRateModel.h/.cc`, `PozzolanicModel.h/.cc` — sub-voxel SR contribution
-- `backend/thames-hydration/src/thameslib/NucleationRate.h/.cc` — expose V_crit as a helper if not already
-- `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` — re-derive expected voxels/cycle with the new model and re-run bisection
+**Why JMAK beats the earlier "sub-voxel accumulator" proposal.** The earlier proposal assumed one nucleus per voxel and drained whole voxels once fractional mass exceeded 1.0. That does not handle the multi-nucleus-per-voxel regime. JMAK's Poisson-impingement statistics captures exactly this case, plus it is a textbook formalism from metallurgy phase-transformation literature.
 
-**Interim workaround (landed 2026-07-27):** A₀ = 1×10²⁵ /(m³·s) as the recommended default. Bounds CNT rate to a value between the "explosive overshoot" and "SI runaway" failure modes. Does not match Session-46 trajectories but does not exhibit either pathology. Onset shifts from S ≈ 4.6 (Session-50 target) to S ≈ 7.
+**Why JMAK beats surface-area-multiplier.** `surfaceAreaMultiplier` in `kinetic_data` would let us scale up the SR rate to compensate for voxel-scale under-counting of true crystal surface area. It has no physical basis and would need to be tuned per phase and per resolution. JMAK is derived from first principles and treats the voxel scale correctly.
 
-**Evidence.** `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/` (original overshoot) and `~/tmp/thames-cnt-recal/cal-A0-1e{22,24,26,10}/` (parameter sweep).
+**Design decisions to lock during implementation:**
+
+1. **Cohort binning granularity.** Two options: (a) per-voxel state — one `X_i` scalar per seeded voxel; (b) age-cohort binning — bin voxels by cycle-of-seeding, evolve one `X_c` per cohort. (b) is likely sufficient and lighter on memory (~10⁴ cohorts vs ~10⁵ voxels). Start with (b).
+2. **Growth velocity G(S) mapping.** SaturatingRate gives surface-normal rate as mol/m²/s. Convert to linear velocity via `G = r_SR × v_molar` where r_SR is the surface-normal rate at current S. Handles time-varying S via cumulative integration.
+3. **Avrami exponent n.** Start with n = 3 (three-dimensional growth, site-saturated nucleation). Range [2.5, 4] is user-tunable via JSON; n outside that range should trigger a validation error.
+4. **Boundary rule at X = 1.** A cohort with X = 1 has all its voxels fully transformed. Whole voxels are then present in the lattice; further growth into neighboring electrolyte voxels is handled by the *existing* SR-on-lattice-surface machinery (rate law times lattice face area, which is now genuinely the growth surface between Portlandite and electrolyte).
+5. **Time-varying J and G.** Use additivity-rule (Ávramov / Šesták) form: extended volume `Y(t) = ∫ J(τ) · V_electrolyte(τ) · [∫_τ^t G(s) ds]^n · (4π/3) · dτ`, discretized cycle by cycle. `X(t) = 1 − exp(−Y(t))`.
+6. **Interaction with CNT-lock and Lattice::changeMicrostructure.** DCLowerLimit set based on total transformed volume (seeded voxels × X + Portlandite voxels in lattice). Existing `updateMicroPhaseMasses` call after placement remains valid.
+
+**Complexity.** ~2–3 days of design + implementation + calibration + verification, considerably more than the sub-voxel accumulator proposal. Not "1 day" — reflects the algebra to derive G from SR, plus cohort bookkeeping, plus validation against Session-46 without new tuning knobs.
+
+**Blocks.** Alpha-quality CNT-enabled Portlandite trajectories. Also blocks Alite migration for SaturatingRate (Alite + CNT would exhibit the same runaway with the pre-2026-07-28 model).
+
+**Alignment with transport-kinetics thread** (`docs/transport_kinetics_brainstorm.md`). The sub-voxel state added for JMAK gives us scaffolding for future shell-diffusion work. Two problems, one substrate. See memory `project_transport_kinetics_thread.md`.
+
+**Files (proposed for JMAK implementation):**
+- `backend/thames-hydration/src/thameslib/JMAKGrowth.h/.cc` — new, pure-math free functions for JMAK integrand and additivity-rule integration (mirrors `NucleationRate.h/.cc` pattern)
+- `backend/thames-hydration/src/thameslib/JMAKParameters.h` — new, POD `{n, ...}` for per-phase Avrami-exponent + any morphology parameters
+- `backend/thames-hydration/src/thameslib/KineticController.h/.cc` — cohort storage per phase; per-cycle update of `Y_c` and `X_c`; whole-voxel drain to the lattice
+- `backend/thames-hydration/src/thameslib/StandardKineticModel.h/.cc`, `PozzolanicModel.h/.cc`, `SaturatingRateModel.h/.cc` — expose `getGrowthVelocity(S)` returning m/s
+- `backend/thames-hydration/src/thameslib/KineticData.h` — parse `jmak.n` sub-block
+- `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` — re-derive expected voxels/cycle with JMAK; validate against Session-46 archive
+
+**Superseded design.** The earlier "sub-voxel CNT accumulator + SR-only growth" proposal from 2026-07-27 (Option c initial framing) is not implemented and will not be pursued. See git log entry for the revert.
+
+**Interim workaround (landed 2026-07-27):** A₀ = 1×10²⁵ /(m³·s) as the recommended default in configs and docs. Bounds CNT rate to a value between the "explosive overshoot" and "SI runaway" failure modes. Does not match Session-46 trajectories but does not exhibit either pathology. Onset shifts from S ≈ 4.6 (Session-50 target) to S ≈ 7. Remains in place until JMAK lands.
+
+**Evidence.** `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/` (original overshoot) and `~/tmp/thames-cnt-recal/cal-A0-1e{22,24,26,10}/` (parameter sweep). Sub-voxel accumulator attempt (reverted 2026-07-28) reached A₀ = 1e30 + seedScaledMassCutoff = 1.0 in the same 4b config and confirmed SR area shortfall as the root cause — SI accumulated to > 100 even with 100 000-voxel seed because SR rate ∝ voxel-scale surface area is 10× too small to keep pace with cement Ca supply.
 
 ---
 
