@@ -355,6 +355,90 @@ Two implications:
 - **This is now a good exerciser for shell physics** — by 6 d the
   Alite grains are tiny cores surrounded by dense CSHQ.
 
+### C3S solubility-product inconsistency between GEMS and SR calibration
+
+Session-end audit surfaced a longstanding cement-chemistry issue that
+now directly threatens the shell-diffusion work. Jeff calibrated the
+SaturatingRate parameters (k = 1.253e-4 mol/m²/s, B = 0.0475, n = 3.73)
+against the Perry / Nicoleau / Nonat experimental data, which give
+**ln K = −50.7** for
+
+    C3S + 5 H₂O → 3 Ca²⁺ + H₄SiO₄ + 6 OH⁻   at 298.15 K.
+
+Extracted the same equilibrium constant directly from GEMS
+`thames-dch.dat` (CemData18) by summing standard Gibbs energies of
+formation at 298.15 K (bracket-interpolated between the 297.15 and
+299.15 K grid points):
+
+| Species | G° at 298.15 K (J/mol) |
+|---|---|
+| C3S (Ca₃SiO₅) | −2,784,326 |
+| Ca²⁺ | −552,790 |
+| SiO₂@ (neutral aq silica) | −833,411 |
+| OH⁻ | −157,270 |
+| H₂O@ | −237,182 |
+
+The GEMS-native reaction is written using SiO₂@ (there is no H₄SiO₄
+DC — GEMS convention treats them as the same species with H₄SiO₄ =
+SiO₂@ + 2 H₂O, so ln K is invariant under the rewrite):
+
+    C3S + 3 H₂O → 3 Ca²⁺ + SiO₂@ + 6 OH⁻
+
+    ΔG°_rxn = 3·G°(Ca²⁺) + G°(SiO₂@) + 6·G°(OH⁻) − G°(C3S) − 3·G°(H₂O)
+            = +60,471 J/mol
+    ln K   = −ΔG°/RT = **−24.39**   (log K = −10.59)
+
+Comparison:
+
+| Source | ln K | Implied K |
+|---|---|---|
+| GEMS CemData18 (current `thames-dch.dat`) | **−24.39** | 2.5 × 10⁻¹¹ |
+| Perry / Nicoleau / Nonat (SR calibration) | −50.70 | 9.4 × 10⁻²³ |
+| **Δ ln K (GEMS − target)** | **+26.31** | K(GEMS) ≈ 2.7 × 10¹¹ × K(target) |
+
+GEMS thinks C3S is ~11 orders of magnitude more soluble than the
+Perry/Nicoleau/Nonat calibration says it is — the Babushkin heritage
+of CemData18's C3S data that Jeff mentioned. **The reason this has
+been masked in every prior THAMES simulation is that the Parrott-Killoh
+model doesn't care about thermodynamics or driving forces at all —
+PK is a pure empirical fit of DoR vs time, so the underlying K plays
+no role in the rate.** Standard and SaturatingRate DO use SI (= IAP/K)
+as their driving-force variable, so any phase driven by those models
+sees GEMS's K, not the calibration's.
+
+Practical consequence in the alite runs: GEMS-computed S(C3S) is
+~2.7 × 10¹¹ smaller than the "true" experimental S at the same aqueous
+composition. `ln S` fed into `k(1 − exp[−(−B·ln S)^n])` is more
+negative than the calibration was fit against, pushing the driving-force
+bracket well into the far-from-equilibrium saturation regime. In our
+runs the alite rate essentially saturates at k throughout — which is
+consistent with what we observed (SI values around 1e−14 to 1e−26 and
+rate essentially constant at k), but it means the transition region
+and the location of the "SR-Portlandite competition" balance point
+are shifted substantially from where they should be.
+
+**This must be resolved before pushing further on shell diffusion.**
+Two mutually-exclusive fix paths:
+
+1. **Rescale the SR parameters to match GEMS's ln K.** Refit `k, B, n`
+   such that r(S_GEMS) matches r(S_target) over the physically relevant
+   S range. Equivalent to re-running the Perry/Nicoleau/Nonat
+   regression against GEMS-computed activities instead of against the
+   paper's derived C_eq. Only affects the kinetic rate law; leaves
+   GEMS's equilibrium landscape untouched.
+2. **Override G°(C3S) in the DCH file so ln K = −50.7.** Requires
+   raising G°(C3S) by +65.2 kJ/mol (from current −2784.3 to about
+   −2719.1 kJ/mol). Physically honest — fixes the underlying data —
+   but changes every C3S-involving equilibrium calc, including any
+   place where C3S sits in a phase assemblage rather than being treated
+   as pure kinetic.
+
+Same audit needs to be run on every other phase whose kinetic model is
+Standard or SaturatingRate (Portlandite, ettringite, C-S-H products,
+gypsum, ...) — anywhere the calibration was tied to a specific
+experimental K, the GEMS K may disagree and the disagreement will now
+be visible where PK previously hid it.
+
 ### Baseline-28d comparison (completed after session wrap-up)
 
 Baseline-28d finished in 200 s wall time, terminated at the SAME
@@ -403,6 +487,14 @@ submodule):
 
 ## Design questions open at session end
 
+0. **BLOCKER for further shell-diffusion work — C3S ln K inconsistency
+   between GEMS and the SR calibration.** See dedicated section above.
+   GEMS's ln K = −24.4; SR-model target = −50.7; delta of 26.3 ≈ 11
+   orders of magnitude in K. PK masked this in all prior work; Standard
+   and SaturatingRate now expose it. Must resolve before pushing on
+   the C_eq design question (any diffusion physics conclusions we draw
+   with the current inconsistent K will not be meaningful). Audit
+   every other Standard/SR phase for the same issue.
 1. **C_eq derivation for transport half-cell.** Current formula
    `C_bulk / S^(1/stoich)` degenerates when S << 1. Two candidate
    fixes:
@@ -412,7 +504,7 @@ submodule):
    - **(b)** Reformulate flux balance in terms of `C_surf - C_bulk`
      with externally supplied C_eq_ref, bound surface flux by max
      diffusive throughput regardless of kinetic driving force.
-   No decision yet. Bring to next session.
+   No decision yet. Bring to next session. Blocked on #0.
 2. **Per-shell-phase D_eff map** (Phase 2 stub `pickDEff` still
    returns the block's `dEff` regardless of composition). Real
    physics: Ca²⁺ through C-S-H (~1e-13 m²/s), through AFm (~1e-14),
