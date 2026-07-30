@@ -353,10 +353,32 @@ Two implications:
   gypsum/Al phases competing for Ca²⁺, so all Ca goes to the two
   Ca-Si and Ca-OH products.
 - **This is now a good exerciser for shell physics** — by 6 d the
-  Alite grains are tiny cores surrounded by dense CSHQ. Baseline-28d
-  is running now for comparison; delta between the two should tell
-  us whether the shell throttle activates at high DOR / thick
-  effective shell. Comparison ready in the morning.
+  Alite grains are tiny cores surrounded by dense CSHQ.
+
+### Baseline-28d comparison (completed after session wrap-up)
+
+Baseline-28d finished in 200 s wall time, terminated at the SAME
+t = 148 h (6.17 d) as the shell run, by the SAME cause (all electrolyte
+consumed by growth).
+
+|                          | Alite   | DOR    | CSHQ     | Portlandite |
+|--------------------------|---------|--------|----------|-------------|
+| Baseline-28d @ 6.17 d    | 88,382  | 78.75% | 708,773  | 202,845     |
+| Shell-28d @ 6.17 d       | 88,663  | 78.68% | 708,664  | 202,673     |
+| **Delta (shell − base)** | +281    | −0.07 pp | −109   | −172        |
+
+The direction is physically correct — shell throttles Alite slightly, so
+more remains and less product forms — but the magnitude is still tiny
+(281 / 415,957 = 0.07% relative). At 6 d the run is termination-limited
+by electrolyte depletion, not by shell diffusion. Both runs hit the
+electrolyte-empty wall at the same wall-clock cycle.
+
+The shell correction is doing SOMETHING now (nonzero delta at 6.17 d
+vs 139 voxels at 1 d), but the C_eq math bug still dominates. To
+observe a real shell-throttle effect on this system, we'd need to fix
+the C_eq derivation AND run in a regime where electrolyte doesn't
+deplete before shells mature. Both point toward the design questions
+listed above.
 
 ## Files touched (super-repo `~/Code/THAMES/`)
 
