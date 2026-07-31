@@ -439,6 +439,44 @@ gypsum, ...) — anywhere the calibration was tied to a specific
 experimental K, the GEMS K may disagree and the disagreement will now
 be visible where PK previously hid it.
 
+### Priority-2 mass-balance rerun completed (after session wrap-up)
+
+Silica-fume Portland cement rerun (`~/tmp/thames-mb-portland-sf15`,
+200³ system, 28-day target) finished cleanly at 19:03 on July 30
+after 27.7 hours wall time and 25,030 cycles. Exit status SUCCESS,
+100% cycle success rate, `dt_final = 4.0 h`, 0 failures. Only 4 IC
+depletion events across the entire 25,030 cycles — vs the ~20+ events
+in the first 4 minutes of Session-46's failing run that triggered the
+cycle-11 dt collapse.
+
+Final composition at 28 d (out of 8,000,000 voxels):
+
+| Phase | Voxels | Vol % |
+|---|---|---|
+| Electrolyte | 240,833 | 3.0% |
+| Alite | 324,752 | 4.1% |
+| Belite | 92,998 | 1.2% |
+| Aluminate | 55,358 | 0.7% |
+| Ferrite | 37,619 | 0.5% |
+| Sfume (unreacted) | 407,402 | 5.1% |
+| monosulf-AlFe | 377,468 | 4.7% |
+| C4AsH14 | 511,518 | 6.4% |
+| **CSHQ** | **5,310,964** | **66.4%** |
+| Portlandite | 415,898 | 5.2% |
+| C3AH6 | 225,179 | 2.8% |
+| ettr / ettr-AlFe | ~8 | ≈ 0% |
+
+Confirms:
+- **Mass-balance fix works end-to-end on the silica-fume Portland system**
+  that failed at cycle 11 in Session 46. Portlandite trajectory now
+  smooth; SI bounded near 1.0 as expected.
+- **Session 46's cycle-11 dt-collapse is fully resolved by the mass-balance
+  fix alone** (transport-kinetics work not required for this system).
+- Ettringite driven to essentially zero (as expected in silica-fume
+  systems where CSHQ absorbs all the Ca that would have gone to AFt/AFm),
+  which is the Session-47 encapsulated-remnant precursor state
+  reached in an orderly fashion rather than as a stall.
+
 ### Baseline-28d comparison (completed after session wrap-up)
 
 Baseline-28d finished in 200 s wall time, terminated at the SAME
