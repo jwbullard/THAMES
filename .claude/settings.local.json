@@ -13,7 +13,19 @@
       "Bash(fc-list)",
       "Bash(open *)",
       "Bash(~/Code/Python/Envs/Default/bin/python *)",
-      "Bash(~/Code/Python/Envs/Default/bin/jupyter nbconvert *)"
+      "Bash(~/Code/Python/Envs/Default/bin/jupyter nbconvert *)",
+      "Bash(/Users/jwbullard/Code/THAMES/backend/thames-hydration/build/thames)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(tail -20 run_stderr.log)",
+      "Bash(tail -30 run_stdout.log)",
+      "Read(//Users/jwbullard/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/**)",
+      "Read(//Users/jwbullard/tmp/thames-satrate-val/**)",
+      "Read(//Users/jwbullard/tmp/thames-pureC3S-sanity/Result/**)",
+      "Bash(awk 'NR<=3 || NR%8==0' ~/tmp/thames-pureC3S-sanity/Result/AliteBaseline_Microstructure.csv)",
+      "Bash(awk 'NR<=3 || NR%10==0' ~/tmp/thames-pureC3S-sanity/Result/AliteBaseline_icmoles.csv)",
+      "Read(//Users/jwbullard/tmp/thames-pureC3S-sanity-v2/Result/**)",
+      "Bash(sed '/Time\\(h\\)/,+1d' ~/tmp/thames-pureC3S-sanity-v2/Result/AliteBaseline_SI.csv)",
+      "Bash(sed '/Time\\(h\\)/,+1d' ~/tmp/thames-pureC3S-sanity-v2/Result/AliteBaseline_Microstructure.csv)"
     ]
   }
 }

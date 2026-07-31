@@ -584,6 +584,56 @@ This decouples growth rate from lattice-face surface area, which was the mismatc
 
 ---
 
+### Audit remaining Standard/SR-driven phases for GEMS-vs-calibration ln K discrepancies
+
+**Identified:** 2026-07-31 (Session 56, immediately after C3S ln K fix)
+
+**Symptom.** Session 55 uncovered a 26.3 ln-unit gap between GEMS's ln K for C3S dissolution (Babushkin/CemData18, ln K = -24.4 at 298.15 K) and the calibration target from Nicoleau/Bullard 2015 (ln K = -50.7). The fix (constant -65,212 J/mol offset to G°(C3S) in `src/data/gems/thames-dch.dat`) landed today. But every other Standard-model or SaturatingRate-model phase whose rate law was calibrated against a specific ln K may have a similar Babushkin-heritage discrepancy that was masked by Parrott-Killoh (which doesn't use SI at all). Phases to audit: Portlandite, ettringite (ettr, ettr05, ettr03_ss), CSHQ end-members (CSHQ-JenD/JenH/TobD/TobH), gypsum (Gp), anhydrite (Anh), C2S, C3A, C4AF, monosulfates.
+
+**Root cause.** CemData18's clinker-phase G° values were extrapolated from high-T calorimetry using estimated Cp curves. Extrapolation error accumulates over ~1200 K. C3S was demonstrably off by 65 kJ/mol (2.3% of G°). Similar phases likely have similar-magnitude errors.
+
+**Proposed fix.** Script to extract G°(phase) at 298.15 K from DCH for each Standard/SR-driven phase, compute the dissolution reaction ln K, compare to the calibration paper's target ln K for that phase, and report the discrepancy. Any phase with |Δ ln K| > 2 needs a database correction using the same procedure as C3S. Document each correction in `docs/GEMS_LNK_CORRECTIONS.md` with provenance (calibration paper, magnitude, date).
+
+**Files.** `src/data/gems/thames-dch.dat` (potentially edited); new audit script under `docs/scripts/` or `~/Code/THAMES/scripts/`.
+
+---
+
+### Audit H0 for Standard/SR-driven phases against calorimetric ΔH°_rxn targets
+
+**Identified:** 2026-07-31 (Session 56, C3S ln K fix follow-up)
+
+**Symptom.** The G0-only edit that fixed ln K for C3S didn't touch H0 arrays. Initial concern: enthalpy-of-hydration tracking (for isothermal microcalorimetry prediction) would still reflect Babushkin's H° values, which might be as off as G° was.
+
+**What we found for C3S**: when compared like-for-like against Bullard 2015 Table 2 (via the definitional identity H₃SiO₄⁻ ≡ HSiO₃⁻ + H₂O with ΔG_spec ≈ 0), Babushkin's H°(C3S) gives ΔH°_rxn = −135.8 kJ/mol vs paper's target −137.0 kJ/mol. **Discrepancy is only 1.2 kJ/mol (~1%)** — within paper precision. No H0(C3S) correction needed. The ln K discrepancy that Session 55 uncovered lived in a reference-state offset in how CemData18 relates its stored G0/H0/S0 triple, not in a physical H° error.
+
+**Deferred task**: apply the same like-for-like ΔH°_rxn comparison to every other Standard/SR-driven phase (Portlandite, ettringite, CSHQ end-members, gypsum, C2S, C3A, C4AF, monosulfates) as part of the broader "Audit remaining Standard/SR-driven phases" TODO above. For each phase, compute ΔH°_rxn from GEMS H0 values and compare to the calibration paper's ΔH°_rxn value (if reported). Where discrepancy > 5 kJ/mol, apply a constant H0 offset to that phase alone (procedure mirrors the G0 correction: locate DC index, edit line, verify).
+
+**Motivation**: Jeff wants isothermal microcalorimetry curves as a validation channel for overall hydration kinetics. That requires both accurate reaction rates (via corrected SI/G0) AND accurate ΔH°_rxn per unit reaction (via H0). C3S is covered; the others need to be checked.
+
+**Files.** `src/data/gems/thames-dch.dat` H0 block (line 764+); DC indices as listed in the sibling TODO entry.
+
+---
+
+### Adaptive controller ignores `dt_initial`; first cycle sized by first outtime instead
+
+**Identified:** 2026-07-31 (Session 56, pure-C3S sanity test setup)
+
+**Symptom.** Setting `time_parameters.adaptive_stepping.dt_initial = 0.0001` (h) in simparams.json had no effect on the first cycle's timestep. `thames.log` "START NEW CYCLE (ADAPTIVE)" for cycle 1 reported `timestep : 0.24 h` — exactly equal to the first outtime (0.01 days converted to hours). For an SR-driven pure-C3S-in-water test starting from Ω ≈ 1e-14, a 0.24 h first step at rate ≈ k dissolves enough Alite to overshoot Ω to ~500 in a single step, defeating the whole purpose of a small initial dt.
+
+**Root cause (suspected, not yet verified).** The `AdaptiveTimeController` initialization path clips the first-cycle dt to the time-to-first-outtime rather than starting from `dt_initial` and hitting outtimes at cycle boundaries. Alternative: `dt_initial` is only read for a non-adaptive execution path and adaptive mode uses a different initialization.
+
+**Impact.** Silent: user sees no warning that their `dt_initial` was ignored. For any simulation with a large first outtime relative to physically-appropriate initial timesteps (e.g., a fast-transient test starting from far-from-equilibrium initial conditions), the first cycle over-integrates.
+
+**Workaround (current).** Set outtimes[0] to a tiny value (e.g., 1e-7 days ≈ 8.6 ms) to force a small first cycle. Downside: no output at intermediate physical timescales unless you enumerate outtimes densely.
+
+**Proposed fix.** In `AdaptiveTimeController::computeInitialTimestep` (or wherever the first-cycle dt is set): use `min(dt_initial, time_to_first_outtime)` rather than `time_to_first_outtime`. Then clip the FIRST integration step to `dt_initial` and grow via `growth_factor` from cycle 2 onward, hitting each outtime as a "reduce-to-hit" boundary rather than a "grow-to-hit" one.
+
+**Files.** `backend/thames-hydration/src/thameslib/AdaptiveTimeController.{h,cc}`, possibly `Controller.cc` for the first-cycle dispatch.
+
+**Discovered while setting up the pure-C3S sanity validation (Session 56). Not blocking alpha — the workaround is straightforward. But this behavior surprises users and should be either fixed or documented as a design choice.**
+
+---
+
 ## Format for New Entries
 
 ```

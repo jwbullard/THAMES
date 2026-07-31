@@ -2,361 +2,94 @@
 
 ## Project Overview
 
-THAMES is a GTK-based application for advanced cement hydration simulation, using the THAMES-Hydration C++ simulator. This project is based on the VCCTL architecture but adapted for the upgraded hydration simulation engine.
-
-**Based on:** VCCTL v10.0.0
-**Hydration Engine:** THAMES-Hydration (C++)
-**Started:** November 2025
+THAMES is a GTK-based application for advanced cement hydration simulation, using the THAMES-Hydration C++ simulator. Based on VCCTL v10.0.0; hydration engine is THAMES-Hydration (C++). Started November 2025.
 
 ## Key Differences from VCCTL
 
 - **Hydration Simulator**: VCCTL uses disrealnew.c (C); THAMES uses THAMES-Hydration (C++)
-- **Materials**: VCCTL uses per-type tables (cement, fly_ash, slag, etc.); THAMES uses a unified `material` table with tag-based classification and GEMS phase composition
+- **Materials**: VCCTL uses per-type tables; THAMES uses a unified `material` table with tag-based classification and GEMS phase composition
 - **Thermodynamics**: THAMES integrates GEMS3K (100 phases, 198 DCs, 277-353K temperature range)
 
-## Development Sessions
-
-### Sessions 1-10 (November 2025): Foundation
-- **Session 1-2**: Repository setup, GEMS3K integration, tag-based materials architecture
-- **Session 3-5**: Material database schema, migrated 36 cements + 1 limestone from VCCTL, PSD system (5 distribution types), clinker fraction editor
-- **Session 6-7**: Phase ID mapping service (0=VOID, 1=ELECTROLYTE, 2-7=Clinker, 8=AGGREGATE, 9+=Other), MicgenInputService implementation
-- **Session 8**: Phase color service (~90 GEMS phase colors), Results Viewer with THAMES support
-- **Session 9-10**: Hydration Panel UI (electrolyte editor, product tree, kinetic model editing for all 4 model types)
-
-### Sessions 11-18 (December 2025): Visualization & Elastic Moduli
-- **Session 11-12**: Hydration progress tracking, kinetic preferences system, data plots (multi-select, log axes, export)
-- **Session 13-14**: Elastic moduli UI, executable path standardization to `bin/`, GEMS database file handling
-- **Session 15**: Unified voxel ordering (X-fastest) across micgen, THAMES C++, and Python/VTK
-- **Session 16**: Multi-temperature GEMS database (277-353K), expanded to 82 hydration products
-- **Session 17-18**: Elastic/strain energy visualization, 3D orientation axes, Homebrew safety (pinned pygobject3, py3cairo, gobject-introspection)
-
-### Sessions 19-22 (Dec 2025 - Jan 2026): Windows Platform
-- **Session 19**: Windows dev environment (MSYS2 Python 3.12.12, PyGObject 3.54.3), Unicode arrow fix, GTK CSS platform check
-- **Session 20**: Windows C++ backend build, ImageMagick removal (replaced with PngWriter.h using libpng), particle shape sets copied from VCCTL
-- **Session 21**: Switched to Clang on Windows, fixed `long int` → `long long int` (32-bit on Windows vs 64-bit on macOS), Git LFS for `*.tar.gz`
-- **Session 22**: W/B ratio limits removed (up to 10000 for dilute suspensions), adaptive time units for progress display
-
-### Sessions 23-30 (Jan-Feb 2026): Adaptive Time Stepping
-- **Session 23**: Deep analysis of THAMES C++ time stepping and GEMS3K solver; created implementation plan (`docs/adaptive_timestepping_implementation_plan.md`)
-- **Session 24**: Implemented AdaptiveTimeController class + GEMS convergence accessors (getPCI, getDXM, getConvergenceRatio); removed random guessing from calculateState()
-- **Session 25**: Testing — raised ICTHRESH to 1e-8, checkICMoles() every cycle; kinetics-based initial timestep (estimateInitialDissolutionRate for PK, Standard, Pozzolanic models)
-- **Session 26**: User Manual created (`docs/USER_MANUAL.md`, ~1,100 lines); Result-Adaptive-04 baseline performance
-- **Session 27**: Sub-minute output filenames (added seconds: `00h00m18s`), smaller minimum timestep (1e-5 hours)
-- **Session 28**: Model-aware adaptive parameters (SI-driven vs DOR-driven); fast-dissolving phase exclusions (Bassanite, Gypsum, Arcanite, Thenardite); electrolyte duplicate DC detection in UI
-- **Session 29**: Fixed GEMS phase name vs DC name confusion (hydrotalcite→OH-hydrotalc, zeoliteP_Ca→ZeoliteP); added Anhydrite to fast-dissolving exclusions; multi-simulation comparison plotting
-- **Session 30**: Simplified to unified adaptive parameters (dt_initial=0.001h, dt_max=4h, growth_factor=1.5); IC depletion recovery with charge compensation; exit_status.json + UI alerts
-
-### Sessions 31-32 (Feb 2026): Documentation & UI Config
-- **Session 31**: Integrated 26 screenshots into User Manual, restructured sections (merged Microstructure into Mix Design)
-- **Session 32**: Configurable adaptive time stepping UI (7 SpinButtons in Hydration panel → simparams.json); IC_FLOOR=1e-5 proactive depletion prevention; runtime electrolyte concentration safety (minConc = IC_FLOOR / waterMass); concentration_overrides.json + UI notification
-
-### Session 33: Micgen Windows Crash Debugging
-March 19, 2026 — Windows 10
-
-- Stack-allocated arrays (`struct lineitem line[MAXLINES]` = 1.7 MB) exceeded Windows 1 MB stack; fixed with `static`
-- Bbox array bounds mismatch (0.75 vs 0.8 of systemsize) caused buffer overflow; fixed allocation
-- Added `-Wl,--stack,8388608` linker flag for Windows as defense-in-depth
-- Segfault during `freemicgen()` exit cleanup persists (after output written, low priority)
-
-**IMPORTANT — Windows Working Directory:** Always work from `C:\Users\jwbullard\Desktop\foo\THAMES` on Windows, NOT `C:\Users\jwbullard\THAMES`.
-
-### Session 34: Suppressed Phases, Time Unit Seconds & Submodule Merge
-March 20, 2026 — macOS
-
-- **Suppressed phases feature**: UI unchecked phases → `suppressed_phases` list in simparams.json → Controller reads list → maps phase→DC via nDCinPH → `addSuppressedDC()` → `initDCUpperLimit()` skips suppressed DCs (keeps at 0.0)
-- Added "seconds" to all time unit dropdowns; unit combos for dt_initial/dt_max
-- Empty category row fix in hydration product selector
-- Merged adaptive-timestepping branch (12 commits, +2236 lines) into main
-
-### Session 35: Early Termination Bug Fix, UI Decimal Places & macOS Signing
-March 27, 2026 — macOS
-
-- **Critical**: `time_[]` vector entries overwritten with cycle times; fixed by using `initialLastTime` (3 locations)
-- 4 decimal places for all floating-point SpinButtons in adaptive stepping and kinetic editor
-- macOS code signing: added `codesign --force --sign -` as POST_BUILD step in CMakeLists.txt
-
-### Session 36: Time Vector Bounds Fix, Kinetics Floor & False Termination Fix
-March 28, 2026 — macOS
-
-- `time_[lastGoodI]` out-of-bounds write when cycles exceeded vector size; added bounds check
-- `computeKineticsBasedMaxTimestep()` could return ~1e-13; enforced `stepTimeTHR_` (1e-5 hours) as minimum
-- False "FINAL TIME REACHED" termination: now also requires `initialLastTime - lastGoodTime_ < 1e-6`
-
-### Session 37: Lattice Retry Limit, UI Race Condition & Glass Phase Names
-March 29-31, 2026 — macOS
-
-- `while (changeLattice == 0)` infinite loop: added MAX_LATTICE_RETRIES=50 with voxel_mismatch.log
-- Progress polling race condition: moved polling start into `_on_simulation_started()` callback
-- 5 glass phases needed `(am)` suffix (C2AS, CA2S, CAS, CAS2, K6A2S) to prevent crystalline behavior
-
-### Session 38: Post-Failure Kinetics Constraint Fix
-March 31 - April 1, 2026 — macOS
-
-- **Critical**: GEMS failure recovery path bypassed kinetics timestep constraint; after failure, `recordFailure()` returned ~1.0h (1000x too large); caused IC overshoot → IC recovery injection → SI explosion
-- Fix: Apply `computeKineticsBasedMaxTimestep()` on failure path same as success path
-
-### Session 39: Windows Sync, Micgen Fix, 3D Layout & Load Operation Feature
-April 4, 2026 — Windows 10
-
-- Pre-session sync of Sessions 34-38; clean C++ rebuild
-- Created `build-windows.sh` and `build-macos.sh`
-- Micgen divide-by-zero fix: `numchunk = total/100` produced 0 for <100 particles; fix: `if (numchunk < 1) numchunk = 1`
-- 3D viewer control panel reorganized into two rows
-- **Load Operation feature**: radio buttons for "New simulation" vs "Load from previous operation"; combo dropdown populates from `*_hydration_config.json` files; loads all UI widgets (temperature, electrolyte, products, kinetics, time params, adaptive stepping, runtime options)
-
-### Session 40: Material Migration, VCCTL Cleanup & Aggregate Shapes
-April 14, 2026 — macOS
-
-- **Material migration**: Migrated 5 materials from VCCTL legacy tables to THAMES unified material table (undensifiedSF, Quartz-Fine, periclase, quartz-inert, psdFiller); 2 corundum entries not migrated (no GEMS Al2O3 phase)
-- **VCCTL removal from Materials Panel**: Removed all 6 VCCTL legacy material loading blocks from `material_table.py`; removed VCCTL type dispatch from selection, deletion, duplication, export handlers; simplified `_get_material_type()`, `_duplicate_material()`, `_delete_material()`, `_generate_unique_material_name()` in `materials_panel.py`; removed 7 dead VCCTL copy methods (~290 lines)
-- **Aggregate decision**: Aggregates kept in separate pipeline (own UI in Mix Design with fine/coarse selection, grading curves, mechanical properties); they don't use GEMS phases
-- **Aggregate shape data**: Copied `aggregate.tar.gz` (185 MB) from VCCTL; extracted to app support directory; Git LFS tracks via existing `*.tar.gz` rule; extraction logic in `directories_service.py` already handles first-launch extraction
-- **Build script fix**: Fixed kva2json linker race condition in `build-macos.sh`
-- **Hydration panel**: dt_max lower bound reduced to 0.001 seconds; "timestep" → "time step" rename; Load Operation UI restructured with radio buttons + combo box
-
-### Session 41: Concelas Integration — Concrete-Scale Elastic Moduli
-April 20-21, 2026 — macOS
-
-- **Python concelas port**: Ported multi-scale concrete moduli algorithm from VCCTL `backend/src/elastic.c:2942-3559` to `src/app/services/concelas_service.py` (pure algorithms) and `concelas_runner.py` (CSV I/O + orchestration); no C++ backend changes; 37 unit tests passing
-- **Completion hook wiring**: Post-completion hook in `operations_monitoring_panel.py` reads `concelas_inputs.json` and calls `run_and_append()` after `thames -s 5` completes; appends 13 Concrete/ITZ/Mortar rows to `EffectiveModuli.csv` plus `ConcelasLog.txt`
-- **UI unblock**: Removed four `thames_mode` gating points in `elastic_moduli_panel.py` (warning banner, ITZ checkbox hide, disable-aggregate-settings, lineage fallback text); ITZ checkbox now auto-enabled when lineage returns aggregate
-- **Effective Moduli Viewer**: Added ITZ property bucket, renamed EFFECTIVE MODULI → BINDER EFFECTIVE MODULI, ordered sections Binder / Concrete / ITZ
-- **UX polish**: Source label shows red VF=0 warning when microstructure has no aggregate slab; Mix Design pops pre-generation dialog for orphan aggregate metadata (name set, mass=0)
-- **Post-alpha TODO system**: Created `docs/POST_ALPHA_TODOS.md` with format template; seeded with 5 entries (headline: adaptive-timestep near-depletion stall)
-- **Stop/cancel persistence bug fix**: `_stop_operation` and `cancel_operation` in `operations_monitoring_panel.py` never persisted `CANCELLED` to the database — stopped ops kept showing as `RUNNING` and resurrected on every app launch (phantom "restart" dialog). Added DB write on both paths plus a startup reconciliation in `_load_operations_from_database` that flips any orphaned `RUNNING` record (no live process) to `CANCELLED`. Reconciled existing DB state once via direct SQL.
-- **Help menu overhaul**: Help → User Guide / Getting Started / Troubleshooting previously either errored ("Documentation Not Found" from defunct MkDocs paths) or handed the .md to whatever external viewer macOS/Windows/Linux had registered. Rewrote `documentation_viewer.py` to render `docs/USER_MANUAL.md` to a single-file HTML on demand using Python-Markdown (new dep: `markdown>=3.4.0`; added to both PyInstaller specs). Target section is baked into the HTML as `window.__THAMES_TARGET_SECTION` rather than passed via URL fragment (fragments are unreliable through macOS `osascript → open location → browser` pipeline). Internal TOC links use fragment-only `href="#..."` that work natively once on the page. Image paths pre-absolutized to avoid `<base href>` which would break fragment navigation.
-- **About dialog**: Credits pane previously showed literal `<span size="small">Texas A&M University</span>` for the first author — GTK's Credits pane runs each line through Pango markup parser; `&` in "A&M" looked like an HTML entity start and failed. Fixed by pre-escaping `&` → `&amp;` in the authors list. Also consolidated all About-dialog strings to read from `app_info.py` (single source of truth).
-- **Version bump**: `APP_VERSION` 10.0.0 → **`1.0.0-alpha.1`** (SemVer 2.0.0 pre-release). New `APP_VERSION_STAGE` constant shows an "ALPHA pre-release" banner in the About dialog. Annotated tag `v1.0.0-alpha.1` created and pushed.
-- **Windows alpha prep**: new `docs/ALPHA_RELEASE_PREPARATION.md` is a 10-step Windows packaging recipe (sync → deps → smoke test → PyInstaller → Inno Setup → README → GitHub pre-release).
-- End-to-end validated on 7-day ccr152-concrete: paste K=19.5 G=10.2, concrete K=22.9 G=12.7, ITZ K=16.8 G=8.5, concrete cube strength 20.2 MPa (reasonable for 7-day mortar)
-
-### Session 42: Windows Alpha Smoke Test, UI Fixes & Release Packaging
-April 23-24, 2026 — Windows 10
-
-- **Smoke test (Step 4 of `docs/ALPHA_RELEASE_PREPARATION.md`)**: 4.1 Help menu, 4.2 Stop/cancel persistence, 4.3 Concelas pipeline all PASSED. Step 4.4 (orphan-aggregate dialog) revealed UX gaps that drove the next several fixes.
-- **Mix Design — orphan prevention at source**: New `_apply_aggregate_gating()` in `mix_design_panel.py` disables aggregate combo, grading button + template label, shape combo, and air content spin until that side's mass spin > 0. Re-entering mass = 0 resets and clears the side. Wired from `_on_mass_changed` (skipping during `_loading_in_progress`) plus a final reconciliation call at end of `_populate_ui_from_mix_design`. Eliminates the ability to save aggregate metadata for a microstructure that has no aggregate slab.
-- **Elastic Moduli — defensive lock when no real aggregate**: In `_populate_from_resolved_lineage`, compute `fine_has_real_aggregate = bool(fine_agg and VF > 0)` (similarly coarse). If neither is real, both Include-aggregate checkboxes AND the ITZ checkbox are unchecked AND made insensitive — user cannot opt into concelas post-processing for a microstructure that has no slab. Same treatment added to `_update_ui_from_operation` for saved-elastic-op loads. Backend was already safe (`_write_concelas_inputs_json` short-circuits on no aggregate).
-- **Elastic Moduli — reset disabled inputs**: New `_reset_aggregate_inputs(agg_type)` helper resets one side's volume/bulk/shear/grading entry/grading status to creation defaults (0.0, 37.0, 44.0, blank, blank) so disabled controls don't display stale values from a prior selection. Called in both no-aggregate branches of both populate paths.
-- **Elastic Moduli — informational warnings**: Switched four `foreground="#D32F2F"` (red) markups to `foreground="#B8860B"` (DarkGoldenRod) so users read "no aggregate slab" as informational rather than as an error.
-- **Hydration Product Selector — clickable pencil icon**: The pencil icon in column 5 of the phase tree was a `Gtk.CellRendererPixbuf` rendered for selected rows but had no click handler — it looked clickable but only `row-activated` (double-click) opened the config dialog. Added `_on_treeview_button_press` that uses `get_path_at_pos` to detect single-clicks landing in the config column on selected non-category rows, and emits `configure-phase` (same payload as the double-click path). Returns False on other columns so default tree handling (checkbox toggle, selection) is preserved.
-- **Aggregate shape sets missing on Windows**: Mix Design shape combos showed only "sphere" because `%LOCALAPPDATA%\THAMES\aggregate\` was empty. Root cause: `directories_service.py:58-59` returns early in dev mode (`return # Don't extract in development mode`), so `aggregate.tar.gz` only auto-extracts inside a PyInstaller bundle. macOS happened to work because the user data dir was already populated from a prior bundle run. Manually extracted `tar -xzf aggregate.tar.gz -C "$LOCALAPPDATA/THAMES/"` (36 shape directories). Logged the dev-mode auto-extract gap as a `POST_ALPHA_TODOS.md` candidate.
-- **Operations reconciler — live-process incident**: User left two `micgen.exe` operations running. I killed `python.exe` to relaunch the UI (between fix iterations); UI restart flagged the running operations as `CANCELLED` because the reconciliation in `_load_operations_from_database` only checks the original UI-tracked PID, not the spawned children. User deleted the "cancelled" operations from the UI; DB rows removed but on-disk operation folders survived AND the still-live `micgen.exe` processes continued writing to them. Killed two stale `micgen.exe`, removed `ccr140-FlyAsh-orphan_01` and `_02` operation folders. Logged a new `POST_ALPHA_TODOS.md` entry: persist child PID/image/cwd at launch and reattach via `psutil` on UI restart instead of trusting only the parent PID. Also saved a feedback memory: do not restart the THAMES UI without explicit user permission.
-- **VCCTL release process investigation**: Spawned Explore agent to compare VCCTL packaging (`docs/PACKAGING.md`, `scripts/build_windows.bat`, `vcctl-windows.spec`, `.github/workflows/build.yml`) to the THAMES alpha plan. Findings: tarball bundling and PyInstaller GTK DLL collection patterns are essentially identical; main gap was no Inno Setup template (VCCTL auto-generates NSIS at build time). Recommended Inno Setup over NSIS for maintainability.
-- **Spec file fixes (`thames-windows.spec`)**: Replaced 27 stale VCCTL legacy executable references in the Windows binaries block (`backend/bin-windows/genmic.exe`, `disrealnew.exe`, `elastic.exe`, etc.) with the three actual THAMES backend artifacts (`bin/thames.exe`, `bin/micgen.exe`, `bin/libpng16-16.dll`); the legacy paths never existed in THAMES so PyInstaller aborted at the first binary. Dropped missing `vcctl-docs/site` data reference (no longer ship prebuilt MkDocs site) and optional `colors/colors.csv` (runtime falls back to default phase mapping). Also added `scipy` hidden imports earlier in session for `micgen_input_service` log-normal PSD usage. **Note: `thames-macos.spec` has the same VCCTL-legacy executable problem latent — separate fix needed.**
-- **Inno Setup script**: New `installer/thames-windows.iss` produces user-local install at `%LOCALAPPDATA%\Programs\THAMES\` (no admin / no UAC), Start Menu + optional desktop shortcut, Add/Remove Programs entry, LZMA2/ultra compression. Critically, uninstaller removes only the program tree — user data at `%LOCALAPPDATA%\THAMES\` (operations, database, aggregate cache) is intentionally untouched so testers don't lose work on uninstall + reinstall. ISCC found at `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe` (per-user install).
-- **PyInstaller GI hook PATH fix**: Build aborted with `ValueError: Could not resolve any shared library of Gio 2.0: ['libgio-2.0-0.dll']`. Workaround: prepend `C:\msys64\mingw64\bin` to PATH at PyInstaller invocation (`PATH="/c/msys64/mingw64/bin:$PATH" pyinstaller thames-windows.spec --noconfirm`). The DLL is found by Python's import machinery without it but PyInstaller's hook does a separate `ctypes.util.find_library`-style lookup that needs the Windows-format PATH.
-- **ZIP wrapping**: Windows `tar -a -cf foo.zip` does NOT compress when the extension is `.zip` — produces an uncompressed-tar file with `.zip` extension (verified by checking magic bytes: "THAM" instead of "PK\x03\x04"). Switched to Python `zipfile.ZipFile(..., ZIP_DEFLATED, compresslevel=6, allowZip64=True)`. 1.43 GB raw → 760 MB compressed in 48 seconds.
-- **LICENSE → LICENSE.md**: Renamed via `git mv` to preserve history. Content unchanged (MIT, copyright 2025 jwbullard). Updated `installer/thames-windows.iss` `LicenseFile=..\LICENSE.md` reference.
-- **README.md rewrite**: 96-byte placeholder rewritten as a proper landing page: status/license/version badges, hero screenshot (`docs/images/01-main-window.png`), download section linking to GitHub releases, quick-start walkthrough, architecture table acknowledging VCCTL/GEMS3K/THAMES-Hydration lineage, user-data layout note, build-from-source recipe with the MSYS2 PATH trick, **Contributors section** (Bullard PI; Nita TAMU for performance/accuracy of C++ hydration model), and Acknowledgements (NIST + PSI).
-- **Version bump and tag move**: `APP_VERSION` 1.0.0-alpha.1 → 1.0.0-alpha.2. Two commits: 5ae9c31e (UI fixes) and 3b84512a (Windows packaging + LICENSE rename + README). Tag `v1.0.0-alpha.2` force-moved from cb895724 → ed6f90fa to include the packaging commit (only one developer with the tag pulled, force-push safe). `main` and tag both pushed to origin.
-- **Distribution artifacts produced in `dist/`**:
-  - `THAMES-1.0.0-alpha.2-setup.exe` (~105 MB Inno Setup installer, LZMA2/ultra)
-  - `THAMES-1.0.0-alpha.2-win64.zip` (~760 MB portable ZIP, DEFLATE)
-  - `THAMES-1.0.0-alpha.2-README.txt` (alpha tester README with install instructions for both formats, known limitations, getting started)
-- **Pending when session resumes**: Smoke-test bundled `dist\THAMES\THAMES.exe` on this machine; install `setup.exe` in Windows Sandbox (built into Win10 Enterprise, disposable VM) to validate fresh-install + first-launch extraction; `gh release create v1.0.0-alpha.2 --prerelease` to publish. Steps 8-10 of `docs/ALPHA_RELEASE_PREPARATION.md`.
-
-### Session 43: Second Alpha Pass — DB Cleanup, UI Polish, v1.0.0-alpha.2 Re-Released
-April 27, 2026 — Windows 10
-
-User returned with the conclusion that alpha.2 was not actually ready: too many small bugs surfaced during testing. Deleted the `v1.0.0-alpha.2` tag (local + origin) — tag-only force-push was safe since user is sole consumer. Then a second cleanup-and-fix pass:
-
-- **Materials database cleanup**: Five partially-migrated VCCTL cements deleted (`ma160`, `ma165`, `ma178`, `rossi`, `sacci-425` — `has_clinker=0` with only 2-3 phases out of 7); user-created `Clinker152` deleted via direct SQL because the Materials Panel UI delete was silently no-op'ing for it; `cement16{130,131,132,133,134,148,149,150,155,594}` renamed to `clinker16XXX` (these are clinker raw materials, not finished cements; `cement168` left alone because it has only 1 trailing digit, distinct pattern); `cementhoc/otc/rci` renamed to `clinkerhoc/otc/rci`. 19 ops in one transaction; material count 43 → 37.
-- **Specific gravity recalc from GEMS**: Wrote a parser for `src/data/gems/thames-dch.dat` that extracts DC names, molar masses (kg/mol), and standard molar volumes (m³/mol) at T=297.15K (the closest grid point to 298.15K), derives `density = mm/V0` for every single-DC phase (skipping multi-DC solid solutions like CSHQ-* and zero-V0 phases), then for each material with a `material_phase` composition computes `SG = 1/Σ(mf_i/SG_i)` and updates the DB if the recalculated value differs from the stored one. 32 of 37 materials updated; the 5 unchanged were already correct (Portlandite 2.24, Gypsum 2.31, ClassF-FlyAsh 2.63, LS-RealShape 2.71, ma157-real 3.14). Most cements moved from the cement-model default of 3.15 to ~3.10-3.20 (typical Portland range). `NormalLimestone` corrected 2.65 → 2.71.
-- **VCCTL migration root cause analysis**: User asked why ma157 was still broken after deletion of the obvious-broken five. Investigation: ma157 is **faithfully migrated** — VCCTL's own DB has 5 of 7 correlation BLOBs (`sil`, `c3s`, `alu`, `c3a`, `n2o` at 713 bytes each; `c4f`, `k2o` are NULL in VCCTL too) and **all 6 surface fractions are NULL in VCCTL**. So the migration didn't fail; the source was incomplete. The 27 other "NULL_CORR" materials are likewise faithful copies of partial VCCTL data. Recoverable from VCCTL: nothing more than what's already there. Recoverable from the description text: ma157's 6 surface fractions (the description includes a "PHASE / AREA / PERIMETER (SURFACE)" table). Backfilled ma157 with C3S=0.5611, C2S=0.2396, C3A=0.1200, C4AF=0.0672, K2SO4=0.0120, Na2SO4=0.0 (sums to 0.9999).
-- **`_copy_clinker_extension_data` rewrite (Bug B)**: User-created `ma157-real` (a duplicate of ma157 made through the UI for testing) had `has_clinker=1` but no `clinker_extension` row at all, causing the input generator to raise "ClinkerExtension not found for material ID 49" and SmokeIt to fail silently before micgen launched. Root cause: `_copy_clinker_extension_data` in `materials_panel.py` called `service.get_clinker_surface_fractions(source)` which returns `{c3s: 0.0, c2s: 0.0, ...}` for NULL fractions (the model's `or 0.0` default in `get_surface_fractions_dict`), then `service.set_clinker_surface_fractions(target, ...)` called `validate_surface_fractions()` which rejected the all-zero composition (sum 0 != 1.0), raising `ServiceError`. The outer `try/except` swallowed it and exited before the correlation-copy loop, so the duplicate ended up with no row. Rewrote `_copy_clinker_extension_data` to do a direct `INSERT INTO clinker_extension (...) SELECT ... FROM clinker_extension WHERE material_id=?` via raw SQL — bypasses the validators entirely. Idempotent (DELETEs target row first). Verified scan: 31 clinker materials, every one now has a row, every one has 6/6 surface fractions.
-- **Materials Panel — three small fixes**: (a) Row checkboxes now actually toggle: added `_on_checkbox_toggled` handler + `_checkbox_cell_data_func` that drives display state from `self.selected_materials` (previously the `Gtk.CellRendererToggle` was decoration with no signal connection or data binding). (b) Cursor preserved across `refresh_data()` so duplicate/delete no longer scrolls to top: capture highlighted material id before `_load_materials()`, then re-cursor + `scroll_to_cell(...)` after. (c) Hidden the panel-level "Export" button (handler did `pass`); the table widget's "Export Selected" button works and is the canonical export. Added `.csv` extension fallback in `_export_selected_materials` so a filename without extension defaults to CSV instead of erroring "Unsupported file format".
-- **Operations Panel — gear button removed, sync semantics flipped**: The Settings (gear) toolbar button was a TODO stub showing only "Monitoring settings not yet implemented" — removed widget, sensitivity logic, and click handler entirely. Sync-with-Filesystem previously RE-IMPORTED orphan folders as new "completed" operations (opposite of user expectation). Rewrote to DELETE orphan folders matching the user mental model "sync = clean up trash". Tooltip + confirmation dialog text updated. The persistent reconciler-vs-live-children bug remains in POST_ALPHA_TODOS.
-- **Per-panel info icon section anchors**: The "i in a circle" icons on each panel header (`panel_help_button.py:create_panel_help_button`) all jumped to the manual top regardless of which panel. Root cause: `PANEL_DOCUMENTATION_MAP` held defunct MkDocs URLs like `'user-guide/materials-management/index.html'`, and the click handler routed through `DocumentationViewer.open_documentation()`, the legacy alias that **silently dropped its `page` argument** and routed to the manual top. Replaced with anchor slugs (`'4-materials-management'`, `'5-mix-design'`, `'6-hydration-simulation'`, ...) and switched the click handler to `open_section(anchor)`. Also added `'THAMESHydrationPanel'` alias because the actual panel class on the Hydration page is `ThamesHydrationPanel` (uppercase THAMES prefix), not the legacy `HydrationPanel` — was the only post-fix straggler.
-- **Aggregate kinetic default + Preferences pseudo-phase**: The `Aggregate` row in the Hydration phase list used to show kinetic model "Thermodynamic" because no built-in default existed, requiring the user to manually set Pozzolanic kinetics with low rate constants on every microstructure. Aggregate is a UI alias for the structural slab (underlying GEMS phase is Quartz) and shouldn't be in the GEMS-phase Preferences list. Two-pronged fix: (a) added `'Aggregate'` to `POZZOLANIC_DEFAULTS` in `kinetic_defaults_service.py` with all three rate constants pinned to `1e-12 mol/m²/s` (= `0.000001 µmol/m²/s`, the spin-button minimum non-zero — user's empirically-found floor; literal zero risks divide-by-zero in the kinetic solver). (b) Injected `'Aggregate'` as a pseudo-phase into `preferences_dialog._load_phases()` after the GEMS phases are loaded, so users can override the built-in default the same way as any GEMS phase. Refactored row insertion into a small `_append_phase_row()` helper so the loop and the special-case insertion share code.
-- **App icon swapped**: Replaced the inherited VCCTL `icon.ico` with a multi-resolution ICO (16/24/32/48/64/128/256) converted from `icons/thames-icon.png` (the in-app home image) using Pillow. PyInstaller bundles this as the `THAMES.exe` icon on Windows.
-- **Saved memory feedback**: After the user explicitly asked me to stop killing the UI to apply code changes mid-session, saved a `feedback_ui_lifecycle.md` memory: never restart the THAMES UI without explicit permission. The risk is that killing `python.exe` (parent UI) does NOT kill child `micgen.exe`/`thames.exe`, which then orphan their DB rows when the UI relaunches and the reconciler flips them to CANCELLED. Caused real folder/DB damage on 4/23.
-- **Operations wipe before release**: Per user request, deleted all rows from `operations`, `microstructure_operations`, `hydration_operations`, `elastic_moduli_operations` and removed 17 operation folders from `%LOCALAPPDATA%\THAMES\operations\` (preserving 5 `.gdg` grading files and `microstructure_metadata`). Note: testers' installs already get a clean state because `%LOCALAPPDATA%\THAMES\` is per-user and not bundled — the wipe is for the user's own clean smoke-test of the alpha.
-- **v1.0.0-alpha.2 re-tagged and released**: Bundled today's session into commit `375e2b49` ("Alpha 2 polish: UI fixes from second testing pass"). Re-tagged `v1.0.0-alpha.2` at HEAD (the previously-deleted tag was published anew). Re-built distribution artifacts:
-  - `dist/THAMES-1.0.0-alpha.2-setup.exe` (~105 MB Inno Setup installer)
-  - `dist/THAMES-1.0.0-alpha.2-win64.zip` (~760 MB portable ZIP)
-  - `dist/THAMES-1.0.0-alpha.2-README.txt` (refreshed to mention the second-pass fixes)
-- **DB backups created during the session** (in `%LOCALAPPDATA%\THAMES\database\`):
-  - `thames.db.pre-cleanup-20260427-101735.bak` — before the materials cleanup
-  - `thames.db.pre-ma157-fix-20260427-133441.bak` — before the ma157 backfill + ma157-real delete
-  - `thames.db.pre-ops-wipe-20260427-155044.bak` — before the operations wipe
-- **Pending when session resumes**:
-  1. User to test the bundled `dist\THAMES\THAMES.exe` and the `setup.exe` installer (ideally in Windows Sandbox for a fresh-install scenario).
-  2. `gh release create v1.0.0-alpha.2 --prerelease ...` to publish the GitHub pre-release with the three artifacts attached and the README body. Step 9 of `docs/ALPHA_RELEASE_PREPARATION.md`.
-  3. Address `POST_ALPHA_TODOS.md` items between alpha and beta — notably the UI-restart reconciler bug (live-but-untracked child operations get flipped to CANCELLED) and the Materials Panel silent-delete bug.
-
-### Session 44: Sandbox Validation — Three Crash Bugs Found & Fixed, Diagnostics Permanent
-April 29-30, 2026 — Windows 10 (Sandbox testing)
-
-User installed the Session-43 alpha.2 setup.exe in a fresh Windows Sandbox VM and immediately found that fresh-install testing exposes a different class of bugs than dev-machine testing. Three distinct crash bugs surfaced in succession; each required a separate fix and a fresh artifact.
-
-- **Bug 1 — Empty Materials and Mix Design panels on fresh install.** Root cause: `app_info.py:58-63` copies a seed DB from `src/data/database/thames.db` to `%LOCALAPPDATA%\THAMES\database\thames.db` on first launch, but **the seed file never existed in the source tree**. PyInstaller's spec already bundles `('src/data', 'data')` (which would have picked it up), but with nothing at the source path the bundle had nothing to ship. SQLAlchemy silently created an empty SQLite at the user-data path on first launch. Fix: created `src/data/database/thames.db` (2.8 MB) from a wiped copy of the dev DB — kept 37 materials + 7 reference aggregates + 8 grading templates + 196 material_phase rows + 124 psd_data + 32 clinker_extension + 5 migrations + 12 particle_shape_set rows; cleared all user-state tables (mix_design 102→0, operations 6→0, microstructure_operations 2→0, elastic_moduli_operations 1→0, results, db_file, plus their `sqlite_sequence` rows) and `VACUUM`ed it. Added `!src/data/database/thames.db` exception to `.gitignore` so the seed is now tracked. Note: **`thames-macos.spec:67` still bundles a stale `src/data/database/vcctl.db` path that does not exist** — same fix needed there before any macOS packaging attempt.
-
-- **Bug 2 — Silent crash with no error message after Mix completion.** Initial user report was "selecting a Mix in Results crashes the app." Investigation required adding diagnostic infrastructure (see below) before the actual cause became visible. Real story: the app died WHILE the Mix was running (at ~65% progress, 14 minutes into the run). The user only noticed the crash on next launch when they tried to interact with the Results page. With diagnostics in place, the second test run wrote `thames-crash.log` showing `Windows fatal exception: code 0xc0000374` (`STATUS_HEAP_CORRUPTION`) with the current thread in the Gio main loop and two background threads in `operations_monitoring_panel._monitoring_loop` and `performance_monitor._monitoring_loop`. Root cause: `_update_operation_in_database` at line 5827-5837 had **four orphan statements after its try/except block** that called GTK widget methods directly — `_sync_with_active_hydration_simulations`, `_update_operations_list`, `_update_performance_metrics`, `_refresh_results_analysis`. `_update_operation_in_database` is called from the BG monitoring thread (in `_update_microstructure_progress`) every time micgen's progress file changes. GTK widget mutation from a non-main thread on Windows ⇒ silent heap corruption ⇒ Windows GUI process Heap Terminate-on-Corruption fires (`__fastfail()`) ⇒ process dies with no exception. The orphan code looked like the tail of `_load_operations_from_database` that was duplicated into the wrong function during a refactor — `_load_operations_from_database` already has its own correctly-`GLib.idle_add`-wrapped UI refresh tail at lines 5585-5593. Fix: deleted the four orphan lines from `_update_operation_in_database`. Why dev machine never crashed: heap corruption from a single bad write usually lands on slack space or benign bytes; only when the bad write hits live free-list metadata does the heap manager terminate. Sandbox has a tighter heap (small process working set, dense allocations) and slower I/O (longer overlap window between BG and main thread GTK calls), making the corruption more likely to hit a critical structure.
-
-- **Permanent guardrail for Bug 2's class.** Added `src/app/utils/thread_safety.py` with `assert_main_thread()` — raises `RuntimeError` with a clear message if called from any thread other than the main thread. Wired into the entry-point widget-touching methods of `operations_monitoring_panel.py`: `_update_ui`, `_update_operations_list`, `_update_performance_metrics`, `_update_operation_details`, `_refresh_results_analysis`, `_set_error_analysis`. Verified that the two existing direct call sites are still safe: line 5598 is wrapped in a try/except with comment "expected if not on main thread" (the assert is now caught and logged at DEBUG, no behavior change), and line 5777 is reached only via `_simple_progress_update` which is registered with `GLib.timeout_add_seconds` (callbacks run on main thread, assert won't fire). Future cross-thread calls — anywhere in the panel — now fail loudly with a clean Python traceback instead of silent heap corruption.
-
-- **Bug 3 — Aggregate shape dropdowns empty in Mix Design.** Discovered while user's third test was running. `MixDesignPanel.refresh_shape_sets()` was being called by `DirectoriesService` after the first-launch tarball extraction, but it only refreshed `cement_shape_combo` — not `fine_agg_shape_combo` or `coarse_agg_shape_combo`. The aggregate combos were populated at panel-creation time (before extraction completed), so they captured zero entries and stuck on the default "sphere" until the next app launch. Particle/cement shapes appeared correctly because they're refreshed; aggregates weren't. Fix: extended `refresh_shape_sets` with a small `_repopulate(combo, shape_sets)` helper that's called for all three combos (cement / fine aggregate / coarse aggregate); each preserves the current selection if still valid, falls back to index 0 otherwise.
-
-- **Diagnostic infrastructure now permanent.** `console=False` PyInstaller builds discard stdout, so the only way to debug a packaged crash was to add file-based diagnostics:
-  - `src/main.py` — opens `%LOCALAPPDATA%\THAMES\logs\thames-crash.log` BEFORE any heavyweight imports run; calls `faulthandler.enable(file=...)` so native crashes (segfaults, heap corruption) get a stack trace; installs `sys.excepthook` so uncaught Python exceptions also write to the same file. Long-lived file reference held module-level so the FD survives the program lifetime.
-  - `src/app/application.py::_setup_logging` — added a `FileHandler` writing to `%LOCALAPPDATA%\THAMES\logs\thames.log` alongside the existing `StreamHandler(sys.stdout)`. `force=True` on `basicConfig` ensures it overrides any earlier basicConfig call from third-party imports. Logs path resolved the same way as `app_info.py` to avoid circular imports.
-  - `src/app/windows/panels/results_panel.py` — wrapped `_on_operation_selection_changed` in try/except so a Python exception during selection gets logged with traceback (rather than swallowed by GTK's signal handler) and the user sees an error dialog.
-
-- **Sandbox 3D viewer crash — environment limitation, not a code bug.** After Bug 2 was fixed, user's next test was clicking the 3D microstructure viewer in Results. App crashed with `STATUS_ACCESS_VIOLATION (0xC0000005)` at `pyvista_3d_viewer.py:1055` — `self.render_window.Render()`. Sandbox has no GPU acceleration (basic display via RemoteFX, no working OpenGL); VTK's first GL call NULL-derefs in native code. Python try/except cannot catch native faults. Decision: **document the GPU requirement, do not ship Mesa software fallback for alpha**. Real testers on real machines won't hit it. Documented in: README.md (new "System requirements" section between status and Download), `dist/THAMES-1.0.0-alpha.2-README.txt` (new System Requirements section + #1 in Known Limitations + new Crash Diagnostics section pointing testers at the log files), and `docs/USER_MANUAL.md` section 8.1 (new alpha-warning callout right after the state table).
-
-- **User manual section 8.1 also got the operation-shutdown warning.** Independent of the Sandbox bugs, in conversation about reattach-on-restart behavior I noted that closing THAMES while a Mix or Hydration is running leaves the simulator process alive (`micgen.exe` / `thames.exe`) — but the next UI launch flips the operation row to CANCELLED because the reconciler only checks the previous UI's PID, not the spawned child's PID. This is logged in `POST_ALPHA_TODOS.md` ("Reconciler marks live operations CANCELLED when UI is restarted"). For alpha, added an explicit warning callout in section 8.1 that explains: what happens, what to do (Task Manager check before deleting "Cancelled" ops; let the simulator finish; Results panel scans the folder so finished runs are visible there even if Operations still labels them Cancelled), and what to avoid (use Stop button, or just leave THAMES open). Reattach is on the post-alpha roadmap.
-
-- **Sandbox testing pass result.** With all three bugs fixed and the manual updated, the user did a final full Sandbox pass: duplicating/editing/deleting materials, making a mixture, hydrating it, calculating elastic moduli, browsing the user manual via Help menu and tooltips, and verifying that completed operations persist across an app shutdown. Everything passed cleanly. The 3D viewer is still unavailable in Sandbox (documented limitation) but verified working on the host machine.
-
-- **One useful design conversation.** User asked why Sandbox surfaced bugs the dev machine didn't (timing + heap density + Heap Terminate-on-Corruption is unconditional on Windows GUI processes since Win8) and how to prevent the orphan-statements class systematically. Recommended three options in increasing cost: (1) `assert_main_thread()` runtime guards — implemented this session; (2) funnel pattern (mark widget methods unsafe-private, BG threads must go through a single `_post_to_ui` helper); (3) full architectural separation (BG thread emits signals to a queue; main thread consumes via `GLib.timeout_add` — strongest invariant but a sizable refactor of `operations_monitoring_panel.py`). (1) is in for alpha; (2) and (3) deferred to post-alpha.
-
-- **Artifacts produced** (in `dist/`):
-  - `THAMES-1.0.0-alpha.2-setup.exe` (~624 MB Inno Setup installer; bigger than Session 42's ~105 MB because MSYS2 has updated, the spec's broad `lib*.dll` glob now picks up libLLVM-21 / libclang-cpp / libgccjit / libclang ~265 MB raw — Post-Alpha TODO candidate to tighten the glob)
-  - `THAMES-1.0.0-alpha.2-README.txt` (refreshed with System requirements + GPU limitation + Crash Diagnostics section)
-
-- **Pending when session resumes**: tag move + commit + push + `gh release create`. The `v1.0.0-alpha.2` tag from Session 43 is now stale by all the Session 44 fixes; user authorized moving it (force-tag in place is safe — it has not been published to testers yet, this whole session was the validation).
-
-### Session 45: macOS Alpha-2 Build, Public Cross-Platform Release
-May 2, 2026 — macOS
-
-First public cross-platform release. Brought macOS packaging up to parity with the Windows alpha-2 (which the user had published manually via the GitHub web UI between Session 44 and this one). No runtime code changed; all work was build infrastructure plus the artifact upload. End-to-end validated on macOS 15.4 arm64. Full narrative: `docs/session45_summary.md`.
-
-- **Cross-platform spec fix**: `thames-windows.spec` (the canonical cross-platform spec, despite the misleading name) IS_MACOS branch was bundling seven nonexistent VCCTL-legacy `backend/bin/*` paths. Replaced with the actual three artifacts (`bin/thames`, `bin/micgen`, `bin/libpng16.16.dylib`). Bumped macOS BUNDLE version 10.0.0 → 1.0.0-alpha.2 and added `LSMinimumSystemVersion='10.14'` and `LSApplicationCategoryType='public.app-category.education'`.
-- **Libpng bundling for macOS**: `bin/thames` and `bin/micgen` linked `/opt/homebrew/opt/libpng/lib/libpng16.16.dylib` directly, so testers without Homebrew would see "dylib not loaded" at first launch (mirror of the Windows libpng16-16.dll bundling). Added a permanent Step 5 to `build-macos.sh` that copies Homebrew's libpng next to the binaries, runs `install_name_tool -id @rpath/libpng16.16.dylib` on the dylib and `install_name_tool -change ... @rpath/...` on each binary, adds `@loader_path` to LC_RPATH (idempotent — skipped if already present), and re-codesigns ad-hoc. Mirrored as a spec-bundled binary in `thames-windows.spec`.
-- **PIL libharfbuzz collision (the harfbuzz crisis)**: bundled .app silently exited at startup with no error dialog. Direct invocation from Terminal showed `dlopen(...): Symbol not found: _hb_coretext_font_create — Expected in: PIL/__dot__dylibs/libharfbuzz.0.dylib`. Root cause: PyInstaller's PIL hook bundles a minimal libharfbuzz built without CoreText support, and Pillow's hook ran after the GI hook so PIL's harfbuzz won the canonical `Contents/Frameworks/libharfbuzz.0.dylib` slot via a symlink chain. Homebrew's `libpangocairo` (collected by the GI hook for GTK) was built against Homebrew's harfbuzz which DOES have `_hb_coretext_font_create`, so dyld returned PIL's harfbuzz and the symbol lookup failed → typelib load failed → app exit before any UI. Fix: replace the single physical PIL harfbuzz file (everything else in the bundle resolves to it via symlinks) with Homebrew's, rewrite install_names from `/opt/homebrew/...` to `@rpath/...` for `libfreetype.6.dylib`, `libglib-2.0.0.dylib`, and `libgraphite2.3.dylib` (all three already in `Contents/Frameworks/` from the GI hook). Re-codesign the dylib and the parent bundle (deep, ad-hoc). Added permanent post-BUNDLE block inside `if IS_MACOS:` in `thames-windows.spec` that runs the install_name_tool + codesign sequence at the end of every macOS build, with explicit `RuntimeError` raises if Homebrew harfbuzz is missing or if PyInstaller's bundle layout shifts. Comment block in the spec explains the dyld resolution chain so the next person to look at it (or me, in a future session) doesn't have to re-derive it.
-- **App icon**: created `src/app/resources/icon.icns` from existing `icons/thames-icon.png` (1036×1036 RGBA) using `sips` at the 10 standard iconset sizes (16/32/64/128/256/512/1024 plus @2x retina) and `iconutil -c icns`. Lands at the path the spec's existing `os.path.exists` check looks at. Mirrors Session 43's Windows ICO swap.
-- **Legacy thames-macos.spec deletion**: separate spec file existed full of VCCTL legacy (executable name `vcctl`, `vcctl.db` references, MkDocs paths, wrong icon). Hadn't been used since the project pivoted off VCCTL — `build-macos.sh` only handles C++ side; PyInstaller is invoked manually with `thames-windows.spec`. Deleted to remove a future-confusion source.
-- **The 271-hour orphan**: pre-Step-1 inspection caught a `bin/thames` process running for 11 days, 7 hours, 23 minutes — `HydrationOf-ccr152-concrete`, the same near-depletion-stall hydration logged in `POST_ALPHA_TODOS.md` since Session 41. Session 41's stop/cancel fix had reconciled the DB to `CANCELLED`, but the spawned simulator never received the message and kept running for 11 days, eating CPU and growing a `thames.log` to 251 MB. This is the orphan pattern in `POST_ALPHA_TODOS.md` ("Reconciler marks live operations CANCELLED when UI is restarted"). Killed cleanly with `kill` (SIGTERM, no SIGKILL needed).
-- **Distribution wrap**: `ditto -c -k --keepParent --rsrc` (preserves resource forks and codesign metadata; `zip` and Python `zipfile` would invalidate signatures). Output: `dist/THAMES-1.0.0-alpha.2-macOS.zip` (621 MB; 44% compression on the 1.1 GB binary-heavy bundle). Verified `codesign --verify` passes after `ditto -x -k` round-trip.
-- **Tester README**: `dist/THAMES-1.0.0-alpha.2-macOS-README.txt` modeled on the Windows alpha-2 README. Differs in install instructions (drag-to-Applications, Gatekeeper bypass via right-click → Open or `xattr -dr com.apple.quarantine`), log paths (`~/Library/Application Support/THAMES/logs/`), and system requirements (macOS 10.14+ Apple Silicon).
-- **Public release upload**: user had manually published Windows alpha-2 via the GitHub web UI between Session 44 and this one. With a published tag, force-moving was off the table. Plan revised to **Option A**: commit the macOS build infrastructure as a new commit on `main`, leave the tag where it is (every change this session was build-tooling only — zero Python/C++ runtime change, so the macOS .app behavior matches what the v1.0.0-alpha.2 tag represents). Installed `gh` CLI (Homebrew, 2.92.0); user did `gh auth login` browser flow. Commit `bbe62bb3` ("macOS alpha-2 build infrastructure") staged the four real changes (icon.icns, deletion of thames-macos.spec, build-macos.sh, thames-windows.spec) and excluded local-prefs noise. `gh release upload v1.0.0-alpha.2 --clobber` for both macOS files. Final state: 5 assets on the release (3 Windows + 2 macOS), notes rewritten for both platforms.
-- **Release URL**: https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.2 — first public cross-platform THAMES release.
-
-### Session 46: Color-Button GSettings, Silica-Fume Stall Diagnosis, Kinetic Save-Bug Fix
-May 11–12, 2026 — macOS
-
-Two unrelated alpha-2-era issues debugged in the same long session. Full narrative: `docs/session46_summary.md`.
-
-- **3D viewer color-button silent crash (dev mode only)**: clicking a phase color in the Results-page 3D viewer's Phase Controls panel killed `python src/main.py` instantly with no Python traceback. macOS crash report (`~/Library/Logs/DiagnosticReports/Python-2026-05-11-111030.ips`) showed `EXC_BREAKPOINT/SIGTRAP` via `g_log_abort` in `gtk_color_chooser_dialog_init` → `g_settings_new('org.gtk.Settings.ColorChooser')` — GLib's intentional fatal abort when the compiled schema cache is unreachable. Root cause: Ghostty terminal's `XDG_DATA_DIRS` doesn't include `/opt/homebrew/share`, so `gsettings list-schemas` returns nothing. `faulthandler` cannot intercept SIGTRAP from glib's abort path, hence no entry in `thames-crash.log`. Bundled `.app` is unaffected (PyInstaller's `pyi_rth_glib.py` runtime hook sets `GSETTINGS_SCHEMA_DIR` to the bundle's own copy). Fixed in `src/main.py` before any GI import: in dev mode on macOS, point `GSETTINGS_SCHEMA_DIR` at Homebrew's compiled cache if it exists. Alpha-2 testers cannot hit this, so the release was NOT reissued. Committed as `94d9b89d`.
-- **Cement + silica-fume hydration stuck at cycle 11**: `HY-ccr152-sf15-ws45-01` ran for 5 minutes, then locked up with 100% CPU and no log progress. `thames.log` frozen mid-cycle-11, `currTime` advancing by 1e-5 h per cycle (a 99.9% rollback), 20 `checkICMoles: IC Ca depleted to -0.5 mol` events in 4 minutes (vs 9 over all 1031 cycles of the user's sf-free `HY-ccr152-ws45` companion run). The damning signal: GEMS asking the lattice to GROW Portlandite by 1,786,978 voxels (17× current mass) in ONE step while simultaneously DISSOLVING ettringite and CSHQ entirely. Unphysical chemistry flip-flop. Root cause: adding silica fume to a Portland chemistry creates two near-degenerate solid distributions in the GEMS landscape, and GEMS oscillates between them on each `recall GEM`. Portlandite-as-Standard puts Portlandite into the `maxRelativeChange=5%` kinetics constraint, which correctly refuses the impossible step but doesn't fix the oscillation — dt clips to ~1e-5 h forever. The fix, found after eliminating two false leads:
-  - **Try 1 (slower silica fume kinetics 3.3e-9 vs 4e-8)**: partial improvement (Ca depletion 20→4) but still stalled at cycle 11
-  - **Try 2 (unsuppress straetlingite + syngenite as alternative Ca-Al sinks)**: no effect — GEMS doesn't pick these phases at this composition; they showed zero activity in the lattice log
-  - **Try 3 (Portlandite → Thermodynamic, no kinetic_data block)**: **cleared the stall**. Cycle 19 reached in 7 min 35 s, dt growing 0.0072 → 0.012 h geometrically, zero Ca depletion events, smooth monotonic Portlandite growth (3095 → 12838 voxels over the unstuck cycles). Removing Portlandite from the kinetics-constraint denominator lets GEMS settle into its equilibrium solid budget in one big lattice update, after which the system stays in a stable basin.
-- **The same-cement-no-silica-fume comparison was decisive**: `HY-ccr152-ws45` reached cycle 1031, dt grew to 0.616 h, only 9 IC-recovery events total, smooth gradual CSHQ + Portlandite growth. That data ruled out a generic Portland-cement bug and pinpointed silica fume as the trigger.
-- **Kinetic-editor save bug discovered during the above**: the user reported the kinetic editor dialog showed Portlandite as "Thermodynamic" but the run's `hydration_config.json` recorded Standard with full rate constants. Investigation revealed an architectural asymmetry between two parallel kinetic-editor entry points. The **Preferences dialog** calls `prefs_service.set_user_default(phase_name, {'type': 'Thermodynamic'})` and persists to `~/Library/Application Support/THAMES/preferences/kinetic_defaults.json`. The **Hydration panel's kinetic dialog** (`_on_configure_kinetics`) only updates the in-session `kinetic_configurations` widget dict; it never persists. A UI restart (we did two during yesterday's suppression-toggle and harfbuzz debugging) reset the dict from built-in defaults, and the next Run launched with Standard despite the user's earlier Thermodynamic selection. Fixed in `thames_hydration_panel.py::_on_configure_kinetics`: both OK branches now call `set_user_default` so the two editors have identical persistence semantics. Second small fix in `microstructure_phases_editor.py::_edit_phase_kinetics` corrects an `if new_params:` check that silently dropped `None` (Thermodynamic) returns. Working tree only — NOT YET VALIDATED end-to-end; user will exercise the fix in the next session.
-- **UI patches made and reverted mid-session**: while still misdiagnosing the stall as Arcanite-related, two patches went into `src/app/widgets/hydration_product_selector.py` (`_checkbox_cell_data_func` and `_on_product_toggled`) to allow toggling of microstructure-resident phases for suppression. Subsequently discovered that (a) the toggle didn't actually propagate to `simparams_service`'s suppressed_phases list because `microstructure_phases` is a separate set from `selected_products`, and (b) the actual fix was Portlandite=Thermodynamic, not suppression. Both patches reverted via `git checkout`. The architectural gap is logged in POST_ALPHA_TODOS for proper future fix (the recommended path is a confirmation dialog plus actual data-flow plumbing).
-- **POST_ALPHA_TODOS gained five new entries**: Load-from-Previous tree population, Load-from-Previous microstructure-path population, suppression toggle confirmation dialog (replacing the reverted patches), kinetic editor Thermodynamic save bug (FIXED in working tree), and the comprehensive GEMS-Portlandite stall pattern entry recommending Portlandite default to Thermodynamic in materials DB and exploring a backend oscillation-detector.
-- **Overnight SIGABRT**: the cycle-19 run was left running and at some point aborted with `exit 134`. The user cleaned up the operation directory before the next-day check, so no logs survive for post-mortem. The Portlandite=Thermodynamic fix is **validated for breaking the cycle-11 cliff**; whether the simulation can run to its 28-day target with this fix alone is **unknown and on the next-session list**.
-
-### Session 47: Mix Design Schema-Bound Silent-Failure Fix, ThamesRender Scoped, Release-Notes Workflow
-June 4, 2026 — macOS
-
-Started as a memory check and a scoping conversation about a publication-quality 3D renderer; pivoted into a real bug fix when the user couldn't create a 32³ microstructure in the alpha-2 bundled app. Full narrative: `docs/session47_summary.md`.
-
-- **ThamesRender scoping (no code)**: User wants a separate workflow to produce publication-quality 3D perspective images and MP4 time-evolution movies from THAMES result folders, since the in-app PyVista viewer is interaction-grade but not publication-grade. Recommended a **separate project at `~/Code/ThamesRender/`** rather than integration into THAMES: pure-Python CLI, PyVista offscreen render + ffmpeg, no GTK/database/operations coupling. Phase color mapping and voxel-ordering conventions to be imported from THAMES (not duplicated). Can later be wired into THAMES as a post-completion hook (Concelas-pattern) if integration ever becomes worthwhile. User accepted; will start a fresh Claude session in the new directory.
-- **`ccr152-ws45-32` empty operation folder (alpha-2 bundle)**: User reported creating a 32³ microstructure produced an empty `~/Library/Application Support/THAMES/operations/ccr152-ws45-32` folder — no input files, no `micgen` launch, no error dialog. `thames.log` revealed a buried Pydantic `ValidationError`: `Input should be greater than or equal to 50` for `system_size`. Root cause: `src/app/models/mix_design.py` had a stale legacy single-dim `system_size: int = Field(ge=50, le=500)` while the per-axis `system_size_x/y/z` allow `ge=25, le=400`. The Mix Design panel populates both from the same X spin button; 32 passes per-axis validation but fails the legacy field, which aborts the entire `MixDesignCreate`. `_auto_save_mix_design_before_generation` catches the exception, logs `❌ Error auto-saving mix design`, returns `None`, and the caller bails with `No saved mix design ID — cannot generate input file`. The orphan folder is a side-effect of folder-creation happening BEFORE validation. Fixed `mix_design.py:154` and `:255` to `ge=25, le=400` to match the per-axis fields. User ran the patched source via `~/Code/THAMES/thames-env/bin/python src/main.py` (the published `dist/THAMES.app` bundle still has the old schema) and the 32³ generation succeeded.
-- **Silent-failure UX (NOT yet fixed, POST_ALPHA_TODOS entry added)**: The schema fix unblocked today's microstructure but the deeper bug is that the Pydantic `ValidationError` was never surfaced to the user. Same `try/except → log → return None → silently abort` pattern as Bug 2 from Session 44. New `docs/POST_ALPHA_TODOS.md` entry "Mix Design auto-save: surface Pydantic ValidationError instead of silently failing" proposes (a) branching on `ValidationError` to pop a `Gtk.MessageDialog` with the offending field list, and (b) deferring folder creation until after validation succeeds (eliminates the empty-orphan side-effect entirely). Likely also exists at other auto-save call sites — recommend a panel-wide audit when this lands.
-- **release-notes-alpha-3.md** working draft created at the THAMES repo root. Four-section plain-text format (Fixed since alpha-2 / Added / Changed / Known Limitations) matching the alpha-2 release notes style. First entry is the schema-bound fix with explicit "Workaround on alpha-2: use a system size of 50 or larger". The pattern: append Fixed entries here as source-tree fixes land, then `gh release create v1.0.0-alpha.3 --notes-file release-notes-alpha-3.md ...` at release time.
-- **Amended the published v1.0.0-alpha.2 release notes** via `gh release edit v1.0.0-alpha.2 --notes-file /tmp/thames-alpha2-notes.txt`. Added item 7 to Known Limitations describing the silent-rejection behavior, the workaround (size ≥ 50), and "Fixed in alpha-3". Verified at https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.2.
-- **New memory** `feedback_alpha_release_notes_workflow.md`: when a fix lands in source but the published alpha bundle still has the bug, BOTH update `release-notes-alpha-N.md` AND amend the published release's Known Limitations via `gh release edit`. The published-release edit is a shared-state action — confirm with the user before running it, even after a prior in-session authorization. `MEMORY.md` pointer added.
-- **Pre-existing dirty file committed alongside Session 47 work**: `docs/POST_ALPHA_TODOS.md` already contained the "Lattice-trapped phase blocks GEMS at later ages (encapsulated-remnant stall)" entry from earlier today (root-causing `HY-ccr152-sf15-ws45-04` — 26 voxels of ettringite become inaccessible to the dissolution interface at 12.7 d after AFt→AFm conversion buries them in C4AsH14/monosulf-AlFe). That entry is the user's pre-session work and is bundled into the Session 47 commit.
-
-### Session 48: THAMES Architecture Triangle Slide Graphic
-June 7, 2026 — macOS
-
-Pedagogical / artistic graphic for slides and papers explaining the three pillars of THAMES (GEMS3K thermodynamics, kinetic constraints, 3D microstructure) and their bidirectional coupling. No runtime code touched; entirely a `docs/` artifact built by a Python script. Full narrative: `docs/session48_summary.md`.
-
-- **Output**: two transparent-background SVGs at 1200×1000 — `docs/thames-architecture-triangle-dark.svg` (cream text/arrows for dark slide backgrounds like `#121217`) and `docs/thames-architecture-triangle-light.svg` (dark-charcoal text/arrows for white-page rendering). Identical panel content between themes; only the surrounding text + arrow colors flip.
-- **Composition**: triangle with microstructure on top, GEMS bottom-left, kinetics bottom-right. Each edge is a "lens" of two unidirectional Bezier curves with one arrowhead per curve. Panel colors after a mid-session swap: microstructure = ember `#E07A2C`, GEMS = teal `#397B8A`, kinetics = jade `#5FAA82`. Each flow label is colored to its source panel so a viewer can trace any label back to where the data comes from without reading the arrowhead direction.
-- **Panel content**: real `ThamesRender` output (HY-ccr152-ws45 at 12 h, downsampled 1920×1440 → 520×390) on top; schematic 3D Gibbs surface with marked minimum in GEMS; shrinking-particle dissolution schematic over the THAMES Standard rate equation `R = k A (1 − Ω^p)^q` in kinetics. `feDropShadow` on each panel rect at theme-dependent opacity (0.45 dark / 0.22 light) to lift the cards off the page.
-- **Builder script** (`docs/scripts/build_triangle_svgs.py`) is the source of truth — both SVGs are generated outputs. Run with `~/Code/Python/Envs/Default/bin/python` from the THAMES master venv. The Gibbs surface PNG has its own regenerator at `docs/scripts/make_gibbs_surface.py`; the rate-equation PNG is generated inline by the builder via matplotlib mathtext.
-- **Three Affinity Designer SVG-compatibility battles** worth remembering — they're all baked into the builder so they don't recur:
-  1. **Tspan superscripts are broken in Affinity**. `dy`, `baseline-shift="super"`, and absolute-y per-tspan all rendered `p` and `q` at the parent baseline. The fix that works: render the equation as a matplotlib mathtext PNG and inline as `<image>`. The equation is no longer live-editable as text inside Affinity but pedagogically that doesn't matter.
-  2. **CSS `font-family` is ignored everywhere in Affinity** — not inherited from root `<svg>`, not applied from `<style>` rules. Inline `font-family="Inter"` must be present on every individual `<text>` element. The builder template applies this attribute to all 13 text elements.
-  3. **CSS `fill` rules are unreliable in Affinity**. Class name `.label-teal` was dropped (CSS color-keyword collision); even after renaming to `.src-gems` etc, fill via `<style>` was inconsistent. Final fix: inline `fill=` attributes on the colored tspans. CSS classes stay for font-size/weight/opacity which Affinity does honor.
-- **GIMP, browsers, and Inkscape rendered the SVG correctly throughout** — every issue listed above was Affinity-specific.
-- **No source code touched.** This is purely a `docs/` artifact for talks and (possibly) the manuscript. No `POST_ALPHA_TODOS.md` items generated; no `release-notes-alpha-3.md` updates triggered.
-
-### Session 49: Transport-Controlled Kinetics Brainstorm
-June 12, 2026 — macOS
-
-Multi-month research thread opened to address THAMES's deepest physical compromise: the well-mixed-electrolyte assumption. The model cannot currently represent semipermeable product shells creating concentration gradients that throttle late-age dissolution. Full verbatim conversation captured in `docs/transport_kinetics_brainstorm.md` (183 lines). No code changes; brainstorm + recommended sequencing for future sessions. Recommended path from the brainstorm: (1) lattice-trap detector (Idea C, standalone precondition), (2) per-phase shell δ from lattice topology + series resistance across surface sites, (3) simpler effective-surface-area correction as a one-day sanity check, (4) HydratiCA as validation oracle (not to be cloned inside THAMES). Scoping target (paper / grant aim / feature) not yet declared. Session cleanup commit `31929662` added `.gitignore` entries and committed the ThamesColors theme doc.
-
-### Session 50: Classical Nucleation Theory — Design and Portlandite Prototype
-July 20, 2026 — macOS
-
-New multi-session thread to add classical nucleation kinetics (CNT) to the C++ hydration engine, targeting `StandardKineticModel` and `PozzolanicModel` (Parrot-Killoh explicitly excluded — its Avrami-Cottrell fit already absorbs nucleation phenomenologically). Design conversation first; step 1 (Python calibration prototype for portlandite) built and executed. No C++ touched — Jeff held C++ edits until after review. Full narrative: `docs/session50_summary.md`.
-
-- **Repo-structure refresher**: `backend/thames-hydration/` is a git submodule (`https://github.com/jwbullard/THAMES-Hydration.git`, `main` at `c6f84fb`). Contains `src/thameslib/` (KineticController, KineticModel, ParrotKillohModel, PozzolanicModel, StandardKineticModel, Controller, Lattice, ChemicalSystem, GEMS coupling). `backend/src/` at the top level (NOT a submodule) is legacy VCCTL C code — different subsystem. CNT work will land inside the submodule; workflow: edit in submodule, push submodule first, then commit the pointer change in the super-repo.
-- **8-step integration plan** committed to `project_cnt_kinetics_integration.md` memory: (1) Python prototype [DONE], (2) JSON schema design [NEXT], (3) scaffold parameters, (4) CNT rate calc in StandardKineticModel, (5) batched random placement + wire into AdaptiveTimeController, (6) end-to-end test on portlandite, (7) extend to PozzolanicModel with same-phase-interface gating, (8) validate against Session 46 silica-fume oscillation.
-- **Design decisions locked in** (each written into the memory):
-  - **Anonymous scalar accumulator per phase**, batched placement — one volume-accumulator per nucleating phase, incremented each cycle by J·V·dt·V_crit; when ≥ V_voxel, place `floor(accumulator/V_voxel)` voxels *simultaneously* at independently drawn random locations. Each placed voxel implicitly absorbs the post-critical sub-voxel-scale growth.
-  - **NOT per-voxel per-phase fractional occupancy** — explicitly rejected as architectural rewrite of `Site.h`, `Interface.cc`, `Lattice.cc`, VTK export, ITZ detection. Sub-voxel fractional fill is transport-kinetics-thread territory, not CNT.
-  - **Placement: uniform-random over electrolyte voxels** for portlandite (homogeneous). Substrate voxels for later heterogeneous phases. Spatial preference for locally-elevated S requires transport-kinetics work and is deferred.
-  - **CNT drives the adaptive timestep — Option C, not silent capping.** If N_want > N_cap for the proposed dt, shrink dt so N_want ≈ N_cap and retry the cycle (same pattern as the existing kinetic maxRelativeChange constraint in `AdaptiveTimeController`). Silent hard cap discards moles and biases S; accumulator-carried excess is fine only as a hard safety fallback if required dt drops below the 1e-5 h floor. N_cap ~1–5% of electrolyte voxel count. Wiring into `AdaptiveTimeController` should happen AFTER isolated CNT rate-calc unit tests pass (the adaptive controller is the most delicate piece — Sessions 23–38, plus Session 46 silica-fume oscillation risk).
-  - **Framework preserves θ knob** for later heterogeneous phases (C-S-H, ettringite) even though portlandite pins θ = 180°.
-  - **Every CNT parameter exposed as user-adjustable JSON** with `value` / `range` / `provenance` fields. Nothing hardcoded. Consistent with Jeff's what-if exploration philosophy.
-- **Anti-pattern called out**: do NOT lead with "hard cap" language as the primary control response. Cap-driven dt reduction is the answer; capping is a fallback. Corrected in the prototype's findings after Jeff caught it.
-- **Portlandite reformulated as homogeneous** mid-conversation after Jeff noted that SEM evidence shows portlandite nucleating *near* (not *on*) C3S surfaces. θ pinned at 180°; J_V per m³ of solution; placement over electrolyte voxels.
-- **Calibrated portlandite defaults** (from bisection to match Jeff's empirical onset at S = 4–5 in C3S paste): γ = 0.044 J/m² (range 0.030–0.070), A₀ = 1e30 /(m³·s) (range 1e28–1e32), V_m = 33.08 cm³/mol from GEMS CemData18, T = 298.15 K. γ and A₀ are jointly constrained but individually degenerate — feasibility ridge in Cell 17 of the prototype. Basal-plane cleavage energy for M(OH)₂ in vacuum is ~0.25 J/m² per literature; dielectric screening in water drops these ~order of magnitude, so 0.044 J/m² is within the defensible envelope.
-- **Prototype artifacts**: `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb` (21 cells, executed clean, 397 KB with embedded PNGs), builder script `_build_cnt_notebook.py` (source of truth — regenerate via `python _build_cnt_notebook.py && jupyter nbconvert --to notebook --execute ...`), six figures at `~/Research/THAMES-Tests-2026/Figures/CNT-*.png` (1000 dpi, canonical THAMES style).
-- **Sanity numbers at calibrated defaults** (200³ RVE, 50% porosity, dt = 0.01 h): S=2 → 10⁻⁵⁵ voxels/cycle (induction); S=4.5 → ~1 voxel/cycle (onset); S=10 → 10⁷ voxels/cycle (dt-reduction machinery required); S=50 → 10¹¹ voxels/cycle (unphysical without dt reduction).
-- **Two new memories saved**: `project_cnt_kinetics_integration.md` (step status, design decisions, calibrated defaults, anti-patterns) and `reference_cnt_prototype_notebook.md` (location + build recipe). MEMORY.md index updated.
-- **Zero C++ touched, no commits made** — Jeff drives all git operations for this thread.
-
-### Sessions 51–54 (July 23-28, 2026): CNT integration → SaturatingRateModel → CNT scaling fix → JMAK
-Compressed narrative across four sessions on macOS covering the CNT integration and its aftermath. Detailed commit trail is on the `main` branch of both super-repo and submodule.
-
-**Session 51 (CNT integration Steps 2–8)**: Implemented CNT rate calc + placement + adaptive-dt cap in `StandardKineticModel` and `PozzolanicModel`. Landed the four virtuals (`computeNucleationVoxels`, `hasNucleation`, `accumulateNucleation`, `drainNucleationInteger`). CNT-off byte-parity preserved. Committed as submodule `53e0ee2` "Add Classical Nucleation Theory (CNT) integration". Portlandite validation with A₀=1e30 gave a suspiciously bounded trajectory (100–150 voxels equilibrium regardless of run length) that we later diagnosed as a scaling bug — see Session 53. Full narrative: `docs/CNT_ARCHITECTURE.md`, `docs/CNT_DESIGN_DECISIONS.md`.
-
-**Session 52 (SaturatingRateModel, 4 steps S1–S4)**: New `KineticModel` subclass implementing Bullard 2015 CCR Eq. 2 / Han 2025 CEJ Eq. 7 saturating rate law. Motivated by Standard's Eq-6 divergence at high S — SaturatingRate saturates at k. Asymmetric dissolution/precipitation blocks with microscopic-reversibility fallback for the latter. Full symmetric CNT hooks. Landed as submodule `0754968` "Add SaturatingRateModel". Byte-parity: 17/17 CSVs identical on CNT-off `HY-ccr152-ws45` through 11 cycles. Docs: `docs/SATURATING_RATE.md`.
-
-**Session 53 (CNT scaling fix and calibration crisis)**: SaturatingRateModel Step S4 validation exposed the CNT throttle. Three rounds of debug instrumentation diagnosed **two independent Session-51-era bugs**: (A) CNT placement code used physical `vVoxel/vMolar` for the mole calculation, but THAMES's `DCMoles_[]`, `microPhaseMass_[]`, `microPhaseVolume_[]`, and `KineticModel::scaledMass_` are stored in a normalized "per 100 g of total solid" reference frame (established by `Lattice::normalizePhaseMasses`). Off by ~10⁷×. (B) `ChemicalSystem::calculateState` skips the `GEMPhaseVolume->microPhaseVolume` fill for kinetic phases; for CNT-only zero-mass phases whose `scaledMass_` stays 0 via the zero-mass bypass, this leaves `microPhaseVolume_` stale at 0, so `Lattice::changeMicrostructure` reads `vfrac_next = 0` and dissolves all CNT-placed voxels the same cycle they were placed. Both fixed in submodule `7f7c6d8` "Fix CNT placement scaling and kinetic-phase microPhaseVolume sync" — plus a `PozzolanicModel::calculateKineticStep` throw-to-DOR-zero guard for the case a CNT-nucleated Pozzolanic phase reaches the DOR block with `initScaledMass_ = 0`. Verified against all three gates. **Fix uncovered a downstream calibration issue**: with CNT-placed voxels now sticking, Session-50's A₀=1e30 was way too aggressive (~10⁴× over-nucleation at Portland-paste SI ~10). A₀ sweep {1e30, 1e26, 1e24, 1e22, 1e10} found no A₀ recovers Session-46's ~14%-at-24-h trajectory — pure-A₀ recalibration cannot resolve the "SR area-catalyzed runaway vs SI runaway" competing failure modes. Interim: A₀=1e25 default in `CNT_ARCHITECTURE.md` and `CNT_DESIGN_DECISIONS.md` as a bounded-but-not-physical placeholder. Fixed the `docs/CNT_DESIGN_DECISIONS.md` γ provenance line where I had oversimplified as "dielectric screening reduces surface energy by ~10×" — corrected to attribute the DFT-vacuum-to-aqueous-interfacial ratio to a combination of screening, hydration structure, and surface reconstruction, citing Galmarini 2011 for vacuum and Garrault/Nonat/Scherer for aqueous.
-
-**Session 54 (JMAK-per-voxel design pivot and wire-up, in progress)**: An attempted Option (c) sub-voxel accumulator fix (submodule) was implemented and reverted mid-session — the accumulator drained whole voxels at fixed-cutoff, which was closer to a "shut off CNT once seed threshold reached" than a genuine sub-voxel model, and it did not resolve the calibration issue. Discussion with Jeff pivoted to **Johnson–Mehl–Avrami–Kolmogorov (JMAK) per voxel** as the correct physical model: within each seeded voxel, an internal transformed fraction `X_g(t)` evolves via classical JMAK with Poisson-impingement statistics, driven by nucleation rate `J(S)` and linear growth velocity `G(S) = r_SR(S) × v_molar`. Jeff's insight (backed by his teaching-familiarity with JMAK) was that this correctly bridges the low-S regime (per-voxel multiplicity negligible, one-nucleus-per-voxel) with the high-S regime (Poisson-impingement dominant, JMAK's `X = 1 - exp(-Y_e/V)` correction applies). Bookkeeping architecture: **Option A** (JMAK state lives in `KineticController`, rate laws expose `getNucleationRate(S)` + `getGrowthVelocity(S)` accessors) chosen over Option C (composition wrapper) because it fits the existing controller-orchestrates-CNT idiom. Landed:
-  - Submodule `22c65a7` — pure-math free functions in `namespace jmak` at `src/thameslib/JMAKGrowth.{h,cc}`; standalone unit test `test_jmak_growth` verifies constant-J-G limit against closed form (X = 1 - exp(-(π/3) J G³ t⁴)) to <0.1% over 5 orders of magnitude in t, plus zero-radius sanity, cohort scaling linearity, growth-velocity converter edge cases, and time-varying J step-change agreement to 0.01% relative.
-  - Submodule `9a2d2a9` — rename Cohort → Generation throughout (Jeff's preference; materials-science-friendly).
-  - Submodule `d743756` — wire-up: added `getNucleationRate(S)` and `getGrowthVelocity(S)` virtuals to `KineticModel` with default 0; overrides in `Standard`, `Pozzolanic`, `SaturatingRate`. Added `JMAKParameters` optional to `KineticData` with parser (`n`, `alpha`; validates `n ∈ [2.5, 4]`, default n=4, α=4π/3). Added per-phase JMAK state to `KineticController`: `jmakEnabled_`, `jmakParams_`, `jmakGlobals_`, `jmakGenerations_`, `jmakSeedAccumulator_`, `jmakVoxelsInLattice_`. Implemented `updateJMAKPhase(midx, dt, cyc)` — the full seven-step per-cycle logic (query J and G, advance moments, Poisson-seed new generation, evaluate `X_g`, sync lattice to `floor(Σ N_g X_g)` via `nucleatePhaseRnd`, prune completed generations). Dispatched from the CNT block: `if (jmakEnabled_[midx]) updateJMAKPhase(); else <classical CNT path>`. Backward compatible — phases without a `jmak` sub-block use the pre-2026-07-28 classical path unchanged.
-  - Submodule `9c3cc3c` — rename `G_acc` → `r_acc` (Jeff's catch: JMAK reserves `G` for growth rate; the time-integrated quantity is a radius, not a rate).
-  - **JMAK moment-decomposition documentation** at `docs/jmak_moment_decomposition.tex` + compiled PDF: derives the `M_0..M_3` moment identity for time-varying J and G, explains the connection to Scherer 2018's effective-time formulation and Bullard 2015's numerical time-stepping approach, notes limitations (integer n required for closed form; non-integer n needs per-generation numerical integration).
-  - **All three gates pass** on all commits: unit tests (nucleation, saturating, jmak) all 0 failed probes; CNT-off byte-parity on `HY-ccr152-ws45` 17/17 CSVs identical through 11 cycles; build clean.
-  - **Not yet done**: turn JMAK on for Portlandite in production 4b config (one-line JSON change adding a `jmak` sub-block); validate trajectory against Session-46 archive; iterate on `n` within [2.5, 4] if needed; update `CNT_ARCHITECTURE.md` and `CNT_DESIGN_DECISIONS.md` with JMAK dispatch; mark POST_ALPHA_TODOS entry FIXED once validated.
-
-### Session 55: Mass-balance for kinetic paths, transport-kinetics 3-phase plan, pure-alite validation
-July 29-30, 2026 — macOS
-
-Three-headed session spanning two days: (1) mass-balance enforcement bug found and fixed in kinetic paths, (2) full 3-phase transport-kinetics plan implemented end-to-end, (3) pure-alite paste test system built and used to validate the new transport code. Full narrative: `docs/session55_summary.md`.
-
-- **Mass-balance fix (submodule `94bd4b0`, super-repo `f1d2609b`)**: Kinetic paths (JMAK/CNT precipitation, Standard/SR dissolve+precipitate) previously wrote only to solid `DCMoles_[]` then locked GEMS via `setDCLowerLimit`/`setDCUpperLimit`. The IC content that had to move between solid and aqueous was never credited/debited; GEMS reconciled by inflating bulk composition ("phantom Ca"). Surfaced by HEN carbonation validation: 995,932 voxels of Calcite from 374 voxels of Portlandite (200× stoichiometric excess). New `KineticController::commitSolidICTransfer` moves IC content atomically with H⁺/OH⁻ charge compensation, capped by `solidICAvailabilityScale` and fail-loud on overdraft. HON/HEN Ca mass now conserved throughout 72 h. **Session 46 silica-fume oscillation is resolved by mass balance alone** — SI(Portlandite) bounded ~1% around 1.0 instead of diverging. Session 47 encapsulated-remnant NOT resolved — it's a shell-diffusion problem, not trap-detection (wmc mechanism at `Lattice.cc:1543` handles trapping correctly; the trapped voxels have `wmc_ > 0` because C4AsH14 is porous).
-- **Transport-kinetics 3-phase plan implemented** (approved plan file `~/.claude/plans/effervescent-forging-diffie.md`; four submodule commits `43dd74c` / `5fbb4b6` / `0185cf8` / `1bdf5d5`; three super-repo pointer bumps). **Phase 1**: per-site shell thickness δ from lattice topology using Jeff's ball-centroid outward-normal method with tunable radius (default 2.5 voxels). New `TransportStats.h/.cc` POD types + `aggregateShellDistribution` (equal-frequency K-bin histogram, default K=5) + `Lattice::estimateOutwardNormal`, `walkToElectrolyte`, `computeShellStats`. **Phase 2**: optional `transport` sub-block in `kinetic_data` JSON with `{value, range, provenance}` metadata pattern (matches `nucleation`); new `TransportParameters.h`, `TransportCorrection.h/.cc` scaffolding, `KineticController::parseTransportBlock`, `KineticData.h` optional. New `ChemicalSystem::getDCIdOrMinusOne` for graceful DC lookup. **Phase 3a**: `TransportCorrection.cc` fleshed out with `solveSurfaceConcentrationLinear` (closed form) + `solveSurfaceConcentration` (Brent's method 60-iter, 1e-8 rel tol) + `shellCorrectionFactor` (per-bin `Da = k·δ / (D_eff·C_eq)`, factor = `Σ siteFraction / (1 + Da)` normalized). Explicit special case: zero-δ bins contribute 1.0 (no diffusion resistance). **Phase 3b**: shell correction wired into `StandardKineticModel::calculateKineticStep` (line 214), `SaturatingRateModel::calculateKineticStep` (line 128), `PozzolanicModel::calculateKineticStep` (line 307) as an `area *= shellCorr` multiplier gated on `transport_.has_value() && limitingDCId_ >= 0`. New unit tests `test_transport_stats` (6 groups) and `test_transport_correction` (8 groups), all pass. Byte-parity preserved on CNT-off `HY-ccr152-ws45` 17/17 CSVs first 11 cycles when `transport` block absent.
-- **Design decisions worth remembering**: Ball-centroid outward normal (not steepest-ascent) per Jeff's suggestion — copes with thick shells. Linear Fick + single limiting DC (not IC) — reads bulk activity directly from `DCMoles_[limitingDC]/waterMass`. K=5 equal-frequency histogram (K=1 collapses to single scalar for byte-parity debug; K→N recovers per-site). No ParrotKilloh in transport-code validation runs — PK's `k2(1-DOR)^{2/3}` diffusion branch empirically lumps shell physics we're modeling from first principles.
-- **Pure-alite paste test system**: Jeff built two 100³ microstructures at `~/Library/Application Support/THAMES/operations/`: `AlitePaste-w45/` (w/c=0.45 realistic PSD) and `AliteSphere/` (single 50-voxel-diameter sphere). Matched baseline/shell simparams staged at `~/tmp/thames-alite-baseline/` and `~/tmp/thames-alite-shell/`. Alite as SaturatingRate with Jeff's calibrated Han-2025 params (k=1.253e-4 mol/m²/s, B=0.0475, n=3.73, Ea=41570 J/mol, dissolvedUnits=4). CSHQ and Portlandite as Thermodynamic to isolate transport effects. Shell variant adds transport block with `D_eff=1e-13 m²/s` (Jeff confirmed matches his working value for Ca²⁺ through mature C-S-H), `limitingDC="Ca+2"`. **First-launch bug**: phase IDs must be contiguous 0..N-1 (I initially used ids 9 and 10 matching Portland-cement reference conventions, causing array-index crashes). Renumbered to 3 and 4; both runs then completed in ~100 s.
-- **1-day results**: Alite DOR 23.46% (baseline) vs 23.50% (shell) — 139 voxels of 415,957, or 0.04 percentage points delta. Effectively no shell throttle. Two root causes, both operating: (1) **Geometric** — mean CSHQ shell thickness at 24 h ≈ 0.82 voxels (total CSHQ volume / initial Alite surface area). The distribution is dominated by δ=0 bins (Alite dissolution sites still touching electrolyte directly). Per `TransportCorrection.cc:60-65`, δ=0 bins contribute 1.0 to the weighted correction sum. No continuous shell ⇒ no throttle. (2) **Mathematical** — `C_eq = C_bulk / S^(1/stoich)` collapses for far-from-equilibrium phases. Alite S ≈ 1e-14, so derived `C_eq ≈ C_bulk × 1e14`; Da ≈ 1e-9; factor ≈ 1. Even with a real shell this formulation would not throttle Alite. The physically-correct C_eq for the transport half-cell should come from a **reference sink phase** for the limiting DC (Portlandite for Ca²⁺; ettringite/AFm for SO₄²⁻; calcite for CO₃²⁻), not from the reactant's own SI. Jeff's insight: "If the mean shell thickness is less than 1 voxel... there is basically no shell." — geometry alone explains the null delta; the math is a downstream concern.
-- **Cross-section visualization**: `~/tmp/AlitePaste-1day-crosssection.png` (1690×1030) shows the SAME z=50 mid-plane for both runs side-by-side, 8× upscaled from native 100×100 with a legend. Visually confirms the "CSHQ dispersed in pore space, not coating Alite" story.
-- **28-day shell run**: Launched at `~/tmp/thames-alite-shell-28d/` for extended validation. Terminated early at **t=148 h (6.17 d)** after 214 s wall time — all Electrolyte voxels consumed by product growth. Final state: Alite 88,663 (DOR 78.7%), CSHQ 708,664 (70.9% vol frac), Portlandite 202,673 (20.3% vol frac). This is now a good exerciser for shell physics. Baseline-28d launched for comparison at `~/tmp/thames-alite-baseline-28d/`; comparison ready in the morning.
-- **Design questions open at session end**: (1) C_eq derivation — add `referenceSinkPhase` field to transport block vs reformulate flux balance directly; (2) per-shell-phase D_eff map (Phase 2 stub `pickDEff` returns block dEff regardless); (3) validation on Portland-cement systems where shell physics genuinely bites. Priority-2 mass-balance rerun (`~/tmp/thames-mb-portland-sf15`, PID 55148) still running at session close (24+ h CPU).
-- **Not yet done**: turn on transport block for Portlandite (moderate-S case where the math is well-conditioned) to confirm the code does throttle when C_eq is physical; decide between C_eq design options (a) and (b); post-alpha TODO entries for contiguous phase IDs, per-shell-phase D_eff map, verbose-gated shell diagnostic (hard to debug without recompile).
+## Repo layout (critical)
+
+- `backend/thames-hydration/` is a **git submodule** (`github.com/jwbullard/THAMES-Hydration.git`). All active C++ hydration work lives here. Workflow: edit in submodule, push submodule first, then commit the pointer bump in the super-repo.
+- `backend/src/` at the top level (NOT a submodule) is legacy VCCTL C — different subsystem.
+- `src/app/` is the Python/GTK UI.
+
+---
+
+## Development History (compressed)
+
+### Sessions 1-32 (Nov 2025 – Feb 2026): Foundation → Alpha groundwork
+Repo setup + GEMS3K integration + tag-based materials architecture (S1-2). DB schema, VCCTL cement migration, PSD system, clinker fraction editor (S3-5). Phase ID mapping (0=VOID, 1=ELECTROLYTE, 2-7=Clinker, 8=AGGREGATE, 9+=Other), MicgenInputService (S6-7). Phase color service, Results Viewer (S8). Hydration Panel UI + kinetic editors (S9-10). Progress tracking, kinetic prefs, multi-select plots (S11-12). Elastic moduli UI, `bin/` standardization (S13-14). Unified voxel ordering X-fastest (S15). Multi-temperature GEMS DB 277-353K, 82 hydration products (S16). Elastic viz + 3D axes + Homebrew pinning (S17-18). Windows dev env (MSYS2 Python 3.12, PyGObject) + Unicode fixes (S19). Windows C++ build, ImageMagick→libpng, particle shapes (S20). Clang on Windows, `long int`→`long long int`, LFS (S21). W/B up to 10000 (S22). Adaptive time stepping: AdaptiveTimeController class, GEMS convergence accessors, kinetics-based initial dt, model-aware params, unified defaults (dt_initial=0.001h, dt_max=4h, growth=1.5), IC depletion recovery, exit_status.json + UI alerts (S23-30). User Manual + screenshots + config UI (S31-32).
+
+### Sessions 33-40 (Mar-Apr 2026): Windows crash debug, feature polish
+S33: micgen Windows stack overflow (stack-allocated 1.7 MB `line[]` → `static`); `-Wl,--stack,8388608`. **Windows working dir must be `C:\Users\jwbullard\Desktop\foo\THAMES`, NOT `C:\Users\jwbullard\THAMES`.** S34: suppressed_phases feature (UI unchecked → simparams.json → `addSuppressedDC` → `initDCUpperLimit` skips). S35: fixed `time_[]` overwrite with cycle times using `initialLastTime` (3 locations); macOS ad-hoc codesign in CMakeLists. S36: `time_[lastGoodI]` bounds check; kinetics floor `stepTimeTHR_=1e-5 h`; false FINAL-TIME termination requires `initialLastTime - lastGoodTime_ < 1e-6`. S37: `MAX_LATTICE_RETRIES=50`; UI polling race fix; 5 glass phases needed `(am)` suffix (C2AS, CA2S, CAS, CAS2, K6A2S). S38: **critical** — GEMS-failure recovery path bypassed kinetics timestep constraint; fix: apply `computeKineticsBasedMaxTimestep` on failure path. S39: `build-windows.sh`/`build-macos.sh`; micgen `numchunk=total/100` divide-by-zero for <100 particles; Load Operation feature. S40: 5 more VCCTL materials migrated; VCCTL removal from Materials Panel; aggregate.tar.gz (185 MB) copied; `build-macos.sh` linker race fix.
+
+### Sessions 41-45 (Apr-May 2026): Alpha packaging + cross-platform release
+S41: **Concelas** Python port (multi-scale concrete moduli from VCCTL `elastic.c:2942-3559`) → `concelas_service.py` + `concelas_runner.py`; post-completion hook after `thames -s 5`. Effective Moduli Viewer (Binder / Concrete / ITZ). Stop/cancel persistence bug fix (DB write on both paths + startup reconciliation). Help menu overhaul: `documentation_viewer.py` renders `docs/USER_MANUAL.md` to HTML via python-markdown. About dialog `&` escape. **Version `1.0.0-alpha.1`**; tag `v1.0.0-alpha.1`. `docs/ALPHA_RELEASE_PREPARATION.md` created. `docs/POST_ALPHA_TODOS.md` seeded. S42: Windows smoke test → Mix Design aggregate gating, Elastic Moduli defensive lock when no aggregate, hydration pencil-icon single-click handler, spec-file VCCTL-legacy path cleanup, Inno Setup script at `installer/thames-windows.iss`, PyInstaller GI hook needs `PATH="/c/msys64/mingw64/bin:$PATH"`, Python `zipfile` (not `tar -a -cf`), LICENSE→LICENSE.md, README rewrite. Distribution artifacts built for `v1.0.0-alpha.2`. S43: second cleanup pass — 5 partial-VCCTL cements deleted, `cement16XXX`→`clinker16XXX` rename (11 materials), SG recalc from GEMS `thames-dch.dat` (32 of 37 updated), ma157 clinker-extension backfill, `_copy_clinker_extension_data` rewritten as raw SQL, Materials Panel checkbox toggle handler + cursor preservation, per-panel info-icon anchors, `POZZOLANIC_DEFAULTS['Aggregate']` at 1e-12 mol/m²/s, app icon swap, operations wipe pre-release. S44: **Sandbox validation** found 3 crash bugs — Bug 1 empty seed DB (created `src/data/database/thames.db` 2.8 MB); Bug 2 heap corruption from BG-thread GTK calls (deleted 4 orphan statements in `_update_operation_in_database`; added `src/app/utils/thread_safety.py::assert_main_thread`); Bug 3 aggregate shape combos not refreshed post-tarball-extraction. Permanent diagnostic infra: `faulthandler` to `%LOCALAPPDATA%\THAMES\logs\thames-crash.log`, FileHandler for `thames.log`. Sandbox 3D viewer needs GPU → documented, not fixed. S45: **first public cross-platform release** — `thames-windows.spec` IS_MACOS branch fixed (VCCTL legacy executable paths → `bin/thames`, `bin/micgen`, `bin/libpng16.16.dylib`); Homebrew libpng bundling into `.app` with `install_name_tool`; **harfbuzz crisis** — replace PIL's minimal `libharfbuzz.0.dylib` with Homebrew's for CoreText support (permanent post-BUNDLE block in spec); `src/app/resources/icon.icns` created; `thames-macos.spec` deleted (canonical is `thames-windows.spec`). `dist/THAMES-1.0.0-alpha.2-macOS.zip` via `ditto -c -k --keepParent --rsrc`. Release URL: https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.2.
+
+### Sessions 46-49 (May-Jun 2026): Diagnostics, bug hunt, brainstorms
+S46 (May 11-12): 3D viewer color-button silent crash (dev mode only) — GLib abort from missing `org.gtk.Settings.ColorChooser` schema in Ghostty's XDG_DATA_DIRS; fixed in `src/main.py` (dev mode + macOS → set `GSETTINGS_SCHEMA_DIR`). Bundled `.app` unaffected. Kinetic-editor save bug: Hydration panel's kinetic dialog never persisted to `kinetic_defaults.json` (Preferences did); fix in `thames_hydration_panel.py::_on_configure_kinetics` calls `set_user_default` in both OK branches. **Cement+silica-fume cycle-11 stall** diagnosed as GEMS-degenerate landscape oscillation; workaround `Portlandite→Thermodynamic` cleared it. See `docs/session46_summary.md`. S47 (Jun 4): Mix Design 32³ silent-failure — stale legacy `system_size: int = Field(ge=50, le=500)` in `src/app/models/mix_design.py` while per-axis fields allow `ge=25`; fixed to `ge=25, le=400`. Silent-failure UX added to POST_ALPHA_TODOS. `release-notes-alpha-3.md` workflow started; amended published alpha-2 release notes via `gh release edit`. ThamesRender scoped as separate project at `~/Code/ThamesRender/`. S48 (Jun 7): THAMES architecture triangle SVG (dark + light) for slides — `docs/scripts/build_triangle_svgs.py`. Affinity Designer quirks baked into builder: tspan superscripts broken → use matplotlib PNG; CSS `font-family` ignored → inline attribute per `<text>`; CSS `fill` unreliable → inline `fill=`. S49 (Jun 12): Transport-controlled kinetics brainstorm — the well-mixed-electrolyte compromise. Full verbatim conversation `docs/transport_kinetics_brainstorm.md`. Recommended sequence (endorsed): trap detector (later abandoned — wmc mechanism already handles it), per-phase shell δ + series resistance, effective-area sanity check, HydratiCA as validation oracle.
+
+### Session 50 (Jul 20): Classical Nucleation Theory design + Python prototype
+New multi-session thread targeting `StandardKineticModel` and `PozzolanicModel` (PK excluded — Avrami-Cottrell absorbs nucleation). Committed 8-step plan and calibrated portlandite defaults (γ=0.044 J/m², A₀=1e30 /(m³·s), θ=180° homogeneous, V_m=33.08 cm³/mol from CemData18). Prototype at `~/Research/THAMES-Tests-2026/Scripts/NucleationCNT-Prototype.ipynb`. Design decisions: anonymous scalar accumulator per phase + batched simultaneous placement; NOT per-voxel fractional occupancy; uniform-random placement over electrolyte for portlandite; **CNT drives adaptive dt (Option C, shrink-and-retry, NOT silent cap)**; every parameter as `{value, range, provenance}` JSON. Full narrative: `docs/session50_summary.md`.
+
+### Sessions 51-54 (Jul 23-28): CNT integration → SaturatingRateModel → JMAK
+**S51** (submodule `53e0ee2`): CNT rate calc + placement + adaptive-dt cap in Standard + Pozzolanic; four virtuals `computeNucleationVoxels/hasNucleation/accumulateNucleation/drainNucleationInteger`. CNT-off byte-parity preserved. **S52** (submodule `0754968`): `SaturatingRateModel` — Bullard 2015 CCR Eq. 2 / Han 2025 CEJ Eq. 7. `r = k(1 − exp[−(−B ln Ω)^n])` saturates at k. Asymmetric dissolution/precipitation blocks. Portlandite calibration k=4.05e-4, B=0.74, n=1.9. `docs/SATURATING_RATE.md`. **S53** (submodule `7f7c6d8`): CNT scaling fix — two independent bugs. (A) CNT placement used physical `vVoxel/vMolar` for moles but THAMES stores DCMoles/microPhaseMass/scaledMass in a **per-100-g-solid normalized frame** (`Lattice::normalizePhaseMasses`) — off by ~10⁷×. (B) `ChemicalSystem::calculateState` skips `GEMPhaseVolume→microPhaseVolume` fill for kinetic phases; CNT-only zero-mass phases had stale `microPhaseVolume_=0`, causing all placed voxels to dissolve same cycle. Plus PozzolanicModel throw-to-DOR-zero guard for `initScaledMass_=0`. **S54** (submodules `22c65a7`, `9a2d2a9`, `d743756`, `9c3cc3c`): pivot to **JMAK-per-voxel** as the correct sub-voxel model. Pure-math free functions in `namespace jmak` (`src/thameslib/JMAKGrowth.{h,cc}`); Cohort→Generation rename; `getNucleationRate(S)` + `getGrowthVelocity(S)` virtuals added to `KineticModel` with defaults 0; overrides in Standard/Pozzolanic/SaturatingRate. `JMAKParameters` optional in `KineticData` (n ∈ [2.5, 4], α default 4π/3). Per-phase JMAK state in `KineticController`. Dispatched from CNT block: `if (jmakEnabled_) updateJMAKPhase() else classical`. Backward compatible. `docs/jmak_moment_decomposition.tex` derives moment identity for time-varying J and G. All gates pass. **Not yet turned on for any production phase.**
+
+### Session 55 (Jul 29-30): Mass-balance fix, transport-kinetics 3-phase plan, pure-alite validation
+Three-headed session. Full narrative: `docs/session55_summary.md`.
+
+- **Mass-balance fix** (submodule `94bd4b0`, super-repo `f1d2609b`). Symptom: HEN carbonation produced 995,932 voxels of Calcite from 374 voxels of Portlandite (200× stoichiometric excess). Root cause: JMAK/CNT precipitation and Standard/SR dissolve+precipitate paths wrote only to `DCMoles_[solid]` and locked GEMS via `setDCLowerLimit/setDCUpperLimit`; the aqueous IC counterpart was never adjusted, so GEMS "reconciled" by inflating bulk composition ("phantom Ca"). Fix in `KineticController`: (1) `solidICAvailabilityScale(DCId, moles_wanted)` dry-cap in [0,1]; (2) `commitSolidICTransfer(DCId, delta)` atomic aqueous↔solid transfer with H⁺/OH⁻ charge compensation; (3) every kinetic path routed through it with fail-loud overdraft. **Session-46 silica-fume cycle-11 oscillation is fully resolved by mass balance alone** — SI(Portlandite) bounded ~1% around 1.0. Session-47 encapsulated-remnant NOT resolved (it's a shell-diffusion problem — trapped ettringite has `wmc_ > 0` because surrounding C4AsH14 is porous, so it IS in `dissolutionSites_`).
+
+- **Transport-kinetics 3-phase plan implemented end-to-end** (plan `~/.claude/plans/effervescent-forging-diffie.md`, submodule commits `43dd74c`/`5fbb4b6`/`0185cf8`/`1bdf5d5`, super-repo pointer bumps `37142c57`/`2e4cdc20`/(none)/`863a579d`).
+  - **Phase 1** (`43dd74c`): per-site shell thickness δ from lattice topology using **ball-centroid outward-normal method** (Bullard's suggestion, tunable `r` default 2.5 voxels). New `TransportStats.h/.cc` POD types + `aggregateShellDistribution` (equal-frequency K-bin histogram, default K=5) + `Lattice::estimateOutwardNormal`, `walkToElectrolyte`, `computeShellStats`. Unit tests `test_transport_stats` (6 groups).
+  - **Phase 2** (`5fbb4b6`): optional `transport` sub-block in `kinetic_data` JSON with `{value, range, provenance}` pattern (matches nucleation). `TransportParameters.h`, `TransportCorrection.h/.cc` skeleton, `KineticController::parseTransportBlock`, `KineticData.h` optional, `ChemicalSystem::getDCIdOrMinusOne` for graceful DC lookup.
+  - **Phase 3a** (`0185cf8`): `TransportCorrection.cc` fleshed out — `solveSurfaceConcentrationLinear` (closed form), `solveSurfaceConcentration` (Brent 60-iter, 1e-8 rel tol), `shellCorrectionFactor` (per-bin `Da = k·δ/(D_eff·C_eq)`, factor = `Σ siteFraction/(1+Da)` normalized; **zero-δ bins contribute 1.0** — no diffusion resistance when a site touches electrolyte directly). Unit tests `test_transport_correction` (8 groups).
+  - **Phase 3b** (`1bdf5d5`): shell correction wired into `StandardKineticModel::calculateKineticStep` (line 214), `SaturatingRateModel::calculateKineticStep` (line 128), `PozzolanicModel::calculateKineticStep` (line 307) as `area *= shellCorr` gated on `transport_.has_value() && limitingDCId_ >= 0`.
+  - Byte-parity preserved on CNT-off `HY-ccr152-ws45` 17/17 CSVs first 11 cycles when `transport` block absent.
+
+- **Pure-alite paste test system** (Jeff built two 100³ microstructures: `AlitePaste-w45` w/c=0.45, `AliteSphere` single 50-voxel-Ø sphere). Alite as SaturatingRate with Han-2025 params (k=1.253e-4, B=0.0475, n=3.73, Ea=41570 J/mol, dissolvedUnits=4); CSHQ + Portlandite Thermodynamic. Shell variant adds transport block `D_eff=1e-13 m²/s` (Jeff-confirmed Ca²⁺ through mature C-S-H), `limitingDC="Ca+2"`. **First-launch bug**: **phase IDs must be contiguous 0..N-1**; I gave CSHQ id=9 and Portlandite id=10 → array-index crash. Renumbered 3 and 4.
+  - **1-day results**: Alite DOR 23.46% (baseline) vs 23.50% (shell) — 139 voxels of 415,957 = 0.04 pp delta. Effectively no throttle. Two root causes: (1) **Geometric** — mean CSHQ shell thickness at 24 h ≈ 0.82 voxels; distribution dominated by δ=0 bins. Jeff's insight: "If the mean shell thickness is less than 1 voxel... there is basically no shell." (2) **Mathematical** — `C_eq = C_bulk / S^(1/stoich)` collapses for far-from-equilibrium phases (Alite S≈1e-14 → derived C_eq ≈ C_bulk × 1e14 → Da ≈ 1e-9 → factor ≈ 1). The physically-correct C_eq for the transport half-cell should come from a **reference sink phase** (Portlandite for Ca²⁺; ettringite/AFm for SO₄²⁻; calcite for CO₃²⁻), not from the reactant phase's own SI.
+  - **28-day shell run** terminated at t=148 h (6.17 d) — all Electrolyte voxels consumed by product growth. Final Alite DOR 78.7%, CSHQ 70.9% vol frac, Portlandite 20.3% vol frac. Baseline-28d comparison: shell delta at 6.17 d = +281 Alite / −0.07 pp DOR — direction correct, magnitude still tiny (0.07% relative).
+
+- **C3S ln K inconsistency between GEMS and SR calibration** (BLOCKER for further shell work). GEMS CemData18 gives **ln K = −24.4** for `C3S + 5 H₂O → 3 Ca²⁺ + H₄SiO₄ + 6 OH⁻`; Perry/Nicoleau/Nonat calibration gives **ln K = −50.7**. Δ = 26.3 (~11 orders of magnitude in K). PK masked this because it doesn't use SI; Standard/SR now expose it. Two fix paths: (1) rescale SR params to match GEMS's ln K, or (2) override G°(C3S) in DCH file (+65.2 kJ/mol) so ln K = −50.7. **Must resolve before pushing on C_eq design question.** Same audit needed on every other Standard/SR phase (Portlandite, ettringite, CSHQ products, gypsum, ...).
+
+- **Priority-2 mass-balance rerun** (silica-fume Portland 200³ 28-d, `~/tmp/thames-mb-portland-sf15`) completed successfully — 25,030 cycles, dt_final=4.0h, only 4 IC depletion events (vs 20+ in first 4 min of Session-46's failing run). CSHQ 66.4% vol, Portlandite 5.2%, Sfume unreacted 5.1%. Confirms mass-balance fix works end-to-end.
+
+### Session 56 (Jul 31, 2026): C3S ln K correction in DCH, calorimetry preserved
+Single-focus session resolving S55's BLOCKER on C3S ln K. Also compressed CLAUDE.md at session start (89k → 22k chars). Full narrative: `docs/session56_summary.md`.
+
+- **Analytical framing**: pure B/n rescaling of SR params (Jeff's initial preference — keep k as infinite-dilution measured) is mathematically incompatible with matching Bullard 2015 Figure 1 when ln K shifts by Δ ≠ 0. The SR law's `r = 0 at Ω = 1` anchors the zero-rate crossing at whatever K the database provides — no (B, n) choice can shift it. Approximate fit possible with n ≈ 9.8 (vs paper's 3.73), but the shape change is a numerical artifact with no physical interpretation.
+- **DCH edit** (`src/data/gems/thames-dch.dat`, DC index 118, file line 682): uniform **−65,211.81 J/mol** offset applied to G°(C3S) at all 39 T grid points. ln K at 298.15 K now **−50.70** exactly (was −24.39). SI(C3S) throughout THAMES shifts by factor exp(26.3) ≈ 2.65e11. Only line 682 differs vs backup; CRLF line endings preserved; backup at `src/data/gems/thames-dch.dat.pre-c3s-lnK-fix-20260731` (gitignored). **Sign to remember**: G° decreases (mineral more stable) to make ln K more negative — got this wrong once in an explanatory paragraph; verified via direct computation.
+- **Calorimetry preserved (unexpected)**: Jeff flagged that microcalorimetry validation needs accurate ΔH°_rxn. Direct check: paper ΔH°_rxn(H3SiO4⁻ form) = −137 kJ/mol vs GEMS translated (HSiO3⁻ form) = **−135.8 kJ/mol**. 1.2 kJ/mol discrepancy = within paper precision. Babushkin's H°(C3S) was already correct. The ln K discrepancy is a **reference-state offset in CemData18's G0/H0/S0 storage** (G0 and H0−T·S0 differ by +131 kJ/mol constant across species — a GEMS convention, not physical error). No H0 correction needed; calorimetric prediction dq/dt = ΔH°_rxn · dξ/dt now correct (uses G0 → SI → rate = corrected; uses H0 = Babushkin ≈ correct).
+- **Portlandite K spot-check**: log Ksp = −5.2004 (GEMS) vs CemData18 target −5.20 (exact), Sipos 2006 −5.19, Duchesne & Reardon 1995 −5.29. ΔH°_rxn = −18.4 kJ/mol matches Sipos calorimetric ~-18. **No correction needed.** Hypothesis: Babushkin heritage issue is specific to anhydrous clinker phases (C3S, C2S, C3A, C4AF); aqueous-in-equilibrium phases (Portlandite, gypsum, ettringite) measured near ambient are fine.
+- **JMAK-Portlandite sanity (running at session end)** at `~/tmp/thames-satrate-val/HY-ccr152-ws45-sat-portlandite-cnt/sanity-3h/`, finaltime = 3 d. At t=3.07 h, SI_Portlandite = 13.3 and **declining** (was 13.6 at 2.81 h). Prior 4b run (Jul 28) hit 1632 and climbing at same t. **Session-55 mass-balance fix has cured the SI runaway.** Will finish overnight; compare vs Session-46 ~14% Portlandite target at 24 h in Session 57.
+- **Pure-C3S sanity v2** at `~/tmp/thames-pureC3S-sanity-v2/`: all product phases suppressed → Alite dissolves via SR into pool that accumulates ions. SI trajectory grew smoothly 3.6e-13 → 0.078 over 12 h, no overshoot, rate slowing asymptotically as Ω→1. Confirms corrected K produces physically sensible driving forces. First attempt (v1) blew up to Ω=505 in a single step because `dt_initial=0.0001 h` was silently ignored — v2 workaround: outtimes[0] = 1e-7 days forces tiny first cycle.
+- **POST_ALPHA_TODOS additions (3)**: (1) audit remaining Standard/SR phases (C2S, C3A, C4AF, ettringite, gypsum, CSHQ end-members) for ln K discrepancies using the C3S procedure; (2) audit H0 for calorimetric ΔH°_rxn targets across same phase list; (3) `dt_initial` parameter is silently ignored by AdaptiveTimeController — first cycle sized by first outtime — workaround with tiny outtimes[0].
+- **Discovery worth remembering**: at high Ca+Si concentrations most Si goes into the CaSiO3@ ion-pair complex, not free SiO2@ or HSiO3⁻. GEMS accounts for this properly. But "free silica" concentrations in Solution.csv can be misleading — sum all Si-bearing DCs (AlHSiO3+2, AlSiO5-3, CaSiO3@, MgSiO3@, HSiO3−, SiO2@, SiO3²⁻) for total aqueous Si.
 
 ---
 
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
-Fully implemented: AdaptiveTimeController class, GEMS convergence accessors, kinetics-based timestep, UI configuration (7 SpinButtons), simparams.json integration. See `docs/adaptive_timestepping_implementation_plan.md`.
-
-Default parameters: dt_initial=0.001h, dt_max=4h, growth_factor=1.5, successes_for_growth=2. Disable via UI checkbox or `useAdaptiveTimeStepping_ = false` in Controller constructor.
+AdaptiveTimeController + GEMS convergence accessors + kinetics-based initial timestep + UI configuration (7 SpinButtons) + simparams.json. Defaults dt_initial=0.001h, dt_max=4h, growth_factor=1.5, successes_for_growth=2. See `docs/adaptive_timestepping_implementation_plan.md`.
 
 ### 2. GEMS Error Recovery (COMPLETE)
-IC depletion recovery with charge compensation, IC_FLOOR=1e-5 (must NOT exceed this), runtime electrolyte concentration safety, exit_status.json + UI alerts, concentration_overrides.json + UI notification.
+IC depletion recovery with charge compensation, IC_FLOOR=1e-5 (must NOT exceed), runtime electrolyte concentration safety, exit_status.json + UI alerts, concentration_overrides.json.
 
 ### 3. Documentation (MOSTLY COMPLETE)
 User Manual at `docs/USER_MANUAL.md` (~1,200 lines) with 26 screenshots. 2 screenshots still missing (elastic results, workflow1 results).
 
 ### 4. Known Issues
-- UI memory bloat: Loading 200^3 microstructures causes ~5.9 GB RAM usage
+- UI memory bloat: Loading 200³ microstructures causes ~5.9 GB RAM usage
 - Windows process termination: UI "stop and delete" may not fully kill thames.exe
 - micgen exit segfault during `freemicgen()` cleanup (after output written, low priority)
-- Near-depletion phases can collapse adaptive timestep at late ages (see post-alpha list)
+- Near-depletion phases can collapse adaptive timestep at late ages
+- Reconciler flips live child operations to CANCELLED on UI restart (persist child PID at launch)
+- Silent Pydantic validation failures in Mix Design auto-save
 
 ### 5. Post-Alpha TODO List
 Deferred improvements are tracked in `docs/POST_ALPHA_TODOS.md`. Append there whenever a "later" / "post-alpha" / "not blocking alpha" item comes up in conversation; do NOT add post-alpha items directly to this file.
@@ -372,100 +105,66 @@ Deferred improvements are tracked in `docs/POST_ALPHA_TODOS.md`. Append there wh
 ## MANDATORY: Cross-Platform Safety Protocol
 
 **CRITICAL: Before making ANY change to these files, ALWAYS check both platforms:**
-- `.spec` files (thames-macos.spec, thames-windows.spec)
-- Path-related code (directories_service.py, config_manager.py, app_info.py)
-- Build scripts (build_macos.sh, any Windows build scripts)
+- `.spec` files (`thames-windows.spec` is now the canonical cross-platform spec; `thames-macos.spec` was deleted in S45)
+- Path-related code (`directories_service.py`, `config_manager.py`, `app_info.py`)
+- Build scripts (`build-macos.sh`, `build-windows.sh`)
 - Hooks directory
 
 **Required checks for EVERY change:**
 
-1. **Read BOTH platform spec files:**
-   ```bash
-   grep -n "relevant_pattern" thames-macos.spec
-   grep -n "relevant_pattern" thames-windows.spec
-   ```
-
+1. Read BOTH platform code paths (`grep -n "pattern" thames-windows.spec` and check IS_MACOS/IS_WINDOWS branches).
 2. **State explicitly BEFORE making the change:**
    - "This change affects: [macOS / Windows / both]"
-   - "Windows currently does: [X]"
-   - "macOS currently does: [Y]"
-   - "After this change: [Z]"
+   - "Windows currently does: [X]"; "macOS currently does: [Y]"; "After this change: [Z]"
    - "This will/won't break Windows because: [reason]"
-
-3. **For path changes specifically:**
-   - Check where files are bundled in BOTH specs
-   - Check where code looks for them in the Python files
-   - Verify the paths match on BOTH platforms after the change
+3. For path changes: verify where files are bundled AND where code looks for them on BOTH platforms.
 
 **Failure to follow this protocol causes platform regressions and wastes user time.**
 
+---
+
 ## Git commands
-- Do not run a git command unless you are requested to do so
-- Use "git add -A" to stage changes before committing to the git repository
+- Do not run a git command unless requested.
+- Use `git add -A` to stage.
 - ALWAYS include both co-authors in commit messages:
-  - Co-Authored-By: Jeffrey W. Bullard <jwbullard@tamu.edu>
-  - Co-Authored-By: Claude <noreply@anthropic.com>
+  - `Co-Authored-By: Jeffrey W. Bullard <jwbullard@tamu.edu>`
+  - `Co-Authored-By: Claude <noreply@anthropic.com>`
+- **CNT/JMAK/transport work: Jeff drives all git operations.** Submodule push first, then super-repo pointer bump.
 
 ## Responses
-- Do not use the phrase "You're absolutely right!". Instead, use the phrase
-"Good point.", or "I see what you are saying."
+- Do not use "You're absolutely right!". Instead use "Good point." or "I see what you are saying."
+
+---
 
 ## OS Switching Procedures (CRITICAL - READ FIRST)
 
-### **Cross-Platform Development Workflow**
+When working across Mac/Windows/Linux, use these scripts to keep the git repo synchronized:
 
-When working on THAMES across multiple operating systems (Mac, Windows, Linux), use these scripts to keep git repositories synchronized:
-
-#### **Starting Work on Different OS:**
-
+### Starting Work on Different OS
 ```bash
 ./pre-session-sync.sh
 ```
+Fetches, shows incoming commits, creates a backup branch, pulls with rebase, verifies. Use ALWAYS at start of session on different OS.
 
-**What it does:**
-- Fetches latest changes from remote
-- Shows what commits will be pulled
-- Creates automatic backup branch
-- Pulls changes with rebase strategy
-- Verifies sync completed successfully
-
-**When to use:**
-- ALWAYS at start of session on different OS
-- After long break between sessions
-- When you suspect changes on remote
-
-#### **Ending Work Session:**
-
+### Ending Work Session
 ```bash
 ./post-session-sync.sh
 ```
-
-**What it does:**
-- Shows all uncommitted changes
-- Prompts for commit message (or auto-generates)
-- Stages all changes with `git add -A`
-- Creates commit with standard format
-- Pushes to remote repository
-
-**When to use:**
-- ALWAYS at end of work session
-- Before switching to different OS
-- Before long breaks
+Shows uncommitted changes, prompts for message, `git add -A`, commits with standard format, pushes to remote. Use ALWAYS at end of work session.
 
 ---
 
 ## Key Technical Patterns
 
-### PyInstaller Path Resolution:
+### PyInstaller Path Resolution
 ```python
 # WRONG - breaks in PyInstaller:
 project_root = Path(__file__).parent.parent.parent
-
 # RIGHT - use service abstraction:
 operations_dir = self.service_container.directories_service.get_operations_path()
 ```
 
-### Platform-Specific subprocess:
+### Platform-Specific subprocess
 ```python
 popen_kwargs = {'stdout': ..., 'stderr': ...}
 if sys.platform == 'win32':
@@ -473,10 +172,19 @@ if sys.platform == 'win32':
 process = subprocess.Popen(cmd, **popen_kwargs)
 ```
 
-### Cross-Platform User Data Directories:
+### Cross-Platform User Data Directories
 - **macOS:** `~/Library/Application Support/THAMES/`
 - **Windows:** `%LOCALAPPDATA%\THAMES\`
 - **Linux:** `~/.local/share/THAMES/`
+
+### Threading discipline (S44)
+Widget mutation from a non-main thread on Windows causes silent heap corruption + Heap-Terminate-on-Corruption fastfail. Use `src/app/utils/thread_safety.py::assert_main_thread()` at entry points of widget-touching methods; BG threads must go through `GLib.idle_add`.
+
+### THAMES per-100-g normalized frame (S53)
+`DCMoles_[]`, `microPhaseMass_[]`, `microPhaseVolume_[]`, and `KineticModel::scaledMass_` are stored in a normalized "per 100 g of total solid" frame (established by `Lattice::normalizePhaseMasses`). **Consult before combining with physical `getVolumePerVoxel`/`getDCMolarVolume`** — off by ~10⁷× cost us Session 53. See memory `reference_thames_per100g_convention.md`.
+
+### Phase IDs must be contiguous 0..N-1 (S55)
+Phase IDs are used as array indices; gaps cause `microPhaseMass_ contains N elements, but tried to access element K` crashes. Not documented anywhere. POST_ALPHA TODO candidate.
 
 ---
 
