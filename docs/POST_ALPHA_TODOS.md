@@ -648,6 +648,45 @@ Applying any single model as a T-varying correction across the full 277.15–353
 
 ---
 
+### Electrolyte `condition: "fixed"` mechanism only tops up, never removes
+
+**Identified:** 2026-08-06 (Session 57, Garrault-Nonat 2001 validation setup)
+
+**Symptom.** `ChemicalSystem::setElectrolyteComposition` (called every cycle from `calculateState` and `calculateSI`) is supposed to hold a designated DC's aqueous concentration at a user-specified target. It works asymmetrically: when the current DCMoles is below target, it tops up both `DCMoles_` and `ICMoles_` correctly. But when current > target (a dissolving reactant is generating excess of the fixed species), the code sets `DCMoles_[fixedDCId] = targetDCMoles` without reducing `ICMoles_[i]`. Because DCUpperLimit_ for aqueous DCs stays at 1e6 during GEMS solve, GEMS is free to redistribute the excess IC pool back into aqueous phase, so the final concentration ends up above target.
+
+**Empirical demonstration.** In the Garrault validation setup (Session 57), fixing Ca²⁺ + CaOH⁺ + OH⁻ at 17/5/39 mmol/kgw (target total [Ca] = 22 mM, charge-balanced), the first cycle result was [Ca] total = 23.55 mM (+7% over target). Then stabilized at that value for the rest of the 72-min simulation. Same pattern for 11 mM target → 12.05 mM steady (+10% error). Bias size is proportional to per-cycle Alite dissolution rate.
+
+**Root cause.** Enforcement at `ChemicalSystem.cc:4415-4448`:
+
+```cpp
+double deltaDCMoles = targetDCMoles - currentDCMoles;
+DCMoles_[DCId] = targetDCMoles;  // Always set to target
+if (deltaDCMoles > 0) {           // Only add to ICMoles if depleted
+  for (int i = 0; i < numICs_; i++) {
+    double stoich = getDCStoich(DCId, i);
+    if (stoich != 0.0) ICMoles_[i] += deltaDCMoles * stoich;
+  }
+}
+// No branch for deltaDCMoles < 0: excess Ca remains in ICMoles_
+// GEMS then redistributes freely because DCUpperLimit_[fixedDCId] = 1e6
+```
+
+Additionally, `parseSolutionComp` has never been exercised for `"condition": "fixed"` in any test config — all existing tests only use `"initial"`. So the incomplete implementation has never had a validation user.
+
+**Proposed fix (two options, non-exclusive):**
+1. Add the symmetric removal branch: when `deltaDCMoles < 0`, reduce `ICMoles_[i]` by `|deltaDCMoles| * stoich` (with a guard against driving ICMoles below `IC_FLOOR`).
+2. Additionally, constrain GEMS by setting `DCUpperLimit_[fixedDCId] = targetDCMoles + tiny_tolerance` and `DCLowerLimit_[fixedDCId] = targetDCMoles - tiny_tolerance` in `setElectrolyteComposition`. This makes the constraint hard rather than a mere initial guess.
+
+Option (1) alone should suffice for most cases because GEMS's equilibrium solve will honor the reduced IC pool. Option (2) is defensive belt-and-suspenders if IC-only reduction still allows drift due to activity-coefficient effects.
+
+**Impact.** Blocks proper chemostat validation studies (Garrault-Nonat 2001 uses controlled [Ca] experimentally; matching that in THAMES requires a working "fixed" mechanism). Also affects any future sulfate-attack or leaching study that relies on holding aqueous species at fixed concentrations.
+
+**Workaround for validation studies today.** The ~10% bias is tolerable for peak-value comparisons (which is what Session 57 did — peak [Si] validated within 1-10% agreement with Garrault Fig 2). For plateau or long-time trajectory validation, the bias may distort the comparison meaningfully.
+
+**Files.** `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` (setElectrolyteComposition at ~line 4380-4448); tests should add a chemostat validation once fixed.
+
+---
+
 ### Adaptive controller ignores `dt_initial`; first cycle sized by first outtime instead
 
 **Identified:** 2026-07-31 (Session 56, pure-C3S sanity test setup)
