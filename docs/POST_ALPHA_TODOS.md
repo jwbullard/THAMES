@@ -588,13 +588,47 @@ This decouples growth rate from lattice-face surface area, which was the mismatc
 
 **Identified:** 2026-07-31 (Session 56, immediately after C3S ln K fix)
 
-**Symptom.** Session 55 uncovered a 26.3 ln-unit gap between GEMS's ln K for C3S dissolution (Babushkin/CemData18, ln K = -24.4 at 298.15 K) and the calibration target from Nicoleau/Bullard 2015 (ln K = -50.7). The fix (constant -65,212 J/mol offset to G°(C3S) in `src/data/gems/thames-dch.dat`) landed today. But every other Standard-model or SaturatingRate-model phase whose rate law was calibrated against a specific ln K may have a similar Babushkin-heritage discrepancy that was masked by Parrott-Killoh (which doesn't use SI at all). Phases to audit: Portlandite, ettringite (ettr, ettr05, ettr03_ss), CSHQ end-members (CSHQ-JenD/JenH/TobD/TobH), gypsum (Gp), anhydrite (Anh), C2S, C3A, C4AF, monosulfates.
+**Symptom.** Session 55 uncovered a 26.3 ln-unit gap between GEMS's ln K for C3S dissolution (Babushkin/CemData18, ln K = -24.4 at 298.15 K) and the calibration target from Nicoleau/Bullard 2015 (ln K = -50.7). The fix (constant -65,212 J/mol offset to G°(C3S) in `src/data/gems/thames-dch.dat`) landed on 2026-07-31. Every other Standard-model or SaturatingRate-model phase whose rate law was calibrated against a specific ln K may have a similar Babushkin-heritage discrepancy that was masked by Parrott-Killoh (which doesn't use SI at all).
 
-**Root cause.** CemData18's clinker-phase G° values were extrapolated from high-T calorimetry using estimated Cp curves. Extrapolation error accumulates over ~1200 K. C3S was demonstrably off by 65 kJ/mol (2.3% of G°). Similar phases likely have similar-magnitude errors.
+**Progress (as of 2026-08-06, Session 57 audit).**
+- **C3S — CORRECTED 2026-07-31.** Constant −65,211.81 J/mol offset. ln K (298.15 K) = −50.70 (Nicoleau/Bullard 2015 target).
+- **C3A — CORRECTED 2026-08-06.** Constant −206,549.59 J/mol offset. ln K (298.15 K) = −48.75 (Ye 2022 target). Enormous discrepancy: original GEMS ln K = +34.57 (unphysical, would require ~45 M Ca²⁺ at equilibrium).
+- **Portlandite — NO CORRECTION NEEDED.** log K (298.15 K) = −5.20 (matches CemData18 / Sipos 2006).
+- **Anhydrite, Gypsum — NO CORRECTION NEEDED.** log K matches CemData18 to within 0.005 units.
+- **Ettringite, Calcite — NO CORRECTION NEEDED.** log K matches published values to within 0.02.
+- **C2S — CANNOT BE AUDITED without calibration paper.** GEMS ln K (298.15 K) = −40.14. GEMS ΔH°_rxn (298.15 K) = −13.9 kJ/mol looks anomalously small vs C3S (−109 kJ/mol per formula) — potential Babushkin heritage issue latent, but no direct-measurement source to calibrate against.
+- **C4AF — CANNOT BE AUDITED without calibration paper.** GEMS ln K (298.15 K) = −11.76.
+- **CSHQ end-members (JenD, JenH, TobD, TobH) — NOT AUDITED.** THAMES treats these thermodynamically (no kinetic model), so GEMS K is by definition the operational K. No calibration mismatch possible unless CemData18 itself is questioned.
 
-**Proposed fix.** Script to extract G°(phase) at 298.15 K from DCH for each Standard/SR-driven phase, compute the dissolution reaction ln K, compare to the calibration paper's target ln K for that phase, and report the discrepancy. Any phase with |Δ ln K| > 2 needs a database correction using the same procedure as C3S. Document each correction in `docs/GEMS_LNK_CORRECTIONS.md` with provenance (calibration paper, magnitude, date).
+**Pattern observed.** Anhydrous clinker phases (C3S, C2S, C3A, C4AF — Babushkin heritage) show large ln K discrepancies vs direct dissolution measurements. Aqueous-in-equilibrium phases (Portlandite, sulfates, ettringite, calcite — measured near ambient) match published Ksp exactly. Hypothesis: the Babushkin heritage issue is systematic to phases whose thermodynamic properties were extrapolated from high-T calorimetric measurements to 298 K via estimated Cp curves.
 
-**Files.** `src/data/gems/thames-dch.dat` (potentially edited); new audit script under `docs/scripts/` or `~/Code/THAMES/scripts/`.
+**Remaining work.**
+1. Locate or generate calibration ln K for C2S dissolution (Nicoleau's group has published Belite dissolution kinetics but the equilibrium K extraction is harder because C2S dissolves so slowly).
+2. Locate or generate calibration ln K for C4AF dissolution (very few clean experimental studies exist).
+3. Neither C2S nor C4AF is blocking anything today because both use ParrotKilloh in production. Corrections needed before migrating either to Standard or SR.
+
+**Files.** `src/data/gems/thames-dch.dat` (C3S at line 682, C3A at line 681, both corrected); backups at `src/data/gems/thames-dch.dat.pre-c3s-lnK-fix-20260731` and `.pre-c3a-lnK-fix-20260806`.
+
+---
+
+### C3A ln K correction: revisit T-varying refinement if extreme-T simulations become important
+
+**Identified:** 2026-08-06 (Session 57, C3A ln K fix analysis)
+
+**Symptom.** The constant −206,549.59 J/mol offset applied to G°(C3A) at all 39 T grid points matches Ye 2022 exactly at 298.15 K, and to within ±0.5 ln units across the calibration data range (10–40 °C). But the correction is not truly T-independent — Ye's four data points imply a required shift that varies from −197.5 kJ/mol at 10 °C to −207.7 kJ/mol at 40 °C (~10 kJ/mol range). The constant-shift residual grows to −3.8 ln units at 10 °C (T[3]=283.15 K).
+
+**Deferred to when.** THAMES simulations run predominantly at 20–40 °C where the constant-shift residual is ≤0.5 ln units — matching Session-56's C3S procedure. Cold-weather (<10 °C) or accelerated-cure (>50 °C) simulations of C3A-bearing systems would need the T-varying correction.
+
+**Why not fixed now.** Ye 2022 Section 3.3 gives three candidate T-dependence models (their Eqs 12–14). Within the 10–40 °C data range they agree with each other to within ~1 ln unit. Outside the data range they diverge dramatically:
+- Below 281 K: Eq (12) has a hard domain error (`ln(T + c₁)` with c₁=−280.7).
+- Above 40 °C: model spread grows from 1.5 ln units at 40 °C to 22 ln units at 80 °C.
+- ΔH° at 298 K: Eq(12)=−111, Eq(13)=−155, Eq(14)=−157 kJ/mol (46 kJ/mol spread — even in the data range, T-dependence is uncertain).
+
+Applying any single model as a T-varying correction across the full 277.15–353.15 K GEMS grid would inherit an arbitrary extrapolation choice from a 4-point fit. The improvement over Option A within the trustworthy range (~0.3 ln unit) is smaller than the disagreement among Ye's three candidate models (~0.8 ln unit).
+
+**When to revisit.** (a) Additional C3A solubility data outside 10–40 °C become available; (b) THAMES sponsors need validation of C3A-bearing systems at cold-cure or steam-cure temperatures; (c) a physically-motivated Cp(T) model can be independently constrained from calorimetric data (avoiding the ill-conditioned fit-of-3-parameters-to-4-points issue).
+
+**Files.** `src/data/gems/thames-dch.dat` line 681 (DC[117]); backup of the Session-57 constant-shift edit at `src/data/gems/thames-dch.dat.pre-c3a-lnK-fix-20260806`.
 
 ---
 

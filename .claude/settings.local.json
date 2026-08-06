@@ -25,7 +25,8 @@
       "Bash(awk 'NR<=3 || NR%10==0' ~/tmp/thames-pureC3S-sanity/Result/AliteBaseline_icmoles.csv)",
       "Read(//Users/jwbullard/tmp/thames-pureC3S-sanity-v2/Result/**)",
       "Bash(sed '/Time\\(h\\)/,+1d' ~/tmp/thames-pureC3S-sanity-v2/Result/AliteBaseline_SI.csv)",
-      "Bash(sed '/Time\\(h\\)/,+1d' ~/tmp/thames-pureC3S-sanity-v2/Result/AliteBaseline_Microstructure.csv)"
+      "Bash(sed '/Time\\(h\\)/,+1d' ~/tmp/thames-pureC3S-sanity-v2/Result/AliteBaseline_Microstructure.csv)",
+      "Bash(awk -F',' '{print \"t=\"$1\"h  SI_Portlandite=\"$15}')"
     ]
   }
 }

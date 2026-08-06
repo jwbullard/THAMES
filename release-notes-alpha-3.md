@@ -41,6 +41,37 @@ Changed since alpha-2
      GEMS3K parses and runs cleanly. Backup preserved at
      src/data/gems/thames-dch.dat.pre-c3s-lnK-fix-20260731.
 
+  2. GEMS thermodynamic database: corrected G°(C3A) to reconcile with
+     experimentally-inferred equilibrium constant.
+     The default CemData18 values (same Babushkin heritage as C3S) gave
+     ln K = +34.6 for C3A + 2 H2O <=> 3 Ca2+ + 2 AlO2- + 4 OH- at
+     298.15 K, ~36 orders of magnitude larger in K than the value
+     ln K = -48.75 measured by Ye et al. 2022 via digital holographic
+     microscopy dissolution-rate extrapolation to zero rate. The
+     unphysical GEMS value would require ~45 M Ca2+ at stoichiometric
+     equilibrium; Ye's value corresponds to ~5 mM Ca2+, consistent with
+     C3A dissolution experiments. Ye 2022 explicitly notes their
+     measurement is "dozens of orders of magnitude smaller than [prior
+     thermodynamic-database calculations]".
+     Fix: constant offset of -206,549.59 J/mol applied to G°(C3A) at
+     all 39 T grid points in src/data/gems/thames-dch.dat (line 681,
+     DC index 117). Matches Ye 2022 exactly at 298.15 K; residuals
+     +/-0.5 ln units at 20-40 C (Ye's calibration range); larger
+     residuals outside that range preserve GEMS's own temperature
+     dependence rather than extrapolating Ye's 4-point fit into
+     unconstrained regions (three candidate models diverge by up to
+     22 ln units above 40 C).
+     Practical impact: C3A currently uses ParrotKilloh in production,
+     which does not consume SI, so no simulation results change today.
+     But the correction is prerequisite before migrating C3A to
+     Standard or SaturatingRate kinetics; without it, SI(C3A) in real
+     paste would be ~10^36 and dissolution rate would run at maximum
+     everywhere.
+     Verified: ln K at 298.15 K interpolated to -48.75 (target -48.75);
+     all other phases unchanged (C3S -50.70, Portlandite -5.20 log
+     units, sulfates within 0.005 units). Backup preserved at
+     src/data/gems/thames-dch.dat.pre-c3a-lnK-fix-20260806.
+
 Known Limitations
   (carry forward applicable items from alpha-2 at release time;
   remove items that have been fixed in this release)
