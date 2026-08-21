@@ -319,7 +319,7 @@ class DataPlotter(Gtk.Dialog):
         """Load CSV data and populate variable dropdowns."""
         try:
             # Load CSV data
-            self.current_data = pd.read_csv(filepath)
+            self.current_data = pd.read_csv(filepath, comment='#')
             self.current_columns = list(self.current_data.columns)
             
             # Clear and populate variable dropdowns

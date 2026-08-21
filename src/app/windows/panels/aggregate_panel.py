@@ -949,7 +949,7 @@ class AggregatePanel(Gtk.Box):
                 # Read CSV file
                 grading_data = []
                 with open(file_path, 'r', newline='') as csvfile:
-                    reader = csv.reader(csvfile)
+                    reader = csv.reader(line for line in csvfile if not line.startswith('#'))
                     
                     # Skip header if present
                     first_row = next(reader, None)

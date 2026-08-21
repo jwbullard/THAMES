@@ -313,7 +313,7 @@ class CSHConfigDialog(Gtk.Dialog):
 
         new_data = []
         with open(filepath, 'r') as f:
-            reader = csv.reader(f)
+            reader = csv.reader(line for line in f if not line.startswith('#'))
             header = next(reader, None)  # Skip header
 
             for row in reader:

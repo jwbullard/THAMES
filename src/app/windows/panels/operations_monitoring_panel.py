@@ -2523,13 +2523,19 @@ class OperationsMonitoringPanel(Gtk.Box):
             self.logger.error(f"Error updating hydration progress for {operation.name}: {e}")
 
     def _check_hydration_exit_status(self, operation) -> None:
-        """Check exit_status.json for hydration simulation and handle abnormal exits.
+        """Check run_metadata.json for hydration simulation and handle abnormal exits.
 
-        The THAMES C++ backend writes exit_status.json to the Result folder when
-        the simulation terminates. This method reads that file and:
+        The THAMES C++ backend writes run_metadata.json to the Result folder
+        when the simulation launches (exit_reason="in_progress") and rewrites
+        it at completion with the real exit info. This method reads the ``run``
+        block and:
         - Updates operation status to FAILED for abnormal exits
         - Shows a dialog to alert the user about the failure
         - Logs diagnostic information
+
+        Migrated from the legacy exit_status.json reader on 2026-08-21 as part
+        of the NIST-diagnostic provenance work — see docs/NIST-diagnostic.md
+        (design decision item 6: replace exit_status.json).
         """
         try:
             import os
@@ -2539,23 +2545,30 @@ class OperationsMonitoringPanel(Gtk.Box):
             if not operation_dir:
                 return
 
-            # Check for exit_status.json in Result subdirectory
-            exit_status_file = os.path.join(operation_dir, "Result", "exit_status.json")
+            # Check for run_metadata.json in Result subdirectory (single source
+            # of truth for exit status since the exit_status.json replacement).
+            metadata_file = os.path.join(operation_dir, "Result", "run_metadata.json")
 
-            if not os.path.exists(exit_status_file):
+            if not os.path.exists(metadata_file):
                 return
 
             try:
-                with open(exit_status_file, 'r') as f:
-                    status_data = json.load(f)
+                with open(metadata_file, 'r') as f:
+                    metadata = json.load(f)
             except (OSError, IOError, json.JSONDecodeError) as e:
-                self.logger.debug(f"Could not read exit_status.json for {operation.name}: {e}")
+                self.logger.debug(f"Could not read run_metadata.json for {operation.name}: {e}")
                 return
 
-            exit_code = status_data.get('exit_code', 0)
-            exit_reason = status_data.get('exit_reason', 'Unknown')
-            success = status_data.get('success', True)
-            diagnostics = status_data.get('diagnostics', '')
+            run_block = metadata.get('run', {})
+            exit_code = run_block.get('exit_code', 0)
+            exit_reason = run_block.get('exit_reason', 'Unknown')
+            success = run_block.get('success', True)
+            diagnostics = run_block.get('diagnostics', '')
+
+            # In-progress runs are not yet finalized — skip the failure check
+            # entirely so we don't fire the dialog mid-simulation.
+            if exit_reason == "in_progress":
+                return
 
             if not success or exit_code != 0:
                 # Abnormal exit - update status and alert user

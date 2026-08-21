@@ -437,7 +437,7 @@ class FileOperationsService:
         material_data = {'type': material_type}
         
         with open(file_path, 'r', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
+            reader = csv.DictReader(line for line in f if not line.startswith('#'))
             for row in reader:
                 # Convert numeric values
                 for key, value in row.items():

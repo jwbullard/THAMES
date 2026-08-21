@@ -197,7 +197,7 @@ class EffectiveModuliViewer(Gtk.Dialog):
         microstructure_name = ""
 
         with open(csv_file, 'r') as f:
-            csv_reader = csv.reader(f)
+            csv_reader = csv.reader(line for line in f if not line.startswith('#'))
             for row in csv_reader:
                 if len(row) >= 2:
                     property_name = row[0].strip()

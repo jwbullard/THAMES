@@ -277,7 +277,7 @@ class ITZAnalysisViewer(Gtk.Dialog):
 
         # Read all rows into a dictionary
         properties = {}
-        csv_reader = csv.reader(f)
+        csv_reader = csv.reader(line for line in f if not line.startswith('#'))
 
         for row in csv_reader:
             if len(row) >= 2:
@@ -331,7 +331,7 @@ class ITZAnalysisViewer(Gtk.Dialog):
     def _parse_legacy_header_format(self, f) -> List[Dict[str, float]]:
         """Parse legacy format with column headers."""
         data = []
-        csv_reader = csv.DictReader(f)
+        csv_reader = csv.DictReader(line for line in f if not line.startswith('#'))
 
         for row in csv_reader:
             try:
@@ -351,7 +351,7 @@ class ITZAnalysisViewer(Gtk.Dialog):
     def _parse_legacy_no_header_format(self, f) -> List[Dict[str, float]]:
         """Parse legacy format without headers (5-column order)."""
         data = []
-        csv_reader = csv.reader(f)
+        csv_reader = csv.reader(line for line in f if not line.startswith('#'))
 
         for row_num, row in enumerate(csv_reader):
             try:
@@ -486,7 +486,7 @@ class ITZAnalysisViewer(Gtk.Dialog):
             volume_fractions = []
 
             with open(cement_psd_file, 'r') as f:
-                csv_reader = csv.reader(f)
+                csv_reader = csv.reader(line for line in f if not line.startswith('#'))
                 # Skip header if present
                 first_line = next(csv_reader, None)
                 if first_line:

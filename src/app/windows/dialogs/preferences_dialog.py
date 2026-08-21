@@ -99,6 +99,21 @@ class PreferencesDialog(Gtk.Dialog):
         grid.attach(self.confirm_actions_check, 0, row, 3, 1)
         row += 1
 
+        # Privacy — include hostname in every operation's run_metadata.json.
+        # Default on for diagnostic convenience; disable if hostnames leak
+        # organizational identity when sharing Result folders.
+        self.hostname_check = Gtk.CheckButton(
+            label="Include hostname in run_metadata.json (privacy)"
+        )
+        self.hostname_check.set_tooltip_text(
+            "Every operation writes run_metadata.json into its Result folder. "
+            "When checked, that file records the machine's hostname alongside "
+            "THAMES version and platform. Uncheck to omit the hostname so "
+            "shared Result folders don't reveal it."
+        )
+        grid.attach(self.hostname_check, 0, row, 3, 1)
+        row += 1
+
         return grid
 
     def _create_performance_page(self):
@@ -152,6 +167,9 @@ class PreferencesDialog(Gtk.Dialog):
         # General settings
         self.auto_save_check.set_active(self.config_manager.user.auto_save_enabled)
         self.confirm_actions_check.set_active(self.config_manager.user.confirm_destructive_actions)
+        self.hostname_check.set_active(
+            getattr(self.config_manager.user, 'include_hostname_in_metadata', True)
+        )
 
         # Performance settings
         self.threads_spin.set_value(self.config_manager.user.max_worker_threads)
@@ -168,6 +186,7 @@ class PreferencesDialog(Gtk.Dialog):
         # Update configuration
         self.config_manager.user.auto_save_enabled = self.auto_save_check.get_active()
         self.config_manager.user.confirm_destructive_actions = self.confirm_actions_check.get_active()
+        self.config_manager.user.include_hostname_in_metadata = self.hostname_check.get_active()
         self.config_manager.user.max_worker_threads = int(self.threads_spin.get_value())
         self.config_manager.user.memory_limit_mb = int(self.memory_spin.get_value())
         self.config_manager.user.cache_enabled = self.cache_check.get_active()

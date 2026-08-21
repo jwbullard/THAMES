@@ -579,7 +579,7 @@ class PSDService:
             
             points = []
             with open(filename, 'r') as csvfile:
-                reader = csv.reader(csvfile)
+                reader = csv.reader(line for line in csvfile if not line.startswith('#'))
                 next(reader)  # Skip header
                 
                 for row in reader:

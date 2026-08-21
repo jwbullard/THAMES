@@ -38,7 +38,14 @@
       "Bash(mkdir -p ~/tmp/thames-alite-jmakCH)",
       "Bash(cp ~/tmp/thames-alite-baseline/AlitePaste-w45.thames.img ~/tmp/thames-alite-baseline/AlitePaste-w45.thames.pimg ~/tmp/thames-alite-baseline/concentration_overrides.json ~/tmp/thames-alite-baseline/thames-dat.lst ~/tmp/thames-alite-baseline/thames-dbr.dat ~/tmp/thames-alite-baseline/thames-ipm.dat ~/tmp/thames-alite-jmakCH/)",
       "Bash(cp /Users/jwbullard/Code/THAMES/src/data/gems/thames-dch.dat ~/tmp/thames-alite-jmakCH/)",
-      "Read(//Users/jwbullard/tmp/**)"
+      "Read(//Users/jwbullard/tmp/**)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl *)",
+      "Bash(git -C backend/thames-hydration status --short)",
+      "Bash(./build-macos.sh clean *)",
+      "Bash(nm bin/thames)",
+      "Bash(/Users/jwbullard/Code/THAMES/bin/thames)",
+      "Bash(echo \"exit code: $?\")"
     ]
   }
 }

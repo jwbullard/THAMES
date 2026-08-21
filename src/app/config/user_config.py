@@ -31,6 +31,12 @@ class UserConfig:
     auto_save_interval: int = 300  # seconds
     confirm_destructive_actions: bool = True
     show_welcome_dialog: bool = True
+
+    # Privacy preferences
+    # When True (default), the machine hostname is written into every
+    # operation's run_metadata.json. Disable if you don't want the host
+    # name traveling with Result folders shared over email or GitHub.
+    include_hostname_in_metadata: bool = True
     
     # Performance preferences
     max_worker_threads: int = 4
@@ -52,6 +58,7 @@ class UserConfig:
             auto_save_interval=300,
             confirm_destructive_actions=True,
             show_welcome_dialog=True,
+            include_hostname_in_metadata=True,
             max_worker_threads=cls._get_default_thread_count(),
             memory_limit_mb=4096,
             cache_enabled=True
@@ -79,6 +86,7 @@ class UserConfig:
             auto_save_interval=data.get('auto_save_interval', 300),
             confirm_destructive_actions=data.get('confirm_destructive_actions', True),
             show_welcome_dialog=data.get('show_welcome_dialog', True),
+            include_hostname_in_metadata=data.get('include_hostname_in_metadata', True),
             max_worker_threads=data.get('max_worker_threads', cls._get_default_thread_count()),
             memory_limit_mb=data.get('memory_limit_mb', 4096),
             cache_enabled=data.get('cache_enabled', True)

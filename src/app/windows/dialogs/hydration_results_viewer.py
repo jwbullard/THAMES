@@ -1346,7 +1346,7 @@ class HydrationResultsViewer(Gtk.Dialog):
     def _load_csv_data(self, filepath: Path) -> None:
         """Load CSV data and populate the variables list."""
         try:
-            self.current_csv_data = pd.read_csv(filepath)
+            self.current_csv_data = pd.read_csv(filepath, comment='#')
             columns = list(self.current_csv_data.columns)
 
             # Clear and populate variables list
@@ -1724,7 +1724,7 @@ class HydrationResultsViewer(Gtk.Dialog):
                 if csv_files:
                     csv_path = csv_files[0]
                     try:
-                        df = pd.read_csv(csv_path)
+                        df = pd.read_csv(csv_path, comment='#')
                         self.comparison_data[op_name][display_name] = df
                         self.logger.info(f"Loaded {display_name} from {op_name}")
                     except Exception as e:

@@ -87,7 +87,7 @@ def _parse_property_csv(path: Path) -> List[Tuple[str, str, str]]:
     """
     rows: List[Tuple[str, str, str]] = []
     with path.open("r", newline="") as f:
-        reader = csv.reader(f)
+        reader = csv.reader(line for line in f if not line.startswith('#'))
         for raw in reader:
             if not raw:
                 continue
@@ -207,7 +207,7 @@ def read_cement_psd(path: Path) -> List[Tuple[float, float]]:
 
     points: List[Tuple[float, float]] = []
     with path.open("r", newline="") as f:
-        reader = csv.reader(f)
+        reader = csv.reader(line for line in f if not line.startswith('#'))
         rows = list(reader)
 
     # Detect and skip header (first row with non-numeric first cell)

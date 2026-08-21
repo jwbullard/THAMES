@@ -495,7 +495,7 @@ class EnhancedFileFormatValidator:
         elif file_type == 'text/csv':
             data = {}
             with open(file_path, 'r', encoding='utf-8') as f:
-                reader = csv.DictReader(f)
+                reader = csv.DictReader(line for line in f if not line.startswith('#'))
                 for row in reader:
                     # Take first row as single material
                     for key, value in row.items():

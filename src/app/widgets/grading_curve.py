@@ -1711,7 +1711,7 @@ class GradingCurveWidget(Gtk.Box):
             sniffer = csv.Sniffer()
             has_header = sniffer.has_header(sample)
             
-            reader = csv.reader(f)
+            reader = csv.reader(line for line in f if not line.startswith('#'))
             
             if has_header:
                 next(reader)  # Skip header row

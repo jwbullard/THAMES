@@ -2517,7 +2517,7 @@ class HydrationPanel(Gtk.Box):
                 imported_count = 0
                 
                 with open(filename, 'r') as csvfile:
-                    reader = csv.reader(csvfile)
+                    reader = csv.reader(line for line in csvfile if not line.startswith('#'))
                     header = next(reader, None)  # Skip header
                     
                     for row in reader:

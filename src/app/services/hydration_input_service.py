@@ -18,11 +18,19 @@ The service generates:
 
 import json
 import logging
+import platform as _platform
 import shutil
+import socket
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple, Set
 from dataclasses import dataclass, field
+
+# APP_VERSION lives in app_info.py; imported here for the ui_context stamp.
+try:
+    from app.resources.app_info import APP_VERSION
+except ImportError:
+    APP_VERSION = "unknown"
 
 from app.services.gems_parser_service import GEMSParserService
 from app.services.kinetic_defaults_service import KineticDefaultsService, get_kinetic_defaults_service
@@ -257,6 +265,10 @@ class HydrationInputService:
             simparams = self._generate_simparams(
                 material_phases, config, phase_mapping
             )
+
+            # Attach ui_context so the C++ backend can stamp run_metadata.json
+            # with UI version + platform + host (see thameslib/RunMetadata.cc).
+            simparams["ui_context"] = self._build_ui_context(operation_name)
 
             # Validate before writing
             is_valid, validation_errors = self.simparams_service.validate_simparams(simparams)
@@ -581,6 +593,51 @@ class HydrationInputService:
                 # Apply Rd values
                 if 'rd_values' in product_config:
                     phase['Rd'] = product_config['rd_values']
+
+    def _build_ui_context(self, operation_name: str) -> Dict[str, Any]:
+        """
+        Assemble the ui_context block for simparams.json.
+
+        The C++ backend reads this at startup and mirrors it into
+        run_metadata.json alongside its own build identity. Hostname is
+        optionally omitted based on the ``user.include_hostname_in_metadata``
+        preference (default True) — see Preferences → Privacy.
+
+        Args:
+            operation_name: Name of the operation being launched.
+
+        Returns:
+            Dict with ui_version, python_version, platform_*, hostname,
+            operation_name. Missing fields degrade gracefully in the backend.
+        """
+        include_hostname = True
+        try:
+            # Lazy import to avoid a cycle at module load.
+            from app.config.config_manager import get_config_manager
+            cm = get_config_manager()
+            include_hostname = cm.get_preference(
+                'user', 'include_hostname_in_metadata', True
+            )
+        except Exception:
+            # config_manager unavailable (headless / test) — keep default.
+            pass
+
+        ctx: Dict[str, Any] = {
+            "ui_version": APP_VERSION,
+            "python_version": _platform.python_version(),
+            "platform_system": _platform.system(),
+            "platform_release": _platform.release(),
+            "platform_machine": _platform.machine(),
+            "operation_name": operation_name,
+        }
+        if include_hostname:
+            try:
+                ctx["hostname"] = socket.gethostname()
+            except Exception:
+                ctx["hostname"] = ""
+        else:
+            ctx["hostname"] = ""
+        return ctx
 
     def _thamesname_to_gems(self, thamesname: str) -> str:
         """

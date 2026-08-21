@@ -1853,7 +1853,7 @@ class CementDialog(MaterialDialogBase):
                 has_header = True
             
             # Parse CSV data
-            reader = csv.reader(file)
+            reader = csv.reader(line for line in file if not line.startswith('#'))
             if has_header:
                 next(reader)  # Skip header row
             
