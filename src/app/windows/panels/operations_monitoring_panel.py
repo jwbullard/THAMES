@@ -5619,14 +5619,28 @@ class OperationsMonitoringPanel(Gtk.Box):
             GLib.idle_add(self._update_operations_list)
     
     def _convert_db_status_to_ui_status(self, db_status: str) -> OperationStatus:
-        """Convert database status string to UI OperationStatus enum."""
+        """Convert database status string to UI OperationStatus enum.
+
+        ERROR is a documented alias for FAILED (see models/operation.py:25).
+        Missing this mapping caused the F2 regression in Session 58: a real
+        backend crash would write ERROR to the DB, the reader would fall
+        through to the PENDING default, and the UI would flip "Running →
+        Pending" instead of "Running → Failed".
+        """
         status_mapping = {
             'QUEUED': OperationStatus.PENDING,
-            'RUNNING': OperationStatus.RUNNING,  
+            'RUNNING': OperationStatus.RUNNING,
             'COMPLETED': OperationStatus.COMPLETED,
             'FAILED': OperationStatus.FAILED,
+            'ERROR': OperationStatus.FAILED,      # alias per operation.py:25
             'CANCELLED': OperationStatus.CANCELLED,
         }
+        if db_status not in status_mapping:
+            self.logger.warning(
+                f"Unknown DB status '{db_status}' — falling back to PENDING. "
+                "Add it to status_mapping in _convert_db_status_to_ui_status "
+                "and _convert_db_operation_to_ui_operation."
+            )
         return status_mapping.get(db_status, OperationStatus.PENDING)
     
     def _safe_load_operations_from_database(self) -> None:
@@ -5849,12 +5863,15 @@ class OperationsMonitoringPanel(Gtk.Box):
         """Convert database Operation to UI Operation format."""
         from app.models.operation import OperationStatus as DBOperationStatus, OperationType as DBOperationType
         
-        # Map database status to UI status (using string values)
+        # Map database status to UI status (using string values).
+        # ERROR is a documented alias for FAILED (see models/operation.py:25).
+        # Keep this dict in sync with _convert_db_status_to_ui_status above.
         status_mapping = {
             'QUEUED': OperationStatus.PENDING,
-            'RUNNING': OperationStatus.RUNNING,  
+            'RUNNING': OperationStatus.RUNNING,
             'COMPLETED': OperationStatus.COMPLETED,
             'FAILED': OperationStatus.FAILED,
+            'ERROR': OperationStatus.FAILED,      # alias per operation.py:25
             'CANCELLED': OperationStatus.CANCELLED,
         }
         

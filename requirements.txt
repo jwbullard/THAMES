@@ -45,6 +45,7 @@ matplotlib>=3.7.0        # Plotting and visualization
 pyvista>=0.43.0          # Advanced 3D visualization (VTK-based)
 pyvistaqt>=0.11.0        # PyVista Qt integration for GUI
 markdown>=3.4.0          # Renders USER_MANUAL.md to HTML for in-app Help viewing
+psutil>=5.9              # Process management in operations_monitoring_panel.py (also declared as PyInstaller hidden import in thames-windows.spec)
 
 # Development and Testing
 pytest>=7.4.0           # Testing framework

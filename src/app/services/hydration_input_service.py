@@ -98,6 +98,14 @@ class HydrationInputConfig:
     create_xyz_files: bool = False  # -x: Create 3D visualization files for Ovito
     output_folder: str = "Result"  # -o: Output folder name
 
+    # Microstructure identity — the .thames.img file this operation used as
+    # input. Recorded here so Load Operation can restore the same
+    # microstructure instead of silently picking up whatever is in the
+    # microstructure picker at load time. Empty string for legacy configs
+    # (pre-2026-08-21) that predate this field; the loader falls back to
+    # parsing the operation's input.in.
+    microstructure_file: str = ""
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
@@ -117,6 +125,7 @@ class HydrationInputConfig:
             "suppress_warnings": self.suppress_warnings,
             "create_xyz_files": self.create_xyz_files,
             "output_folder": self.output_folder,
+            "microstructure_file": self.microstructure_file,
         }
 
     @classmethod
@@ -141,6 +150,7 @@ class HydrationInputConfig:
             suppress_warnings=data.get("suppress_warnings", False),
             create_xyz_files=data.get("create_xyz_files", False),
             output_folder=data.get("output_folder", "Result"),
+            microstructure_file=data.get("microstructure_file", ""),
         )
 
 
@@ -612,15 +622,21 @@ class HydrationInputService:
         """
         include_hostname = True
         try:
-            # Lazy import to avoid a cycle at module load.
-            from app.config.config_manager import get_config_manager
-            cm = get_config_manager()
+            # Lazy import to avoid a cycle at module load. Use the service
+            # container's singleton so we read the SAME config_manager the
+            # Preferences dialog just wrote to (not a fresh instance that
+            # would miss the runtime change).
+            from app.services.service_container import get_service_container
+            cm = get_service_container().config_manager
             include_hostname = cm.get_preference(
                 'user', 'include_hostname_in_metadata', True
             )
-        except Exception:
+            self.logger.info(
+                f"Hostname-in-metadata preference resolved to {include_hostname}"
+            )
+        except Exception as e:
             # config_manager unavailable (headless / test) — keep default.
-            pass
+            self.logger.debug(f"Could not read hostname preference, defaulting to True: {e}")
 
         ctx: Dict[str, Any] = {
             "ui_version": APP_VERSION,

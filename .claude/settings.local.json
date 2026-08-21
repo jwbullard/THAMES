@@ -45,7 +45,18 @@
       "Bash(./build-macos.sh clean *)",
       "Bash(nm bin/thames)",
       "Bash(/Users/jwbullard/Code/THAMES/bin/thames)",
-      "Bash(echo \"exit code: $?\")"
+      "Bash(echo \"exit code: $?\")",
+      "Read(//opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/bin/**)",
+      "Bash(/opt/homebrew/opt/python@3.14/bin/python3.14 --version)",
+      "Bash(/opt/homebrew/opt/python@3.14/bin/python3.14 -m venv thames-env)",
+      "Bash(./thames-env/bin/python3.14 -m pip install --upgrade pip)",
+      "Bash(./thames-env/bin/python3.14 -m pip install -r requirements.txt)",
+      "Bash(./thames-env/bin/python3.14 -c \"import psutil\")",
+      "Bash(./thames-env/bin/python3.14 -m pip install psutil)",
+      "Bash(grep *)",
+      "Bash(./build-macos.sh)",
+      "Bash(xxd /private/tmp/claude-503/-Users-jwbullard-Code-THAMES/708c1775-a6dc-4e03-8f5c-32c6e77dce7d/scratchpad/f1-crash-test/thames-dat.lst)",
+      "Bash(xxd /private/tmp/claude-503/-Users-jwbullard-Code-THAMES/708c1775-a6dc-4e03-8f5c-32c6e77dce7d/scratchpad/f1-crash-test/input.in)"
     ]
   }
 }

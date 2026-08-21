@@ -1524,6 +1524,15 @@ class THAMESHydrationPanel(Gtk.Box):
             'max_relative_change': self.adaptive_max_change_spin.get_value(),
         }
 
+        # Record which microstructure this operation used, so Load Operation
+        # can restore it later. Basename only — the microstructure library
+        # location is resolved at load time from the current microstructure
+        # picker's search paths.
+        microstructure_basename = (
+            self.selected_microstructure_path.name
+            if self.selected_microstructure_path is not None else ""
+        )
+
         config = HydrationInputConfig(
             resolution=self.resolution_spin.get_value(),
             temperature=temp_kelvin,
@@ -1540,6 +1549,7 @@ class THAMESHydrationPanel(Gtk.Box):
             verbose=self.verbose_check.get_active(),
             suppress_warnings=self.suppress_warnings_check.get_active(),
             create_xyz_files=self.create_xyz_check.get_active(),
+            microstructure_file=microstructure_basename,
         )
 
         return config
@@ -1845,11 +1855,102 @@ class THAMESHydrationPanel(Gtk.Box):
         try:
             config = self.hydration_input_service.load_hydration_config(config_path)
             self._load_hydration_config(config, operation_name)
+            # Restore the microstructure that was used for this operation.
+            # Passes config_path.parent as the operation directory so the
+            # loader can fall back to parsing input.in for legacy configs.
+            restored = self._restore_microstructure_for_loaded_op(
+                config, config_path.parent
+            )
             self._log_message(f"Loaded configuration from: {operation_name}")
-            self._log_message("Note: Select the desired input microstructure before running.")
+            if restored:
+                self._log_message(
+                    f"Restored microstructure: {restored.name} — the operation "
+                    "will run against the same voxels as the previous run."
+                )
+            else:
+                self._log_message(
+                    "WARNING: Could not restore the previous operation's "
+                    "microstructure. Select one manually before running, or the "
+                    "operation will use whatever microstructure was previously "
+                    "selected (silent-mismatch risk)."
+                )
         except Exception as e:
             self.logger.error(f"Failed to load hydration config: {e}")
             self._log_message(f"ERROR: Failed to load configuration: {e}")
+
+    def _restore_microstructure_for_loaded_op(
+        self, config, operation_dir: Path
+    ) -> Optional[Path]:
+        """
+        Locate and select the microstructure that a previously-run operation
+        used, so Load Operation reproduces the original inputs faithfully.
+
+        Resolution order:
+          1. ``config.microstructure_file`` (present in configs saved
+             2026-08-21 or later — see HydrationInputConfig).
+          2. Line 4 of ``<operation_dir>/input.in`` (legacy fallback for
+             configs that predate the microstructure_file field).
+
+        File-location order for the resolved basename:
+          A. Match against an entry already in the microstructure_combo
+             model (i.e. the microstructure library the user was browsing).
+          B. Same file present inside operation_dir itself (micgen often
+             leaves a copy there).
+
+        On success: fires the combo's changed signal so all downstream
+        state (phase mapping, product selector, refs label) updates. Returns
+        the resolved Path.
+
+        On failure: returns None. Caller should warn the user.
+        """
+        # (1) preferred: read from config field
+        target_basename = (config.microstructure_file or "").strip()
+
+        # (2) fallback: parse input.in line 4 for legacy configs
+        if not target_basename:
+            input_in = operation_dir / "input.in"
+            if input_in.exists():
+                try:
+                    lines = [
+                        line.strip() for line in input_in.read_text().splitlines()
+                        if line.strip()
+                    ]
+                    # input.in format: <simtype>, dat.lst, simparams.json,
+                    # microstructure.thames.img, jobRoot
+                    if len(lines) >= 4:
+                        target_basename = lines[3]
+                except Exception as e:
+                    self.logger.debug(f"Failed to parse input.in: {e}")
+
+        if not target_basename:
+            return None
+
+        # (A) look in the combo model
+        model = self.microstructure_store
+        for row in model:
+            path_str = row[1]
+            if Path(path_str).name == target_basename:
+                tree_iter = model.get_iter(row.path)
+                self.microstructure_combo.set_active_iter(tree_iter)
+                return Path(path_str)
+
+        # (B) look in the operation directory itself
+        local_copy = operation_dir / target_basename
+        if local_copy.exists():
+            # Insert an ephemeral row so the combo can show it. Prefix the
+            # display name so it's obvious this came from an operation
+            # folder rather than the library.
+            display = f"(from operation) {target_basename}"
+            new_iter = model.append([display, str(local_copy)])
+            self.microstructure_combo.set_active_iter(new_iter)
+            return local_copy
+
+        # Not found anywhere.
+        self.logger.warning(
+            f"Microstructure '{target_basename}' referenced by loaded config not "
+            f"found in library or in {operation_dir}"
+        )
+        return None
 
     def _load_hydration_config(self, config, operation_name: str) -> None:
         """Populate all UI widgets from a HydrationInputConfig."""

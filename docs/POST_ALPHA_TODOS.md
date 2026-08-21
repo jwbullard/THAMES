@@ -707,6 +707,121 @@ Option (1) alone should suffice for most cases because GEMS's equilibrium solve 
 
 ---
 
+### Load Operation silently uses the wrong microstructure — SHIP-BLOCKER (LANDED)
+
+**Elevated to ship-blocker 2026-08-21 (per Jeff): scientific-reproducibility bugs are worse than status-display bugs. Any user relying on Load Operation to reproduce a previous run silently gets a hybrid of that run's settings and whichever microstructure happens to be in the other picker. Must fix before shipping alpha-3 to NIST.**
+
+**Fix landed 2026-08-21 (S58):**
+- `HydrationInputConfig` gained a `microstructure_file` field (basename only). Populated from `self.selected_microstructure_path.name` at config-build time in `_build_hydration_input_config`. Old configs without the field decode as empty string.
+- `_load_from_operation` now calls a new helper `_restore_microstructure_for_loaded_op` which:
+  1. Reads `config.microstructure_file` first.
+  2. Falls back to parsing line 4 of `<operation_dir>/input.in` for legacy pre-fix configs.
+  3. Looks for the resolved basename in the library combo; if not found, checks the operation dir itself and inserts an ephemeral combo entry.
+  4. Programmatically fires the combo's `changed` signal so all downstream state (phase mapping load, product selector, refs label) updates.
+  5. Returns the resolved Path (or `None` if unlocatable).
+- Log message changed from a passive `"Note: Select the desired input microstructure before running."` to a strongly-worded warning that appears ONLY when restoration failed. On success, the log confirms which microstructure was restored.
+- **Verify by hand:** create a fresh op with one microstructure, run it. Switch microstructures. Load Operation on the first. Expect: the first microstructure gets reselected and the log confirms it.
+
+**Identified:** 2026-08-21 (Session 58 Phase 4 follow-up, hydration panel exploration)
+
+**Symptom.** In the Hydration Panel, the "Load from previous hydration operation" radio populates all the simulation settings from the chosen operation's `_hydration_config.json` — but **not the microstructure**. Whatever microstructure was in the (now-disabled) "New simulation from microstructure" picker at the moment of switching radios becomes the input for the loaded operation. User has no visual cue this is happening.
+
+**Consequence.** A user thinking they're re-running Operation X can silently be running Operation X's *settings* against Microstructure Y's *voxels*. Results look scientifically meaningful but reflect a hybrid neither user intended. Catastrophic for reproducibility and for anyone using Load Operation for "run a slightly-modified version of this successful run".
+
+**Root cause.**
+- `_hydration_config.json` (written by `hydration_input_service._save_hydration_config` at line 684) does NOT include the microstructure filename. It has resolution, temperature, timings, kinetic overrides — everything else — but no `microstructure_file` field. The microstructure identity lives only in `input.in` (line 4 of the operation folder).
+- `_load_from_operation` in `thames_hydration_panel.py:1843-1852` reads the config, populates the UI, and logs a text-only warning: `"Note: Select the desired input microstructure before running."` A developer clearly knew about this gap and left a note instead of fixing it. Note is easy to miss.
+
+**Proposed fix.**
+1. **Save it.** Extend `HydrationInputConfig` and `_save_hydration_config` to record `microstructure_file` (just the basename — `PLC-test.thames.img`). Bump the config format version so a reader can detect old configs.
+2. **Load it.** In `_load_hydration_config` at `thames_hydration_panel.py:1854`, if `config.microstructure_file` is present:
+   - Programmatically switch the microstructure radio to "New simulation from microstructure"
+   - Set the microstructure picker to the recorded file (if it still exists in the microstructure library)
+   - Switch the radio back to "Load from previous hydration operation"
+   - Or: expose the microstructure picker while the Load radio is active, pre-populated with the previous op's microstructure and read-only (better UX)
+3. **Fallback for legacy configs** (pre-fix): read the operation's `input.in` line 4 to recover the microstructure. Warn if that file is missing.
+4. **Warn on mismatch:** if the current microstructure picker's selection differs from the loaded op's microstructure at run time, block launch (or hard-warn) rather than silently proceeding.
+
+**Files.**
+- `src/app/services/hydration_input_service.py` (`_save_hydration_config` and the `HydrationInputConfig` dataclass around line 46)
+- `src/app/windows/panels/thames_hydration_panel.py` (`_load_hydration_config` at 1854)
+- Migration: `_hydration_config.json` schema bump — old configs remain readable, new ones carry the field.
+
+**Discovered during Session 58 Phase 4 exploration of the Hydration Panel. Real footgun for scientific reproducibility — arguably qualifies as ship-blocker if we're planning to ask NIST users to reproduce previous runs. Ask Jeff whether to elevate.**
+
+---
+
+### Results Viewer: pH and DOR cannot be plotted despite being in CSV output
+
+**Identified:** 2026-08-21 (Session 58, Phase 4 Test 5)
+
+**Symptom.** The backend writes `<op>_pH.csv` (Time(h),pH) and `<op>_DOR.csv` (Time(h),DOR) into every hydration Result folder. The UI's Results Viewer / plotting dialogs can plot phase volumes, SI, dissolved species, and other timeseries — but there is no menu path to select pH or DOR as the y-axis quantity even though the data are sitting right there.
+
+**Impact.** Users have to open the CSV in an external tool (Excel, matplotlib) to see hydration extent or pH evolution, both of which are common first-check-of-a-run quantities.
+
+**Proposed fix.** Add pH and DOR to the plottable-quantities list in whichever dialog builds the y-axis picker (probably `hydration_results_viewer.py` or `data_plotter.py`). Both are simple two-column CSVs (`Time(h)` + value) — no aggregation logic needed. Should also add a general "any CSV" fallback for `_Enthalpy.csv`, `_GelSpaceRatio.csv`, `_CSratio_solid.csv`, and future single-value timeseries that get added.
+
+**Files.**
+- `src/app/windows/dialogs/hydration_results_viewer.py`
+- `src/app/windows/dialogs/data_plotter.py`
+
+**Discovered during Test 5 of the Session 58 provenance-patch UI integration testing (Jeff noticed while exercising the plotting UI to validate the new CSV `#` comment header didn't break anything).**
+
+---
+
+### Operations panel: no "Import from folder" workflow
+
+**Identified:** 2026-08-21 (Session 58, Phase 4 Test 4 setup — attempted to import NIST user's operation folder for legacy-compat testing)
+
+**Symptom.** Users have no way to bring an existing operation folder into the UI:
+- Copying a folder into `~/Library/Application Support/THAMES/operations/` (or the Windows equivalent) does NOT register it in the operations database.
+- "Load Operation" reads `_hydration_config.json` to reconstruct settings for launching a NEW run — it doesn't adopt an existing `Result/` folder.
+- "Sync with Filesystem" only offers the destructive path: flags unknown folders as "Orphaned" and asks to delete them from disk.
+
+**Impact.** Real-world scenarios blocked:
+- A user cannot share an operation folder with a collaborator who wants to inspect the results in the same UI.
+- Diagnostic support cannot ask a user to send their operation folder and then load it locally — the recipient has no path to view it in the UI, only via raw file inspection.
+- Testing paths involving pre-existing operations (as in Session 58 Phase 4 Test 4) have no clean setup.
+
+**Proposed fix.**
+1. Add a **"Import Operation from Folder"** menu item / button that opens a folder picker and inserts a DB record for the chosen folder. Should read `<op>_hydration_config.json` (or `run_metadata.json` once that's standard) to populate metadata; require that at least one recognized config file is present.
+2. Modify **Sync with Filesystem** to offer a non-destructive path for orphan folders: instead of only "delete", give the user a choice — "Delete / Import / Ignore" per folder.
+
+**Files.**
+- `src/app/windows/panels/operations_monitoring_panel.py` (Sync-with-Filesystem logic)
+- `src/app/services/*` (operations DB CRUD)
+- `src/app/windows/main_window.py` (add menu entry if going with a top-level Import item)
+
+**Discovered while trying to import `~/tmp/NIST-thames-operations/operations/Hydration-test-1/` for legacy-compat testing of the run_metadata.json migration. Not blocking alpha, but genuinely limits diagnostic workflows.**
+
+---
+
+### Preferences dialog: Apply/OK/Cancel semantics are inconsistent after Apply
+
+**Identified:** 2026-08-21 (Session 58, Phase 4 UI integration testing)
+
+**Symptom.** In `Preferences → General` (and any other tab), the button row shows `Cancel | Apply | OK`. Behavior today:
+- **Cancel** discards pending changes and closes.
+- **Apply** persists changes to `config_manager` + disk but leaves the dialog open.
+- **OK** persists changes AND closes.
+
+Sequence that surprises users: change a setting → click Apply (changes now saved) → then click Cancel expecting to undo. Cancel just closes the dialog without undoing the Apply. Users reading "Cancel" as "undo" get a false impression of having reverted.
+
+**Impact.** Low — no data loss, no functional bug — but the mental model is inconsistent. Alpha testers coming from three-button-dialog conventions in mainstream apps (where Cancel-after-Apply DOES undo, or where there is no Apply button) will occasionally think they've reverted a change they haven't.
+
+**Proposed fix (pick one):**
+1. **Rename Cancel to Close after any Apply click.** Minimal code; label the button dynamically. Best UX signal.
+2. **Actually undo on Cancel.** Snapshot original values in `_load_settings()`; restore them on Cancel-response before closing. More work but matches user expectations.
+3. **Remove Apply entirely.** Some apps ship OK/Cancel only. Simplest mental model; loses the "apply and keep tweaking" workflow.
+
+Recommend (1) as smallest change with highest clarity gain.
+
+**Files.** `src/app/windows/dialogs/preferences_dialog.py::run_dialog` (buttons defined in `__init__` at lines 42-44).
+
+**Discovered while testing the new `include_hostname_in_metadata` toggle (Session 58 Phase 4 Test 3). Jeff asked directly whether Apply does anything and what happens if OK is clicked without Apply — those questions are the smell.**
+
+---
+
 ## Format for New Entries
 
 ```
