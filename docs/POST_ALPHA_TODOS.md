@@ -751,6 +751,31 @@ Option (1) alone should suffice for most cases because GEMS's equilibrium solve 
 
 ---
 
+### Windows UI auto-includes glass phases as hydration products — probably Bug A's root cause
+
+**Identified:** 2026-08-21 (Session 58, Jeff's Zoom with NIST user)
+
+**Symptom.** On the NIST user's Windows machine, when creating a hydration operation the UI silently auto-includes glass phases (specifically CAS2, and reportedly others) as hydration products even though those phases are NOT in the initial microstructure. Jeff's macOS UI does not do this. Jeff has not verified the current behavior on his own Windows box.
+
+**Why this is probably Bug A itself (see docs/NIST-diagnostic.md).** Session 37 renamed five glass phases to include an `(am)` suffix: C2AS, CA2S, CAS, CAS2, K6A2S. If the Windows UI injects one of these as a hydration product using either the bare pre-S37 name OR without ensuring the microstructure actually contains it, the backend receives an unmatchable phase name and `parseMicroPhases` throws `DataException` "Microstructure phase C2AS is not Void but has no GEM pahse data?". This is the exact Bug A failure that trips the NIST user's Hydration-sphere and Hydration-test-2 configs; the surviving Hydration-test-1 has no glass phases.
+
+**Investigation plan.**
+1. Launch a fresh hydration op on Windows (Jeff's box), NIST-user's box, and macOS. Diff the resulting `_hydration_config.json` `hydration_products` arrays. Expect the Windows version to contain glass phases (CAS2 at minimum) that the macOS version omits.
+2. If confirmed, grep the UI for platform-conditional injection into `hydration_products`. Suspects: `src/app/services/hydration_products_service.py` (default lists), `product_selector.py` (auto-tick logic), or any place that consults `platform.system()` when populating default products.
+3. Also check whether `SUGGESTED_PRODUCTS` / `ADDITIONAL_PRODUCTS` in `hydration_products_service` differ from what actually gets ticked.
+4. Verify all glass-phase names in current default lists carry the `(am)` suffix from Session 37; strip any bare occurrences.
+
+**Impact.** If confirmed as Bug A's root cause, this collapses a scary-looking backend crash into a simple UI-side default fix. Both Bug A workarounds (unchecking glass phases manually) and any future user hitting the same trap are addressed.
+
+**Cross-platform safety.** Any UI fix must be verified on BOTH platforms (Cross-Platform Safety Protocol per CLAUDE.md).
+
+**Files.**
+- `src/app/services/hydration_products_service.py`
+- `src/app/windows/panels/thames_hydration_panel.py` (product_selector wiring)
+- Any file with platform-conditional product defaults
+
+---
+
 ### Results Viewer: pH and DOR cannot be plotted despite being in CSV output
 
 **Identified:** 2026-08-21 (Session 58, Phase 4 Test 5)

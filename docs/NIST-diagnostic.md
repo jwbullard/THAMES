@@ -114,6 +114,21 @@ Look through the operations folder for anything that identifies the build:
 - The `hydration_config.json` schema (a field added by version tag Y confirms build ≥ Y)
 - Embedded metadata in generated `.thames.img.struct` files
 
+## Bug A root-cause candidate (added Session 58 wrap-up)
+
+Jeff noted during a Zoom with the NIST user that the **Windows UI is auto-including CAS2 and other glass phases as hydration products even when they are NOT in the initial microstructure**. The macOS UI does not do this. Jeff has not yet checked his own Windows box.
+
+**Why this is probably Bug A itself.** Session 37 (per CLAUDE.md) added `(am)` suffix to five glass phases: `C2AS`, `CA2S`, `CAS`, `CAS2`, `K6A2S`. If the Windows UI silently injects these as hydration products AND either:
+  (a) uses the pre-S37 bare name (no `(am)`),
+  (b) or injects them without ensuring the microstructure actually contains them,
+then the backend receives phase names for which no GEM data exists → `parseMicroPhases` throws `DataException` "Microstructure phase C2AS is not Void but has no GEM pahse data?" — the exact Bug A symptom.
+
+**Distinguishing test.** Jeff to launch a fresh hydration op on his Windows box (matched to what NIST is doing) and inspect the `_hydration_config.json` `hydration_products` array. If it contains `CAS2`, `C2AS`, or other glass phases the user did NOT explicitly add, this is a UI bug — specifically a platform-conditional default in the product selector, likely in `hydration_products_service.py` or `product_selector.py`.
+
+**Follow-up.** Once identified, this may collapse Bug A into a UI-side fix rather than a backend fix. Also explains why Hydration-test-1 works (no glass phases) while Hydration-sphere and Hydration-test-2 fail (both list glass phases in `hydration_products`).
+
+**Also filed in POST_ALPHA_TODOS as its own entry** with a proposed investigation path.
+
 ## Open questions for the user (batch when we're ready)
 
 1. What alpha version tag are you running? Check Help → About in the THAMES UI.
