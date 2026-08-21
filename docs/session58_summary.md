@@ -168,6 +168,56 @@ Both fixable in a single follow-on session.
 
 ---
 
+## Late-session correction to the "pure-alite portlandite deadlock" characterization
+
+During wrap-up conversation, Jeff pushed back twice on my characterization of the S57 pure-alite JMAK-CH test failure. **My earlier characterization was wrong on two counts**, and this needs to inform the Session 59 investigation.
+
+**What I originally claimed (S57 summary, repeated in early S58):** pure alite has a "bootstrap deadlock" — single Ca source can't drive SI(Portlandite) high enough to trigger CNT nucleation, and the CNT threshold sits around SI ≈ 10 which requires heterogeneous nucleation on C-S-H substrates to bring down.
+
+**Error 1 (Jeff's first correction):** framed it as a "chemistry-based" problem. It isn't. Real pure-alite paste experiments produce portlandite readily.
+
+**Error 2 (Jeff's second correction):** insisted portlandite "must be heterogeneous" for pure-alite to work. It doesn't. Real portlandite nucleates homogeneously from Ca(OH)₂ solution when supersaturated. No substrate required.
+
+**Textbook induction → acceleration story that THAMES should reproduce (per Jeff's explanation):**
+- Alite dissolves at stoichiometric 3 Ca : 1 Si ratio into solution
+- C-S-H nucleates on alite surfaces at Ca/Si ≈ 1.5–1.7
+- C-S-H takes up Si preferentially → aqueous [Ca]/[Si] climbs, [Ca] climbs
+- Alite dissolution slows (induction) as SI(Alite) rises
+- C-S-H growth accelerates, strips Si from solution, drops SI(Alite), alite accelerates
+- Meanwhile [Ca]·[OH⁻]² climbs through the whole story, portlandite eventually nucleates directly from Ca-rich solution — homogeneously
+
+**Doing the CNT math with Jeff's S50 calibration** (γ = 0.044 J/m², V_m = 33.08 cm³/mol, A₀ = 10³⁰, T = 298 K):
+
+ΔG*/kT ≈ 2.55 × 10⁻¹⁹ / (ln Ω)²
+
+| Ω | ΔG*/kT | rate `I = A₀·exp(−ΔG*/kT)` |
+|---|---|---|
+| 2 | 62 | ~10³ nuclei/(m³·s) |
+| 3 | 21 | ~10¹⁹ |
+| 4 | 13 | ~10²³ |
+| 10 | 4.8 | ~10²⁷ |
+
+**At Ω = 4.12 (the plateau value observed in the S57 test) the underlying CNT physics with these parameters says ~10²³ nuclei/m³/s should be produced.** Yet the test showed zero placement over many cycles. The claimed "CNT threshold ≈ 10" in the S57 summary is therefore an artifact of something in the implementation, not a property of the physics.
+
+**Real hypothesis — Session 59 investigation candidates:**
+
+1. **Hard SI threshold gate.** Somewhere in the C++ CNT path there may be a safety guard like `if (SI < THRESHOLD) return;` that's calibrated too conservatively. Grep for numeric thresholds in `KineticController.cc`, `NucleationRate.cc`, and any CNT-related file.
+2. **Rate → integer voxel truncation.** CNT rate might compute correctly but convert to voxel placements incorrectly — `floor()` on small fractional rates, or `nucleationCapFraction` clipping placement count below one voxel per cycle.
+3. **Unit mismatch.** Rate expected in nuclei/(m³·s) but somewhere gets treated as per L·s or per voxel·cycle — three-orders-of-magnitude bug that lands the placement below cycle threshold.
+4. **Wrong Ω definition inside CNT.** Code may use `SI − 1` instead of `SI`, or base-10 log instead of natural, or the reference-state offset (from S56 C3S / S57 C3A ln K corrections) alters SI at the point CNT reads it in a way I didn't check.
+5. **Mass-balance-vs-placement mismatch (S53-echo).** CNT rate huge, voxels ARE placed, but they immediately re-dissolve because the placement code and the aqueous IC transfer aren't consistent. This bit us for CSHQ in Session 53. Would look like flickering nucleation without CH accumulation.
+
+**Debugging path for Session 59:** trace the CNT code with targeted logging on the S57 config. Capture the computed nucleation rate at each cycle when SI(Portlandite) crosses 2, 3, 4. Diagnostic tree:
+- Rate < 1 nucleus per cycle → units/scaling bug
+- Rate huge, no voxels placed → integer-conversion bug or hard threshold gate
+- Rate huge, voxels placed but re-dissolve → mass-balance-vs-placement mismatch
+
+**S57 CLAUDE.md entry should be updated on next touch** to replace the "bootstrap deadlock / structural chemistry limitation" language with: "pure-alite portlandite nucleation failure in the JMAK-CH test is almost certainly a CNT-implementation issue in THAMES, not a chemistry or heterogeneous-substrate requirement."
+
+**Lesson for me:** I made two sequential errors on the same physics topic and Jeff had to push back twice. When something looks like a "structural limitation of the physics", double-check the math and the code before accepting that framing.
+
+---
+
 ## Session 59 pickup list
 
 1. **Bug B application** — inspect the drafted patch, apply, submodule push + super-repo pointer bump, then Windows integration test.
@@ -179,3 +229,4 @@ Both fixable in a single follow-on session.
    - `electrolyte_conditions "fixed"` bias fix
    - Priority-2 Portland cement rerun (~27 h wall)
    - C2S / C4AF calibration papers audit if any come to light
+6. **Pure-alite portlandite CNT investigation** (elevated priority, see "Late-session correction" section above): trace the C++ CNT code path with targeted logging on the S57 JMAK-CH pure-alite config. The physics says nucleation should be plentiful at SI = 4; the code produces zero placements. Diagnostic tree in that section identifies four candidate failure modes and how to distinguish them.
