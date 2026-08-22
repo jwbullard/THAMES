@@ -56,7 +56,16 @@
       "Bash(grep *)",
       "Bash(./build-macos.sh)",
       "Bash(xxd /private/tmp/claude-503/-Users-jwbullard-Code-THAMES/708c1775-a6dc-4e03-8f5c-32c6e77dce7d/scratchpad/f1-crash-test/thames-dat.lst)",
-      "Bash(xxd /private/tmp/claude-503/-Users-jwbullard-Code-THAMES/708c1775-a6dc-4e03-8f5c-32c6e77dce7d/scratchpad/f1-crash-test/input.in)"
+      "Bash(xxd /private/tmp/claude-503/-Users-jwbullard-Code-THAMES/708c1775-a6dc-4e03-8f5c-32c6e77dce7d/scratchpad/f1-crash-test/input.in)",
+      "Bash(awk '/^void deleteDynAllocMem/,/^\\\\}/' src/thames.cc)",
+      "Bash(make -j4)",
+      "Bash([ -f \"$BUGB/thames.log\" ])",
+      "Bash(cd *)",
+      "Bash(sqlite3 src/data/database/thames.db \".tables\")",
+      "Bash(sqlite3 src/data/database/thames.db \".schema materials\")",
+      "Read(//Users/jwbullard/Code/**)",
+      "Bash(cp src/thameslib/ChemicalSystem.cc.symfix src/thameslib/ChemicalSystem.cc)",
+      "Bash(rm src/thameslib/ChemicalSystem.cc.symfix)"
     ]
   }
 }

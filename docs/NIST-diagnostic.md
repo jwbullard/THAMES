@@ -174,3 +174,89 @@ then the backend receives phase names for which no GEM data exists → `parseMic
   **Follow-up F2 — UI polling flips "Running → Pending" on a real backend crash. SHIP-BLOCKER for external distribution (including NIST).** Symptom observed with a Hydration-sphere config that triggers Bug A: op showed "Running 5%" for ~15 s (during backend startup), then reverted to "Pending 0%" and stayed there indefinitely with the Duration column still incrementing. Any Bug-A-class crash a NIST user hits will present as "still pending forever" instead of "failed with error" — actively misleading, and inconsistent with what actually happened on disk (backend already dead, thames.log has the traceback). Root cause not confirmed but matches the reconciler-flip pattern flagged in CLAUDE.md Known Issues ("Reconciler flips live child operations to CANCELLED on UI restart"). Suspect the polling loop at `operations_monitoring_panel.py:1789-1798` (process-ended-without-return-code branch) or its interaction with the operations reconciler. Not caused by this patch — the exit-status check migration would have fired correctly if the op had reached COMPLETED. **Blocking:** all external testing distribution (per Jeff's instruction: fix this before shipping anything else to NIST). Investigate immediately after Phase 4 wrap-up.
 
   **Test 2 status:** deferred until F1 lands (which would let Bug-A-class crashes produce a diagnostic sidecar) or a genuinely mid-run-failure config is identified.
+
+- **2026-08-22 (S59 macOS-side Bug A root-cause):** Bug A is **cross-platform, not Windows-only**. Windows-only auto-inject is only the trigger.
+
+  **The mismatch (evidence).** `src/data/gems/thames-dch.dat` PHNL list holds five glass phases as **bare names**: `C2AS`, `CA2S`, `CAS`, `CAS2`, `K6A2S`. So does `thames-dbr.dat` and the `material_phase.gem_phase_name` column in `src/data/database/thames.db` (verified via sqlite3 — `CA2S`, `CAS2` in the two current fly-ash materials). Session 37 added the `(am)` suffix in the UI only:
+  - `src/app/services/hydration_products_service.py` — SUGGESTED_PRODUCTS keys `"C2AS(am)"` etc.
+  - `src/app/services/kinetic_defaults_service.py` — kinetic parameters keyed by `"C2AS(am)"` etc.
+  - `src/app/services/elastic_defaults_service.py` — same.
+  - `src/app/services/phase_color_service.py` — same.
+  - `src/app/services/phase_id_mapping_service.py:265` — pozzolan_names set uses `(am)`.
+  - `src/app/services/simparams_service.py:646-650` — `_get_thamesname` mapping strips the `(am)` back to bare for the display name written into simparams.json.
+
+  The suffix was never propagated to the DCH's PHNL/DCNL, nor to the DB's material_phase entries. The GEMSGUI ecosystem uses bare names.
+
+  **Failure mechanism.** When `hydration_products` contains an `(am)`-suffixed key (either because the user explicitly ticks it, or because "pozzolanic" cement type's suggested list auto-selects it, or because the Windows-only auto-inject Jeff observed puts it there):
+
+  1. `_create_phase_mapping` (`hydration_input_service.py:456-478`) calls `get_product_data("C2AS(am)")` → gets `gems_name="C2AS(am)"` → adds `mapping.gem_to_micro["C2AS(am)"] = next_id`.
+  2. `generate_simparams` (`simparams_service.py:566-594`) iterates `sorted_phases`, for phase `"C2AS(am)"` computes `thamesname = _get_thamesname("C2AS(am)") = "C2AS"` (bare — stripped by the name_mappings dict), passes `gemphasename="C2AS(am)"` (unchanged) to `build_phase_entry`.
+  3. `build_phase_entry` (line 148) calls `build_gemphase_data("C2AS(am)")` which calls `self.gems_parser.get_phase("C2AS(am)")`. The parser holds `self.phases` keyed by DCH PHNL entries (bare). Lookup returns None → `build_gemphase_data` returns None → `if gemphase_data: entry["gemphase_data"] = ...` is skipped.
+  4. simparams.json now contains `{"thamesname": "C2AS", "id": N, "cement_component": 0, ...}` with **no** `gemphase_data`.
+  5. Backend `ChemicalSystem::parseMicroPhases` (`ChemicalSystem.cc:1210-1221`) reads the entry, finds `phaseData.id != VOIDID` and no `gemphase_data` field → hits the else-if branch → logs `"Microstructure phase C2AS is not Void but has no GEM pahse data?"` → throws `DataException`.
+
+  **Reproduced directly with the parser.** `python3 -c "from app.services.gems_parser_service import GEMSParserService; p=GEMSParserService('src/data/gems'); [print(f'{n} -> {p.get_phase(n)}') for n in ['C2AS','C2AS(am)','CAS2','CAS2(am)','K6A2S','K6A2S(am)']]"` yields bare names FOUND, `(am)` names None.
+
+  **Secondary defect exposed by the same mismatch.** Even if `build_gemphase_data` were fixed to normalize, a mix that has bare `"CA2S"` in its microstructure `_phase_mapping.json` (which mix-design writes from the DB's bare gem_phase_name) AND `"CA2S(am)"` in `hydration_products` (from any UI path using SUGGESTED_PRODUCTS keys) ends up as **two distinct microstructure phase IDs pointing at the same underlying GEMS phase**. Both would land in simparams.json — one with valid gemphase_data (bare), one without (suffixed). This dedup gap is in `_create_phase_mapping` at line 473, whose membership check `if gems_phase_name not in mapping.gem_to_micro` compares raw strings without normalization.
+
+  **Why macOS "works" — the practical distinction only, not the code path.** macOS users generally either (a) don't build fly-ash mixes, (b) build them but don't manually pick glass phases in the hydration Products panel, or (c) pick the "Suggest" button only when cement type is Portland (not pozzolanic), so `hydration_products` never gets `(am)`-suffixed glass names → Bug A never fires. The moment a macOS user does any of {click the pozzolanic "Suggest" button, manually check a glass phase in the product tree, load a saved config with `(am)` names}, the same crash happens.
+
+  **Windows-only auto-inject — root cause NOT identified on macOS-side inspection.** No `sys.platform` / `IS_WINDOWS` branch exists in the hydration input pipeline (`hydration_input_service.py`, `simparams_service.py`, `hydration_products_service.py`, `hydration_product_selector.py`). Not a code-branch difference. Candidates that still need Windows access to distinguish:
+  1. **Stale user preferences JSON at `%LOCALAPPDATA%\THAMES\`** containing a hydration_products default with glass phase names. macOS's `~/Library/Application Support/THAMES/` lacks the same file.
+  2. **A saved hydration operation on Jeff's Windows box has bare-name glass phases** and the widget re-emits them as `(am)`-suffixed via `set_selected_products` → some normalization step upgrades bare → `(am)`.
+  3. **The alpha-2 Windows binary bundle** shipped a data file (e.g., a `defaults.json`) that macOS's alpha-2 bundle didn't. Check `dist/THAMES-1.0.0-alpha.2-*/` contents on both platforms.
+  4. **A phantom microstructure the Windows UI is picking up** that lists these phases — e.g., a leftover from a previous NIST-forwarded operation folder.
+
+  **Fix recommendation — Path C (surgical, ready for a targeted commit):**
+
+  In `src/app/services/simparams_service.py`:
+  - Add a private `_normalize_gemphase_name(name)` that strips the `(am)` suffix if present AND the bare form exists in `self.gems_parser.phases`. This preserves the ability to add legitimate future `(am)`-only phases without silently rewriting them.
+  - Call it in `build_gemphase_data` before `get_phase(...)`; return the bare form in the entry's `gemphasename` field.
+  - Call it in `_get_thamesname` too (or leave as-is — it already strips for the display name).
+
+  In `src/app/services/hydration_input_service.py`:
+  - In `_create_phase_mapping` (line 460-478), normalize `gems_phase_name` through the same helper (or duplicate the strip logic locally) before the `if gems_phase_name not in mapping.gem_to_micro` check. Prevents the duplicate-phase-ID case.
+
+  **Fix recommendation — Path A (strategic, higher blast radius):**
+
+  Roll back S37 across all UI code that uses `(am)`-suffixed keys. This is cleaner long-term (single source of truth for glass phase names — bare, matching DCH+DB+GEMS ecosystem) but touches 6 service files, potentially the widget's product tree rendering, and any user's saved operations that reference `(am)` names. Deferring to POST_ALPHA.
+
+  **Windows-side plan (for Windows-access session).** With Path C landed:
+  - Test 1: launch a fresh pozzolanic hydration op, DO NOT touch products panel, submit. Bug A should be gone (product list may be empty; if not empty, inspect what's in it).
+  - Test 2: run one NIST failing config as-is (unmodified `hydration_config.json`) through Bug-A-fixed binary. Should complete or fail with a different error.
+  - Test 3: launch a fresh Portland hydration op, inspect `simparams.json` `microstructure.phases` list. If it contains bare `"C2AS"` or `"CAS2"` entries the user did NOT explicitly select — that's the Windows-only auto-inject candidate, and can now be traced with confidence because it's a distinct symptom from Bug A.
+
+  **NO code applied this session.** All changes above are recommendations for the Windows-access session.
+
+- **2026-08-22 (S59 Bug A LANDED — DCH-rename approach):** Jeff endorsed the strategic rename over surgical normalization. The private augmented CemData18 was already forked (Jeff added several phases including C2AS, CAS2 originally), so the "don't fork CemData18" argument was moot. Renamed the 5 glass phases in DCH/DBR/DB from bare to `(am)`-suffixed and removed the corresponding kludge mappings in the UI and C++ backend so a single naming convention (`C2AS(am)` etc.) now flows unmodified from the data files through the UI and into the backend. No string-based normalization or fallback logic anywhere.
+
+  **Files touched (this fix):**
+  - `src/data/gems/thames-dch.dat` — PHNL (2 refs) + DCNL (2 refs) renamed for each of 5 phases (10 substitutions). Backup at `thames-dch.dat.pre-glass-am-rename-20260822`.
+  - `src/data/gems/thames-dbr.dat` — 10 substitutions. Backup `thames-dbr.dat.pre-glass-am-rename-20260822`.
+  - `src/data/gems/thames-ipm.dat` — no changes needed (IPM doesn't reference these phase names).
+  - `src/data/database/thames.db` — 2 rows updated in `material_phase` (ClassF-FlyAsh material_id=48: `CA2S` → `CA2S(am)`, `CAS2` → `CAS2(am)`). Backup `thames.db.pre-glass-am-rename-20260822`.
+  - `src/app/services/simparams_service.py` — deleted the 5 `(am)`-to-bare mappings from `_get_thamesname`'s `name_mappings` dict. Now the display name flows through unmodified, matching the DCH.
+  - `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` — renamed hardcoded `colorN_["C2AS"]` / `colorN_["CA2S"]` / `colorN_["K6A2S"]` initializer entries to `(am)` form (6 hits each, 18 substitutions in the live code; matching commented-out `elasticModuli_["..."]` entries also renamed, 5 hits each, 15 more substitutions). `colorN_["CAS"]` and `colorN_["CAS2"]` don't exist in this block.
+  - Two local user microstructures moved to scratchpad: `~/Library/Application Support/THAMES/operations/{OPC-FA-30,HY-OPC-FA-30}` → `scratchpad/pre-am-rename-ops/`. Both had bare glass names in `_phase_mapping.json` and would break silently on re-hydration. Jeff can regenerate on demand.
+
+  **NOT touched (deliberately):**
+  - No new SUGGESTED_PRODUCTS, kinetic_defaults, elastic_defaults, phase_color, or pozzolan_names edits — all these already used `(am)` keys after S37 and are now the correct form.
+  - No `_normalize_gemphase_name` or `.replace("(am)", "")` string surgery anywhere. The fix path went the opposite direction (make the data match the UI's convention, not the UI accommodate the data's convention). This preserves the "no kludges" principle per Jeff's direction.
+
+  **Verified end-to-end:**
+  1. Python `GEMSParserService.get_phase("C2AS(am)")` now returns FOUND for all 5 phases; bare-name lookups now return None as expected. Phase count 100, DC count 197 — identical to pre-rename.
+  2. `PhaseDataBuilder.build_phase_entry(gemphasename="C2AS(am)")` produces a valid entry with `gemphase_data` populated (`gemphasename: "C2AS(am)"`, 1 DC). Previously (pre-rename), this returned an entry missing `gemphase_data` — the direct Python-side cause of Bug A. Ran for all 5 phases; all clean.
+  3. Rebuild clean (`[100%] Built target thames`, no new warnings from these changes).
+  4. Ca11mM smoke fixture (27 s baseline) reruns to `exit_code: 0, exit_reason: "Simulation completed successfully"` after updating the fixture's `suppressed_phases` to use `(am)` names. Same 27 s wall clock.
+  5. CSV byte-parity: 26/29 CSVs identical to the pre-rename baseline. The 3 that differ (`AliteCa11mM_dcmoles.csv`, `AliteCa11mM_DCVolumes.csv`, `AliteCa11mM_PhaseVolumes.csv`) differ only in glass-phase column-header names (bare → `(am)`). Zero simulation-data regression.
+  6. `getGEMPhaseId("C2AS(am)")` — via the backend's `parseGEMPhaseData` path — succeeds. Proof by contradiction: the first smoke-test attempt (before updating the fixture's suppressed_phases from bare names) failed with `Could not find GEMPhaseIdLookup_ match to C2AS`, confirming the backend's `GEMPhaseIdLookup_` is now populated from the DCH with `(am)`-suffixed keys.
+
+  **Ship-blocker status.** Bug A ship-blocker is CLOSED. Bug B ship-blocker is also CLOSED (LANDED earlier this session). The Windows glass-phase auto-inject Jeff observed on his Zoom with the NIST user is now cosmetic-only: if Windows auto-adds `(am)`-suffixed glass phases to the products panel, they'll still round-trip correctly since the whole pipeline uses that form. It's still a UI wart worth investigating on the Windows box (spurious phases in the list), but it will no longer crash. Retained as its own POST_ALPHA_TODO entry.
+
+  **Follow-up POST_ALPHA entry filed:** "Eliminate hardcoded phase-name strings in ChemicalSystem.cc" — the `colorN_` / `elasticModuli_` initializer blocks are the deeper class of the fragility that made this fix necessary. Full entry in `docs/POST_ALPHA_TODOS.md`.
+
+- **2026-08-22 (S59 Fix C — electrolyte-fixed bias LANDED):** Symmetric IC transfer applied to `ChemicalSystem::setElectrolyteComposition` (removed the `if (deltaDCMoles > 0)` gate at ChemicalSystem.cc:4431). Ca11mM bias reduced from 12.05 mM (10% high, S57) to 11.58 mM (5% high). Ca22mM bias reduced from 23.55 mM (7% high) to 23.22 mM (5.5% high). Peak total_Si preserved (Ca22mM 32.20 vs S57 31.9 μM; Ca11mM 104.6 vs S57 85.5 μM — the Ca11mM increase is physically consistent with Ca being closer to target). Attempted DC-bounds pinning as belt-and-suspenders; reverted because Alite dissolution collapsed. Full analysis in `docs/POST_ALPHA_TODOS.md` (electrolyte-fixed entry marked LANDED).
+
+  **Not a NIST ship-blocker itself** — the electrolyte-fixed mechanism only triggers on configs that use `"condition": "fixed"`, and no default UI workflow does. But this fix removes a class of silent chemostat-validation error that would affect any future user running the Garrault or similar controlled-solution experiments through the UI.
+
+  Not committed yet; part of the S59 pending push.

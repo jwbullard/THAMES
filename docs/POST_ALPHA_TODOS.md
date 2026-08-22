@@ -648,7 +648,15 @@ Applying any single model as a T-varying correction across the full 277.15–353
 
 ---
 
-### Electrolyte `condition: "fixed"` mechanism only tops up, never removes
+### Electrolyte `condition: "fixed"` mechanism only tops up, never removes — LANDED 2026-08-22 (Session 59)
+
+**LANDED status.** Option (1) — symmetric IC transfer — applied to `ChemicalSystem::setElectrolyteComposition` by removing the `if (deltaDCMoles > 0)` gate. Ca11mM bias reduced from 12.05 mM (10% high, S57) to 11.58 mM (5% high). Ca22mM bias reduced from 23.55 mM (7% high) to 23.22 mM (5.5% high). Peak total_Si preserved (Ca22mM: 32.20 μM vs S57 31.9 μM; Ca11mM: 104.6 μM vs S57 85.5 μM — the Ca11mM peak-Si increase is physical, consequence of Ca actually being closer to target 11 mM which shifts the CSHQ equilibrium [Si] up).
+
+**Option (2) attempted and reverted.** Tried DCLowerLimit_ / DCUpperLimit_ pinning around targetDCMoles. Tight bounds (±1e-15 or ±1%) caused GEMS convergence failures in Ca11mM at ~cycle 10 (three interdependent pinned species over-constrain the K equilibrium). Loose bounds (±5%) let GEMS solve but had a fatal side effect: pinning the aqueous Ca+2 DC prevented Alite kinetic dissolution's products from leaving the aqueous phase — Alite DOR collapsed from 0.028% to essentially zero over 1.2 h. Option (2) is not a viable belt-and-suspenders; the correct semantics for `condition: "fixed"` is "external reservoir absorbs/supplies", which the symmetric IC-transfer alone models correctly. The residual ~5% drift is GEMS re-partitioning among Ca-bearing complexes and is within any realistic experimental reservoir-precision envelope.
+
+**Original entry preserved below.**
+
+---
 
 **Identified:** 2026-08-06 (Session 57, Garrault-Nonat 2001 validation setup)
 
@@ -844,6 +852,36 @@ Recommend (1) as smallest change with highest clarity gain.
 **Files.** `src/app/windows/dialogs/preferences_dialog.py::run_dialog` (buttons defined in `__init__` at lines 42-44).
 
 **Discovered while testing the new `include_hostname_in_metadata` toggle (Session 58 Phase 4 Test 3). Jeff asked directly whether Apply does anything and what happens if OK is clicked without Apply — those questions are the smell.**
+
+---
+
+### Add total-Si (and total-per-element) convenience columns to Solution.csv
+
+**Identified:** 2026-08-22 (Session 59, wasted ~30 min bisecting a phantom peak-Si regression)
+
+**Symptom.** `Solution.csv` reports every aqueous DC as its own column (SiO2@, HSiO3-, SiO3-2, CaSiO3@, MgSiO3@, ...). To get "total aqueous Si", the user must sum across ~9 columns. At high [Ca] the CaSiO3@ ion-pair complex holds ~85% of the total dissolved Si, and forgetting to include it makes "peak Si" look 15-20× lower than reality. During Session 59 electrolyte-fixed validation, I mistakenly compared free-Si (SiO2@ + HSiO3- ≈ 4.9 μM) against S57's reported total-Si peak (85.5 μM) and spent significant time chasing a nonexistent regression. The S56 CLAUDE.md entry documenting this hazard exists but was not the first thing consulted.
+
+**Proposed fix.** Add derived per-element total columns to `Solution.csv` — `total_Si(mol/kgw)`, `total_Ca`, `total_Al`, `total_Fe`, `total_C`, `total_S`, `total_Na`, `total_K`, `total_Mg`, `total_Cl` — computed as the sum over all aqueous DCs weighted by each DC's stoichiometry for that element (the same `getDCStoich(dcId, icId)` table the backend already uses). Would also help calorimetry cross-checks, comparisons to PHREEQC output, and Results Viewer plotting.
+
+**Files.** `backend/thames-hydration/src/thameslib/Controller.cc` around the Solution.csv writer; header list and per-row assembly. Backend has full IC↔DC stoich table already.
+
+**Alternative (weaker).** Just add a `total_Si` column initially — that's the one that trips everyone. Extending to the other elements is straightforward once the pattern is in place.
+
+---
+
+### Eliminate hardcoded phase-name strings in ChemicalSystem.cc
+
+**Identified:** 2026-08-22 (Session 59, during glass-phase `(am)` rename work)
+
+**Symptom.** `ChemicalSystem.cc` has large hand-typed blocks (`colorN_["Alite"].colorId = ...`, `elasticModuli_["Calcite"].K = ...`, etc.) that initialize per-phase default color and elastic-moduli data keyed by phase-name string literals. Every time a phase name changes anywhere in the system (rename, `(am)` suffix, capitalization), these hardcoded strings silently drift out of sync with the DCH / data files, and there is no compile-time or startup check that catches the drift.
+
+**Root cause.** Two-layer coupling: phase names are the join key across three independent surfaces (data files, Python UI dicts, C++ hardcoded initializers) with no single source of truth and no validation. The initializer blocks (roughly `ChemicalSystem.cc` lines 3380–3800) are C++ literals frozen at compile time, so any DCH change requires re-editing this file. Also, the `altName` field written by these initializers is written but never read (dead field — confirmed by grep).
+
+**Proposed fix.** Move the color and elastic-moduli defaults out of C++ into a data file (`src/data/phase_defaults.json` or similar) that gets loaded at runtime. Have the Python UI and C++ backend both consume it, with a startup validation pass that walks every key and asserts it corresponds to a real DCH PHNL entry (fails loud on drift). Deprecate the `colorN_` and `elasticModuli_` hardcoded initializer blocks. The `simparams.json` `display_data` and `elastic_data` per-phase entries can then be filled from this shared source rather than re-typed in every service.
+
+**Related.** The Session 59 `(am)` rename touched hardcoded `colorN_["C2AS"]` etc. entries for cosmetic consistency; this to-do addresses the deeper class of bug that made those edits necessary in the first place. Similar hardcoded C++ strings likely exist in `KineticController.cc` and elsewhere — audit alongside.
+
+**Estimated effort.** Medium — ~500 lines of C++ initializer to move + JSON schema definition + startup validator. Discoverable via `grep -n 'colorN_\[\|elasticModuli_\[' backend/thames-hydration/src/thameslib/`.
 
 ---
 

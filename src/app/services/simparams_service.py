@@ -638,16 +638,14 @@ class SimParamsService:
             THAMES display name
         """
         # Special mappings
+        # Note: 5 glass-phase (am)-to-bare mappings were removed 2026-08-22 (Session 59)
+        # when the DCH/DBR/DB were renamed to carry the (am) suffix as canonical.
+        # See docs/NIST-diagnostic.md and docs/POST_ALPHA_TODOS.md for context.
         name_mappings = {
             "VOID": "Void",
             "aq_gen": "Electrolyte",
             "Electrolyte": "Electrolyte",
             "hemihydrate": "Bassanite",
-            "C2AS(am)": "C2AS",
-            "CA2S(am)": "CA2S",
-            "CAS(am)": "CAS",
-            "CAS2(am)": "CAS2",
-            "K6A2S(am)": "K6A2S",
             "hydrotalc-pyro": "Hydrotalcite",
             "Portlandite": "Portlandite",
             "Portite": "Portlandite",
