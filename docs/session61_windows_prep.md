@@ -96,23 +96,34 @@ Only after Step 8 passes do you touch the Windows Bug A auto-inject debugging.
 
 ## Mac reference simparams.json — for the glass-phase diff
 
-`docs/reference_data/mac_simparams_reference.json` — copy of `Hydration-test-1/simparams.json` from Jeff's macOS `%LOCALAPPDATA%` equivalent.
+Two mac reference files are committed under `docs/reference_data/`. Use the **primary** one for the diagnostic; the secondary is retained as a pre-S59 corroboration point.
 
-**Provenance.** Portland-only mix (no fly ash), 27 microstructure phases, 75 entries in `suppressed_phases`, `hydration_products: null`, `ui_context` **absent** (this file was captured before S58's provenance sidecar landed — a fresh mac run today would include `ui_context`).
+### Primary reference: `docs/reference_data/mac_reference_today.json`
 
-**Known deltas that are NOT bugs.** The reference is **pre-S59**, so:
-- `suppressed_phases` lists **bare glass names** (`C2AS`, `CA2S`, `CAS`, `CAS2`, `K6A2S`). A post-S59 run on ANY platform will list `(am)`-suffixed forms (`C2AS(am)`, `CA2S(am)`, ...). This delta is the expected S59 rename, not the auto-inject bug.
-- `ui_context` is absent. Post-S58 output includes a full `ui_context` block. This delta is the S58 provenance infrastructure, not a bug.
+**Provenance.** Generated 2026-08-23 (session 60) by Jeff on macOS with current post-S59 code, via UI operation `S61-ref-mac-today`. Portland-only mix, 22 microstructure phases, 79 entries in `suppressed_phases`, `hydration_products: null`, full `ui_context` block populated (Python 3.14.7, Darwin arm64, THAMES 1.0.0-alpha.2).
 
-**How to use the reference for the Windows glass-phase auto-inject investigation:**
+**Glass phases in this reference** — all appear in `suppressed_phases` with the post-S59 `(am)` suffix: `C2AS(am)`, `CA2S(am)`, `CAS(am)`, `CAS2(am)`, `K6A2S(am)` (plus `C2ASH55`, which is a hydrated glass-related phase, not one of the S37/S59 renamed set). **None appear in `hydration_products`, `microstructure.phases`, or elsewhere.** This is the correct clean state — the auto-inject bug puts glass phases into `hydration_products` or `microstructure.phases`.
 
-1. On Windows, launch the UI and set up an equivalent Portland-only hydration (same materials, same defaults). The specific microstructure doesn't need to match Hydration-test-1's exactly — what matters is that no fly-ash / glass-phase materials are selected.
-2. Compare the Windows-generated `simparams.json` against the reference. Ignore the two expected deltas above.
-3. **Any additional glass-phase entries in the Windows output — in `hydration_products`, in `microstructure.phases`, in `product_configurations`, or as new elements in a fresh section — are the auto-inject bug.**
-4. If Windows adds glass names to `hydration_products` (currently `null` in the reference) even though the UI's Hydration panel default doesn't include them, that's the smoking gun.
-5. If Windows makes no additional glass entries in a Portland-only flow, repeat with a fly-ash-inclusive mix (`ClassF-FlyAsh` material available in the DB). The bug may only fire when fly ash IS in the mix.
+**How to use for the Windows diff:**
 
-**Optional but useful cross-check.** Before running the Windows UI, do the same Portland-only setup on macOS today and generate a fresh reference. Diff mac_today vs Windows_today. Any diff beyond hostname/timestamp/username in `ui_context` is a platform-specific delta.
+1. On Windows, launch the current UI and set up a Portland-only hydration with the same defaults. Use operation name `S61-ref-win-today` to keep them straight. The specific microstructure doesn't have to match `S61-ref-mac-today`'s; what matters is that no fly-ash / SCM materials are selected and default Hydration Panel settings are accepted.
+2. Locate the Windows-generated `simparams.json` under `%LOCALAPPDATA%\THAMES\operations\S61-ref-win-today\` and diff against `mac_reference_today.json`.
+3. **Expected deltas** (not bugs, filter these out mentally):
+   - `ui_context.platform_system`: `Darwin` → `Windows`
+   - `ui_context.platform_release`, `.platform_machine`, `.hostname`, `.python_version`: differ
+   - `ui_context.operation_name`: `S61-ref-mac-today` → `S61-ref-win-today`
+   - Minor phase-count differences if the two microstructures chose different resolutions or clinker fractions
+4. **Bug signals** (any of these = the auto-inject bug reproduced):
+   - `hydration_products` is non-null in the Windows version. `mac_reference_today.json` shows `hydration_products: null` — the UI's Hydration Panel default did NOT put anything there on macOS. If Windows does, that's the smoking gun.
+   - Extra glass-phase entries in `microstructure.phases` on Windows that aren't on mac.
+   - A glass-phase name appears WITHOUT the `(am)` suffix anywhere in the Windows output. This would mean the Windows UI is injecting bare glass names — a distinct, worse variant of the bug that would re-open Bug A (parseMicroPhases crash) with a different trigger path.
+5. If Windows shows NO auto-inject in the Portland-only flow, repeat with a fly-ash mix (`ClassF-FlyAsh` material). The auto-inject may only fire when fly ash IS in the mix.
+
+### Secondary reference: `docs/reference_data/mac_simparams_reference.json`
+
+**Provenance.** Older `Hydration-test-1/simparams.json` from Jeff's macOS `%LOCALAPPDATA%`. Portland-only (27 phases, 75 suppressed), captured **before S58 provenance and before S59 rename**. Bare glass names (`C2AS`, `CA2S`, `CAS`, `CAS2`, `K6A2S`) in `suppressed_phases`; no `ui_context` block; `hydration_products: null`.
+
+**Use for.** Corroboration if the primary diff is ambiguous — comparing three-way (pre-S59 mac / current mac / Windows today) can help localize when a delta was introduced. Do not use as the primary diff target; the primary is a like-for-like current-code comparison.
 
 ---
 

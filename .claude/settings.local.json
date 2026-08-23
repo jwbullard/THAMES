@@ -65,7 +65,8 @@
       "Bash(sqlite3 src/data/database/thames.db \".schema materials\")",
       "Read(//Users/jwbullard/Code/**)",
       "Bash(cp src/thameslib/ChemicalSystem.cc.symfix src/thameslib/ChemicalSystem.cc)",
-      "Bash(rm src/thameslib/ChemicalSystem.cc.symfix)"
+      "Bash(rm src/thameslib/ChemicalSystem.cc.symfix)",
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/S61-ref-mac-today/**)"
     ]
   }
 }
