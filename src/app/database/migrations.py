@@ -267,6 +267,39 @@ class MigrationManager:
                     grading = Grading(**grading_data)
                     session.add(grading)
     
+    def _apply_glass_phase_am_rename_migration(self) -> None:
+        """Rename bare glass phases to (am) form in material_phase table.
+
+        Session 59 renamed 5 glass phases (C2AS, CA2S, CAS, CAS2, K6A2S) to
+        (am) suffix in GEMS DCH/DBR, ChemicalSystem.cc hardcoded initializers,
+        and simparams_service.py::_get_thamesname, but did NOT write a matching
+        migration for material_phase rows in existing users' DBs. Without this
+        rename, any material composition referencing a bare glass name produces
+        microstructure phases with empty gemphasename, and thames.exe fails at
+        ChemicalSystem::parseMicroPhases (S59 Bug A resurfacing via a different
+        trigger path).
+
+        Idempotent: only rewrites rows that still have bare names; new installs
+        already have the (am) form in the seed DB.
+        """
+        try:
+            self.logger.info("Applying glass-phase (am) rename migration...")
+            sql = """
+            UPDATE material_phase SET gem_phase_name = 'C2AS(am)'  WHERE gem_phase_name = 'C2AS';
+            UPDATE material_phase SET gem_phase_name = 'CA2S(am)'  WHERE gem_phase_name = 'CA2S';
+            UPDATE material_phase SET gem_phase_name = 'CAS(am)'   WHERE gem_phase_name = 'CAS';
+            UPDATE material_phase SET gem_phase_name = 'CAS2(am)'  WHERE gem_phase_name = 'CAS2';
+            UPDATE material_phase SET gem_phase_name = 'K6A2S(am)' WHERE gem_phase_name = 'K6A2S';
+            """
+            self.run_sql_migration(
+                sql,
+                "20260824_01_glass_phase_am_rename",
+                "Rename bare glass phases to (am) form in material_phase (S59 follow-up)"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to apply glass-phase (am) rename migration: {e}")
+            raise
+
     def _apply_mix_design_migration(self) -> None:
         """Apply migration to add mix_design table."""
         try:
@@ -463,7 +496,11 @@ class MigrationManager:
                 if "002_add_mix_design_table" not in applied_migrations:
                     self.logger.info("Applying mix_design table migration...")
                     self._apply_mix_design_migration()
-                
+
+                # Check for glass-phase (am) rename migration (S59 follow-up)
+                if "20260824_01_glass_phase_am_rename" not in applied_migrations:
+                    self._apply_glass_phase_am_rename_migration()
+
                 self.logger.info(f"Current version: {version_info['current_version']}")
                 self.logger.info(f"Applied migrations: {version_info['applied_migrations']}")
             

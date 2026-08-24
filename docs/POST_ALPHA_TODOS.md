@@ -900,3 +900,62 @@ Recommend (1) as smallest change with highest clarity gain.
 
 **Workarounds available during alpha.** Optional; what alpha testers can do.
 ```
+
+---
+
+### Phase-rename checklist: whoever renames a GEMS phase must also write a DB migration
+
+**Identified:** 2026-08-24 (Session 61)
+
+**Symptom.** Session 59 renamed the 5 amorphous glass phases (`C2AS`, `CA2S`, `CAS`, `CAS2`, `K6A2S`) to `(am)`-suffixed form in GEMS DCH/DBR files, `simparams_service.py::_get_thamesname`, `ChemicalSystem.cc` hardcoded `colorN_` initializers, and the seed `src/data/database/thames.db`. But it did NOT touch `material_phase` rows in existing users' local `%LOCALAPPDATA%\THAMES\database\thames.db` (or macOS equivalent). Any material composition referencing a bare glass name (only `ClassF-FlyAsh` currently) produced microstructure phases with empty `gemphasename`, and `thames.exe` failed at `ChemicalSystem::parseMicroPhases` with a `DataException` — S59 Bug A resurfacing via a different trigger path (bare name via DB material composition, not UI selection). Session 61 discovered this when hydrating a fly-ash mix on Windows and shipped migration `20260824_01_glass_phase_am_rename` as the immediate fix.
+
+**Root cause.** No checklist / policy exists for "phase renames require matching migration." The migration system in `src/app/database/migrations.py` is only wired for two migrations (`002_add_mix_design_table` from Session 33-vintage, and now `20260824_01_glass_phase_am_rename` from Session 61). Anyone renaming a phase would naturally think about DCH/DBR/code and forget that existing users' DBs also need updating.
+
+**Proposed fix (process, not code).** Add a `docs/CONTRIBUTING.md` section (or a header comment in `simparams_service.py::_get_thamesname` / in the GEMS phase-rename touchpoints) listing the six required files whenever a phase is renamed:
+
+1. `src/data/gems/thames-dch.dat` (DCH phase name)
+2. `src/data/gems/thames-dbr.dat` (DBR phase name)
+3. `src/data/database/thames.db` seed (SQL `UPDATE material_phase SET gem_phase_name = ...`)
+4. `backend/thames-hydration/src/thameslib/ChemicalSystem.cc` (any hardcoded `colorN_["<name>"]` / `elasticModuli_["<name>"]` initializers)
+5. `src/app/services/simparams_service.py::_get_thamesname` (any hardcoded mapping)
+6. `src/app/database/migrations.py` (new migration for existing users' DBs)
+
+**Proposed fix (code, optional).** Make the migration loop registry-driven instead of a hardcoded `if version not in applied_migrations` per migration in `upgrade_database()`. A `_MIGRATIONS = [("version", _apply_fn), ...]` list at module scope + a single loop would prevent future migrations from being written and then forgotten to wire up.
+
+**Related work.** Session 44 tracked the seed DB in git for the first time; Session 61 added the first data-fix migration since Session 40-vintage schema work.
+
+---
+
+### Ferrite / small-phase late-age hard abort: `keepNumDCMoles < 0` in KineticController
+
+**Identified:** 2026-08-24 (Session 61, `S61-ref-win-flyash` hydration on cem152 + ClassF-FlyAsh)
+
+**Symptom.** Hydration of a Portland-plus-fly-ash mix ran cleanly through 636 cycles / ~13.85 h, then aborted at cycle 637 with:
+```
+KineticController::calculateKineticStep error for cyc = 637 : keepNumDCMoles < 0  !!!
+midx/DCId/DCMoles_/numDCMolesDissolved/keepNumDCMoles : 5 / 185 / 0.000000000000000e+00 / 1.176390650810616e-06 / -1.176390650810616e-06
+scaledMass/massDissolved/totMassImpurity/... : 1.297890939254415e-02 / 1.670994699373510e-04 / ...
+```
+
+The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is essentially fully depleted. The kinetic controller (`ParrotKillohModel::calculateKineticStep` for microPhaseId 5) then tries to dissolve `1.18e-6` more moles of Ferrite's associated DC (DCId=185), which would drive `DCMoles_` negative. The error path prints the diagnostic and terminates the process (message `end program`).
+
+**Root cause.** `KineticController::calculateKineticStep` computes a requested dissolution from the kinetic law without a "clamp to remaining moles" step. For any phase whose remaining moles are less than the kinetic law's requested dissolution over one timestep, the check `keepNumDCMoles < 0` fires and the whole hydration aborts. Related in spirit to the S41 near-depletion timestep-stall issue (same class of "small phase near zero" pathology, different symptom: hard abort here vs timestep collapse there).
+
+**Proposed fix.** In `KineticController::calculateKineticStep` (backend/thames-hydration/src/thameslib/KineticController.cc), when `numDCMolesDissolved > DCMoles_` for any DC belonging to a kinetic-controlled phase: clamp `numDCMolesDissolved = DCMoles_` (dissolve exactly the remaining amount, mark the phase as depleted for subsequent cycles) rather than fail. Emit a warning to `thames.log` so the user knows a phase reached exhaustion, and set a flag on that microPhase so `calculateKineticStep` short-circuits it in future cycles.
+
+**Related.** See the S41 "near-depletion phase causes kinetics-constraint stall" item above — same underlying class, different symptom. A single well-designed fix could address both.
+
+---
+
+### run_metadata.json not finalized on KineticController abort path
+
+**Identified:** 2026-08-24 (Session 61, same `S61-ref-win-flyash` run as above)
+
+**Symptom.** After the KineticController's `keepNumDCMoles < 0` abort ran, `Result/run_metadata.json` still showed `"exit_reason": "in_progress"` and `"finished_utc": ""` — the S58 finalize hook never fired for this failure mode. Contrast with the earlier bare-glass-name failure (also Session 61), where the `ChemicalSystem` constructor's DataException correctly finalized the sidecar with `exit_reason = "ChemicalSystem constructor: DataException"`.
+
+**Root cause.** Session 58 added `runmeta::finalize()` catch-blocks around known failure classes (ChemicalSystem construction, Lattice / KineticController / Controller *construction*), plus a generic fallback at the top of `deleteDynAllocMem`. The `KineticController::calculateKineticStep` runtime abort path exits (via `exit(1)` or similar) without going through `deleteDynAllocMem` or a matching catch, so the finalize never runs.
+
+**Proposed fix.** Either (a) wrap the calculateKineticStep abort in an exception the top-level `main` catches and finalizes, or (b) call `runmeta::finalize("KineticController::calculateKineticStep: keepNumDCMoles < 0", exit_code=1)` directly at the abort site before `exit(1)`. Option (b) is smaller-surface and matches the existing pattern in the ChemicalSystem catch blocks.
+
+**Impact.** Alpha testers report failures without a machine-readable exit reason for this class, forcing manual `thames.log` inspection. Easy fix; keep close to whichever session next touches the kinetics-error paths.
+
