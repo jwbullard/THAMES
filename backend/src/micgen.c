@@ -809,7 +809,11 @@ int main(int argc, char *argv[]) {
   fprintf(Logfile, "\nElapsed time: %.3f", time_spent);
   fprintf(Logfile, "\n\n=== END GENMIC SIMULATION ===");
   fflush(Logfile);
-  fclose(Logfile);
+  /* NOTE: Logfile is intentionally NOT closed here.
+   * freemicgen() below writes Verbose diagnostics to Logfile; closing it here
+   * caused STATUS_HEAP_CORRUPTION (0xC0000374) on Windows MSVCRT (which frees
+   * the FILE buffer on close). macOS BSD stdio tolerated the UB, but semantics
+   * were wrong there too. Close moved to after freemicgen() before return. */
 
   ProgressFile = filehandler("micgen", ProgressFileName, "WRITE");
   if (!ProgressFile) {
@@ -828,6 +832,7 @@ int main(int argc, char *argv[]) {
   fprintf(ProgressFile, "\"%s\"}", rfc8601);
   fclose(ProgressFile);
   freemicgen();
+  fclose(Logfile);
   return (0);
 }
 
@@ -3581,17 +3586,32 @@ void create(void) {
     }
   }
 
+  /* NULL each global pointer after intermediate free to prevent double-free
+   * in freemicgen() at program exit. Without these NULLs, freemicgen sees
+   * dangling pointers, its guards pass, and it double-frees -- fatal on
+   * Windows MSVCRT (STATUS_HEAP_CORRUPTION 0xC0000374), silent on macOS. */
   free_Int3darray(&Bbox);
-  if (Y)
+  Bbox.val = NULL;
+  if (Y) {
     free_complexmatrix(Y, 0, Nnn, -Nnn, Nnn);
-  if (AA)
+    Y = NULL;
+  }
+  if (AA) {
     free_complexmatrix(AA, 0, Nnn, -Nnn, Nnn);
-  if (A)
+    AA = NULL;
+  }
+  if (A) {
     free_complexmatrix(A, 0, Nnn, -Nnn, Nnn);
-  if (xgvec)
+    A = NULL;
+  }
+  if (xgvec) {
     free_fvector(xgvec);
-  if (wgvec)
+    xgvec = NULL;
+  }
+  if (wgvec) {
     free_fvector(wgvec);
+    wgvec = NULL;
+  }
 
   return;
 }
@@ -4600,7 +4620,17 @@ struct particle **particlepointervector(int size) {
  ***/
 void free_particlepointervector(struct particle **ps) {
   int i = 0;
-  for (i = 0; i < Npartc; i++) {
+  /* Loop bound must be Npart (actual particle count), NOT Npartc (max capacity
+   * = NPARTC = 100M). particlepointervector() plain-mallocs Npartc slots but
+   * only Npart of them get assigned to real particles by particlevector().
+   * On Windows MSVCRT, malloc returns pages that may retain prior heap
+   * contents; unassigned ps[i] slots contain garbage. Iterating over Npartc
+   * dereferences garbage pointers -> STATUS_HEAP_CORRUPTION (0xC0000374).
+   * macOS BSD/Mach zeros pages so garbage happens to be NULL, hiding the bug.
+   * Additionally, each ps[i] struct itself must be freed inside the loop;
+   * the previous "free(ps[0])" after the loop only freed the first struct
+   * and leaked ps[1..Npart-1]. */
+  for (i = 0; i < Npart; i++) {
     if (ps[i] != NULL) {
       if (ps[i]->xi != NULL)
         free((char *)(ps[i]->xi));
@@ -4608,9 +4638,9 @@ void free_particlepointervector(struct particle **ps) {
         free((char *)(ps[i]->yi));
       if (ps[i]->zi != NULL)
         free((char *)(ps[i]->zi));
+      free((char *)(ps[i]));
     }
   }
-  free((char *)(ps[0]));
   free((char *)(ps));
 
   return;

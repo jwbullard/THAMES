@@ -97,15 +97,26 @@ mkdir -p "$BIN_DIR"
 cp "$THAMES_DIR/build/thames.exe" "$BIN_DIR/thames.exe"
 cp "$MICGEN_DIR/build/micgen.exe" "$BIN_DIR/micgen.exe"
 
-# Ensure libpng DLL is present
-if [ ! -f "$BIN_DIR/libpng16-16.dll" ]; then
-    if [ -f "/c/msys64/mingw64/bin/libpng16-16.dll" ]; then
-        cp /c/msys64/mingw64/bin/libpng16-16.dll "$BIN_DIR/"
-        echo "Copied libpng16-16.dll to bin/"
-    else
-        echo "WARNING: libpng16-16.dll not found in MSYS2"
+# Copy MSYS2 runtime DLLs so bin/thames.exe and bin/micgen.exe run without
+# /c/msys64/mingw64/bin on PATH. Required whenever the UI launches these
+# binaries from a plain cmd/PowerShell environment (dev mode from source, or
+# PyInstaller bundle at install time). Complete transitive-closure list:
+#   libpng16-16.dll   (linked by thames)          -> zlib1.dll
+#   libwinpthread-1.dll (linked by micgen and thames)
+#   libgcc_s_seh-1.dll (linked by thames)         -> libwinpthread-1.dll
+#   libstdc++-6.dll    (linked by thames)         -> libgcc_s_seh-1.dll,
+#                                                    libwinpthread-1.dll
+#   zlib1.dll         (transitive via libpng)
+for _dll in libpng16-16.dll libwinpthread-1.dll libgcc_s_seh-1.dll libstdc++-6.dll zlib1.dll; do
+    if [ ! -f "$BIN_DIR/$_dll" ]; then
+        if [ -f "/c/msys64/mingw64/bin/$_dll" ]; then
+            cp "/c/msys64/mingw64/bin/$_dll" "$BIN_DIR/"
+            echo "Copied $_dll to bin/"
+        else
+            echo "WARNING: $_dll not found in MSYS2 mingw64"
+        fi
     fi
-fi
+done
 
 echo ""
 echo "========================================="
