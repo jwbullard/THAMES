@@ -22,8 +22,8 @@
 ;   expected and documented in the alpha tester README.
 
 #define MyAppName "THAMES"
-#define MyAppVersion "1.0.0-alpha.2"
-#define MyAppVersionDisplay "1.0.0 (alpha 2)"
+#define MyAppVersion "1.0.0-alpha.2.1"
+#define MyAppVersionDisplay "1.0.0 (alpha 2, hotfix 1)"
 #define MyAppPublisher "Texas A&M University"
 #define MyAppURL "https://github.com/jwbullard/THAMES"
 #define MyAppExeName "THAMES.exe"

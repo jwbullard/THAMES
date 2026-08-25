@@ -20,10 +20,23 @@ if IS_WINDOWS:
     # in bin/ at the repo root — kept in sync by build-windows.sh — and are
     # bundled to bin/ inside the packaged app. Code paths that locate them go
     # through DirectoriesService.bin_path, which resolves both layouts.
+    # MSYS2 runtime DLLs must live in bin/ alongside micgen.exe/thames.exe --
+    # NOT just in _internal/ root -- because when the packaged app spawns
+    # micgen via subprocess.Popen, Windows searches the child executable's
+    # directory (bin/) for its DLL closure. DLLs elsewhere in _internal/ are
+    # unreliable across launch environments. Session 62: this closes the same
+    # class of gap that Session 61 closed for source-mode (build-windows.sh
+    # copies the same 5 DLLs to bin/). The gtk_dlls glob at ~line 57 still
+    # captures MSYS2 GTK stack into _internal/ root for the Python launcher's
+    # own DLL closure; this list is specifically about micgen/thames.
     platform_binaries = [
-        ('bin/thames.exe', 'bin/'),
-        ('bin/micgen.exe', 'bin/'),
-        ('bin/libpng16-16.dll', 'bin/'),
+        ('bin/thames.exe',          'bin/'),
+        ('bin/micgen.exe',          'bin/'),
+        ('bin/libpng16-16.dll',     'bin/'),
+        ('bin/libwinpthread-1.dll', 'bin/'),  # micgen + thames
+        ('bin/libgcc_s_seh-1.dll',  'bin/'),  # thames
+        ('bin/libstdc++-6.dll',     'bin/'),  # thames
+        ('bin/zlib1.dll',           'bin/'),  # transitive via libpng
     ]
 elif IS_MACOS:
     # THAMES on macOS ships the same two compiled backends as Windows: the C++
