@@ -759,7 +759,13 @@ Option (1) alone should suffice for most cases because GEMS's equilibrium solve 
 
 ---
 
-### Windows UI auto-includes glass phases as hydration products — probably Bug A's root cause
+### Windows UI auto-includes glass phases as hydration products — LANDED 2026-08-24 (Session 61 DB migration)
+
+**Resolution.** The "auto-injection" was purely the DB-composition path (ClassF-FlyAsh material_phase rows still held bare glass names post-S59 rename), not a UI-side default. Session 61's migration `20260824_01_glass_phase_am_rename` renames all bare glass phase entries to (am) form; Session 62 verified with a fresh fly-ash hydration that no bare glass names appear in the pipeline. No UI-side fix needed.
+
+**Original entry follows:**
+
+
 
 **Identified:** 2026-08-21 (Session 58, Jeff's Zoom with NIST user)
 
@@ -926,7 +932,13 @@ Recommend (1) as smallest change with highest clarity gain.
 
 ---
 
-### Ferrite / small-phase late-age hard abort: `keepNumDCMoles < 0` in KineticController
+### Ferrite / small-phase late-age hard abort: `keepNumDCMoles < 0` in KineticController — LANDED 2026-08-25 (Session 62)
+
+**Resolution.** Session 62 replaced the `exit(0)` in `KineticController::calculateKineticStep` with a physical-realizability clamp: when the kinetic law requests more DC moles than are available, clamp to `DCMoles_[DCId]` (dissolve exactly what's left) and emit a WARNING to `thames.log`. The `commitSolidICTransfer` call was reordered to run AFTER the clamp so the aqueous IC side receives the clamped (not the over-large) transfer. Verified end-to-end on cem152-fa fly-ash 28-day hydration: 672 h simulation completed in 1956 cycles with 332 clamp warnings, exit_code=0, 100% adaptive-controller success rate. Original abort was at cycle 637; run reached cycle 1956 without a single abort.
+
+**Original entry follows:**
+
+
 
 **Identified:** 2026-08-24 (Session 61, `S61-ref-win-flyash` hydration on cem152 + ClassF-FlyAsh)
 
@@ -947,7 +959,13 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 ---
 
-### run_metadata.json not finalized on KineticController abort path
+### run_metadata.json not finalized on KineticController abort path — LANDED 2026-08-25 (Session 62)
+
+**Resolution.** Session 62 addressed both KineticController exit paths in `calculateKineticStep`. The `keepNumDCMoles < 0` path is no longer an abort at all (replaced by the depletion clamp above). The remaining `scaledMass < 0` path (mass/moles bookkeeping inconsistency, kept as a genuine failure signal) now calls `runmeta::finalize(1, "KineticController::calculateKineticStep: scaledMass < 0", diagnostics)` before its `exit(1)` — matching the pattern in thames.cc ChemicalSystem catch blocks. `exit(0)` also flipped to `exit(1)` since this is a real failure. Any future extension of KineticController abort paths should follow the same pattern.
+
+**Original entry follows:**
+
+
 
 **Identified:** 2026-08-24 (Session 61, same `S61-ref-win-flyash` run as above)
 
