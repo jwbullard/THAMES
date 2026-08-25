@@ -977,3 +977,21 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 **Impact.** Alpha testers report failures without a machine-readable exit reason for this class, forcing manual `thames.log` inspection. Easy fix; keep close to whichever session next touches the kinetics-error paths.
 
+---
+
+### Phase connectivity calculator on the Results page returns erroneous results
+
+**Identified:** 2026-08-25 (Session 62, noted verbally by Jeff during NIST-patch shipping)
+
+**Symptom.** The phase connectivity calculator accessible from the Results page appears to return incorrect numbers. Not yet characterized in detail — Jeff will supply a concrete reproducer (which microstructure, which phase(s), what "correct" vs observed values look like) when this item is next picked up.
+
+**Priority.** Not blocking the NIST alpha-2.1 hotfix distribution. Investigation queued for the session after the hotfix is out.
+
+**Where to look first.** The Results page's phase-connectivity plumbing likely goes through one of:
+- `src/app/windows/panels/operations_monitoring_panel.py` (results/analysis tabs)
+- `src/app/windows/dialogs/hydration_results_viewer.py`
+- `src/app/services/*.py` for any connectivity/percolation-related service
+- Possibly a native backend call to `bin/thames` in a connectivity submode, or the legacy `backend/bin-linux/perc3d` binary listed in `thames-windows.spec` (not currently used on Windows/macOS builds -- worth confirming which code path actually runs)
+
+**Investigation plan (when picked up).** (1) Reproduce with Jeff's concrete case. (2) Trace the UI call chain from the "calculate connectivity" button/menu to the actual computation. (3) Compare against a known-good reference (Jeff's memory of how VCCTL's percolation numbers look, or an independent hand-calculation on a small microstructure). (4) Fix wherever the arithmetic or the interpretation diverges.
+
