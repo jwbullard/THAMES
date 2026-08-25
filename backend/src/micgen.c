@@ -6566,6 +6566,38 @@ int rand3d(int phasein, int phaseout, char filecorr[MAXSTRING], int nskip,
   sdiff = ss - s2;
   if (Verbose)
     fprintf(Logfile, "\n\tss = %f  s2 = %f  sdiff = %f", ss, s2, sdiff);
+
+  /* Degenerate-correlation guard (Session 62). If sdiff is at or near zero,
+   * the correlation function carries no distinguishing spatial-structure
+   * signal -- typically because the correlation file has all-zero values
+   * (a legitimate case for cements with a zero-content phase, e.g. K2O in
+   * cement151). Building filter[i][j][k] = (filval - s2) / sdiff below
+   * would divide by zero, produce NaN, and segfault downstream. Log a
+   * warning and return a non-zero code so the caller aborts cleanly with
+   * an actionable message instead of a SIGSEGV.
+   *
+   * The primary fix for this class of bug is in the Python UI's
+   * micgen_input_service::_write_correlation_files, which now skips
+   * writing degenerate BLOBs so micgen never sees the file (and its
+   * existing alumdo/k2so4do missing-file handler applies). This guard is
+   * defense-in-depth for hand-crafted or corrupted correlation files. */
+  if (fabs(sdiff) < 1.0e-12) {
+    fprintf(stderr,
+            "\nERROR rand3d: correlation file %s is degenerate\n"
+            "\t(sdiff = %g; all values near zero). Delete or replace the\n"
+            "\tfile; a legitimately zero-content phase should not have a\n"
+            "\tcorrelation file at all -- the Python UI writer already\n"
+            "\tskips these. Exiting now.\n",
+            filecorr, sdiff);
+    fprintf(Logfile,
+            "\nERROR rand3d: correlation file %s is degenerate "
+            "(sdiff = %g); returning error.\n",
+            filecorr, sdiff);
+    fflush(stderr);
+    fflush(Logfile);
+    fclose(corrfile);
+    return (4);
+  }
   for (i = 0; i < Fsize; i++) {
     iii = i * i;
     for (j = 0; j < Fsize; j++) {

@@ -33,6 +33,56 @@ class MicgenInputGenerationError(Exception):
     pass
 
 
+# Threshold below which a correlation-function value is considered zero.
+# Correlation files store per-radius values as text; measurement noise is
+# typically 1e-6 or larger, so 1e-9 is well below any real signal.
+_CORRELATION_ZERO_THRESHOLD = 1e-9
+
+
+def _correlation_blob_is_degenerate(blob: bytes) -> bool:
+    """Return True if a correlation BLOB has all values near zero (or is
+    otherwise unparseable), meaning it carries no spatial-structure signal
+    and should be treated the same as a missing file.
+
+    Correlation-file text format (one header line + N pairs):
+        N
+        r_0  s_0
+        r_1  s_1
+        ...
+        r_{N-1}  s_{N-1}
+
+    A file is degenerate if EITHER (a) parsing fails / the file has no
+    value rows, OR (b) every second-column value is at or below
+    _CORRELATION_ZERO_THRESHOLD in magnitude. Cements with a zero-content
+    phase (e.g. cement151 K2O = 0.0%) legitimately have this shape and
+    would cause micgen to divide by zero at
+    filter[i][j][k] = (filval - s2) / sdiff  in rand3d, then segfault.
+    """
+    if blob is None or len(blob) == 0:
+        return True
+    try:
+        text = blob.decode('utf-8', errors='replace')
+    except Exception:
+        return True
+
+    saw_value_row = False
+    for line in text.splitlines():
+        parts = line.strip().split()
+        # First line is the count; skip. Content lines have 2 tokens.
+        if len(parts) != 2:
+            continue
+        try:
+            value = float(parts[1])
+        except ValueError:
+            continue
+        saw_value_row = True
+        if abs(value) > _CORRELATION_ZERO_THRESHOLD:
+            return False  # at least one real signal — not degenerate
+
+    # Either no parseable value rows, or every row was near zero.
+    return True
+
+
 class MicgenInputService:
     """
     Service for generating micgen input files from THAMES Mix Design objects.
@@ -1535,12 +1585,31 @@ class MicgenInputService:
 
         # Write each correlation BLOB to file
         # Note: Some cements may not have all correlation files - this is OK
-        # micgen.c will use defaults or skip missing correlations
+        # micgen.c will use defaults or skip missing correlations (via its
+        # alumdo/k2so4do flags — see backend/src/micgen.c distrib3d body).
         files_written = 0
         for ext, blob in correlation_files.items():
             if blob is None or len(blob) == 0:
                 logger.warning(
                     f"Correlation function '{ext}' is missing for clinker '{clinker_name}' - skipping"
+                )
+                continue
+
+            # Detect all-zero / malformed correlation content and treat it as
+            # if the file were missing. Session 62 root cause: cement151.k2o
+            # has 60 lines of "N 0.000000" (cement has no K2O). Writing the
+            # file causes micgen's rand3d to compute sdiff = s[0]-s[0]^2 = 0,
+            # then divide by zero at "filter[i][j][k] = (filval - s2) / sdiff",
+            # producing NaN and segfaulting downstream. By not writing the
+            # file at all, micgen's existing missing-file handler sets the
+            # skip flag and treats the phase as absent — which is correct
+            # for a zero-content phase.
+            if _correlation_blob_is_degenerate(blob):
+                logger.warning(
+                    f"Correlation function '{ext}' for clinker '{clinker_name}' "
+                    f"is degenerate (all values near zero); treating as absent "
+                    f"and skipping write. Micgen will skip this phase via its "
+                    f"missing-file handler."
                 )
                 continue
 
