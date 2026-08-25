@@ -66,7 +66,14 @@
       "Read(//Users/jwbullard/Code/**)",
       "Bash(cp src/thameslib/ChemicalSystem.cc.symfix src/thameslib/ChemicalSystem.cc)",
       "Bash(rm src/thameslib/ChemicalSystem.cc.symfix)",
-      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/S61-ref-mac-today/**)"
+      "Read(//Users/jwbullard/Library/Application Support/THAMES/operations/S61-ref-mac-today/**)",
+      "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/thames.db\"; ls -la \"$DB\"; echo \"---\"; sqlite3 \"$DB\" \"SELECT * FROM applied_migrations;\" 2>&1; echo \"---\"; sqlite3 \"$DB\" \"SELECT gem_phase_name, COUNT\\(*\\) FROM material_phase WHERE gem_phase_name IN \\('C2AS','CA2S','CAS','CAS2','K6A2S','C2AS\\(am\\)','CA2S\\(am\\)','CAS\\(am\\)','CAS2\\(am\\)','K6A2S\\(am\\)'\\) GROUP BY gem_phase_name;\" 2>&1)",
+      "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/database/thames.db\"; ls -la \"$DB\"; echo \"---\"; sqlite3 \"$DB\" \"SELECT * FROM applied_migrations;\" 2>&1; echo \"---\"; sqlite3 \"$DB\" \"SELECT gem_phase_name, COUNT\\(*\\) FROM material_phase WHERE gem_phase_name IN \\('C2AS','CA2S','CAS','CAS2','K6A2S','C2AS\\(am\\)','CA2S\\(am\\)','CAS\\(am\\)','CAS2\\(am\\)','K6A2S\\(am\\)'\\) GROUP BY gem_phase_name;\" 2>&1)",
+      "Bash(sqlite3 '/Users/jwbullard/Library/Application Support/THAMES/database/thames.db' 'SELECT name FROM sqlite_master WHERE type='\\\\''table'\\\\'' ORDER BY name;')",
+      "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/database/thames.db\"; sqlite3 \"$DB\" \"SELECT name FROM migrations;\" 2>&1; echo \"---schema material_phase---\"; sqlite3 \"$DB\" \".schema material_phase\" 2>&1; echo \"---bare glass rows---\"; sqlite3 \"$DB\" \"SELECT mp.material_id, mp.gem_phase_name, m.name FROM material_phase mp JOIN material m ON mp.material_id = m.id WHERE mp.gem_phase_name IN \\('C2AS','CA2S','CAS','CAS2','K6A2S'\\);\" 2>&1)",
+      "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/database/thames.db\"; sqlite3 \"$DB\" \".schema migrations\" && echo \"---\"; sqlite3 \"$DB\" \"SELECT * FROM migrations;\")",
+      "Bash(bin/thames --version)",
+      "Bash(bin/thames)"
     ]
   }
 }

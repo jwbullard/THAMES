@@ -995,3 +995,25 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 **Investigation plan (when picked up).** (1) Reproduce with Jeff's concrete case. (2) Trace the UI call chain from the "calculate connectivity" button/menu to the actual computation. (3) Compare against a known-good reference (Jeff's memory of how VCCTL's percolation numbers look, or an independent hand-calculation on a small microstructure). (4) Fix wherever the arithmetic or the interpretation diverges.
 
+---
+
+### Startup migration wire-up: no test guards the "does upgrade_database() actually get called?" invariant — LANDED 2026-08-25 (Session 63)
+
+**Resolution.** Session 63 wired `MigrationManager.upgrade_database()` into `ServiceContainer.__init__` right after `self.database_service = self.db_service`. Idempotent, wrapped in try/except so a migration failure doesn't black-screen the app; error is logged. Verified by instantiating `ServiceContainer()` from a fresh Python interpreter and observing the six-migration enumeration in the log. This closes the immediate gap but not the class of bug.
+
+**Original entry follows:**
+
+
+
+**Identified:** 2026-08-25 (Session 63, discovered during macOS verification of the S61+S62 Windows-hotfix bundle).
+
+**Symptom.** The S61 glass-phase (am) rename migration (`20260824_01_glass_phase_am_rename`) was authored in `src/app/database/migrations.py::MigrationManager.upgrade_database()` and its commit message stated it "runs at app launch." In fact it never ran on any Mac install between 2026-08-24 and 2026-08-25, because `MigrationManager.upgrade_database()` had **zero live callers anywhere in the app** — the only references in the codebase were the definition itself, an `__init__.py` re-export, and the `create_migration_manager` factory. `ServiceContainer.__init__` stored the `db_service` reference but never triggered the migration pass, and `DatabaseService.initialize_database()` only calls `create_all_tables()` + `_initialize_default_data()`, not the migration manager. Result: any pre-existing Mac DB (including Jeff's) kept bare glass names in `material_phase` even after `git pull`. The Windows S62 verification happened to work through a different path (the alpha-2.1 Inno Setup installer replaced the user DB with a post-S59 seed DB).
+
+**Root cause.** The migration-registration path (`if <version> not in applied_migrations: self._apply_<name>()`) is one half of a two-step pattern; the other half (calling `upgrade_database()` at app launch) is written once and then presumed permanent. Nothing in the test suite or in the CI pipeline asserts that the launch path actually reaches `upgrade_database()`. Historical evidence: the DB carried migrations `002_add_mix_design_table` (Aug 2025) and `20250906_001` (Sep 2025), so some caller USED to exist and was later removed without noticing.
+
+**Proposed fix.** (a) Add a smoke test that instantiates `ServiceContainer()` on an empty temp DB, then asserts the DB contains the expected set of applied migrations. Runs in seconds; would have caught this immediately in S61. (b) Optionally, refactor the two-step pattern into a single registry-driven loop as suggested in the "Phase renames require matching DB migration" item above — one `_MIGRATIONS = [...]` list + one `for (version, apply_fn) in _MIGRATIONS` loop, so adding a migration is a one-touch change and forgetting to wire the loop would break every migration at once (very visible), not silently the newest one only.
+
+**Files.** `src/app/services/service_container.py` (wire-up already landed), `tests/` (new startup-migration smoke test), `src/app/database/migrations.py` (optional registry refactor).
+
+**Related.** See the "Phase renames require matching DB migration" LANDED item above — that entry proposed the registry refactor as an optional improvement. Session 63 elevates it: the LANDED wire-up is a point fix, but without either the smoke test or the registry refactor the class of bug is still open (the next author of `upgrade_database` could regress the wire-up unnoticed).
+

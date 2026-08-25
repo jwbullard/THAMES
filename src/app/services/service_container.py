@@ -55,7 +55,23 @@ class ServiceContainer:
         self.logger = logging.getLogger('VCCTL.ServiceContainer')
         self.db_service = db_service or database_service
         self.database_service = self.db_service  # Alias for compatibility
-        
+
+        # Run any pending schema migrations before any other service touches
+        # the DB. MigrationManager.upgrade_database() is idempotent: applied
+        # migrations are skipped, missing ones are applied. Without this the
+        # migration path is dead code -- e.g. the S61 glass-phase (am) rename
+        # migration was authored to run at startup but had no live caller,
+        # leaving Bug A latent on any DB that predated the seed rebuild.
+        try:
+            from app.database.migrations import create_migration_manager
+            migration_manager = create_migration_manager(self.db_service)
+            migration_manager.upgrade_database()
+        except Exception as e:
+            # Don't re-raise: keep the app launchable if migrations error out.
+            # Data-integrity issues will surface downstream where the user can
+            # act on them, rather than at a black-screen startup failure.
+            self.logger.error(f"Migration upgrade failed at startup: {e}")
+
         # Initialize configuration and core services
         self._config_manager = None
         self._directories_service = None
