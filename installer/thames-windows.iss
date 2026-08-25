@@ -48,7 +48,7 @@ DisableProgramGroupPage=yes
 AllowNoIcons=yes
 ; --- Output artifact ---
 OutputDir=..\dist
-OutputBaseFilename=THAMES-{#MyAppVersion}-setup
+OutputBaseFilename=THAMES-{#MyAppVersion}-win64-setup
 Compression=lzma2/ultra
 SolidCompression=yes
 WizardStyle=modern
