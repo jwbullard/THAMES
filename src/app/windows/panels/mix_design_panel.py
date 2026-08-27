@@ -487,23 +487,21 @@ class MixDesignPanel(Gtk.Box):
             fine_aggregates = self.mix_service.get_fine_aggregates()
             for aggregate_name in sorted(fine_aggregates):
                 self.fine_agg_combo.append(aggregate_name, aggregate_name)
-            # Set default to highest fine aggregate in list (last item), or placeholder if no aggregates
-            if fine_aggregates:
-                self.fine_agg_combo.set_active(len(fine_aggregates))  # Last aggregate (after placeholder at index 0)
-            else:
-                self.fine_agg_combo.set_active(0)
-            
-            # Coarse aggregate combo - only coarse aggregates (type = 1) 
+            # Default to the placeholder. Auto-selecting a real aggregate
+            # (previous behavior: last alphabetical entry) caused the
+            # orphan-aggregate warning dialog to fire on every Portland-only
+            # mix because fine_aggregate_name was persisted while mass = 0.
+            # Users creating concrete mixes must now explicitly pick one.
+            self.fine_agg_combo.set_active(0)
+
+            # Coarse aggregate combo - only coarse aggregates (type = 1)
             self.coarse_agg_combo.remove_all()
             self.coarse_agg_combo.append("", "-- Select Coarse Aggregate --")
             coarse_aggregates = self.mix_service.get_coarse_aggregates()
             for aggregate_name in sorted(coarse_aggregates):
                 self.coarse_agg_combo.append(aggregate_name, aggregate_name)
-            # Set default to highest coarse aggregate in list (last item), or placeholder if no aggregates
-            if coarse_aggregates:
-                self.coarse_agg_combo.set_active(len(coarse_aggregates))  # Last aggregate (after placeholder at index 0)
-            else:
-                self.coarse_agg_combo.set_active(0)
+            # Default to the placeholder; same rationale as fine aggregate above.
+            self.coarse_agg_combo.set_active(0)
             
             self.logger.info("Loaded material lists for mix design")
 
@@ -2109,53 +2107,11 @@ class MixDesignPanel(Gtk.Box):
             if has_aggregate:
                 self.logger.info("Aggregate detected in mix - will add aggregate slab to microstructure")
 
-            # Warn if aggregate metadata is set but mass is 0 — the slab won't be placed
-            # and downstream concelas post-processing will have nothing to work with.
-            orphan_fine = (
-                db_mix_design.fine_aggregate_name
-                and (db_mix_design.fine_aggregate_mass or 0.0) == 0.0
-            )
-            orphan_coarse = (
-                db_mix_design.coarse_aggregate_name
-                and (db_mix_design.coarse_aggregate_mass or 0.0) == 0.0
-            )
-            if orphan_fine or orphan_coarse:
-                details = []
-                if orphan_fine:
-                    details.append(
-                        f"Fine aggregate '{db_mix_design.fine_aggregate_name}' has mass = 0."
-                    )
-                if orphan_coarse:
-                    details.append(
-                        f"Coarse aggregate '{db_mix_design.coarse_aggregate_name}' has mass = 0."
-                    )
-                warn_text = (
-                    "\n".join(details)
-                    + "\n\nThe aggregate will NOT be placed in the microstructure "
-                    "(micgen only adds an aggregate slab when at least one "
-                    "aggregate has a non-zero mass). Concrete-scale elastic moduli "
-                    "(concelas) will also be skipped for this microstructure.\n\n"
-                    "Proceed anyway, or cancel and set an aggregate mass?"
-                )
-                dialog = Gtk.MessageDialog(
-                    transient_for=self.main_window,
-                    message_type=Gtk.MessageType.WARNING,
-                    buttons=Gtk.ButtonsType.OK_CANCEL,
-                    text="Aggregate specified but mass is zero",
-                )
-                dialog.format_secondary_text(warn_text)
-                response = dialog.run()
-                dialog.destroy()
-                if response != Gtk.ResponseType.OK:
-                    self.logger.info(
-                        "User cancelled microstructure generation due to orphan aggregate metadata"
-                    )
-                    self.main_window.update_status(
-                        "Microstructure generation cancelled - set aggregate mass in Mix Design",
-                        "info",
-                        5,
-                    )
-                    return
+            # (Prior "orphan aggregate" warning dialog removed in S64: the
+            # aggregate combos are enable-gated on the corresponding mass
+            # being non-zero, and revert to the "-- Select --" placeholder
+            # when mass drops to 0. An orphan (name set, mass 0) is
+            # unreachable through the UI, so the dialog was dead code.)
 
             # Get shape database path for real-shape particles
             # Check if any material in the mix uses real shapes (particle_shape_type = 1)

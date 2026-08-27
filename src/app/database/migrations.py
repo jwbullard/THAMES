@@ -300,6 +300,52 @@ class MigrationManager:
             self.logger.error(f"Failed to apply glass-phase (am) rename migration: {e}")
             raise
 
+    def _apply_clear_orphan_aggregate_names_migration(self) -> None:
+        """Clear orphan aggregate name references in the mix_design table.
+
+        Session 64 changed the Mix Design panel to default the fine/coarse
+        aggregate dropdowns to the "-- Select --" placeholder instead of
+        auto-selecting the last alphabetical entry. Every mix created under
+        the old default silently persisted a real aggregate name
+        (MA114F-3-fine, MA99BC-5-coarse) with mass = 0. That combination
+        triggered the "aggregate specified but mass is zero" warning
+        dialog on every Create Mix click, and produced Aggregate:8 entries
+        in downstream phase mappings for Portland-only mixes.
+
+        This migration clears the orphan aggregate names on existing
+        databases so testers upgrading in place from alpha-2 / alpha-2.1
+        don't keep hitting the dialog on their pre-existing mixes.
+
+        Idempotent: the WHERE clause excludes rows that are already clean
+        (empty or NULL name, or non-zero mass). Re-running is a no-op.
+
+        Safety: intentional-concrete mixes are untouched because the
+        `fine_aggregate_mass = 0.0` guard eliminates them; the surviving
+        mixes with mass > 0 keep their aggregate name unchanged.
+        """
+        try:
+            self.logger.info("Applying orphan-aggregate-name cleanup migration...")
+            sql = """
+            UPDATE mix_design
+               SET fine_aggregate_name = ''
+             WHERE fine_aggregate_name != ''
+               AND fine_aggregate_name IS NOT NULL
+               AND (fine_aggregate_mass IS NULL OR fine_aggregate_mass = 0.0);
+            UPDATE mix_design
+               SET coarse_aggregate_name = ''
+             WHERE coarse_aggregate_name != ''
+               AND coarse_aggregate_name IS NOT NULL
+               AND (coarse_aggregate_mass IS NULL OR coarse_aggregate_mass = 0.0);
+            """
+            self.run_sql_migration(
+                sql,
+                "20260827_01_clear_orphan_aggregate_names",
+                "Clear fine/coarse aggregate names when mass = 0 (S64 follow-up)"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to apply orphan-aggregate cleanup migration: {e}")
+            raise
+
     def _apply_mix_design_migration(self) -> None:
         """Apply migration to add mix_design table."""
         try:
@@ -500,6 +546,10 @@ class MigrationManager:
                 # Check for glass-phase (am) rename migration (S59 follow-up)
                 if "20260824_01_glass_phase_am_rename" not in applied_migrations:
                     self._apply_glass_phase_am_rename_migration()
+
+                # Check for orphan-aggregate cleanup migration (S64 follow-up)
+                if "20260827_01_clear_orphan_aggregate_names" not in applied_migrations:
+                    self._apply_clear_orphan_aggregate_names_migration()
 
                 self.logger.info(f"Current version: {version_info['current_version']}")
                 self.logger.info(f"Applied migrations: {version_info['applied_migrations']}")

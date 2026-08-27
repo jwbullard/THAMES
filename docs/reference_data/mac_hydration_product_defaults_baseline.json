@@ -1,0 +1,299 @@
+{
+  "captured_on": "macOS",
+  "platform_release": "25.6.0",
+  "python_version": "3.14.7",
+  "git_hash": "44f7b5eee196",
+  "note": "Baseline of hydration-product default suggestions per cement type. To diff Windows: run this same enumeration on Windows and compare. Source-derived (no live UI needed). See project_hydration_product_defaults_windows_diff memory for the driver snippet.",
+  "suggested_products_by_cement_type": {
+    "portland": [
+      "CSHQ",
+      "Portlandite",
+      "ettr",
+      "ettr-AlFe",
+      "monosulf-AlFe",
+      "C4AsH12",
+      "C4AsH14",
+      "C3AH6",
+      "C4AH13"
+    ],
+    "blended": [
+      "CSHQ",
+      "Portlandite",
+      "ettr",
+      "monosulf-AlFe",
+      "Hydrotalc-pyr",
+      "hydrotalcite"
+    ],
+    "pozzolanic": [
+      "CSHQ",
+      "Portlandite",
+      "C3(AF)S0.84H",
+      "Mullite",
+      "Sfume",
+      "K6A2S(am)",
+      "CAS(am)",
+      "CA2S(am)",
+      "C2AS(am)",
+      "CAS2(am)",
+      "straetlingite",
+      "C2ASH55"
+    ],
+    "limestone": [
+      "CSHQ",
+      "Portlandite",
+      "C4AcH11",
+      "C4Ac0.5H12",
+      "SO4_CO3_AFt",
+      "Calcite"
+    ],
+    "slag": [
+      "CSHQ",
+      "Portlandite",
+      "Hydrotalc-pyr",
+      "hydrotalcite",
+      "MSH",
+      "Brucite"
+    ]
+  },
+  "suggested_products_dict_keys": [
+    "CSHQ",
+    "Portlandite",
+    "ettr",
+    "ettr-AlFe",
+    "monosulf-AlFe",
+    "C4AsH12",
+    "C4AsH14",
+    "C4AcH11",
+    "C4Ac0.5H12",
+    "C3AH6",
+    "C4AH13",
+    "Hydrotalc-pyr",
+    "hydrotalcite"
+  ],
+  "additional_products_dict_keys": [
+    "C6AsH13",
+    "C6AsH9",
+    "SO4_CO3_AFt",
+    "C4AsH105",
+    "C4AsH16",
+    "C4AsH9",
+    "C4Ac0.5H105",
+    "C4Ac0.5H9",
+    "C4AcH9",
+    "C4AH11",
+    "C4AH19",
+    "C3FH6",
+    "C4FH13",
+    "Chabazite",
+    "ZeoliteP",
+    "C3(AF)S0.84H",
+    "MSH",
+    "Brucite",
+    "Calcite",
+    "Friedels",
+    "Kuzels",
+    "ZeoliteX",
+    "ZeoliteY",
+    "zeoliteP_Ca",
+    "Forsterite",
+    "Fayalite",
+    "Mullite",
+    "Diopside",
+    "Albite",
+    "Anorthite",
+    "Sfume",
+    "K6A2S(am)",
+    "CAS(am)",
+    "CA2S(am)",
+    "C2AS(am)",
+    "CAS2(am)",
+    "Al(OH)3am",
+    "Al(OH)3mic",
+    "Gibbsite",
+    "Aragonite",
+    "Dolomite-dis",
+    "Dolomite-ord",
+    "Magnesite",
+    "Siderite",
+    "Fe-carbonate",
+    "C2AH75",
+    "CAH10",
+    "straetlingite",
+    "C2ASH55",
+    "C3FS0.84H4.32",
+    "C3FS1.34H3.32",
+    "C4Fc05H10",
+    "C4FcH12",
+    "Goethite",
+    "Hematite",
+    "Magnetite",
+    "Ferrihyd-am",
+    "Ferrihyd-mc",
+    "thaumasite",
+    "syngenite",
+    "Natrolite",
+    "Kaolinite",
+    "Periclase",
+    "Melanterite",
+    "Pyrrhotite",
+    "Troilite",
+    "Sulphur",
+    "lime"
+  ],
+  "all_products_combined_count": 81,
+  "known_duplicates_in_defaults_history": [
+    {
+      "pair": [
+        "hydrotalcite",
+        "OH-hydrotalc"
+      ],
+      "note": "Real UI-alias duplicate \u2014 both mapped to gems_name=OH-hydrotalc (Mg-Al LDH), so slag defaults listed the same phase twice.",
+      "status": "FIXED 2026-08-27 Session 64 by removing the OH-hydrotalc UI entry from ADDITIONAL_PRODUCTS. hydrotalcite (SUGGESTED_PRODUCTS) survives and covers slag + blended."
+    }
+  ],
+  "not_a_duplicate_note": "Hydrotalc-pyr and hydrotalcite appearing in the blended cement default list are chemically distinct phases (Mg-Fe pyroaurite vs Mg-Al hydrotalcite) and both are expected to form in blended-cement systems. My S58 notes framed them as duplicates; that was wrong.",
+  "suggested_for_tags_per_phase": {
+    "CSHQ": [
+      "portland",
+      "blended",
+      "pozzolanic"
+    ],
+    "Portlandite": [
+      "portland",
+      "blended"
+    ],
+    "ettr": [
+      "portland",
+      "blended"
+    ],
+    "ettr-AlFe": [
+      "portland"
+    ],
+    "monosulf-AlFe": [
+      "portland",
+      "blended"
+    ],
+    "C4AsH12": [
+      "portland"
+    ],
+    "C4AsH14": [
+      "portland"
+    ],
+    "C4AcH11": [
+      "limestone"
+    ],
+    "C4Ac0.5H12": [
+      "limestone"
+    ],
+    "C3AH6": [
+      "portland"
+    ],
+    "C4AH13": [
+      "portland"
+    ],
+    "Hydrotalc-pyr": [
+      "slag",
+      "blended"
+    ],
+    "hydrotalcite": [
+      "slag",
+      "blended"
+    ],
+    "C6AsH13": [],
+    "C6AsH9": [],
+    "SO4_CO3_AFt": [
+      "limestone"
+    ],
+    "C4AsH105": [],
+    "C4AsH16": [],
+    "C4AsH9": [],
+    "C4Ac0.5H105": [],
+    "C4Ac0.5H9": [],
+    "C4AcH9": [],
+    "C4AH11": [],
+    "C4AH19": [],
+    "C3FH6": [],
+    "C4FH13": [],
+    "Chabazite": [],
+    "ZeoliteP": [],
+    "C3(AF)S0.84H": [
+      "pozzolanic"
+    ],
+    "MSH": [
+      "slag"
+    ],
+    "Brucite": [
+      "slag"
+    ],
+    "Calcite": [
+      "limestone"
+    ],
+    "Friedels": [],
+    "Kuzels": [],
+    "ZeoliteX": [],
+    "ZeoliteY": [],
+    "zeoliteP_Ca": [],
+    "Forsterite": [],
+    "Fayalite": [],
+    "Mullite": [
+      "pozzolanic"
+    ],
+    "Diopside": [],
+    "Albite": [],
+    "Anorthite": [],
+    "Sfume": [
+      "pozzolanic"
+    ],
+    "K6A2S(am)": [
+      "pozzolanic"
+    ],
+    "CAS(am)": [
+      "pozzolanic"
+    ],
+    "CA2S(am)": [
+      "pozzolanic"
+    ],
+    "C2AS(am)": [
+      "pozzolanic"
+    ],
+    "CAS2(am)": [
+      "pozzolanic"
+    ],
+    "Al(OH)3am": [],
+    "Al(OH)3mic": [],
+    "Gibbsite": [],
+    "Aragonite": [],
+    "Dolomite-dis": [],
+    "Dolomite-ord": [],
+    "Magnesite": [],
+    "Siderite": [],
+    "Fe-carbonate": [],
+    "C2AH75": [],
+    "CAH10": [],
+    "straetlingite": [
+      "pozzolanic"
+    ],
+    "C2ASH55": [
+      "pozzolanic"
+    ],
+    "C3FS0.84H4.32": [],
+    "C3FS1.34H3.32": [],
+    "C4Fc05H10": [],
+    "C4FcH12": [],
+    "Goethite": [],
+    "Hematite": [],
+    "Magnetite": [],
+    "Ferrihyd-am": [],
+    "Ferrihyd-mc": [],
+    "thaumasite": [],
+    "syngenite": [],
+    "Natrolite": [],
+    "Kaolinite": [],
+    "Periclase": [],
+    "Melanterite": [],
+    "Pyrrhotite": [],
+    "Troilite": [],
+    "Sulphur": [],
+    "lime": []
+  }
+}

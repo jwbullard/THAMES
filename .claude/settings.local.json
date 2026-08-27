@@ -73,7 +73,9 @@
       "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/database/thames.db\"; sqlite3 \"$DB\" \"SELECT name FROM migrations;\" 2>&1; echo \"---schema material_phase---\"; sqlite3 \"$DB\" \".schema material_phase\" 2>&1; echo \"---bare glass rows---\"; sqlite3 \"$DB\" \"SELECT mp.material_id, mp.gem_phase_name, m.name FROM material_phase mp JOIN material m ON mp.material_id = m.id WHERE mp.gem_phase_name IN \\('C2AS','CA2S','CAS','CAS2','K6A2S'\\);\" 2>&1)",
       "Bash(DB=\"/Users/jwbullard/Library/Application Support/THAMES/database/thames.db\"; sqlite3 \"$DB\" \".schema migrations\" && echo \"---\"; sqlite3 \"$DB\" \"SELECT * FROM migrations;\")",
       "Bash(bin/thames --version)",
-      "Bash(bin/thames)"
+      "Bash(bin/thames)",
+      "Bash(sqlite3 *)",
+      "Bash(PYTHONPATH=src python3 -c ' *)"
     ]
   }
 }

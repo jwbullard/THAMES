@@ -1017,3 +1017,46 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 **Related.** See the "Phase renames require matching DB migration" LANDED item above — that entry proposed the registry refactor as an optional improvement. Session 63 elevates it: the LANDED wire-up is a point fix, but without either the smoke test or the registry refactor the class of bug is still open (the next author of `upgrade_database` could regress the wire-up unnoticed).
 
+---
+
+### Phantom hydrotalcite name `hydrotalc-pyro` (fictional) referenced in four files
+
+**Identified:** 2026-08-27 (Session 64, during hydration-product defaults baseline capture).
+
+**Symptom.** Four files reference a hydrotalcite key spelled `"hydrotalc-pyro"` (with trailing `o`) that does not exist as either a GEMS phase or a UI key in `HydrationProductsService`. The two real names are `Hydrotalc-pyr` (Mg-Fe pyroaurite, real GEMS phase) and `OH-hydrotalc` / `hydrotalcite` UI key (Mg-Al hydrotalcite, real GEMS phase). Lookups on the fictional name silently return `None` or fall through, producing no crash but also no effect — a maintainability landmine.
+
+**Occurrences.**
+- `src/app/windows/dialogs/affinity_editor_dialog.py:86` — appears in an affinity-editor phase list.
+- `src/app/services/hydration_input_service.py:672` — appears as a value in a translation dict.
+- `src/app/services/simparams_service.py:649` — appears as a key in a name-remap dict.
+- `src/app/services/phase_id_mapping_service.py:299` — appears in the default hydration-products list that reserves phase IDs.
+- `src/app/services/phase_color_service.py:162` — has a color assigned to it.
+
+**Root cause.** Either a historical typo that got copy-pasted across files before the naming was disciplined, or an older phase name that was later renamed in the GEMS DCH without back-propagation. The genuine S64 baseline fix (removing the `OH-hydrotalc` UI-alias duplicate in `slag`) does not clean these up.
+
+**Proposed fix.** Per-site decision: for each occurrence, either (a) replace `"hydrotalc-pyro"` with `"Hydrotalc-pyr"` (Mg-Fe pyroaurite) if the intent was that phase; (b) replace with `"OH-hydrotalc"` or `"hydrotalcite"` (Mg-Al) if the intent was the Mg-Al form; or (c) delete the reference if it's dead. The color-service entry probably wants (a) since the color is likely for the slag-cement Mg-Fe form. The phase_id_mapping default list wants (b) — the Mg-Al form is the more commonly-forming hydrotalcite in general OPC hydration.
+
+**Impact.** No functional bug today (lookups silently return None); a maintainability landmine that will bite whoever next tries to trace a hydrotalcite-related bug across the codebase. Small effort (~30 min) to sweep and fix all five sites once someone owns it.
+
+**Related.** [[project_hydration_product_defaults_windows_diff]] captured the S64 baseline that surfaced this. The genuine S58 Bug D (UI-alias duplicate `hydrotalcite` + `OH-hydrotalc` in `slag`) was fixed in S64; this phantom-name cleanup is the follow-on hygiene pass.
+
+---
+
+### Hydration panel: microstructure dropdown has no discernible sort order
+
+**Identified:** 2026-08-27 (Session 64, user-reported).
+
+**Symptom.** The starting-microstructure dropdown at the top of the Hydration panel lists available microstructure files in filesystem-directory-entry order (effectively random). Once a user has accumulated many operations, scanning the list to find a specific microstructure becomes tedious.
+
+**Where.** `src/app/windows/panels/thames_hydration_panel.py::_refresh_microstructure_list` (line 1002). Iteration `for op_dir in ops_dir.iterdir()` yields whatever order the OS gives back (inode / directory-entry on most filesystems), and matching microstructure files are appended to `self.microstructure_store` in that order. No sort step applied before display.
+
+**Desired behavior (best).** Sort descending by operation creation date, with the creation date rendered as part of the display string so users can eyeball recency without hovering. Example: `"2026-08-25  cem151-fa-1 / cem151-fa-1.thames.img"`. The date should come from the operation folder's mtime (or the microstructure file's mtime if that is more reliable — mixes are created together with their microstructure so both give the same date), formatted `YYYY-MM-DD` for stable width and unambiguous ordering.
+
+**Acceptable fallback.** Alphabetical sort on the display string. Cheaper to implement; loses the recency signal but at least makes the list scannable.
+
+**Proposed fix (best).** Change `_refresh_microstructure_list` to (a) collect the (display_name, path, mtime) tuples into a list rather than appending directly to the store, (b) sort the list by mtime descending, (c) render each display name with a leading date prefix, (d) append to the store in sorted order. ~15-line edit; no schema or migration impact.
+
+**Proposed fix (fallback).** Collect (display_name, path) tuples, sort by display_name, append. ~5-line edit.
+
+**Impact.** Pure UX improvement; no simulation results change; no data migration needed. Not blocking any release but a real friction point for anyone with more than a dozen operations in their user data directory.
+

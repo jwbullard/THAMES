@@ -980,15 +980,12 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         ],
     ),
 
-    # ----- Hydrotalcites -----
-    "OH-hydrotalc": HydrationProductData(
-        gems_name="OH-hydrotalc",
-        display_name="OH-Hydrotalcite",
-        category=ProductCategory.HYDROTALCITE,
-        description="Hydroxide hydrotalcite Mg-Al LDH",
-        suggested_for=["slag"],
-        default_affinity=[],
-    ),
+    # (The "OH-hydrotalc" UI entry that used to live here was a duplicate
+    # of the "hydrotalcite" entry in SUGGESTED_PRODUCTS — both mapped to
+    # gems_name="OH-hydrotalc" (Mg-Al layered double hydroxide), so `slag`
+    # defaults ended up listing the same phase twice. Removed 2026-08-27,
+    # Session 64. The surviving "hydrotalcite" entry covers both `slag`
+    # and `blended` cement types.)
 
     # ----- Iron Oxides/Hydroxides -----
     "Goethite": HydrationProductData(

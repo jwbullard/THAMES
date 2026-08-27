@@ -2736,199 +2736,252 @@ Distance: {distance_um:.2f} μm"""
             raise  # Re-raise to be caught by button click handler
 
     def _python_connectivity_fallback(self):
-        """Python fallback for connectivity analysis."""
+        """Python fallback for connectivity analysis.
+
+        Terminology (militantly consistent throughout this module):
+        - phase: a chemical phase (Alite, Portlandite, Electrolyte, ...).
+          Never called a "component".
+        - cluster: a maximal set of face-adjacent voxels of a single phase.
+          What scipy.ndimage.label calls a "connected component"; we call
+          it a cluster to avoid collision with `mix_design.components`
+          (cement/SCM constituents) elsewhere in THAMES.
+
+        Uses TWO labeling passes per phase:
+
+        - Periodic-BC merged labels (via ``_periodic_connectivity_analysis``)
+          for cluster counts and cluster-size statistics — a cluster that
+          wraps the box IS one cluster in an infinite-tiled sample.
+        - Non-periodic labels (direct ``ndimage.label``) for the directional
+          percolation test — otherwise clusters merged across the periodic
+          seam get trivially credited with reaching both opposite faces,
+          producing false positives for low-volume-fraction phases (e.g.,
+          5% Alite at 21 d reporting "fully percolated" — Session 64).
+        """
         from scipy import ndimage
         connectivity_results = {}
         unique_phases = np.unique(self.voxel_data)
-        
-        self.logger.info("Starting connectivity analysis with periodic boundary conditions...")
-        
+
+        self.logger.info("Starting connectivity analysis: periodic labels for cluster stats, non-periodic for percolation...")
+
         for phase_id in unique_phases:
             if phase_id == 0:  # Skip porosity for connectivity analysis
                 continue
-            
+
             try:
                 # Create binary mask for this phase
                 phase_mask = (self.voxel_data == phase_id).astype(np.uint8)
-                
-                # Use memory-efficient periodic connectivity analysis
-                labeled_original, num_components = self._periodic_connectivity_analysis(phase_mask)
-                
-                if num_components == 0:
+
+                # (1) Periodic-merged labels for cluster-size statistics.
+                labeled_periodic, num_clusters = self._periodic_connectivity_analysis(phase_mask)
+
+                # (2) Non-periodic labels for the directional percolation test.
+                labeled_nonperiodic, num_clusters_nonperiodic = ndimage.label(
+                    phase_mask,
+                    structure=ndimage.generate_binary_structure(3, 1),
+                )
+
+                if num_clusters == 0:
                     connectivity_results[phase_id] = {
                         'phase_name': self.phase_mapping.get(phase_id, f"Phase {phase_id}"),
-                        'total_components': 0,
-                        'component_volumes': [],
-                        'largest_component_volume': 0,
+                        'num_clusters': 0,
+                        'cluster_volumes': [],
+                        'largest_cluster_volume': 0,
                         'total_phase_volume': 0,
-                        'percolation_ratio': 0,
+                        'percolated_fraction': 0.0,
                         'percolates_x': False,
                         'percolates_y': False,
                         'percolates_z': False,
                         'fully_percolated': False
                     }
                     continue
-                
-                # Analyze directional percolation for each component
+
+                # Directional percolation on the NON-periodic labels.
                 percolation_results = self._analyze_directional_percolation(
-                    labeled_original, num_components, phase_mask.shape
+                    labeled_nonperiodic, num_clusters_nonperiodic, phase_mask.shape
                 )
-                
-                # Calculate volumes
+
+                # Cluster-size stats from the PERIODIC-merged labels.
                 voxel_volume = np.prod(self.voxel_size)  # μm³ per voxel
-                component_volumes = []
-                component_voxel_counts = []
-                
-                for component_id in range(1, num_components + 1):
-                    component_voxels = np.sum(labeled_original == component_id)
-                    component_volume = component_voxels * voxel_volume
-                    component_volumes.append(component_volume)
-                    component_voxel_counts.append(component_voxels)
-                
+                cluster_volumes = []
+                cluster_voxel_counts = []
+
+                for cluster_id in range(1, num_clusters + 1):
+                    cluster_voxels = int(np.sum(labeled_periodic == cluster_id))
+                    cluster_volume = cluster_voxels * voxel_volume
+                    cluster_volumes.append(cluster_volume)
+                    cluster_voxel_counts.append(cluster_voxels)
+
                 # Sort by volume (largest first)
-                sorted_indices = np.argsort(component_volumes)[::-1]
-                component_volumes = [component_volumes[i] for i in sorted_indices]
-                component_voxel_counts = [component_voxel_counts[i] for i in sorted_indices]
-                
-                total_phase_volume = sum(component_volumes)
-                largest_component_volume = max(component_volumes) if component_volumes else 0
-                percolation_ratio = largest_component_volume / total_phase_volume if total_phase_volume > 0 else 0
-                
+                sorted_indices = np.argsort(cluster_volumes)[::-1]
+                cluster_volumes = [cluster_volumes[i] for i in sorted_indices]
+                cluster_voxel_counts = [cluster_voxel_counts[i] for i in sorted_indices]
+
+                total_phase_volume = sum(cluster_volumes)
+                largest_cluster_volume = max(cluster_volumes) if cluster_volumes else 0
+
+                # Percolated fraction: voxels in any NON-periodic cluster
+                # that percolates in x, y, or z, divided by the phase's
+                # total voxels. Uses non-periodic labels for both numerator
+                # and denominator so the ratio is self-consistent with the
+                # percolation test itself. Range [0.0, 1.0]:
+                #   0.0 → phase is entirely isolated (no percolating pathway)
+                #   1.0 → every voxel of the phase is on a percolating pathway
+                total_phase_voxels = int(np.sum(phase_mask))
+                percolating_ids = [
+                    int(pc['cluster_id'])
+                    for pc in percolation_results.get('percolating_clusters', [])
+                    if pc.get('x_percolates') or pc.get('y_percolates') or pc.get('z_percolates')
+                ]
+                if percolating_ids and total_phase_voxels > 0:
+                    perc_mask = np.isin(labeled_nonperiodic, percolating_ids)
+                    percolated_fraction = float(np.sum(perc_mask)) / float(total_phase_voxels)
+                else:
+                    percolated_fraction = 0.0
+
                 connectivity_results[phase_id] = {
                     'phase_name': self.phase_mapping.get(phase_id, f"Phase {phase_id}"),
-                    'total_components': num_components,
-                    'component_volumes': component_volumes,
-                    'component_voxel_counts': component_voxel_counts,
-                    'largest_component_volume': largest_component_volume,
+                    'num_clusters': num_clusters,
+                    'cluster_volumes': cluster_volumes,
+                    'cluster_voxel_counts': cluster_voxel_counts,
+                    'largest_cluster_volume': largest_cluster_volume,
                     'total_phase_volume': total_phase_volume,
-                    'percolation_ratio': percolation_ratio,
+                    'percolated_fraction': percolated_fraction,
                     'percolates_x': percolation_results['percolates_x'],
                     'percolates_y': percolation_results['percolates_y'],
                     'percolates_z': percolation_results['percolates_z'],
                     'fully_percolated': percolation_results['fully_percolated'],
-                    'percolating_components': percolation_results['percolating_components']
+                    'percolating_clusters': percolation_results['percolating_clusters']
                 }
-                
+
                 perc_status = "✓ PERCOLATED" if percolation_results['fully_percolated'] else "✗ Not Percolated"
-                self.logger.info(f"Phase {phase_id}: {num_components} components, {perc_status}")
-                
+                self.logger.info(
+                    f"Phase {phase_id}: {num_clusters} clusters, {perc_status}, "
+                    f"percolated_fraction={percolated_fraction:.3f}"
+                )
+
             except Exception as e:
                 self.logger.error(f"Connectivity analysis failed for phase {phase_id}: {e}")
                 connectivity_results[phase_id] = {
                     'phase_name': self.phase_mapping.get(phase_id, f"Phase {phase_id}"),
                     'error': str(e)
                 }
-        
+
         return connectivity_results
     
     def _periodic_connectivity_analysis(self, phase_mask):
         """Memory-efficient periodic connectivity analysis using iterative boundary matching."""
         from scipy import ndimage
         
-        # Start with standard connectivity analysis on original array
-        labeled_array, num_components = ndimage.label(
-            phase_mask, 
+        # Start with standard connectivity analysis on original array.
+        # scipy calls these "connected components"; we call them clusters
+        # (see the terminology block at the top of _python_connectivity_fallback).
+        labeled_array, num_clusters = ndimage.label(
+            phase_mask,
             structure=ndimage.generate_binary_structure(3, 1)
         )
-        
-        if num_components <= 1:
-            return labeled_array, num_components
-        
-        # Create component equivalence mapping for periodic boundaries
+
+        if num_clusters <= 1:
+            return labeled_array, num_clusters
+
+        # Create cluster equivalence mapping for periodic boundaries
         nz, ny, nx = phase_mask.shape
-        component_map = list(range(num_components + 1))  # component_map[i] = final_component_id
-        
-        # Check and merge components across X boundaries (left-right)
-        self._merge_periodic_boundaries(labeled_array, component_map, 
+        cluster_map = list(range(num_clusters + 1))  # cluster_map[i] = final_cluster_id
+
+        # Check and merge clusters across X boundaries (left-right)
+        self._merge_periodic_boundaries(labeled_array, cluster_map,
                                       labeled_array[:, :, 0], labeled_array[:, :, nx-1])
-        
-        # Check and merge components across Y boundaries (front-back)  
-        self._merge_periodic_boundaries(labeled_array, component_map,
+
+        # Check and merge clusters across Y boundaries (front-back)
+        self._merge_periodic_boundaries(labeled_array, cluster_map,
                                       labeled_array[:, 0, :], labeled_array[:, ny-1, :])
-        
-        # Check and merge components across Z boundaries (bottom-top)
-        self._merge_periodic_boundaries(labeled_array, component_map,
+
+        # Check and merge clusters across Z boundaries (bottom-top)
+        self._merge_periodic_boundaries(labeled_array, cluster_map,
                                       labeled_array[0, :, :], labeled_array[nz-1, :, :])
-        
-        # Apply the component mapping to merge connected components (vectorized)
+
+        # Apply the cluster mapping to merge periodic clusters (vectorized)
         final_labeled = np.zeros_like(labeled_array)
-        unique_components = set()
+        unique_clusters = set()
 
         # Vectorized approach: create mapping lookup array
-        max_component = np.max(labeled_array)
-        component_lookup = np.zeros(max_component + 1, dtype=labeled_array.dtype)
+        max_cluster = np.max(labeled_array)
+        cluster_lookup = np.zeros(max_cluster + 1, dtype=labeled_array.dtype)
 
-        # Build lookup table for component mapping
-        for comp_id in range(1, max_component + 1):
-            final_comp = self._find_root_component(component_map, comp_id)
-            component_lookup[comp_id] = final_comp
-            if final_comp > 0:
-                unique_components.add(final_comp)
+        # Build lookup table for cluster mapping
+        for cluster_id in range(1, max_cluster + 1):
+            final_cluster = self._find_root_cluster(cluster_map, cluster_id)
+            cluster_lookup[cluster_id] = final_cluster
+            if final_cluster > 0:
+                unique_clusters.add(final_cluster)
 
         # Apply mapping using vectorized indexing (much faster than nested loops)
         mask = labeled_array > 0
-        final_labeled[mask] = component_lookup[labeled_array[mask]]
+        final_labeled[mask] = cluster_lookup[labeled_array[mask]]
 
-        # Renumber components to be sequential (vectorized)
-        component_renumber_array = np.zeros(max_component + 1, dtype=labeled_array.dtype)
-        for i, comp in enumerate(sorted(unique_components), start=1):
-            component_renumber_array[comp] = i
+        # Renumber clusters to be sequential (vectorized)
+        cluster_renumber_array = np.zeros(max_cluster + 1, dtype=labeled_array.dtype)
+        for i, cluster in enumerate(sorted(unique_clusters), start=1):
+            cluster_renumber_array[cluster] = i
 
         # Apply renumbering using vectorized indexing
         mask = final_labeled > 0
-        final_labeled[mask] = component_renumber_array[final_labeled[mask]]
+        final_labeled[mask] = cluster_renumber_array[final_labeled[mask]]
 
-        final_num_components = len(unique_components)
-        self.logger.info(f"Periodic connectivity: {num_components} -> {final_num_components} components")
-        
-        return final_labeled, final_num_components
-    
-    def _merge_periodic_boundaries(self, labeled_array, component_map, boundary1, boundary2):
-        """Merge components that connect across periodic boundaries."""
-        # Find all unique component pairs that touch opposite boundaries
-        components1 = set(boundary1[boundary1 > 0])
-        components2 = set(boundary2[boundary2 > 0]) 
-        
-        # Check for direct adjacency across boundary
+        num_clusters_final = len(unique_clusters)
+        self.logger.info(f"Periodic connectivity: {num_clusters} -> {num_clusters_final} clusters")
+
+        return final_labeled, num_clusters_final
+
+    def _merge_periodic_boundaries(self, labeled_array, cluster_map, boundary1, boundary2):
+        """Merge clusters that connect across periodic boundaries."""
+        # Check for direct adjacency across the periodic seam:
+        # voxels at matching (z,y) on opposite faces belong in one cluster.
         flat1 = boundary1.flatten()
         flat2 = boundary2.flatten()
-        
+
         for i in range(len(flat1)):
             if flat1[i] > 0 and flat2[i] > 0:
-                # These components should be merged
-                comp1 = flat1[i]
-                comp2 = flat2[i]
-                if comp1 != comp2:
-                    self._union_components(component_map, comp1, comp2)
-    
-    def _union_components(self, component_map, comp1, comp2):
-        """Union-find operation to merge two components."""
-        root1 = self._find_root_component(component_map, comp1)
-        root2 = self._find_root_component(component_map, comp2)
-        
+                # These clusters should be merged
+                cluster1 = flat1[i]
+                cluster2 = flat2[i]
+                if cluster1 != cluster2:
+                    self._union_clusters(cluster_map, cluster1, cluster2)
+
+    def _union_clusters(self, cluster_map, cluster1, cluster2):
+        """Union-find operation to merge two clusters."""
+        root1 = self._find_root_cluster(cluster_map, cluster1)
+        root2 = self._find_root_cluster(cluster_map, cluster2)
+
         if root1 != root2:
             # Always point the higher ID to the lower ID to maintain consistency
             if root1 < root2:
-                component_map[root2] = root1
+                cluster_map[root2] = root1
             else:
-                component_map[root1] = root2
+                cluster_map[root1] = root2
+
+    def _find_root_cluster(self, cluster_map, cluster):
+        """Find root cluster with path compression."""
+        if cluster_map[cluster] != cluster:
+            cluster_map[cluster] = self._find_root_cluster(cluster_map, cluster_map[cluster])
+        return cluster_map[cluster]
     
-    def _find_root_component(self, component_map, component):
-        """Find root component with path compression."""
-        if component_map[component] != component:
-            component_map[component] = self._find_root_component(component_map, component_map[component])
-        return component_map[component]
-    
-    def _analyze_directional_percolation(self, labeled_array, num_components, shape):
-        """Analyze directional percolation for each component with periodic boundaries (optimized)."""
+    def _analyze_directional_percolation(self, labeled_array, num_clusters, shape):
+        """Analyze directional percolation for each cluster.
+
+        A cluster percolates in a direction if it touches both opposing
+        faces of the box. Callers should pass NON-periodic labels so that
+        clusters merged via the periodic seam are not trivially credited
+        with reaching both faces (that produces false positives for
+        low-volume-fraction phases — see Session 64 fix).
+        """
         nz, ny, nx = shape
 
         percolates_x = False
         percolates_y = False
         percolates_z = False
-        percolating_components = []
+        percolating_clusters = []
 
-        # Extract boundary slices once (much faster than creating full component masks)
+        # Extract boundary slices once (much faster than creating full cluster masks)
         left_boundary = labeled_array[:, :, 0]
         right_boundary = labeled_array[:, :, nx-1]
         front_boundary = labeled_array[:, 0, :]
@@ -2936,33 +2989,33 @@ Distance: {distance_um:.2f} μm"""
         bottom_boundary = labeled_array[0, :, :]
         top_boundary = labeled_array[nz-1, :, :]
 
-        # Find unique components on each boundary (vectorized)
-        left_components = set(np.unique(left_boundary[left_boundary > 0]))
-        right_components = set(np.unique(right_boundary[right_boundary > 0]))
-        front_components = set(np.unique(front_boundary[front_boundary > 0]))
-        back_components = set(np.unique(back_boundary[back_boundary > 0]))
-        bottom_components = set(np.unique(bottom_boundary[bottom_boundary > 0]))
-        top_components = set(np.unique(top_boundary[top_boundary > 0]))
+        # Find unique cluster IDs on each boundary (vectorized)
+        left_clusters = set(np.unique(left_boundary[left_boundary > 0]))
+        right_clusters = set(np.unique(right_boundary[right_boundary > 0]))
+        front_clusters = set(np.unique(front_boundary[front_boundary > 0]))
+        back_clusters = set(np.unique(back_boundary[back_boundary > 0]))
+        bottom_clusters = set(np.unique(bottom_boundary[bottom_boundary > 0]))
+        top_clusters = set(np.unique(top_boundary[top_boundary > 0]))
 
         # Check percolation by set intersection (extremely fast)
-        x_percolating = left_components & right_components
-        y_percolating = front_components & back_components
-        z_percolating = bottom_components & top_components
+        x_percolating = left_clusters & right_clusters
+        y_percolating = front_clusters & back_clusters
+        z_percolating = bottom_clusters & top_clusters
 
         # Update global percolation status
         percolates_x = len(x_percolating) > 0
         percolates_y = len(y_percolating) > 0
         percolates_z = len(z_percolating) > 0
 
-        # Build percolating components list (only for components that actually percolate)
+        # Build percolating-clusters list (only clusters that actually percolate)
         all_percolating = x_percolating | y_percolating | z_percolating
-        for component_id in all_percolating:
-            x_perc = component_id in x_percolating
-            y_perc = component_id in y_percolating
-            z_perc = component_id in z_percolating
+        for cluster_id in all_percolating:
+            x_perc = cluster_id in x_percolating
+            y_perc = cluster_id in y_percolating
+            z_perc = cluster_id in z_percolating
 
-            percolating_components.append({
-                'component_id': int(component_id),
+            percolating_clusters.append({
+                'cluster_id': int(cluster_id),
                 'x_percolates': x_perc,
                 'y_percolates': y_perc,
                 'z_percolates': z_perc,
@@ -2977,7 +3030,7 @@ Distance: {distance_um:.2f} μm"""
             'percolates_y': percolates_y,
             'percolates_z': percolates_z,
             'fully_percolated': fully_percolated,
-            'percolating_components': percolating_components
+            'percolating_clusters': percolating_clusters
         }
     
     def _calculate_phase_statistics(self):
@@ -3443,62 +3496,69 @@ Distance: {distance_um:.2f} μm"""
         # Format results text
         results_text = "MICROSTRUCTURE CONNECTIVITY ANALYSIS\n"
         results_text += "=" * 70 + "\n\n"
-        results_text += "PERIODIC BOUNDARY CONDITIONS: Enabled\n"
-        results_text += "DIRECTIONAL PERCOLATION: Phase must connect all three pairs of opposite boundaries\n"
-        results_text += "PERCOLATION CRITERIA: X-direction AND Y-direction AND Z-direction\n\n"
-        results_text += "Percolation Ratio: Fraction of phase volume in largest connected component\n"
-        results_text += "(Higher values indicate better connectivity within components)\n\n"
-        
+        results_text += "CLUSTER STATISTICS: Periodic boundary conditions (a cluster that wraps\n"
+        results_text += "                    the box is one cluster).\n"
+        results_text += "PERCOLATION TEST:   Non-periodic (open) boundaries. A phase percolates\n"
+        results_text += "                    in a direction if a connected component touches\n"
+        results_text += "                    both opposing faces of the box.\n"
+        results_text += "FULLY PERCOLATED:   Percolates in X AND Y AND Z.\n"
+        results_text += "PERCOLATED FRACTION: Fraction of the phase's voxels that reside in\n"
+        results_text += "                    components percolating in at least one direction\n"
+        results_text += "                    (0 = fully isolated, 1 = every voxel on a\n"
+        results_text += "                    percolating pathway).\n\n"
+
         for phase_id, results in sorted(connectivity_results.items()):
             if 'error' in results:
                 results_text += f"{results['phase_name']} (Phase {phase_id}):\n"
                 results_text += f"  Error: {results['error']}\n\n"
                 continue
-            
+
             results_text += f"{results['phase_name']} (Phase {phase_id}):\n"
-            results_text += f"  Connected Components: {results['total_components']}\n"
+            results_text += f"  Number of Clusters: {results['num_clusters']}\n"
             results_text += f"  Total Phase Volume: {results.get('total_phase_volume', 0):.2f} μm³\n"
-            results_text += f"  Largest Component Volume: {results['largest_component_volume']:.2f} μm³\n"
-            results_text += f"  Percolation Ratio: {results['percolation_ratio']:.3f}\n"
-            
+            results_text += f"  Largest Cluster Volume: {results['largest_cluster_volume']:.2f} μm³\n"
+            results_text += f"  Percolated Fraction: {results['percolated_fraction']:.3f}\n"
+
             # Add directional percolation information
             if 'fully_percolated' in results:
                 results_text += f"\n  DIRECTIONAL PERCOLATION ANALYSIS:\n"
                 x_status = "✓" if results.get('percolates_x', False) else "✗"
                 y_status = "✓" if results.get('percolates_y', False) else "✗"
                 z_status = "✓" if results.get('percolates_z', False) else "✗"
-                
+
                 results_text += f"    X-direction (left ↔ right): {x_status}\n"
                 results_text += f"    Y-direction (front ↔ back): {y_status}\n"
                 results_text += f"    Z-direction (bottom ↔ top): {z_status}\n"
-                
+
                 if results.get('fully_percolated', False):
                     results_text += f"    OVERALL STATUS: ✓ PERCOLATED (connects all boundaries)\n"
                 else:
                     results_text += f"    OVERALL STATUS: ✗ NOT PERCOLATED (missing connections)\n"
-            
-            # Interpret percolation ratio
-            perc_ratio = results['percolation_ratio']
-            if perc_ratio > 0.8:
-                interp = "(Excellent component connectivity)"
-            elif perc_ratio > 0.5:
-                interp = "(Good component connectivity)"
-            elif perc_ratio > 0.2:
-                interp = "(Moderate component connectivity)"
+
+            # Interpret percolated fraction
+            pf = results['percolated_fraction']
+            if pf == 0.0:
+                interp = "(Fully isolated — no percolating pathway)"
+            elif pf < 0.3:
+                interp = "(Mostly isolated — small fraction on a percolating pathway)"
+            elif pf < 0.7:
+                interp = "(Mixed — significant isolated and percolating parts)"
+            elif pf < 0.95:
+                interp = "(Mostly percolating — small isolated fraction remains)"
             else:
-                interp = "(Poor component connectivity/fragmented)"
-            results_text += f"\n  Component Analysis: {interp}\n"
+                interp = "(Fully percolating — nearly all voxels on a percolating pathway)"
+            results_text += f"\n  Interpretation: {interp}\n"
             
-            if results['total_components'] <= 10:
-                results_text += "  Component Volumes (largest first):\n"
-                for i, (vol, voxels) in enumerate(zip(results['component_volumes'], results.get('component_voxel_counts', []))):
-                    results_text += f"    Component {i+1}: {vol:.2f} μm³ ({voxels} voxels)\n"
+            if results['num_clusters'] <= 10:
+                results_text += "  Cluster volumes (largest first):\n"
+                for i, (vol, voxels) in enumerate(zip(results['cluster_volumes'], results.get('cluster_voxel_counts', []))):
+                    results_text += f"    Cluster {i+1}: {vol:.2f} μm³ ({voxels} voxels)\n"
             else:
-                results_text += f"  Top 5 Components (of {results['total_components']} total):\n"
-                for i in range(min(5, len(results['component_volumes']))):
-                    vol = results['component_volumes'][i]
-                    voxels = results.get('component_voxel_counts', [0])[i] if i < len(results.get('component_voxel_counts', [])) else 0
-                    results_text += f"    Component {i+1}: {vol:.2f} μm³ ({voxels} voxels)\n"
+                results_text += f"  Five largest clusters (of {results['num_clusters']} total):\n"
+                for i in range(min(5, len(results['cluster_volumes']))):
+                    vol = results['cluster_volumes'][i]
+                    voxels = results.get('cluster_voxel_counts', [0])[i] if i < len(results.get('cluster_voxel_counts', [])) else 0
+                    results_text += f"    Cluster {i+1}: {vol:.2f} μm³ ({voxels} voxels)\n"
             
             results_text += "\n"
         
@@ -3887,50 +3947,3 @@ Distance: {distance_um:.2f} μm"""
                 os.unlink(temp_output.name)
             except:
                 pass
-
-    def _parse_perc3d_output(self, output_file):
-        """Parse perc3d output file and return connectivity results."""
-        import re
-        connectivity_results = {}
-        
-        try:
-            # Explicitly use UTF-8 encoding for cross-platform compatibility
-            with open(output_file, 'r', encoding='utf-8', errors='replace') as f:
-                content = f.read()
-            
-            # Parse connectivity data for each phase
-            phase_sections = re.split(r'Phase\s+(\d+):', content)[1:]  # Skip header
-            
-            for i in range(0, len(phase_sections), 2):
-                if i + 1 >= len(phase_sections):
-                    break
-                    
-                phase_id = int(phase_sections[i])
-                phase_data = phase_sections[i + 1]
-                
-                # Extract connectivity metrics
-                components_match = re.search(r'Components:\s*(\d+)', phase_data)
-                percolation_match = re.search(r'Percolation:\s*(\w+)', phase_data)
-                x_perc_match = re.search(r'X-direction:\s*(\w+)', phase_data)
-                y_perc_match = re.search(r'Y-direction:\s*(\w+)', phase_data)
-                z_perc_match = re.search(r'Z-direction:\s*(\w+)', phase_data)
-                
-                phase_name = self.phase_mapping.get(phase_id, f"Phase {phase_id}")
-                
-                connectivity_results[phase_id] = {
-                    'phase_name': phase_name,
-                    'total_components': int(components_match.group(1)) if components_match else 0,
-                    'fully_percolated': percolation_match.group(1).lower() == 'yes' if percolation_match else False,
-                    'percolates_x': x_perc_match.group(1).lower() == 'yes' if x_perc_match else False,
-                    'percolates_y': y_perc_match.group(1).lower() == 'yes' if y_perc_match else False,
-                    'percolates_z': z_perc_match.group(1).lower() == 'yes' if z_perc_match else False,
-                    'percolation_ratio': 0.0,  # Will be calculated from components
-                    'component_volumes': [],
-                    'component_voxel_counts': []
-                }
-        
-        except Exception as e:
-            self.logger.error(f"Failed to parse perc3d output: {e}")
-            raise
-        
-        return connectivity_results
