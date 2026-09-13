@@ -75,7 +75,10 @@
       "Bash(bin/thames --version)",
       "Bash(bin/thames)",
       "Bash(sqlite3 *)",
-      "Bash(PYTHONPATH=src python3 -c ' *)"
+      "Bash(PYTHONPATH=src python3 -c ' *)",
+      "Bash(/usr/bin/sed *)",
+      "Bash(/usr/bin/grep -nE 'pickDEff|dEffMap|shellPhase' backend/thames-hydration/src/thameslib/TransportCorrection.cc)",
+      "Bash(/usr/bin/head -20)"
     ]
   }
 }

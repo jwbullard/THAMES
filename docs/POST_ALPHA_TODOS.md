@@ -1060,3 +1060,34 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 **Impact.** Pure UX improvement; no simulation results change; no data migration needed. Not blocking any release but a real friction point for anyone with more than a dozen operations in their user data directory.
 
+---
+
+### Shell-diffusion long-duration validation run
+
+**Identified:** 2026-09-12 (Session 65, arising from the transport-kinetics discussion).
+
+**Motivation.** The shell-diffusion / transport-correction framework landed in S55 and was empirically shown to throttle at 40% relative reduction at 24 h in a pure-alite paste (S57, post-S56 K correction). The analytical critical shell thickness δ_critical ≈ 200 μm for Alite in a Portland paste with C_bulk[Ca²⁺] ≈ 20 mM predicts that throttling should grow steadily as shells thicken through hydration. But we have never actually watched that emergent behavior develop end-to-end in a long-duration run on a realistic microstructure. Doing so is the natural next validation experiment for the transport thread — and it is the empirical evidence needed to say "diffusion control emerges naturally at [some age] for [these conditions]" instead of the current handwave.
+
+**Setup sketch (needs refinement when picked up).**
+- Base microstructure: a realistic Portland cement mix at typical w/c ~ 0.4, generated at whatever resolution keeps single-voxel shells from dominating the early-age result — likely 100³ or higher.
+- Two parallel runs: baseline (no `transport` block on any phase) and shell-enabled (a `transport` block on Alite, using the D_eff and limitingDC parameters from the S57 setup as a starting point).
+- Duration: 28 d minimum, ideally 90 d, to actually reach the regime where shell diffusion is expected to bite. The current 6-d truncation of the S55 pure-alite runs (all electrolyte voxels consumed by product growth) needs a fix or workaround — probably higher resolution, wetter mix, or a plausible w/c that keeps enough capillary porosity.
+- Optional third leg: Alite + Portlandite + CSHQ as SR/JMAK, or the full Portland suite, to check that shell throttle on Alite couples correctly with product growth kinetics.
+
+**Success criteria.**
+- Shell-throttled Alite DOR trajectory diverges downward from the baseline over time, with the divergence growing monotonically as the mean C-S-H shell thickness passes the sub-voxel regime.
+- Late-age (weeks to months) rate of the shell-throttled run should show a clear diffusion-limited signature — either an approach to `t^(1/2)` scaling in dissolved mass, or a rate ratio (shell / baseline) that trends toward zero.
+- No numerical pathologies: adaptive-dt behavior stays smooth, no GEMS convergence failures, provenance sidecar shows clean exit.
+
+**What we learn even if it "fails."**
+- If shell throttling stays marginal even at 90 d: either the current D_eff is too high, or the shell-growth geometry from CNT/JMAK is not producing thick-enough shells around Alite, or the microstructure resolution is masking the physics. Each of these is diagnosable and pointer to next-step work.
+- If shell throttling collapses dt or breaks convergence: uncovers a numerical-stability class of issues that would bite any production use.
+
+**Refinements that may be worth landing first** (from the transport-kinetics memory):
+- Wire `TransportCorrection.cc::solveSurfaceConcentration` (the true-SR nonlinear Brent solver) into the SR call site, replacing the linear-rate closed-form `shellCorrectionFactor` for SR phases. Would tighten the throttle in the near-equilibrium regime.
+- Consider runtime selection of the limiting DC when multiple DCs are potentially bottlenecking (currently pinned per-phase in config).
+
+**Impact.** This validation run is the empirical anchor needed before we can honestly answer the Camp A / Camp B question for THAMES ("when does diffusion take over?") or defensibly enable transport for a production phase in a future release. Not urgent, but the natural next step for the transport thread.
+
+**Related.** [[project_transport_kinetics_science_position]] (the corrected S65 memory: framework wired, C_eq is physical post-K-fix, sub-voxel shells at early ages are the practical limit, emergent throttling is what we want); [[project_transport_kinetics_thread]] (long-running research thread; brainstorm at `docs/transport_kinetics_brainstorm.md`).
+

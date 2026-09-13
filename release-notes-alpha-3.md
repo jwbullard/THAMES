@@ -209,13 +209,30 @@ Added since alpha-2
      nucleation and growth rates is documented at
      docs/jmak_moment_decomposition.tex.
 
-  7. Transport-controlled kinetics correction -- opt-in per phase.
-     Per-site shell-thickness delta is estimated from lattice topology
-     via a ball-centroid outward-normal method; an optional "transport"
-     sub-block under "kinetic_data" applies a diffusion-resistance
-     factor to the Standard, SaturatingRate, and Pozzolanic dissolution
-     rate. Off by default; when the block is absent, the correction
-     factor is 1 (unchanged behavior).
+  7. Transport-controlled kinetics -- framework wired, not enabled for
+     production.
+     Alpha-3 adds the plumbing for a per-site diffusion-resistance
+     correction to dissolution rate: per-site shell-thickness delta is
+     estimated from lattice topology via a ball-centroid outward-normal
+     method, and an optional "transport" sub-block under "kinetic_data"
+     activates the correction for the Standard, SaturatingRate, and
+     Pozzolanic kinetic classes. Off by default per phase; absent the
+     block, the correction factor is 1 (unchanged behavior).
+     The framework is deliberately not turned on for any production
+     phase in this release. First, it has not been calibrated -- our
+     pure-alite paste validation showed the current formulation
+     produces only a marginal throttle at 1 d because the mean shell
+     thickness is under one voxel, and the equilibrium concentration
+     inferred from a reactant's own saturation index is not a
+     physically meaningful transport boundary condition. Second, there
+     is a long-standing and unresolved question in cement science
+     about when (and whether) diffusion-controlled kinetics matter --
+     one camp locates the transition shortly after or even at the
+     main heat-flow peak (well under 12 h), while another attributes
+     the peak to space-filling of hydration products and puts the
+     onset of diffusion control days later. We are not ready to
+     commit THAMES to either position by default; the framework is
+     available for future calibration and controlled experiments.
 
   8. Mass balance in kinetic transfers.
      Every kinetic path (Standard, PK, SaturatingRate, JMAK, CNT) now
