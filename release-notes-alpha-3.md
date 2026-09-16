@@ -31,7 +31,7 @@ May 2026 zip) receive all of this at once.
      never see the dialog. See also Changed #3.
 
 
-  2. **Hydration panel**. Kinetic-editor Save now persists to disk.
+  3. **Hydration panel**. Kinetic-editor Save now persists to disk.
      In alpha-2, editing a phase's kinetic defaults through the
      Hydration panel's pencil-icon dialog and clicking OK appeared to
      accept the change (dialog closed, no error), but the new values
@@ -41,7 +41,7 @@ May 2026 zip) receive all of this at once.
      calls set_user_default on both OK branches so the value survives
      app restart.
 
-  3. **Microstructure generation**. In version alpha-2,
+  4. **Microstructure generation**. In version alpha-2,
      mixtures based on a cement whose oxide analysis has a zero component
      (*e.g.*, cement151 with 0% K2O) triggered a segmentation violation inside
      the rand3d correlation-file loader. The Python UI now detects
@@ -51,11 +51,11 @@ May 2026 zip) receive all of this at once.
      additionally gained a defensive guard against a divide-by-zero
      when the derived standard deviation is below 1e-12.
 
-  4. **Hydration simulation I**. 
+  5. **Hydration simulation I**. 
      In version alpha-2, long runs of Portland cement + silica fume mixes sometimes entered a
      GEMS oscillation around cycle 11 where SI(Portlandite) would spike
      above 1600 with no plateau, forcing the adaptive timestep to
-     become progressively shorter and eventually killing the run. The root cause of that bewhavior was that kinetic
+     become progressively shorter and eventually killing the run. The root cause of that behavior was that kinetic
      transfers (Standard, PK, SaturatingRate, JMAK, CNT) wrote only to
      the solid DC moles and never adjusted the matching aqueous IC
      counterpart. GEMS reconciled the difference by inflating bulk composition
@@ -64,12 +64,12 @@ May 2026 zip) receive all of this at once.
      values. Every kinetic transfer now routes through an atomic
      aqueous-solid transfer helper (commitSolidICTransfer) that also
      compensates charge via H+/OH-. Portlandite SI now stays bounded
-     to ~1% around 1.0 in the same run.
+     to ~1% around 1.0 in the same run.  See also Added #8.
 
-  5. **Hydration simulation II**. 
+  6. **Hydration simulation II**. 
      In version alpha-2, the backend hydration model threw a DataException from parseMicroPhases when
      the microstructure contained one of the amorphous glass phases
-     (C2AS, CA2S, CAS, CAS2, K6A2S). The UI names had becen suffixed
+     (C2AS, CA2S, CAS, CAS2, K6A2S). The UI names had been suffixed
      with "(am)" in a previous cleanup, but the DCH, DBR, seed database,
      and C++ hardcoded initializers still carried the bare names. The
      lookup returned an empty gemphase_data record and the backend
@@ -77,7 +77,7 @@ May 2026 zip) receive all of this at once.
      "(am)" form end-to-end; a database migration renames any bare
      glass names in existing user databases at next launch.
 
-  6. **Hydration simulation III**. In version alpha-2,
+  7. **Hydration simulation III**. In version alpha-2,
      KineticController::calculateKineticStep would exit prematurely but cleanly if a
      small DC concentration went slightly negative during a dissolution step,
      terminating any run that got to late-age fly-ash consumption. The
@@ -87,7 +87,7 @@ May 2026 zip) receive all of this at once.
      (2363 cycles, 71 clamp events, exit 0) with no run-completion
      regressions elsewhere.
 
-  7. **Cross-platform portability I**.
+  8. **Cross-platform portability I**.
      Nine sites in the Windows backend (mostly output-directory setup)
      shelled out to cp, mv, and mkdir. Windows cmd.exe does not
      provide these; the calls silently failed and the operation folder
@@ -95,11 +95,11 @@ May 2026 zip) receive all of this at once.
      (C++17) helpers so the behavior is identical on macOS, Linux,
      and Windows-MinGW.
 
-  8. **Cross-platform portability II**. Windows link fix for gethostname in run_metadata.
+  9. **Cross-platform portability II**. Windows link fix for gethostname in run_metadata.
      The Windows MinGW build of the backend failed to link because
      gethostname (called from RunMetadata) needs -lws2_32. Added.
 
-  9. **Cross-platform portability III**. Micgen triple-fix.
+ 10. **Cross-platform portability III**. Micgen triple-fix.
      Cross-platform latent bugs that surfaced on Windows testers'
      machines and were traced back to shared C code. (a) A double-free
      of global arrays on a second in-process run; (b) a particle
@@ -109,7 +109,7 @@ May 2026 zip) receive all of this at once.
      sequencing error that occasionally left a partial file when
      write_micgen_output finalized on Windows.
 
- 10. **New crash provenance capability**.
+ 11. **New crash provenance capability**.
      Alpha-2's exit_status.json was written only in specific catch
      blocks. Crashes during ChemicalSystem construction (*e.g.*, the
      Class F fly ash issue above) left no machine-readable exit record
@@ -118,14 +118,14 @@ May 2026 zip) receive all of this at once.
      catch block plus a top-level fallback, so every failed run
      records at least "exit_reason" and DCH sha256.
 
- 11. **UI Operations panel**.
+ 12. **UI Operations panel**.
      The Operations Monitoring panel's status-mapping table was
      missing the "ERROR" alias used by the backend crash writer; the
      mapping fell through to PENDING and a subsequent polling pass
      zeroed the progress. Any operation the backend marked as failed
      now surfaces correctly in the UI.
 
- 12. **UI state persistence**. Load Operation now restores the microstructure file selection.
+ 13. **UI state persistence**. Load Operation now restores the microstructure file selection.
      Alpha-2's Load Operation populated all simulation settings but
      silently kept whatever microstructure was in the (now-disabled)
      picker. If a user loaded an old cement-mix1 operation while the
@@ -237,7 +237,7 @@ May 2026 zip) receive all of this at once.
      routes solid-side inventory changes through a single helper that
      also updates the aqueous IC side with H+/OH- charge compensation. This
      prevents the phantom-species conditions that caused several
-     oscillation and runaway problems in version alpha-2 (Fixed #3 above is one
+     oscillation and runaway problems in version alpha-2 (Fixed #5 above is one
      of these).
 
 ### Changed since alpha-2
@@ -248,7 +248,7 @@ May 2026 zip) receive all of this at once.
      ln K = -24.4 for C3S + 5 H2O <=> 3 Ca2+ + H4SiO4 + 6 OH- at 298.15 K,
      ~11 orders of magnitude larger in K than the value ln K = -50.7
      inferred by Nicoleau *et al*. from dissolution rate measurements.
-     With GEMS's original K for C3s, C3S saturation indices in real cement paste
+     With GEMS's original K for C3S, C3S saturation indices in real cement paste
      aqueous states were spuriously large, and the SaturatingRateModel
      (calibrated against Nicoleau's data by Bullard 2015) predicted
      near-full-rate dissolution even in near-equilibrium regimes where
@@ -358,7 +358,7 @@ May 2026 zip) receive all of this at once.
   2. Adaptive timestep can still collapse to sub-ms cycle sizes at
      late ages if a sulfate phase (Arcanite, Thenardite) or any other
      small-inventory phase drops close to zero. The alpha-3 clamp
-     (Fixed #5, Changed #4) prevents the outright abort in this
+     (Fixed #7, Changed #4) prevents the outright abort in this
      regime, but the slowdown can persist. Workaround: uncheck those
      phases in the Hydration Products tree before starting a long run.
 
@@ -382,16 +382,17 @@ May 2026 zip) receive all of this at once.
      cases responsible; if you still see a nonzero exit and the output
      files are complete and readable, the result is safe to use.
 
-  7. Windows only: the Hydration Products tree in the Hydration panel
-     may auto-select amorphous glass phases (K6A2S(am), CAS2(am), and
-     the other three (am) phases) as suggested products even when the
-     initial microstructure does not contain them. The resulting
-     simparams.json for the same UI inputs is not byte-identical to
-     the macOS output. Aqueous SI for these phases is low in Portland
-     pore solution so user-visible physics divergence is unlikely, but
-     not proven zero. Workaround: uncheck any unwanted (am)-suffixed
-     glass phases in the Hydration Products tree before starting a
-     hydration run.
+  7. Windows only, on mixes that contain fly ash: the Hydration
+     Products tree in the Hydration panel may auto-select amorphous
+     glass phases (K6A2S(am), CAS2(am), and the other three (am)
+     phases) as suggested products even when the initial microstructure
+     does not contain them. The resulting simparams.json for the same
+     UI inputs is not byte-identical to the macOS output. Aqueous SI
+     for these phases is low in Portland pore solution so user-visible
+     physics divergence is unlikely, but not proven zero. Portland-only
+     mixes are not affected. Workaround: uncheck any unwanted
+     (am)-suffixed glass phases in the Hydration Products tree before
+     starting a hydration run.
 
   8. Mix Design auto-save silently rejects some Pydantic validation
      errors -- they end up as DEBUG lines in thames.log rather than as
