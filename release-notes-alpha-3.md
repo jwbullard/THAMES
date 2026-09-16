@@ -359,8 +359,18 @@ May 2026 zip) receive all of this at once.
      late ages if a sulfate phase (Arcanite, Thenardite) or any other
      small-inventory phase drops close to zero. The alpha-3 clamp
      (Fixed #7, Changed #4) prevents the outright abort in this
-     regime, but the slowdown can persist. Workaround: uncheck those
-     phases in the Hydration Products tree before starting a long run.
+     regime, but the slowdown can persist. Recommended workaround:
+     in the Hydration Products tree, click the pencil-edit icon for
+     Arcanite (and Thenardite if present) and change kinetic type
+     from Standard to Thermodynamic; click OK. These highly-soluble
+     sulfates equilibrate with the pore fluid on a timescale far
+     shorter than a typical simulation cycle, so kinetic control
+     adds no physical value and its numerical failure mode near
+     depletion is what triggers the collapse. Verified in Session 66:
+     a fly-ash mix that stalled around cycle 10200 completed the
+     full 28-day run in ~2 min wall time with this change. (Older
+     alpha-2 workaround was to uncheck the phase; that is no longer
+     recommended because it drops legitimate microstructure content.)
 
   3. Loading a 200^3 microstructure in the 3D viewer can use ~5 GB RAM.
      Stay at 100^3 for alpha testing unless you have plenty of memory.

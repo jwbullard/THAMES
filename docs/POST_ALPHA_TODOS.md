@@ -1153,3 +1153,23 @@ The two icons `database` and `statistics` at size 48 aren't in the bundled Carbo
 
 **Impact.** Cosmetic — only visible in log files. Not user-facing in the UI. Not a shipping blocker; has been present in every alpha. Worth doing before beta so the log output looks consistent and doesn't confuse first-time developers.
 
+---
+
+### Default kinetic type for soluble sulfates (Arcanite, Thenardite) should be Thermodynamic, not Standard
+
+**Identified:** 2026-09-16 (Session 66, alpha-3 smoke test on cem151-fa-1 hydration).
+
+**Symptom that motivates the change.** With the alpha-2/-3 default of Standard kinetics for both Arcanite (K₂SO₄) and Thenardite (Na₂SO₄), long runs where these phases fully deplete late produce two coupled symptoms: (1) the DC-depletion clamp (S62) fires hundreds of times, keeping the run alive but throttling `dt` via `computeKineticsBasedMaxTimestep`'s 5%-max-relative-change gate on the remaining tiny mole count, and (2) `dt` collapses to the 1e-5 h floor and progresses through hours of simulated time at a walking pace. The cem151-fa-1 smoke test stalled around cycle 10200 (524 h simulated) with all 856 clamp warnings pointing at Arcanite. Switching Arcanite + Thenardite to Thermodynamic via the pencil-edit dialog let the same simulation complete the full 28 d in ~2 min wall time on the same hardware.
+
+**Physical rationale.** Alkali sulfates (K₂SO₄, Na₂SO₄) are highly soluble and equilibrate with cement pore fluid on a timescale far shorter than THAMES's typical cycle-length dt. Applying kinetic control (via `dm/dt = k · A · f(SI)`) to a phase whose true dissolution timescale is milliseconds is arguably the wrong model choice; Thermodynamic dispatch (GEMS decides the equilibrium amount each cycle, no kinetic rate law) matches the physics better. There is no experimental K₂SO₄ or Na₂SO₄ dissolution-rate paper being violated by this simplification because the reaction is not actually rate-limited at cement-paste conditions.
+
+**Ksp values in CemData18 already look correct** — the S57 K audit confirmed Anhydrite, Gypsum, Portlandite, Ettringite, and Calcite all match published values within 0.005 log units, and the Babushkin-heritage discrepancy is systematic only to anhydrous clinker phases. Arcanite and Thenardite are in the "aqueous-in-equilibrium" family so Thermodynamic dispatch will use physically-correct equilibrium constants.
+
+**Proposed fix.** Change the default kinetic type for both Arcanite and Thenardite from Standard to Thermodynamic in `config/kinetic_defaults.json` (or wherever the seed defaults live for the pencil-edit dialog). Existing user overrides in `%LOCALAPPDATA%\THAMES\` / `~/Library/Application Support/THAMES\` `kinetic_defaults.json` should be preserved — the change is to the seeded default, not a forced migration.
+
+**Not a shipping blocker for alpha-3** — the alpha-3 release-notes Known Limitation #2 already documents the pencil-edit workaround so testers who hit the collapse have a clear recovery path. The default change is a beta-cycle polish item.
+
+**Also worth doing at the same time.** Audit the rest of the default kinetic-type assignments for other phases whose true dissolution timescale is much shorter than dt (candidates: Anhydrite, Bassanite, Gypsum, other alkali salts). If any of them behave the same way when they deplete, they belong on Thermodynamic dispatch too.
+
+**Files.** Wherever the alpha-2/-3 default kinetic types are seeded (likely `config/kinetic_defaults.json` or a Python literal in `src/app/services/kinetic_preferences_service.py`). Confirm the pencil-edit dialog reads-then-writes the same file so users can override on either side.
+
