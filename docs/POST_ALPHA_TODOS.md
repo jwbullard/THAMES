@@ -1091,3 +1091,65 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 **Related.** [[project_transport_kinetics_science_position]] (the corrected S65 memory: framework wired, C_eq is physical post-K-fix, sub-voxel shells at early ages are the practical limit, emergent throttling is what we want); [[project_transport_kinetics_thread]] (long-running research thread; brainstorm at `docs/transport_kinetics_brainstorm.md`).
 
+---
+
+### ThemeManager: GTK CSS parse error at `<data>:309:39 Invalid name of pseudo-class`
+
+**Identified:** 2026-09-16 (Session 66, thames.log inspection during alpha-3 smoke test).
+
+**Symptom.** Every UI launch logs two ERROR lines from `VCCTL.ThemeManager`:
+
+```
+Failed to apply theme: gtk-css-provider-error-quark: <data>:309:39 Invalid name of pseudo-class (1)
+```
+
+Fires once at initial theme apply and once at a subsequent widget layout re-apply. The theme silently fails to load; the app falls through to the default GTK theme and continues running. No user-visible crash. The ERROR level in the log makes it look like a real failure though, which will alarm a diagnostic tester filing a bug report.
+
+**Root cause (probable, unconfirmed).** GTK's CSS parser is rejecting a pseudo-class at line 309, column 39 of an in-memory CSS blob loaded via `Gtk.CssProvider.load_from_data(...)`. The `<data>` filename token is how GTK labels stylesheets loaded from a byte buffer rather than a file. Candidates for the offending token: (a) a GTK4-only pseudo-class attempted in a GTK3 build (`:checked`, `:root`, `:has(...)`), (b) a typo in the pseudo-class name, (c) a modern selector combinator (`:is`, `:where`) that MSYS2's GTK 3.x doesn't yet support.
+
+**Where.** `src/app/ui/theme_manager.py` — locate the `load_from_data` call and the CSS text it passes. Column 39 of line 309 in that text pinpoints the offender.
+
+**Proposed fix.** Locate the pseudo-class, then either (a) replace with a GTK3-compatible equivalent, (b) delete the rule if it was aspirational, or (c) guard the load behind a GTK version check. Small edit once identified.
+
+**Impact.** Cosmetic today (default theme is applied instead of custom). Confusing to bug reporters because the ERROR level is disproportionate to the real severity. Present in every shipped alpha to date; alpha-3 tester will see it too.
+
+---
+
+### CarbonIconManager: two icons missing — `48-database`, `48-statistics`
+
+**Identified:** 2026-09-16 (Session 66, thames.log inspection during alpha-3 smoke test).
+
+**Symptom.** Every UI launch logs (typically 4x — 2 icons queried by 2 panels):
+
+```
+Icon not found: 48-database   (tried all sizes)
+Icon not found: 48-statistics (tried all sizes)
+```
+
+The two icons `database` and `statistics` at size 48 aren't in the bundled Carbon icon set. Silent fallback — wherever these icons are referenced in the UI, the user sees a placeholder / blank slot / broken icon graphic.
+
+**Where.** `src/app/services/carbon_icon_manager.py` (or wherever `CarbonIconManager` looks up icons) — the size-N-name lookup pattern `"{size}-{name}"` returns None for these two. Grep for `"database"` and `"statistics"` as icon lookup keys to find the callers.
+
+**Proposed fix.** Two options: (a) add the missing SVGs to the Carbon icon bundle if they exist in Carbon's superset (they might; the bundled set may be a subset); (b) swap the callers to use Adwaita or another available equivalent icon (e.g., `document-open` or a generic-tools icon for statistics). Option (b) is smaller; option (a) is cleaner if the icons are semantically important.
+
+**Impact.** Cosmetic — user sees missing icons in two UI spots. Present in every shipped alpha to date.
+
+---
+
+### Logger prefix mixed VCCTL / THAMES / app — 28 files still use `logging.getLogger('VCCTL.X')`
+
+**Identified:** 2026-09-16 (Session 66, thames.log inspection during alpha-3 smoke test).
+
+**Symptom.** thames.log carries three coexisting logger-prefix conventions: **VCCTL.*** (28 loggers, 95,883 lines in a representative session — dominant), **THAMES.*** (18 loggers, 2,312 lines — correct), and **app.*** (Python module names, 788 lines — also correct). The `VCCTL.X` prefix is a legacy from the pre-rename VCCTL codebase; newer code uses one of the corrected forms. A diagnostic tester or new developer reading thames.log will be confused about why a THAMES application is emitting `VCCTL.MaterialsPanel - INFO - ...` etc.
+
+**Current inventory of VCCTL-prefixed loggers** (from Session-66 log grep):
+`VCCTL.AccessibilityManager`, `VCCTL.CarbonIconManager`, `VCCTL.Database`, `VCCTL.ElasticModuliPanel`, `VCCTL.KeyboardManager`, `VCCTL.MainWindow`, `VCCTL.MaterialTable`, `VCCTL.MaterialsPanel`, `VCCTL.MicrostructureService`, `VCCTL.OperationsMonitoringPanel`, `VCCTL.PerformanceMonitor`, `VCCTL.PyVistaViewer`, `VCCTL.ResponsiveLayout`, `VCCTL.ResultsPanel`, `VCCTL.ThemeManager`, `VCCTL.UIPolish`, plus the bare `VCCTL` root logger.
+
+**Proposed fix.** Mechanical sweep across ~28 source files. Two subtly different steps:
+1. **Replace `logging.getLogger('VCCTL.X')` → `logging.getLogger('THAMES.X')`** at every call site. Trivially script-able with `sed`.
+2. **Replace the bare `VCCTL` root logger init** (probably in `src/app/application.py` or `src/main.py`) with `THAMES` and confirm downstream `getLogger('THAMES.X')` calls attach to it correctly.
+
+**Better long-term:** switch all `getLogger('THAMES.X')` calls to the Pythonic `getLogger(__name__)` pattern (already in use for the `app.*` loggers). Gives free file-path traceability and eliminates all string-typed logger names as a maintenance surface.
+
+**Impact.** Cosmetic — only visible in log files. Not user-facing in the UI. Not a shipping blocker; has been present in every alpha. Worth doing before beta so the log output looks consistent and doesn't confuse first-time developers.
+
