@@ -175,6 +175,36 @@ Multi-thread mac session ~2 weeks after S64. Full narrative: `docs/session65_sum
 
 - **Two-phase git wrap-up.** Submodule doc-cleanup commit + push (`f795965`), then super-repo wrap-up carrying the pointer bump, SHELL_DIFFUSION.md, POST_ALPHA entry, release-notes softening, session summary, CLAUDE.md history, and continuity memory. Jeff explicitly authorized me to run the sync steps this time despite the "transport work: Jeff drives git" standing rule.
 
+### Session 66 (Sep 16, 2026): alpha-3 Windows installer shipped + release-notes polish (Jeff-driven on Windows)
+
+Jeff-only session on Windows; no session summary file. Reconstructed here from the commit range `05bab429..6991f30f` (five commits) since S67 needed the context. Full detail lives in the individual commit messages.
+
+- **`05bab429` version bump to `1.0.0-alpha.3`.** `src/app/resources/app_info.py` APP_VERSION + `installer/thames-windows.iss` MyAppVersion. Windows installer `THAMES-1.0.0-alpha.3-win64-setup.exe` (627 MB) built and uploaded to a **new** GH release page at tag `v1.0.0-alpha.3` (not additional-asset on alpha-2 like the 2.1 hotfix was — alpha-3 is a full release step). In-place upgrade over `1.0.0-alpha.2.1` verified: About dialog shows new version; cem151-fa-1 microstructure gen + 28-day hydration completed cleanly with the S62 clamp firing 856 times.
+- **`71609038` KL#2 pencil-edit workaround.** S66 smoke test hit the Arcanite depletion + dt collapse around cycle 10,200. Jeff's fix: pencil-edit Arcanite from Standard to Thermodynamic. Same simulation completes in ~2 min. Release-notes KL#2 rewritten with the pencil-edit as "Recommended workaround"; POST_ALPHA filed to change the default kinetic type for soluble sulfates (Arcanite, Thenardite; audit candidates: Anhydrite, Bassanite, Gypsum, other alkali salts).
+- **`e1f93f77` three thames.log cosmetic items filed.** ThemeManager CSS parse error at `<data>:309:39`; missing Carbon icons 48-database + 48-statistics; mixed VCCTL/THAMES/app logger prefixes. Pre-existing; not shipping blockers.
+- **`d8e06d48` release-notes polish.** Typos, renumbering (unbroken 1-15), cross-refs re-anchored, KL#7 qualified to fly-ash-only after Windows Portland-only byte-parity confirmation against the Mac S60 reference `docs/reference_data/mac_reference_today.json`.
+- **`6991f30f` strip "working draft" preamble line** now that we're publishing.
+
+### Session 67 (Sep 16, 2026): alpha-3 macOS artifact shipped + spec version bump + build-env POST_ALPHA entries
+
+Single-focus mac session same-day as S66 Windows ship. Full narrative: `docs/session67_summary.md`. Commit `0c97a0db` (pushed).
+
+- **Backend rebuild via `./build-macos.sh clean`** from submodule tip `f795965`. `version.h` embeds `THAMES_GIT_HASH "f7959659"` + build date `2026-09-16T19:55:38Z`. Every alpha-3 mac op's `run_metadata.json` carries correct provenance.
+
+- **Spec-file drift caught + fixed.** `thames-windows.spec` mac BUNDLE block had `'CFBundleVersion': '1.0.0-alpha.2'` / `'CFBundleShortVersionString': '1.0.0-alpha.2'` — stale by one release. Cross-Platform Safety Protocol check before build surfaced it. One-line-per-string edit to `1.0.0-alpha.3`; change is inside `if IS_MACOS:` so Windows path untouched. POST_ALPHA filed to source both strings from `APP_VERSION` at spec-file top.
+
+- **Three false starts on PyInstaller before success.** (i) `/opt/homebrew/bin/pyinstaller` runs against its own isolated Python with no THAMES deps → bundle missing PIL / scipy / matplotlib / pyvista → harfbuzz post-hook errored on the missing PIL/__dot__dylibs/ path. Fix: `pip install pyinstaller` inside `thames-env`. (ii) Second attempt hit `Could not find GIR file 'GLib-2.0.gir'` — homebrew's `/opt/homebrew/share/gir-1.0/` isn't in `XDG_DATA_DIRS` by default. (iii) Third attempt with full env exports (`XDG_DATA_DIRS`, `GI_TYPELIB_PATH`, `PKG_CONFIG_PATH`, `DYLD_LIBRARY_PATH` all pointing at `/opt/homebrew/*`) succeeded — Analysis found scipy/matplotlib/pandas/PIL hooks correctly, BUNDLE built, harfbuzz post-hook swapped PIL's copy for Homebrew's CoreText-capable one and re-signed.
+
+- **Package + upload.** `ditto -c -k --keepParent --rsrc dist/THAMES.app dist/THAMES-1.0.0-alpha.3-macOS.zip` → 649 MB / 680,896,478 bytes. SHA-256 `57c61d65e4442c450b9364ed0e368556c2baca4958fbd300e445156c1388b25b`. Uploaded via `gh release upload v1.0.0-alpha.3 dist/...macOS.zip` — tag untouched. Release body updated with a `### Downloads` section prepended (naming both artifacts + first-launch guidance + macOS min); `release-notes-alpha-3.md` file not touched (Downloads lives only in the GH release body as page metadata).
+
+- **Verifications:** Info.plist stamps correct via `plutil -p`; backend binaries in `Contents/Resources/bin/`; `codesign --verify --deep --strict` passes; launcher is arm64 Mach-O. Live GUI smoke test skipped by design (didn't want to pop windows during Jeff's other work).
+
+- **Two POST_ALPHA entries filed:** (i) source `CFBundleVersion` from `APP_VERSION` to prevent drift; (ii) add `pyinstaller` to `requirements.txt` + extend `build-macos.sh` / `build-windows.sh` with a `--package` mode that pre-exports GTK env vars so nobody has to remember the four exports.
+
+- **Memory updates:** `project_nist_patch_state.md` marked superseded (alpha-2.1 hotfix subsumed by alpha-3 full release); `project_alpha2_macos_followup.md` marked done (the "defer mac hotfix to alpha-3" decision from S63 has been executed).
+
+- **Homebrew-pin question (Jeff-asked).** None of the three S67 build surprises were caused by Homebrew version drift, so existing pins don't need to change. The pins matter for **runtime version-skew** between `pygobject3` / `gtk+3` / `glib` / `harfbuzz` / `pango` / `cairo` / `gobject-introspection` / `gdk-pixbuf` — the class of bug the harfbuzz-swap workaround exists for. The shipped .app is insulated from future brew updates (all typelibs/dylibs/gir files bundled inside `Contents/Frameworks` and `Contents/Resources`).
+
 ---
 
 ## PRIORITY TASKS
