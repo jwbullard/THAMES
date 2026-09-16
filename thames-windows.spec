@@ -220,8 +220,8 @@ if IS_MACOS:
         info_plist={
             'CFBundleName': 'THAMES',
             'CFBundleDisplayName': 'Thermodynamic Hydration And Microstructure Evolution Simulator',
-            'CFBundleVersion': '1.0.0-alpha.2',
-            'CFBundleShortVersionString': '1.0.0-alpha.2',
+            'CFBundleVersion': '1.0.0-alpha.3',
+            'CFBundleShortVersionString': '1.0.0-alpha.3',
             'NSHighResolutionCapable': True,
             'LSMinimumSystemVersion': '10.14',
             'LSApplicationCategoryType': 'public.app-category.education',

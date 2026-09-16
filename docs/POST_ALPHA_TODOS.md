@@ -1173,3 +1173,53 @@ The two icons `database` and `statistics` at size 48 aren't in the bundled Carbo
 
 **Files.** Wherever the alpha-2/-3 default kinetic types are seeded (likely `config/kinetic_defaults.json` or a Python literal in `src/app/services/kinetic_preferences_service.py`). Confirm the pencil-edit dialog reads-then-writes the same file so users can override on either side.
 
+---
+
+### macOS .app version drift — Info.plist strings should source from APP_VERSION
+
+**Identified:** 2026-09-16 (Session 67, macOS alpha-3 build).
+
+**Symptom.** The `thames-windows.spec` BUNDLE block hard-codes the `.app` Info.plist version strings:
+```python
+'CFBundleVersion': '1.0.0-alpha.2',
+'CFBundleShortVersionString': '1.0.0-alpha.2',
+```
+Both strings are stale on every release because they're literal — bumping `src/app/resources/app_info.py::APP_VERSION` does not touch the spec, so testers who Get Info on the `.app` see a version that lags. Caught in Session 67 as I was about to build the alpha-3 mac artifact against a spec that still said "alpha.2". Fixed for alpha-3 with a manual two-string edit, same as some prior release must have done.
+
+**Proposed fix.** Import `APP_VERSION` from `src/app/resources/app_info.py` at the top of the spec and use it directly:
+```python
+import sys
+sys.path.insert(0, 'src')
+from app.resources.app_info import APP_VERSION
+# ...
+'CFBundleVersion': APP_VERSION,
+'CFBundleShortVersionString': APP_VERSION,
+```
+Spec files are just Python; PyInstaller executes them in-process, so path manipulation is safe.
+
+**Cross-platform check.** The BUNDLE block is inside `if IS_MACOS:` so the change only affects macOS builds. The `import` at file top is unconditional, but `app_info.py` is pure Python with zero platform-specific behavior — safe on Windows and Linux too.
+
+**Impact.** Prevents the ~one-drift-per-release manual edit and the risk of shipping an `.app` whose Info.plist reports the wrong version. Not urgent (each release currently catches it during build); nice cleanup.
+
+---
+
+### pyinstaller must live inside thames-env, not Homebrew — document + enforce
+
+**Identified:** 2026-09-16 (Session 67, macOS alpha-3 build).
+
+**Symptom.** `/opt/homebrew/bin/pyinstaller` runs against Homebrew's own isolated Python (`/opt/homebrew/Cellar/pyinstaller/*/libexec/bin/python`), which does NOT see THAMES's runtime dependencies (PIL, scipy, matplotlib, pyvista, gi, etc.). Running it against the spec file produces a bundle that lacks all those packages — the harfbuzz post-hook then errors out because there is no `PIL/__dot__dylibs/libharfbuzz.0.dylib` to swap. Session 67 lost ~5 minutes of build time to this before spotting the shebang on `/opt/homebrew/bin/pyinstaller`.
+
+**Workaround (used in S67).** Install pyinstaller into the project venv:
+```bash
+source thames-env/bin/activate
+pip install pyinstaller
+pyinstaller --clean --noconfirm thames-windows.spec
+```
+
+**Proposed fix.**
+1. Add `pyinstaller` to `requirements.txt` (or split into `requirements-runtime.txt` + `requirements-build.txt` — pyinstaller is only needed for packaging).
+2. Update `build-macos.sh` and `build-windows.sh` to explicitly invoke `thames-env/bin/pyinstaller` (or `python -m PyInstaller` after activation) rather than relying on PATH lookup that might resolve to Homebrew.
+3. Add a `README-BUILD.md` section noting that a bare `/opt/homebrew/bin/pyinstaller` will silently produce a broken bundle.
+
+**Impact.** Prevents a recurring build gotcha that isn't obvious from PyInstaller's output (it doesn't warn "the Python I'm using has no PIL"; it just quietly proceeds and produces a broken bundle). Not shipping-blocker; build-environment hygiene.
+
