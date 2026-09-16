@@ -1,8 +1,6 @@
 THAMES 1.0.0-alpha.3 - Release Notes
 =============================================
 
-This is a working draft. Append entries as fixes land; finalize at release time.
-
 For Windows testers upgrading from 1.0.0-alpha.2.1 (the intermediate hotfix
 installer distributed off the alpha-2 GitHub release page): every fix in there is included here, along with everything that has improved on
 Mac and in shared source since then. Mac testers still on 1.0.0-alpha.2 (the
