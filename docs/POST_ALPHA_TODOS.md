@@ -1227,3 +1227,19 @@ pyinstaller --clean --noconfirm thames-windows.spec
 
 **Impact.** Prevents a recurring build gotcha that isn't obvious from PyInstaller's output (it doesn't warn "the Python I'm using has no PIL"; it just quietly proceeds and produces a broken bundle). Not shipping-blocker; build-environment hygiene.
 
+
+---
+
+### Kelvin RH: make pore-solution surface tension γ a simulation parameter (for SRA mixes)
+
+**Identified:** 2026-09-18 (Session 69, self-desiccation RH→rate fix).
+
+**Context.** `KineticController::updateRelativeHumidity` computes the Kelvin RH of a sealed paste as `exp(-4 γ Vm / (d R T))` with γ hard-coded at 0.072 J/m² (pure water at ~24 °C). For inorganic pore solution this is fine: simple electrolytes *raise* γ (Weissenborn & Pugh 1996, J. Colloid Interface Sci. 184:550), by roughly +1 mN/m at I ≈ 0.5, and together with the 20 °C value (0.0728) the Kelvin exponent is only ~2–3 % larger than assumed — RH at the h0 meniscus (~6 nm) moves 0.700 → ~0.694. Not worth correcting.
+
+**Where it matters.** Shrinkage-reducing admixtures (amphiphilic glycol ethers) lower γ sharply even at low dosage, plateauing at 10–15 % SRA (Rajabipour, Sant & Weiss 2008, CCR 38:606, measured in 0.35 M KOH + 0.05 M NaOH synthetic pore solution). THAMES has no admixture chemistry, so Kelvin RH in an SRA mix would be substantially underestimated (a meniscus at a given d reports too low an RH), throttling hydration too hard.
+
+**Proposed fix.** Optional top-level simparams value `pore_solution_surface_tension` in the `{value, range, provenance}` pattern, default 0.072 J/m², read by KineticController and substituted into the Kelvin coefficient `4 γ Vm / R`. UI exposure only once a user needs it. Optionally also a T-dependence for pure-water γ (≈ −0.16 mN/m/K).
+
+**Related, larger Kelvin approximation.** Zero contact angle and no adsorbed film (t-layer ~0.3–1 nm) — in few-nm pores the film occupies a significant part of the radius and the Kelvin RH is overestimated. Revisit if sealed-run RH is ever compared quantitatively against RH-sensor data.
+
+**Impact.** Not blocking. Only matters for SRA-bearing mixes or quantitative RH validation.
