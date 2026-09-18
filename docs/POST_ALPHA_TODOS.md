@@ -979,7 +979,11 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 ---
 
-### Phase connectivity calculator on the Results page returns erroneous results
+### Phase connectivity calculator on the Results page returns erroneous results — LANDED 2026-08-27 (Session 64)
+
+**Resolution.** Session 64 reproduced the bug with Jeff's concrete case (`HY-cem151-neat` at 504 h showing 5 vol% Alite and 1.6 vol% Ferrite as "percolated in every direction" — physically impossible; 3D site-percolation threshold on a simple cubic lattice is ~31 vol%). Traced through `pyvista_3d_viewer.py::_python_connectivity_fallback`. Root cause: the periodic-BC merge step was stitching isolated grain cores across the periodic seam (~25 matching (z,y) pairs expected at 5% site fraction on a 100³ box), then the directional-percolation test `left_components ∩ right_components` trivially declared percolation on the merged label. Fix landed the same session (Option 2 after Jeff pushed back on Option 1): two labeling passes per phase — periodic-merged labels for cluster-size statistics (a cluster wrapping the box IS one cluster in an infinite-tiled sample) and non-periodic labels for the directional-percolation test. Replaced the misleading `percolation_ratio` metric with `percolated_fraction = Σ voxels in x/y/z-percolating components / Σ all phase voxels`. Followed up with a full "cluster" vocabulary sweep in the module (renamed dict keys, helper functions, and user-facing strings) plus deletion of `_parse_perc3d_output` (~45 lines of dead code that would have quietly reintroduced the old vocabulary). Jeff verified: "It's working perfectly." Alpha-3 mac + Windows builds carry the fix.
+
+**Original entry follows:**
 
 **Identified:** 2026-08-25 (Session 62, noted verbally by Jeff during NIST-patch shipping)
 
