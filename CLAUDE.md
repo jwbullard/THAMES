@@ -207,6 +207,19 @@ Single-focus mac session same-day as S66 Windows ship. Full narrative: `docs/ses
 
 ---
 
+### Sessions 68-69 (Sep 18, 2026): self-desiccation — RH→rate coupling restored; volume-accounting blocker found
+
+Full narrative: `docs/session69_summary.md`. Commits: submodule `0575a60`, super-repo `fc9794dd` + wrap-up.
+
+- **Reprioritization (S68).** Self-desiccation first (sponsor: nm-scale partitioning of pore solution), calorimetry enthalpy second; supersedes S65's JMAK-CSHQ recommendation.
+- **RH throttle was dead in every kinetic model.** Kelvin RH computed only in constructors on an empty pore distribution → constant rhFactor (0.98 PK, 0.998 others); per-step recompute removed in submodule `85f55e6`. `getLargestSaturatedPore` also tested `volfrac` instead of `volfracsat`.
+- **Literature.** PK-1984 f = [(rh−0.55)/0.45]⁴ confirmed (loose fit). Patel et al. 1988 (Mater. Struct. 21:192) QXRD 14→90 d increments fit linear h0 = 0.70 far better (PK underestimates ~3× at 81 % RH); per-mineral curves exist. Killoh et al. 1989 (ACI SP-114-7): pozzolanic reaction restricted below 80 %. Drying collapse moves < 37 nm pore volume into > 37 nm pores, time-dependent, below ~95 % RH.
+- **Landed (six supervised steps).** New `HumidityParameters.h` (f = [max(0,(h−h0)/(1−h0))]ⁿ, **h0 = 0.70, n = 1**); RH state + `setRelativeHumidity()` on `KineticModel` base; `KineticController::updateRelativeHumidity()` per fresh step (saturated → 1 exactly); optional per-phase `rh_dependence` JSON block; `Lattice::getKelvinRH/getInternalRH`, `ChemicalSystem::getWaterActivity`; PSD CSVs report Kelvin RH, water activity, internal RH. Rates use Kelvin RH only. Bound-check fix in `calcMasterPoreSizeDist`. Saturated runs change slightly (rhFactor now exactly 1).
+- **Blocker found in validation.** Sealed mode never desaturates (old and new binaries): phase volumes grow ~17 % instead of showing ~7 % chemical shrinkage, so `adjustMicrostructureVolumes` always trims excess water. Confirmed contributor: gel water double-counted (solid volume / (1−φ) plus full GEMS aqueous volume); ~8 % unexplained. **Next session starts from memory `project_volume_accounting_handoff.md`.** Gel-pore collapse (step 8) designed but deferred until sealed mode works.
+- **POST_ALPHA:** pore-solution surface tension γ as a simulation parameter (matters for shrinkage-reducing admixtures; inorganic salts raise γ only ~1 mN/m).
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
