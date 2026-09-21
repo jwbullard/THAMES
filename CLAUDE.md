@@ -220,6 +220,19 @@ Full narrative: `docs/session69_summary.md`. Commits: submodule `0575a60`, super
 
 ---
 
+### Session 70 (Sep 20, 2026): water created in kinetic IC transfer fixed; sealed mode now self-desiccates
+
+Full narrative: `docs/session70_summary.md`. Commits: submodule `0343374`, super-repo `26069888` + wrap-up.
+
+- **All water-distribution issues escalated to high priority** (sponsor). Jeff's design answers: gel water rides with CSHQ (option (a) — already how `adjustMicrostructureVolumes` works); keep the microstructure volume fixed; chemical-shrinkage emptiness goes to the largest pores as Electrolyte → VOID, ideally clustered spherical cavities.
+- **Root cause of the S69 blocker:** `KineticController::commitSolidICTransfer` (from S55 `94bd4b0`) moved solid elements to fixed stand-in ions and balanced charge with OH⁻/H⁺ but never O or H → +3 H₂O per C₃S dissolved (+2 C₂S, +6 C₃A). GEMS3K takes bulk composition from THAMES's DC amounts, so ~1.04 mol H₂O per 100 g was manufactured over 28 d; removing it gives −7.7 % chemical shrinkage. Not a kinetic-model bug. S69's "gel water double-counted" claim retracted.
+- **Landed:** step A — O/H balanced with H₂O@ in the transfer (warns on H imbalance or negative water); step A2 — Fe → Fe⁺³ in both IC maps (Fe⁺² broke C₄AF and stalled a saturated run at the dt floor via ettr-AlFe instability).
+- **Validation (cem151-neat, 28 d):** sealed H/O conserved exactly; VOID forms, meniscus enters gel pores after ~400 h; internal RH 0.925 (Kelvin 0.971 × a_w 0.953). Saturated DOR unchanged (0.7967), external water uptake ≈ 0.062 mL/g cement.
+- **Open:** VOID ignored by the pore-size distribution (step B proposal in memory `project_volume_accounting_handoff.md`); late-age products fill VOID voxels once Electrolyte is gone; plain `make` stamps a stale git hash (re-run `cmake ..`).
+- **Decisions:** after capillary depercolation treat saturated runs as sealed; connectivity every 10 min until set, every 1–2 h after; port VCCTL `burnset`/`burn3d` modernized for C++ with good docs (needs `.pimg` particle IDs). POST_ALPHA: per-solid oxidation states in the IC transfer (needed soon for sulfide slag, Fe(II), regolith).
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
