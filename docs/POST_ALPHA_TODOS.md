@@ -1243,3 +1243,24 @@ pyinstaller --clean --noconfirm thames-windows.spec
 **Related, larger Kelvin approximation.** Zero contact angle and no adsorbed film (t-layer ~0.3–1 nm) — in few-nm pores the film occupies a significant part of the radius and the Kelvin RH is overestimated. Revisit if sealed-run RH is ever compared quantitatively against RH-sensor data.
 
 **Impact.** Not blocking. Only matters for SRA-bearing mixes or quantitative RH validation.
+
+---
+
+### Solid→aqueous IC transfer: derive oxidation state per solid instead of a fixed element→ion table (needed soon)
+
+**Identified:** 2026-09-20 (Session 70, water-balance fix in `commitSolidICTransfer`). Jeff: "will definitely be needed in the near future."
+
+**Context.** `KineticController::commitSolidICTransfer` (and the IC-floor recovery in `ChemicalSystem::checkICMoles`, `ChemicalSystem.h` ~3160, which must stay in sync via `icNameToAqDCName`) moves each element of a dissolving/precipitating kinetic solid into solution as ONE fixed stand-in ion, then balances charge with OH-/H+ and (since S70 step A) O/H with H2O@. The table is element-keyed, not phase-keyed, so it is general in form — but it hard-codes one oxidation state per element: Ca+2, K+, Na+, Mg+2, Al+3, Cl-, SiO2@ (Si IV), SO4-2 (S VI), Fe+3 (Fe III, since S70 step A2; was Fe+2, which broke C4AF), HCO3- (C IV), N2@ (N 0).
+
+**Correct today** for every kinetic solid THAMES uses (clinker, sulfates, silica fume, `C2AS(am)`/`CAS(am)`/`CA2S(am)`/`K6A2S(am)` glasses). **Wrong** for any kinetic solid whose element is in a different oxidation state:
+- sulfide S(−II): real GGBFS (1–2 % sulfide; THAMES slag glasses currently carry no S at all), troilite, pyrrhotite;
+- Fe(II)/Fe(0): siderite, wüstite, olivine/pyroxene iron, magnetite (mixed), lunar regolith metal and ilmenite;
+- C(0): graphite / unburned fly-ash carbon, organics;
+- N(III)/N(V): calcium nitrite/nitrate admixtures.
+Ti and P are not ICs in the current database (lunar regolith would need them too).
+
+**Symptom of a mismatch:** the S70 H-imbalance warning in `commitSolidICTransfer` ("H imbalance … after water balance for <DC>") — a wrong oxidation state always leaves residual H after the water balance. That is how the C4AF Fe(II)/Fe(III) bug surfaced.
+
+**Proposed fix.** Per kinetic solid, derive each element's oxidation state from the DC formula (GEMS formulas can carry explicit valences, e.g. `Fe|3|`; otherwise infer from charge neutrality with O = −2, H = +1 and the fixed-valence elements), then pick an aqueous stand-in of matching valence from a per-element list (e.g. Fe: Fe+2 / Fe+3; S: HS- / SO4-2; C: HCO3- / CH4@ or reject; N: N2@ / NO3- / NO2-). Resolve once at model construction and cache per DC. Fail loudly (DataException) if no matching-valence aqueous species exists in the database. Apply the same resolution in `checkICMoles` so the two stay consistent.
+
+**Prerequisite for:** sulfide-bearing slag, any kinetic Fe(II) or carbon phase, and the lunar-regolith / ISRU thread.
