@@ -171,10 +171,23 @@ class MixDesignValidator:
                     powder_components.append(comp)
         
         total_powder = sum(c.mass_fraction for c in powder_components)
-        
+
         if total_powder < cls.MIN_POWDER_CONTENT:
-            result.errors.append(f"Insufficient powder content ({total_powder:.1%} < {cls.MIN_POWDER_CONTENT:.1%})")
-            result.is_valid = False
+            message = (
+                f"Low powder content ({total_powder:.1%} < {cls.MIN_POWDER_CONTENT:.1%})"
+            )
+            if cls.thames_mode:
+                # A minimum powder fraction is portland-concrete practice, not a
+                # data-integrity requirement, and THAMES models systems well
+                # outside that practice (lean mixes, mortars, non-portland
+                # binders). Warn, but leave the mix valid so it can still be
+                # generated — errors block generation as of 2026-09-23.
+                result.warnings.append(message)
+            else:
+                result.errors.append(
+                    f"Insufficient powder content ({total_powder:.1%} < {cls.MIN_POWDER_CONTENT:.1%})"
+                )
+                result.is_valid = False
     
     @classmethod
     def _validate_aggregate_content(

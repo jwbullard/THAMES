@@ -986,7 +986,47 @@ class MixDesignPanel(Gtk.Box):
         # Show immediate feedback that operation is starting
         mix_name = self.mix_name_entry.get_text().strip() or "Untitled Mix"
         self.logger.info(f"Mix name for generation: '{mix_name}'")
-        
+
+        # Refuse to launch micgen on a mix that cannot pass validation.
+        # The Validate button was previously advisory only: an invalid mix
+        # (e.g. aggregate mass with no aggregate selected) reached micgen and
+        # hung it, because the dropped components leave the volume fractions
+        # unable to close.
+        blocking_errors = self._check_unassigned_masses()
+        if not blocking_errors:
+            mix_design = self._create_mix_design_from_ui()
+            if mix_design is None:
+                blocking_errors = [
+                    "Mix design could not be assembled from the current inputs. "
+                    "See the Validate panel for details."
+                ]
+            else:
+                validation_result = self.mix_service.validate_mix_design(mix_design)
+                self._update_validation_display(validation_result)
+                if not validation_result['is_valid']:
+                    blocking_errors = validation_result['errors']
+
+        if blocking_errors:
+            self.logger.error(
+                f"Generation blocked; mix design is invalid: {blocking_errors}"
+            )
+            error_dialog = Gtk.MessageDialog(
+                transient_for=self.main_window,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text="Cannot generate microstructure — the mix design is invalid"
+            )
+            error_dialog.format_secondary_text(
+                "\n".join(f"• {err}" for err in blocking_errors)
+                + "\n\nFix these and press Validate again."
+            )
+            error_dialog.run()
+            error_dialog.destroy()
+            self.main_window.update_status(
+                "Generation blocked: mix design is invalid", "error", 8
+            )
+            return
+
         # Create confirmation dialog
         dialog = Gtk.MessageDialog(
             transient_for=self.main_window,
@@ -1487,9 +1527,65 @@ class MixDesignPanel(Gtk.Box):
             self.validation_timer = None
             return False
     
+    def _check_unassigned_masses(self) -> List[str]:
+        """Find masses entered for materials that were never selected.
+
+        Every component-building path adds such a mass to the denominator
+        (total solid / total concrete mass) but skips the component itself,
+        because the component requires a material name. The mass therefore
+        vanishes from the mix while still shrinking every other fraction,
+        which surfaces downstream as the misleading "mass fractions sum to
+        0.526, should be 1.0". Report the cause instead.
+
+        @return list of human-readable problems, empty when the mix is clean
+        """
+        problems: List[str] = []
+        try:
+            for i, row in enumerate(self.component_rows, start=1):
+                mass_kg = row['mass_spin'].get_value()
+                if mass_kg <= 0:
+                    continue
+                material_selector = row.get('material_selector')
+                name = (material_selector.get_selected_material_name()
+                        if material_selector else None)
+                if not name:
+                    problems.append(
+                        f"Component row {i} has {mass_kg:g} kg but no material is "
+                        f"selected — choose a material, or set its mass to 0."
+                    )
+
+            for label, combo, spin in (
+                ("Fine aggregate", self.fine_agg_combo, self.fine_agg_mass_spin),
+                ("Coarse aggregate", self.coarse_agg_combo, self.coarse_agg_mass_spin),
+            ):
+                mass_kg = spin.get_value()
+                name = combo.get_active_id()
+                if mass_kg > 0 and (not name or name == ""):
+                    problems.append(
+                        f"{label} has {mass_kg:g} kg but no aggregate is selected — "
+                        f"choose one from the dropdown, or set its mass to 0."
+                    )
+        except Exception as e:
+            self.logger.warning(f"Unassigned-mass check failed: {e}")
+        return problems
+
     def _perform_validation(self) -> None:
         """Perform mix validation and update display."""
         try:
+            # Masses entered against unselected materials are silently dropped
+            # from the component list, so report them before the arithmetic
+            # symptom they would otherwise produce.
+            problems = self._check_unassigned_masses()
+            if problems:
+                self._update_validation_display({
+                    'is_valid': False,
+                    'errors': problems,
+                    'warnings': [],
+                    'recommendations': [],
+                })
+                self.main_window.update_status(problems[0], "error", 8)
+                return
+
             # Create current mix design from UI
             mix_design = self._create_mix_design_from_ui()
             if not mix_design:
@@ -1508,6 +1604,11 @@ class MixDesignPanel(Gtk.Box):
     def _create_mix_design_from_ui(self) -> Optional[MixDesign]:
         """Create a MixDesign object from current UI state."""
         try:
+            # Masses belonging to unselected materials are dropped below but
+            # still counted in total_solid_mass, so surface them by name here
+            # rather than letting the fraction sum look wrong for no reason.
+            for problem in self._check_unassigned_masses():
+                self.logger.error(f"Mix design input problem: {problem}")
             self.logger.info(f"DEBUG: _create_mix_design_from_ui - found {len(self.component_rows)} UI component rows")
             for i, row in enumerate(self.component_rows):
                 material_selector = row.get('material_selector')
@@ -1664,6 +1765,24 @@ class MixDesignPanel(Gtk.Box):
     def _update_real_time_validation(self) -> None:
         """Update validation status in real-time as user types."""
         try:
+            # Flag a mass typed against an unselected material as soon as it is
+            # entered, rather than waiting for Validate and then reporting the
+            # arithmetic symptom (fractions that no longer sum to 1). Skipped
+            # while a saved mix is loading, because the load sets masses and
+            # dropdowns in separate steps and would flash a false error.
+            if getattr(self, "_loading_in_progress", False):
+                return
+            problems = self._check_unassigned_masses()
+            if problems:
+                self.main_window.update_status(f"⚠ {problems[0]}", "warning", 6)
+                self._update_validation_display({
+                    'is_valid': False,
+                    'errors': problems,
+                    'warnings': [],
+                    'recommendations': [],
+                })
+                return
+
             # Get current components for validation
             validation_components = self._get_current_components_for_validation()
             if not validation_components:
@@ -3163,29 +3282,26 @@ class MixDesignPanel(Gtk.Box):
             self.main_window.update_status(f"Error saving file: {e}", "error", 5)
     
     def _create_cement_psd_file(self, mix_folder_path: str) -> None:
-        """Create cement PSD file for elastic calculations in the required CSV format."""
-        try:
-            # Get cement material from current mix to extract PSD data
-            current_mix = self.mix_service.get_current_mix()
-            if not current_mix or not current_mix.components:
-                # Use default cement PSD if no mix data available
-                self.logger.warning("No current mix data, using default cement PSD")
-                psd_data = self._generate_default_cement_psd()
-            else:
-                # Find cement component in mix
-                cement_component = None
-                for component in current_mix.components:
-                    if hasattr(component, 'material_type') and component.material_type.value == 'cement':
-                        cement_component = component
-                        break
+        """Create cement PSD file for elastic calculations in the required CSV format.
 
-                if cement_component:
-                    # Extract PSD from cement component
-                    psd_data = self._extract_cement_psd_from_component(cement_component)
-                else:
-                    # Use default if no cement found
-                    self.logger.warning("No cement component found, using default cement PSD")
-                    psd_data = self._generate_default_cement_psd()
+        Consumed by the Effective Moduli panel (Concelas `cement_psd_path`) and
+        by the ITZ analysis viewer, which takes the ITZ width as the median
+        cement particle diameter.
+
+        Until 2026-09-23 this called `self.mix_service.get_current_mix()`, a
+        VCCTL-template method that was never implemented in THAMES, so the file
+        was never written and every generation logged an AttributeError. The
+        PSD now comes from the same source micgen input uses: the selected
+        material's PSD record via PSDDataService.
+        """
+        try:
+            psd_data = self._get_clinker_psd_from_ui()
+            if not psd_data:
+                self.logger.warning(
+                    "No clinker-bearing material with PSD data found in the mix; "
+                    "using default cement PSD for cement_psd.csv"
+                )
+                psd_data = self._generate_default_cement_psd()
 
             # Write PSD file in required CSV format
             psd_file_path = os.path.join(mix_folder_path, "cement_psd.csv")
@@ -3218,6 +3334,51 @@ class MixDesignPanel(Gtk.Box):
             (63.0, 0.08),
             (90.0, 0.02)    # Coarser particles
         ]
+
+    def _get_clinker_psd_from_ui(self) -> List[Tuple[float, float]]:
+        """Get (diameter_um, volume_fraction) points for the mix's cement.
+
+        Picks the first component row carrying mass whose material is clinker
+        or contains clinker, and reads that material's PSD record through the
+        same path MicgenInputService uses, so cement_psd.csv agrees with the
+        PSD written into the micgen input file.
+
+        @return list of (diameter_um, volume_fraction); empty when unavailable
+        """
+        try:
+            resolution = self.resolution_spin.get_value()
+
+            for row in self.component_rows:
+                if row['mass_spin'].get_value() <= 0:
+                    continue
+                material_id = row.get('material_id')
+                if not material_id:
+                    continue
+
+                material = self.material_service.get_by_id(material_id)
+                if not material or not getattr(material, 'psd_data_id', None):
+                    continue
+                if not (getattr(material, 'is_clinker', False)
+                        or getattr(material, 'has_clinker', False)):
+                    continue
+
+                psd = self.psd_service.get_by_id(material.psd_data_id)
+                if not psd:
+                    continue
+
+                psd_dict = self.micgen_input_service._psd_to_dict(psd, resolution)
+                size_classes = psd_dict.get('size_classes_um') or []
+                if size_classes:
+                    self.logger.info(
+                        f"Cement PSD for cement_psd.csv taken from '{material.name}' "
+                        f"({len(size_classes)} size classes)"
+                    )
+                    return [(float(d), float(f)) for d, f in size_classes]
+
+            return []
+        except Exception as e:
+            self.logger.warning(f"Could not read clinker PSD from UI selection: {e}")
+            return []
 
     def _extract_cement_psd_from_component(self, cement_component) -> List[Tuple[float, float]]:
         """Extract PSD data from cement component in the required format."""

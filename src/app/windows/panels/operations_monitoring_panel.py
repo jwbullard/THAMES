@@ -2365,12 +2365,40 @@ class OperationsMonitoringPanel(Gtk.Box):
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
 
+    def _read_placement_fraction(self, operation_dir) -> Optional[float]:
+        """Read micgen's fine-grained particle-placement fraction, if present.
+
+        micgen writes milestone progress as JSON (micgen_progress.json) but
+        emits placement progress only to the legacy text file as
+        "PROGRESS: <fraction> Placing particles". The JSON therefore holds a
+        flat 50 % for the entire placement phase. Used by
+        _update_microstructure_progress to keep the bar moving.
+
+        @param operation_dir directory holding the operation's progress files
+        @return fraction in [0, 1], or None when unavailable/unparsable
+        """
+        import os
+        try:
+            text_file = os.path.join(operation_dir, "micgen_progress.txt")
+            if not os.path.exists(text_file) or os.path.getsize(text_file) == 0:
+                return None
+            with open(text_file, 'r') as f:
+                content = f.read().strip()
+            if "PROGRESS:" not in content:
+                return None
+            fraction = float(content.split("PROGRESS:", 1)[1].split()[0])
+            return min(max(fraction, 0.0), 1.0)
+        except (ValueError, IndexError, OSError) as e:
+            self.logger.debug(f"Could not read placement fraction: {e}")
+            return None
+
     def _update_microstructure_progress(self, operation) -> None:
         """Update progress for microstructure generation using JSON progress files."""
         try:
             # Determine operation directory
             operation_dir = self._get_operation_directory(operation)
             self.logger.debug(f"DEBUG Microstructure Progress: Operation '{operation.name}' directory: {operation_dir}")
+            # (see _read_placement_fraction for why the text file is still read)
 
             if not operation_dir:
                 self.logger.debug(f"DEBUG Microstructure Progress: No directory found for operation '{operation.name}'")
@@ -2415,6 +2443,23 @@ class OperationsMonitoringPanel(Gtk.Box):
 
                         progress = data['percent_complete'] / 100.0
                         step_description = data['step']
+
+                        # micgen's JSON milestones jump 5 -> 50 -> 65, so the
+                        # whole particle-placement phase reports a flat 50 %.
+                        # That phase is the long one (minutes for real-shape
+                        # particles) and a frozen bar reads as a hung job -- a
+                        # user killed a working run over it (2026-09-23).
+                        # micgen does emit fine-grained placement progress, but
+                        # to the legacy text file (micgen.c hardcodes
+                        # micgen_progress.txt at ~line 1932/1984), so blend it
+                        # into the 50-65 % band here.
+                        if 'adding particles' in step_description.lower():
+                            placement = self._read_placement_fraction(operation_dir)
+                            if placement is not None:
+                                progress = 0.50 + (0.15 * placement)
+                                step_description = (
+                                    f"Placing particles ({placement * 100:.0f}%)"
+                                )
 
                         operation.progress = progress
                         operation.current_step = f"Microstructure: {step_description}"
