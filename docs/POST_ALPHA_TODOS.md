@@ -1264,3 +1264,26 @@ Ti and P are not ICs in the current database (lunar regolith would need them too
 **Proposed fix.** Per kinetic solid, derive each element's oxidation state from the DC formula (GEMS formulas can carry explicit valences, e.g. `Fe|3|`; otherwise infer from charge neutrality with O = −2, H = +1 and the fixed-valence elements), then pick an aqueous stand-in of matching valence from a per-element list (e.g. Fe: Fe+2 / Fe+3; S: HS- / SO4-2; C: HCO3- / CH4@ or reject; N: N2@ / NO3- / NO2-). Resolve once at model construction and cache per DC. Fail loudly (DataException) if no matching-valence aqueous species exists in the database. Apply the same resolution in `checkICMoles` so the two stay consistent.
 
 **Prerequisite for:** sulfide-bearing slag, any kinetic Fe(II) or carbon phase, and the lunar-regolith / ISRU thread.
+
+---
+
+### UI log grows without bound: 249 MB from per-second and per-keystroke INFO logging
+
+**Identified:** 2026-09-23 (Session 71, while diagnosing the Mix Design aggregate trap).
+
+**Symptom.** `~/Library/Application Support/THAMES/logs/thames.log` (and the `%LOCALAPPDATA%\THAMES\logs\` equivalent) reached **249,375,836 bytes** on Jeff's Mac. Grepping it for a diagnostic takes seconds, and every session appends to the same file forever.
+
+**Measured contributors in that one file:**
+- **945,672** `STEP_DEBUG` lines — `operations_monitoring_panel.py:3100` and `:3102` log the current step at INFO on *every* detail-pane refresh, which runs about once per second per selected operation, indefinitely, even for operations that finished weeks ago ("Process completed" repeated once a second).
+- **17,484** `Monitoring loop iteration N: X total operations, Y running` lines — `operations_monitoring_panel.py:1563`, INFO, once per polling cycle regardless of whether anything changed.
+- **23** per-keystroke/per-action DEBUG-style INFO sites in `mix_design_panel.py` (`DEBUG: UI Row`, `COMPONENT DEBUG`, `WATER DEBUG`, `🚨 DEBUG`, `🔍 DEBUG`), which fire on every spin-button change — typing one aggregate mass writes several lines, and the real-time validation path multiplies that.
+
+**Root cause of the unbounded part.** `src/app/application.py:70` installs a plain `logging.FileHandler(log_file, mode='a')` at `level=logging.INFO`. There is no rotation and no size cap, so the file is append-only across all sessions for the life of the installation.
+
+**Proposed fix.**
+1. Swap `FileHandler` for `logging.handlers.RotatingFileHandler` (e.g. `maxBytes=10*1024*1024, backupCount=3`). One line, immediately bounds the damage on both platforms.
+2. Demote the high-frequency lines to `DEBUG`: the two `STEP_DEBUG` sites, the monitoring-loop iteration line, and the `mix_design_panel.py` per-keystroke sites. They were added for specific past investigations and have no diagnostic value at INFO.
+3. Only log a step/progress change when it actually changes (the JSON progress reader already does this via `progress_changed or step_changed`; the display path does not).
+4. Consider a user-visible "Open log folder" / "Clear log" action in Help, since testers currently have no way to reset a bloated log.
+
+**Impact.** Not a correctness issue, but it slows crash diagnosis (the thing these logs exist for), wastes disk on tester machines, and made the Session 71 emergency diagnosis slower than it needed to be. Item 1 alone is a one-line change worth taking early.
