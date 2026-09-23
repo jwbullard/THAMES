@@ -233,6 +233,18 @@ Full narrative: `docs/session70_summary.md`. Commits: submodule `0343374`, super
 
 ---
 
+### Session 71 (Sep 23, 2026): alpha-3 emergency — Mix Design aggregate trap, progress bar, cement_psd.csv
+
+Full narrative: `docs/alpha-3.1-windows-build.md` (handoff) + `release-notes-alpha-3.1.md`. Commit `c6ae763e`, tag `v1.0.0-alpha.3.1`.
+
+- **Reported as an emergency** (NIST/ERDC on alpha-3). Jeff's mix (0.9 cement133 + 0.1 NormalLimestone + 0.4 water + 0.2 fine + 0.7 coarse agg) failed Validate with "mass fractions sum to 0.536/0.526". **Cause:** aggregate mass entered with no aggregate chosen in the dropdown is added to `total_solid_mass` but skipped when components are built (component requires a name) → 1.0/1.9 = 0.526. Same trap for a component row with mass but no material. Introduced by S64 (placeholder default + deleted orphan dialog, judged unreachable in the wrong direction).
+- **Fixed (UI-only, one commit):** new `_check_unassigned_masses()` naming the offending field, wired into live validation (skipped while `_loading_in_progress`), Validate, `_create_mix_design_from_ui`, and a new pre-flight gate in `_on_create_mix_clicked`; powder-content <10 % demoted from error to warning in `thames_mode` (it now would have blocked lean mixes); micgen progress no longer frozen at "Adding particles / 50 %" (JSON milestones jump 5→50→65; placement progress lives in the legacy .txt — blended UI-side into the 50-65 % band); `cement_psd.csv` now actually written (it called `mix_service.get_current_mix()`, a VCCTL-template method never implemented in THAMES — so ITZ width and Concelas cement PSD have ALWAYS used fallbacks).
+- **The student's "micgen freeze" was not a hang:** the run completed in 3 min 6 s (operation COMPLETED, outputs on disk); only the progress display was stuck. Also corrected my own earlier claim that generation never validates — `_create_microstructure_input_file` does validate at step 3; the handler did not.
+- **Shipping:** `1.0.0-alpha.3.1`, UI-only by Jeff's decision; backend binaries identical to alpha-3 so results stay reproducible; S70 water fix (submodule `0343374`) deliberately held for a later release. macOS zip built + smoke-tested (649 MB, sha256 `fd67242b…`); Windows installer + GitHub release pending the Windows session.
+- **Process note:** Python-based file edits converted three CRLF files to LF, inflating the diff to ~12 k lines; caught and amended. Use the Edit tool or restore CRLF explicitly on those files.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
