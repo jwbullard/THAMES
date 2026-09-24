@@ -245,6 +245,23 @@ Full narrative: `docs/alpha-3.1-windows-build.md` (handoff) + `release-notes-alp
 
 ---
 
+### Session 72 (Sep 23-24, 2026): pore volume separated from wetting weight; percolation groundwork
+
+Continuation of the S71 working session after alpha-3.1 shipped. Full narrative: `docs/session72_summary.md`. Submodule `fe2ed57`, `2e47292`, `a1789db`, `5ec807b`; super-repo `9c366ad1`, `80d6b0e6`.
+
+- **Root problem:** `microPhasePorosity_` answered two questions with one number — pore volume, and the `wmc` wetting weight behind dissolution/growth eligibility. VOID needs opposite answers (entirely pore, wets nothing), so it carried 0 and the PSD was blind to empty capillary voxels: CSV said "Empty voxel-scale void = 0" while the box was several percent VOID, and Kelvin RH read exactly 1.0 with capillaries empty.
+- **Jeff chose the principled fix over the workaround.** Scope check justified it: of 99 references only THREE are pore-volume semantics, ~22 are wetting weights.
+- **C1 `fe2ed57`:** new `microPhasePoreVolumeFraction_` (VOID = 1, ELECTROLYTE = 1, solids = sub-voxel porosity), kept in step at all five write sites; three consumers switched; PSD path queries ChemicalSystem directly instead of Lattice's stale-prone cache. **C2 `2e47292`:** 119 substitutions renaming the old field to `microPhaseWettingWeight_`; `calcMicroPhasePorosity` keeps its name (it computes the physical porosity feeding both views).
+- **Validation:** saturated Ca11mM 29/29 byte-identical at every step; sealed cem151-neat 28 d now reports empty capillary porosity matching `Microstructure.csv` VOID to five decimals, Kelvin RH 0.9979 while capillary voids coexist with capillary water, late-age RH unchanged, DOR 0.79358 vs 0.79384, H/O conserved.
+- **D1 `a1789db`:** `Lattice` loads the `.pimg` particle-id image (micgen writes `partid+1`, background = ELECTROLYTE = 1 where VCCTL wrote 0, so the predicate accepts `<= 1` as "no particle"); missing file is non-fatal. Needed so grains that merely touch do not read as a connected solid path.
+- **D2a `5ec807b` + `80d6b0e6`:** per-phase `rigidity.participates` in simparams.json (default true for solids), `initialMicroPhaseId_`, `bondsToNeighbors()`, `sameOriginalParticle()`. **No phase names in the C++** at Jeff's request — VCCTL's three burn rules reproduced from data, so non-portland systems need no code change.
+- **Jeff's observation:** sealed VOID falls after 14 d because `nucleatePhaseRnd` (~line 2083) falls back to VOID sites once Electrolyte hits zero (~304-308 h), so late product fills empty capillaries and emptiness migrates to gel pores. Fix (densify CSHQ instead) scheduled after the cavity work.
+- **Two of my hypotheses died on evidence:** the suspected empty-vector UB for VOID's PSD row (instrumented run showed the rows exist), and a 14-CSV "regression" that was really A2's Fe(III) change against a stale baseline.
+- **Design decisions recorded** in memory `project_percolation_and_cavities_design.md`: EDT-based cavities with p = 0.05 new-cavity nucleation per placed void voxel, symmetric refill; initial set = 3D rigidity percolation, final set = 0.985 connected fraction (named constant, not user-editable); capillary = VOID + ELECTROLYTE; outputs = binary columns in `Microstructure.csv` AND a setting-times CSV; connectivity every 10 min until set, 1-2 h after.
+- **Next:** D2b percolation core (`Percolation.h/.cc` + unit tests), then D3 schedule/outputs, depercolation-to-sealed switch, cavities, late-age densification.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
