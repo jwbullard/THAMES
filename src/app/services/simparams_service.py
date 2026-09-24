@@ -137,6 +137,23 @@ class PhaseDataBuilder:
             "cement_component": 1 if is_cement_component else 0,
         }
 
+        # Rigidity percolation: a phase counts toward the connected solid path
+        # used for set detection when it is internally cohesive and can bond
+        # adhesively to another phase. That is true of every solid until there
+        # is evidence otherwise, so solids default to True and the two
+        # non-solid phases to False. The backend defaults the same way if the
+        # block is absent; it is written explicitly so the choice, and any
+        # later exclusion, is visible in the operation's simparams.json.
+        participates = phase_id not in (VOIDID, ELECTROLYTEID)
+        entry["rigidity"] = {
+            "participates": participates,
+            "provenance": (
+                "default: all solid phases participate"
+                if participates
+                else "not a solid phase"
+            ),
+        }
+
         # Add display data (color)
         if include_display_data:
             display_data = self._build_display_data(gemphasename)
