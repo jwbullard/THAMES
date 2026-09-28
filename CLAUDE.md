@@ -262,6 +262,30 @@ Continuation of the S71 working session after alpha-3.1 shipped. Full narrative:
 
 ---
 
+### Session 73 (Sep 25-28, 2026): percolation wired up, sealed-mode emptying rebuilt, shrinkage + humidity outputs
+
+Full narrative: `docs/session73_summary.md`. Submodule `5ec807b..331513d` (6 commits), super-repo `c5cbfcbc..21f039bc` (3 pointer bumps). All pushed.
+
+- **D2b/D3 percolation** (`a5148a2`, `82fe72d`, `12b7f3e`): `Percolation.h/.cc` (namespace, no THAMES deps, **three labeling passes, one per axis**, that axis non-periodic and the other two periodic — not one pass + spanning test, the S64 bug). `Lattice::assessRigidityPercolation/assessCapillaryPercolation`; `Controller` owns cadence + set state, assesses only on the successful-cycle path. Outputs: `InitialSet`/`FinalSet` on `Microstructure.csv` (**empty, not 0, when no `.pimg`**), `_SettingTimes.csv`, `_Percolation.csv`. **`FINAL_SET_CONNECTED_FRACTION = 0.80` PROVISIONAL** (VCCTL's 0.985 gave 19 h vs initial set 2.55 h); wants Vicat calibration. Cadence **10 min until FINAL set, 2 h after** — switching at initial set pinned final set to the hour it fell in (5.618 h reported vs 4.895 h real). Segfault fixed: state initialized before `lattice_ = msh`.
+
+- **Saturated -> sealed switch** (`ddbb30e`): capillary porosity losing spanning in all three directions turns `isSaturated_` off, one-way. **Jeff's argument, now in the code:** under periodic BCs the RVE has no surfaces, so a cluster touching a face continues into the adjacent image; only a spanning cluster forms an unbounded path to a real surface. Fires 49.93 h on saturated cem151-neat; 20/20 CSVs identical before it; VOID exactly 0 before, 3.2 % at 28 d; zero `adjustMicrostructureVolumes` errors.
+
+- **EDT cavities** (`bf6b0ef`): `DistanceTransform.h/.cc` (exact Felzenszwalb-Huttenlocher, periodic via 3x row tiling, 57 ms at 100^3) replaces the 7^3-window count, which saturated. Deleted `findDomainSizeDistribution` + `findDomainSize`.
+
+- **Invasion only** (`32acc9b`): **cavity nucleation probability DELETED, not retuned.** Cavitation needs ~150 MPa; this paste reaches ~4 MPa, W*/kT ~ 9e4, and hydrophilic surfaces give no heterogeneous help (the shape factor for a *vapour* nucleus uses the angle through the vapour). Vapour arrives from an air void, and air voids >100 um are larger than the RVE — Jeff's point — so one invasion front. 7 d: **1711 clusters -> 10**, singletons 0.8 % -> 0 %, largest 5,425 -> 63,851 voxels (95.6 % of void). Clusters are **ramified (Rg/Rg_sphere 1.2-2.4), not spherical**. Capillary depercolation 76 h -> 484 h. Cost +5 % after profiling showed the first version's real cost was a per-site `callRNG()` and a 500 k sort, not the EDT.
+
+- **Shrinkage + humidity outputs** (`05c8b87`): `_Shrinkage.csv`, `_Humidity.csv`, `Homogenization.h/.cc` (self-consistent; Jeff chose it over Mori-Tanaka; under-relaxed 0.5; convergence vs the fixed Voigt reference). **Chemical shrinkage is trustworthy: 0.0569 mL/g solid, 7.5 vol% at 28 d** (lit. 0.06-0.07 at full hydration; S70's 7.7 %), from `getGEMVolume()` minus new `cumulativeWaterImbibed_`. **Autogenous strain ~10x low — framework only, do not quote** (no creep; quantized tension; Ks 21.7 GPa looks low, audit `elasticModuli_`). No final-set datum column: SC has no usable stiffness until 10 h vs final set 4.4 h, and subtracting it gave +800 ue of apparent *expansion*.
+
+- **100 nm - 1 um gap** (`331513d`): meniscus now log-interpolated within its bin (16 -> 107 distinct diameters; changes results, since `getKelvinRH` feeds the rate throttle). **An EDT-based capillary PSD was investigated and REJECTED on measurement** — it runs *upward* from 1000 nm (median exactly 1000 at every age), implies only 0.025-0.287 MPa vs 3-10 MPa from gel pores, is nearly exact by 28 d (92 % at the floor), and would cost ~50 % runtime. **Literature: 100 nm - 1 um is a VALLEY, not a shoulder** — PDC-MIP bimodality (0.8-10 um and 0.01-0.1 um, 28-370 d) + Muller/Scrivener NMR (1, 3, 10 nm, then capillary >0.5 um) — so a linear fill would have overstated it. `CAPILLARY_BRIDGE_SHARE = 0.15` (uncalibrated) moves the **meniscus position only**, deliberately not volumes/saturation, because `emptySubVoxelPorosity` walks the master PSD largest-first without checking scale and would drain bridge volume twice. Meniscus now walks 783 -> 123 nm over 272-308 h, tension 0.37 -> 2.34 MPa, in place of a decade-wide jump.
+
+- **Reference facts:** **cem151-neat is w/c = 0.443**, essentially ON the Powers limit for complete sealed hydration — which is why sealed vs saturated DOR differ by only 0.4 %; **use w/c 0.30-0.35 to make curing modes separate**. RH throttle barely engages (h0 = 0.70, sealed Kelvin RH >= 0.97). At 28 d: Kelvin 0.9704, activity 0.9527, internal 0.9245 — **only the Kelvin term puts the liquid in tension**. `initMicroVolume_ - microVolume_` is NOT chemical shrinkage. A new `.cc` needs `cmake ..` (GLOB cache). Doxygen hazard: `4 G*/3` and `(G*/6)` contain `*/` and close the comment block.
+
+- **POST_ALPHA:** (1) autogenous shrinkage from a fixed-volume RVE (Biot-Bishop; every input exists); (2) the 100 nm - 1 um representation gap, rewritten after measurement with the three remaining options.
+
+- **Next:** late-age nucleation-into-VOID moisture rule (meniscus-diameter per-phase proxy, decided 2026-09-24) — it is what re-fragments cavities once electrolyte runs out (10 clusters at 7 d -> 7,096 at 28 d, 70 % singletons).
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
