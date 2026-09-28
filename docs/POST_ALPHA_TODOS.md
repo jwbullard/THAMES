@@ -1287,3 +1287,97 @@ Ti and P are not ICs in the current database (lunar regolith would need them too
 4. Consider a user-visible "Open log folder" / "Clear log" action in Help, since testers currently have no way to reset a bloated log.
 
 **Impact.** Not a correctness issue, but it slows crash diagnosis (the thing these logs exist for), wastes disk on tester machines, and made the Session 71 emergency diagnosis slower than it needed to be. Item 1 alone is a one-line change worth taking early.
+
+### Autogenous shrinkage from a fixed-volume RVE
+
+**Raised by Jeff, 2026-09-25**, out of the invasion-percolation discussion. THAMES holds the box volume fixed because the voxel count is fixed. A real sealed paste contracts as it self-desiccates, and that contraction is autogenous shrinkage — one of the quantities a sponsor interested in water distribution is most likely to ask for. The question is whether it can be *computed* even though the lattice cannot shrink.
+
+It probably can, because shrinkage is a derived quantity, not a geometric one. The standard route is Biot-Bishop poromechanics:
+
+    eps_lin = (S * sigma_cap / 3) * (1/K - 1/K_s)
+
+where `sigma_cap = -(RT/V_m) ln(RH)` is the tension in the pore liquid (THAMES already computes the Kelvin RH that gives it), `S` is the saturation fraction of the pore space (already tracked, and now separately for voxel-scale and sub-voxel pores), `K` is the drained bulk modulus of the paste and `K_s` that of its solid skeleton. Both moduli are already available: the elastic module computes effective moduli from the microstructure, and Concelas extends that to the composite.
+
+So every input exists. The work is to assemble them per output time and write a shrinkage column or CSV. Points needing thought:
+
+- **Which RH.** The tension should use the Kelvin RH of the meniscus, not the internal RH that folds in water activity; the dissolved-ion contribution to activity does not pull on the solid skeleton the same way. Worth deriving carefully rather than assuming.
+- **Saturation weighting.** Bishop's `S` is the obvious first choice but is known to be crude below about 0.8; the pore-size-resolved saturation THAMES now tracks could support something better.
+- **Creep.** Measured autogenous shrinkage includes substantial viscoelastic relaxation, so an elastic prediction will underestimate at late ages. Say so rather than fitting it away.
+- **Validation.** Autogenous shrinkage data are plentiful for Portland pastes across w/c, which makes this unusually well anchored compared with most of what has been added lately.
+
+Related: the same tension, applied to an isolated pore cluster that has depercolated, is what a real paste uses to accommodate water it can no longer reach. THAMES instead empties that cluster, which is flagged as a convenience in `Lattice::selectSitesToEmpty`. If shrinkage is ever computed, revisit whether unreachable pockets should stay full.
+
+### Pore sizes between 100 nm and 1 um are not represented at all
+
+**Filed 2026-09-28, after measuring.** This entry originally proposed replacing
+the single `>=1000` capillary bin with a distance-transform histogram. That was
+investigated and is NOT worth doing; what follows is what the measurement
+showed and what the real limitation is.
+
+The pore size distribution has sub-voxel bins running up to 100 nm, then one
+bin holding every voxel-scale pore, labeled `>=1000` for a 1 um lattice.
+Between 100 nm and 1000 nm there is nothing. When the meniscus crosses that
+decade the Kelvin humidity steps from 0.9979 to 0.9793 and the capillary
+tension jumps by a factor of ten, 0.287 to 2.87 MPa, which is what makes the
+autogenous strain curve discontinuous. Real pastes have a great deal of
+porosity in that decade.
+
+**The distance transform cannot fix this.** Measured on the sealed cem151-neat
+reference, an EDT-derived capillary distribution spans 1000 nm to about 5 um
+at t = 0 and 8 um at 28 d, with a median of exactly 1000 nm at every age: at
+1 um voxels the finest resolvable capillary pore IS 1000 nm, so the real
+distribution extends upward from the lump, not downward. Consequences:
+
+- The whole capillary range implies tensions of 0.025 to 0.287 MPa, against
+  3 to 10 MPa from gel pores. It cannot move autogenous shrinkage.
+- The lump already uses 0.287 MPa, the finest and therefore highest-tension
+  end of what it represents, so resolving it would only lower the tension.
+- By 28 d, 92 % of capillary volume sits exactly at the 1000 nm floor and the
+  lump is nearly exact. The approximation is worst at t = 0, at 47 % above
+  1000 nm, and improves with age.
+- Kinetics would not notice: with h0 = 0.70 the rate factor moves from 0.9930
+  to 0.9988 across the entire capillary range.
+
+Cost, for completeness: `calculatePoreSizeDistribution` runs on every fresh
+step in sealed mode through `updateRelativeHumidity`, not only at output
+times, so a per-call EDT would add roughly 260 s to a 500 s run, about 50 %,
+unless the transform is cached and shared with `selectSitesToEmpty`.
+
+**Partly mitigated 2026-09-28** by `Lattice::CAPILLARY_BRIDGE_SHARE`, option 1
+below in its cheapest form: a modest share of voxel-scale porosity, 15 % by
+default, is treated as lying log-uniformly over 100 nm to 1 um, and since
+draining takes the coarse pores first the meniscus enters that range only once
+the capillary system is 85 % empty. On the sealed reference the meniscus then
+walks 783, 552, 417, 243, 183, 123 nm over 272 to 308 h with the tension
+climbing 0.37 to 2.34 MPa, in place of sitting at 1000 nm and 0.287 MPa for
+40 h and then jumping a decade in one step. It fires on exactly one window
+because a sealed run has exactly one transition from capillary-dominated to
+gel-dominated drainage, and it lands on the one already noted in S72, where
+electrolyte exhausts between 304 and 308 h.
+
+The share affects the meniscus position ONLY. Pore volumes and saturation were
+deliberately left alone: `emptySubVoxelPorosity` walks the master distribution
+from the largest bin down without checking pore scale, so volume placed in the
+bridge bins would be drained twice, once by voxel conversion and once there.
+The constant is uncalibrated; the header says how to calibrate it.
+
+What remains open is the size distribution itself, since the share and its
+log-uniform shape are assumptions rather than measurements.
+
+**The actual limitation is resolution.** Representing 100 to 1000 nm porosity
+explicitly needs voxels around 0.1 um, which is 10^9 voxels for the same
+100 um box. Not feasible. The alternatives, in rough order of promise:
+
+1. Treat the 100 nm to 1 um decade as sub-voxel porosity carried by a phase,
+   the way gel porosity already is, with a size distribution fitted to
+   mercury intrusion or nitrogen sorption data for that range. This keeps the
+   lattice resolution and puts the missing pores where the model can already
+   represent them.
+2. Interpolate the Kelvin humidity across the gap when the meniscus is inside
+   it, which removes the visible discontinuity without pretending to know the
+   distribution. Cheap, honest, but cosmetic.
+3. Accept the gap and document it wherever capillary tension is reported,
+   which is what the `Shrinkage.csv` header does now.
+
+Worth settling before autogenous shrinkage is taken seriously, since capillary
+tension is the entire driving force.
