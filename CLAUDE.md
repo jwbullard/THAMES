@@ -286,6 +286,30 @@ Full narrative: `docs/session73_summary.md`. Submodule `5ec807b..331513d` (6 com
 
 ---
 
+### Session 74 (Sep 29-30, 2026): side-by-side review practice, moisture rule, GEMS meniscus gap, low-w/c stall
+
+Full narrative: `docs/session74_summary.md`. Nothing pushed at time of writing.
+
+- **Working practice changed.** Jeff split his tmux window to read backend source alongside the discussion, and asked for **`file:line` BEFORE the plan**, then what that code currently does, then his look, then the edit. Generalized from the CNT thread to all backend work in `feedback_cnt_supervision_and_stl.md`. Also recorded there: anchor header insertions on the END of the previous function body or the `/**` opening the next docblock — never on a function signature, which splits a docblock from its function (Jeff had to repair one).
+
+- **Moisture rule for late-age nucleation into VOID (LANDED).** `ChemicalSystem::getPoreSizeDistributionRef()` (const ref, no copy); `Lattice::buildMoistPhaseTable()` (one flag per phase: any sub-voxel pore row finer than the meniscus?); `Lattice::hasMoistNeighbor()` replacing `hasPorousSolidNeighbor`; `Site::isPorousSolid` deleted (one caller). Two behavioral changes: **ELECTROLYTE now qualifies** (was excluded by `> ELECTROLYTEID`) and the solid test asks about **water** not **pores**. **Result: no change at w/c 0.443** — the rule is more permissive early, and CSHQ gel pores (1-3 nm) stay far below the ~70 nm meniscus so CSHQ reads moist throughout.
+
+- **`nucleatePhaseAff` is dormant, and the terminology is twisted.** Both call sites commented out between `d248f87` (2024-10-30) and `f26b8bc` (2024-12-24), **no commit message mentions it**. Jeff's history: he and Florin Nita used opposite definitions — for Jeff, CSHQ on alite is *heterogeneous nucleation*; for Nita that is *growth* and "nucleation" meant only the homogeneous no-preferred-site case. **Affinity is NOT lost** — it lives in `growPhase`'s roulette wheel (`Lattice.cc:1748-1765`), contact-angle-derived since `d248f87`. What is lost is affinity in the nucleation *fallback*, which fires exactly when a phase has no surface of its own. **Decision: keep it, restore as its own change.** See `reference_nucleation_vs_growth_terminology.md`.
+
+- **GEMS does not know about the meniscus** (Jeff's question). No capillarity anywhere in GEMS3K; `getWaterActivity()` is raw `Get_aDC`; `P_ = 101325` fixed. **The Kelvin factor IS the Poynting term for water** (V_w·σ/RT = 0.0292 vs −ln(0.9704) = 0.0300). **A pressure grid cannot fix it** — GEMS has one P per node while an unsaturated pore has liquid and solid at different pressures; also `nPp = 1` and the liquid would be at −3.9 MPa absolute, outside the water EoS. **Correct fix: shift G°(H2O@) by RT·ln(h) via `Set_DC_G0` (`node.h:1228`)** and let GEMS re-equilibrate; patching per-phase SI is basis-dependent. **Step 1 LANDED** (report-only): `getMicroPhaseWaterStoich` + `<job>_SI_MeniscusCorrected.csv`. **Step 2 ON HOLD** pending low-w/c results. Diagnostic surprise: ettringite's 32 waters are irrelevant (SI already 0.008 by 168 h); what matters is **phases poised at SI ≈ 1** — `monosulf-AlFe` 1.11 → 0.925 and `C3AH6` 0.999 → 0.834 at 672 h, precipitating to dissolving. Jeff's qualification: with CaCO3, carbonate stabilizes AFt while RH destabilizes it ~2.7× more than AFm, so the two compete — filed as a paper idea (`project_paper_idea_rh_co2_phase_stability.md`).
+
+- **Low w/c (0.32, Jeff's UI-generated microstructure) exposed a stall.** Set 1.77/3.32 h, depercolation 62.9 h, Kelvin RH 0.936, tension 9.07 MPa, K 12.63 GPa — all far stronger than w/c 0.443. **But it stopped at 84.9 h, DOR 0.570, with 69.5 % of pore volume still holding water.** Two fixes: (i) **provenance** — `thames.cc:742` ignored `mex.getExcp()` so every graceful stop was recorded as `success: false` / "No specific error reason recorded"; now branches on the flag and reports `exit_reason: "Simulation ended early: no more water in system"`. (ii) **water accounting** — `emptySubVoxelPorosity`/`fillSubVoxelPorosity` **overwrote** their return value instead of accumulating, so the caller saw only the last bin's contribution and declared the system dry. **The fix moved the failure, not removed it**: the run now grinds at the 1e-5 h timestep floor with DOR frozen. Gel water is accounted for but not *made available*. POST_ALPHA filed with three candidates; interacts with Step 2.
+
+- **micgen outside the UI silently mislabels phases.** micgen writes the ids it is given, leaving **a gap at id 8** (`AGGSLAB`, unused in a neat paste); the UI closes it afterwards via `mix_design_panel.py::_remap_phase_ids_to_sequential`. Driving micgen from a saved `_input.txt` skips that, shifting every phase above the gap one id high — which invented 0.6 vol% **portlandite in a starting microstructure**. Also means `<op>_input.txt` **cannot reproduce its own operation**. Ruled out: binary version and correlation files (identical); the speed difference was CPU contention. POST_ALPHA filed with three candidate fixes.
+
+- **`filehandler.c` diagnostics** (the 2004 NIST function shared by micgen/elastic): early guard for a NULL/empty filename naming the likely missing `-w,--workdir`, plus `strerror(errno)` on the four failure paths. **This file is CRLF** — first edit attempt matched nothing (S71 lesson), caught by assertion before any write.
+
+- **POST_ALPHA filed (4):** micgen headless mislabeling + `_input.txt` fidelity; autogenous shrinkage from a fixed-volume RVE; gel-water availability / timestep-floor stall; dead `volfracsat` mutation in the two sub-voxel functions (Jeff's question — nothing reads it before the recompute, so deleting is provably behavior-preserving and retires both the ordering inconsistency and the divide-by-zero surface).
+
+- **Next:** settle gel-water availability together with Step 2 of the meniscus correction; then restore `nucleatePhaseAff`.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)

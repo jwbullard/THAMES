@@ -1381,3 +1381,131 @@ explicitly needs voxels around 0.1 um, which is 10^9 voxels for the same
 
 Worth settling before autogenous shrinkage is taken seriously, since capillary
 tension is the entire driving force.
+
+### micgen outside the UI silently mislabels phases; `_input.txt` is not a reproduction recipe
+
+**Found 2026-09-30** while generating a w/c 0.32 microstructure from the command
+line to match a UI-generated one.
+
+micgen writes the phase ids it is given. The UI feeds it 2 (split into 2-7 by
+the clinker distribution step), then 9, 10, 11 — leaving **a gap at id 8**,
+which is micgen's `AGGSLAB` slot (`backend/src/include/thamesaux.h:109`),
+unused in a neat paste. THAMES requires contiguous ids (S55), so after micgen
+exits the UI closes the gap by calling
+`mix_design_panel.py::_remap_phase_ids_to_sequential` (line 4070), with
+`_remap_phase_colors` (4128) and
+`phase_id_mapping_service.py::_remap_phase_mapping` (619) updating the two JSON
+sidecars to match.
+
+Two consequences:
+
+1. **Running micgen directly produces a mislabeled microstructure, silently.**
+   The raw image keeps the gap, so every phase above it sits one id too high.
+   Against the simparams table that turns Anhydrite/Bassanite/Gypsum into
+   Bassanite/Gypsum/**Portlandite** — inventing 0.6 vol% of a hydration product
+   in the starting microstructure. Nothing is misplaced; the voxel counts are
+   correct to the requested volume fractions. Only the labels are wrong, and
+   nothing warns.
+2. **`<op>_input.txt` cannot reproduce its own operation.** Replaying it through
+   micgen gives a different image from the one in the folder, because a
+   mandatory step lives only in the UI. Anyone regenerating a microstructure
+   from an archived operation, or reporting a bug with the input file attached,
+   hits this.
+
+Candidate fixes, spanning layers:
+
+- **(a)** Make micgen emit contiguous ids itself; the UI remap then becomes an
+  idempotent no-op. Cleanest for outside users, but changes micgen's output
+  contract and `micgen.c` builds on both platforms, so the Cross-Platform
+  Safety Protocol applies.
+- **(b)** Move the remap out of `mix_design_panel.py` into something both paths
+  call — a `--remap` flag on micgen, or a small shared tool. One
+  implementation, no UI-only dependency.
+- **(c)** Have micgen refuse to write a gapped image, naming the missing id.
+  Fixes nothing on its own but converts a silent mislabeling into a loud
+  failure.
+
+(a) plus (c) is probably right; (b) has the advantage of a single shared
+implementation.
+
+Separately, whichever fix lands, `_input.txt` should either be a complete
+recipe or say in a header comment that it is a record of one step and names the
+post-processing the UI applies.
+
+### Gel water is accounted for but not made available: low-w/c runs stall at the timestep floor
+
+**Found 2026-09-30** running a sealed w/c 0.32 paste (below the Powers limit,
+so it cannot fully hydrate) to see the self-desiccation machinery work harder
+than it does at w/c 0.443.
+
+The run reached DOR 0.570 at 84.9 h and stopped with
+`Lattice::changeMicrostructure - Ran out of water`, while **69.5 % of total
+pore volume still held water** — internal RH 0.888, Kelvin 0.936, and the
+rate throttle still at (0.936 - 0.70)/0.30 = 0.79, i.e. the model believed
+reaction should proceed at 79 % of full rate at the instant it declared the
+water gone. Voxel-scale electrolyte was zero; everything left was in gel and
+interhydrate pores.
+
+Part of that was a genuine bug, now fixed: `emptySubVoxelPorosity` and
+`fillSubVoxelPorosity` overwrote their return value instead of accumulating
+it, so the caller was told only the last bin's contribution and concluded the
+system was dry. With that fixed the run no longer stops — **but the adaptive
+timestep collapses to the 1e-5 h floor instead**, with
+`Kinetics constraint: reducing timestep from 4.0 to 1.0e-05 h` and DOR frozen
+at 0.57002 while wall clock burns. The failure moved, it did not go away.
+
+**The modeling question, which is Jeff's to settle.** Gel water IS
+thermodynamically available — Powers' "hydration stops when capillary water is
+gone" is the right first-order picture but too sharp. Drawing on gel water
+requires driving RH down, which throttles the reaction, which is self-limiting;
+experimentally hydration effectively ceases below RH about 0.80 (Powers; Patel
+1988; Killoh 1989, the source of the current h0 = 0.70). So the physical
+behavior wanted is an asymptotic stall, not a stop and not a grind.
+
+Nothing in the current chain supplies that limit. The kinetic models keep
+requesting dissolution, the water is nominally present in the sub-voxel
+reservoir, and `computeKineticsBasedMaxTimestep` responds to the impossible
+demand by shrinking dt without bound. Candidates:
+
+- Raise `h0` toward 0.80 for the affected models, so the throttle actually
+  bites where experiment says reaction ceases. Cheapest, but h0 = 0.70 came
+  from a Patel-1988 fit and should not be moved casually.
+- Make availability depend on pore size rather than on total saturation: water
+  in pores below some diameter is present but not offerable, so the reservoir
+  the kinetics can draw on goes to zero smoothly as the meniscus retreats.
+- Give the timestep controller a floor condition that recognises
+  supply-limited stall and terminates gracefully with a reason, rather than
+  grinding. Needed regardless of which of the above lands.
+
+Note this interacts with the meniscus water-activity correction (Step 2, on
+hold): that correction makes water-consuming reactions LESS favorable as RH
+falls, which is itself part of the missing self-limiting feedback. Worth
+settling both together.
+
+### Dead state mutation in emptySubVoxelPorosity / fillSubVoxelPorosity
+
+**Found 2026-09-30**, prompted by Jeff asking why a transient value is written
+at all.
+
+Both functions (`Lattice.cc:3612` and `3658`) do two things: compute how much
+water the sub-voxel pores can release or absorb (the return value, which the
+caller acts on) and mutate `masterPoreSizeDist_[i].volfracsat` to match. The
+mutation is dead. Every consumer recomputes first —
+`writePoreSizeDistribution` is immediately preceded by
+`calculatePoreSizeDistribution` at both call sites (`Controller.cc:2132/2133`
+and `2585/2586`), and `KineticController.cc:1540` recomputes before reading
+Kelvin RH — and the recompute re-derives `volfracsat` from the total water
+volume, smallest bin first.
+
+Deleting the mutation would remove, at no behavioral cost:
+
+- a divide by `volfrac` with no zero guard, which would write NaN into
+  `volfracsat` for an empty bin (a defensive guard was added 2026-09-30, but
+  the cleaner fix is not to write at all);
+- an ordering inconsistency: `fillSubVoxelPorosity` iterates from the largest
+  bin down, filling coarse pores first, which contradicts both its caller's
+  comment ("Start with the smallest unsaturated sub-voxel pores") and the
+  physics. Unobservable today only because the state is discarded.
+
+Each bin is visited once, so no mutated value is re-read even within the loop;
+removal is provably behavior-preserving.
