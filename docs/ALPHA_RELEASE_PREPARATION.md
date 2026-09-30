@@ -234,4 +234,4 @@ When it's time to fix the next round, bump `APP_VERSION` to `1.0.0-alpha.2` and 
 
 ## Follow-on work already queued
 
-See `docs/POST_ALPHA_TODOS.md` for deferred improvements identified during alpha development. Address those between the alpha and beta releases.
+See `docs/DEFERRED.md` for deferred improvements identified during alpha development. Address those between the alpha and beta releases.

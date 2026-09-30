@@ -12,7 +12,7 @@ Companion documents:
   design choices, calibrated portlandite defaults, sanity numbers, and
   scope decisions. Read this if you want to know *why* the pieces are
   shaped this way.
-- `docs/POST_ALPHA_TODOS.md` — deferred CNT-related work items.
+- `docs/DEFERRED.md` — deferred CNT-related work items.
 
 Scope: what each file does, what each guard prevents, how the pieces
 coordinate cycle-by-cycle.
@@ -65,7 +65,7 @@ Pozzolanic-model phase to enable CNT for that phase):
   "A0": {
     "value": 1.0e25,
     "range": [1.0e22, 1.0e32],
-    "provenance": "Interim value (2026-07-27) after CNT-scaling-fix exposed over-nucleation from the Session-50 A0=1e30 default; see docs/POST_ALPHA_TODOS.md 'CNT Portlandite calibration...'. The 1e25 default is a bounded-behavior placeholder pending Option (c) accumulator implementation, which is required to give physical Session-46-style trajectories."
+    "provenance": "Interim value (2026-07-27) after CNT-scaling-fix exposed over-nucleation from the Session-50 A0=1e30 default; see docs/DEFERRED.md 'CNT Portlandite calibration...'. The 1e25 default is a bounded-behavior placeholder pending Option (c) accumulator implementation, which is required to give physical Session-46-style trajectories."
   }
 }
 ```
@@ -235,7 +235,7 @@ dt, kinetics cap tightens, CNT cap tightens further. The final dt is
   scratch dir `~/tmp/thames-step5-parity/HY-ccr152-ws45-nuc-accept`.
 - Clean build with no new warnings.
 
-## 8. Known limitations documented in POST_ALPHA_TODOS.md
+## 8. Known limitations documented in DEFERRED.md
 
 - UI CNT parameter input — Hydration Panel editor for the nucleation
   block, top-level switch, and cap fraction.

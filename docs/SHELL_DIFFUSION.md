@@ -156,7 +156,7 @@ throttle in that regime.
 
 **Any future clinker phase moving from PK to SR / Standard needs the
 same K audit before its transport block will behave sensibly.**
-`docs/POST_ALPHA_TODOS.md` carries the standing action item.
+`docs/DEFERRED.md` carries the standing action item.
 
 ## 5. What's landed vs deferred
 
@@ -176,7 +176,7 @@ same K audit before its transport block will behave sensibly.**
 - Byte-parity preserved on CNT-off `HY-ccr152-ws45` — dispatch is
   inert unless the phase declares a transport block.
 
-**Deferred / not yet done** (tracked in `docs/POST_ALPHA_TODOS.md`
+**Deferred / not yet done** (tracked in `docs/DEFERRED.md`
 under "Shell-diffusion long-duration validation run" and its
 "Refinements that may be worth landing first" list):
 

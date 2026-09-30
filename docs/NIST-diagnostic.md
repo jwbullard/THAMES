@@ -127,7 +127,7 @@ then the backend receives phase names for which no GEM data exists → `parseMic
 
 **Follow-up.** Once identified, this may collapse Bug A into a UI-side fix rather than a backend fix. Also explains why Hydration-test-1 works (no glass phases) while Hydration-sphere and Hydration-test-2 fail (both list glass phases in `hydration_products`).
 
-**Also filed in POST_ALPHA_TODOS as its own entry** with a proposed investigation path.
+**Also filed in DEFERRED.md as its own entry** with a proposed investigation path.
 
 ## Open questions for the user (batch when we're ready)
 
@@ -253,9 +253,9 @@ then the backend receives phase names for which no GEM data exists → `parseMic
 
   **Ship-blocker status.** Bug A ship-blocker is CLOSED. Bug B ship-blocker is also CLOSED (LANDED earlier this session). The Windows glass-phase auto-inject Jeff observed on his Zoom with the NIST user is now cosmetic-only: if Windows auto-adds `(am)`-suffixed glass phases to the products panel, they'll still round-trip correctly since the whole pipeline uses that form. It's still a UI wart worth investigating on the Windows box (spurious phases in the list), but it will no longer crash. Retained as its own POST_ALPHA_TODO entry.
 
-  **Follow-up POST_ALPHA entry filed:** "Eliminate hardcoded phase-name strings in ChemicalSystem.cc" — the `colorN_` / `elasticModuli_` initializer blocks are the deeper class of the fragility that made this fix necessary. Full entry in `docs/POST_ALPHA_TODOS.md`.
+  **Follow-up POST_ALPHA entry filed:** "Eliminate hardcoded phase-name strings in ChemicalSystem.cc" — the `colorN_` / `elasticModuli_` initializer blocks are the deeper class of the fragility that made this fix necessary. Full entry in `docs/DEFERRED.md`.
 
-- **2026-08-22 (S59 Fix C — electrolyte-fixed bias LANDED):** Symmetric IC transfer applied to `ChemicalSystem::setElectrolyteComposition` (removed the `if (deltaDCMoles > 0)` gate at ChemicalSystem.cc:4431). Ca11mM bias reduced from 12.05 mM (10% high, S57) to 11.58 mM (5% high). Ca22mM bias reduced from 23.55 mM (7% high) to 23.22 mM (5.5% high). Peak total_Si preserved (Ca22mM 32.20 vs S57 31.9 μM; Ca11mM 104.6 vs S57 85.5 μM — the Ca11mM increase is physically consistent with Ca being closer to target). Attempted DC-bounds pinning as belt-and-suspenders; reverted because Alite dissolution collapsed. Full analysis in `docs/POST_ALPHA_TODOS.md` (electrolyte-fixed entry marked LANDED).
+- **2026-08-22 (S59 Fix C — electrolyte-fixed bias LANDED):** Symmetric IC transfer applied to `ChemicalSystem::setElectrolyteComposition` (removed the `if (deltaDCMoles > 0)` gate at ChemicalSystem.cc:4431). Ca11mM bias reduced from 12.05 mM (10% high, S57) to 11.58 mM (5% high). Ca22mM bias reduced from 23.55 mM (7% high) to 23.22 mM (5.5% high). Peak total_Si preserved (Ca22mM 32.20 vs S57 31.9 μM; Ca11mM 104.6 vs S57 85.5 μM — the Ca11mM increase is physically consistent with Ca being closer to target). Attempted DC-bounds pinning as belt-and-suspenders; reverted because Alite dissolution collapsed. Full analysis in `docs/DEFERRED.md` (electrolyte-fixed entry marked LANDED).
 
   **Not a NIST ship-blocker itself** — the electrolyte-fixed mechanism only triggers on configs that use `"condition": "fixed"`, and no default UI workflow does. But this fix removes a class of silent chemostat-validation error that would affect any future user running the Garrault or similar controlled-solution experiments through the UI.
 

@@ -329,8 +329,10 @@ User Manual at `docs/USER_MANUAL.md` (~1,200 lines) with 26 screenshots. 2 scree
 - Reconciler flips live child operations to CANCELLED on UI restart (persist child PID at launch)
 - Silent Pydantic validation failures in Mix Design auto-save
 
-### 5. Post-Alpha TODO List
-Deferred improvements are tracked in `docs/POST_ALPHA_TODOS.md`. Append there whenever a "later" / "post-alpha" / "not blocking alpha" item comes up in conversation; do NOT add post-alpha items directly to this file.
+### 5. Deferred Work List
+Deferred improvements are tracked in `docs/DEFERRED.md` (renamed from `POST_ALPHA_TODOS.md` on 2026-09-30 — the old name implied a single unblocking release that has since shipped five times over). Append there whenever a "later" / "not now" / "not blocking" item comes up in conversation; do NOT add deferred items directly to this file.
+
+The list holds three distinct kinds of item, and it helps to say which when filing: **release hygiene** (genuinely "after we ship"), **latent bug classes** (waiting on someone deciding they matter, not on a release), and **research directions** that will outlive beta and 1.0. Dated session summaries and history entries keep the old filename on purpose, as a record of what things were called at the time.
 
 ---
 

@@ -1,4 +1,17 @@
-# THAMES Post-Alpha TODO List
+# THAMES Deferred Work
+
+> Formerly `POST_ALPHA_TODOS.md`, renamed 2026-09-30. The old name was created
+> on 2026-04-21 while alpha-1 was being packaged and meant "deferred past that
+> release." Five releases have since shipped (alpha-1, -2, -2.1, -3, -3.1), so
+> the premise of a single unblocking event is gone and the name only ever meant
+> "not now." Entries written before the rename may still refer to the old
+> filename; dated session summaries deliberately keep it, since they record what
+> happened at the time.
+>
+> The list mixes three kinds of item, which is worth knowing when reading it:
+> release hygiene (genuinely "after we ship"), latent bug classes (waiting on
+> someone deciding they matter, not on a release), and research directions that
+> will outlive beta and 1.0.
 
 This file tracks improvements, fixes, and design decisions that were identified during alpha development but are **deferred until after the alpha release** to avoid scope creep.
 

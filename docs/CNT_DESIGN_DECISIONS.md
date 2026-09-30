@@ -4,7 +4,7 @@ Consolidation of the design rationale, calibration story, and scope
 decisions from the CNT integration thread (Sessions 50–51, 2026-07-20
 through 2026-07-24). This document is a **historical reference** — for
 current implementation state see `CNT_ARCHITECTURE.md`; for outstanding
-work see the follow-on entries in `POST_ALPHA_TODOS.md`.
+work see the follow-on entries in `DEFERRED.md`.
 
 Companion memory pointers:
 - `~/.claude/projects/-Users-jwbullard-Code-THAMES/memory/project_cnt_kinetics_integration.md`
@@ -98,7 +98,7 @@ the Avrami-Cottrell fit would double-count nucleation.
 |---|---|---|---|
 | γ | 0.044 J/m² | 0.030 – 0.070 | Basal-plane habit. DFT vacuum surface energies for Ca(OH)₂ basal plane are ~0.25 – 0.35 J/m² (Galmarini et al., Cem. Concr. Res. 2011). Experimental **solid–liquid interfacial** energies γ_(s-l) for portlandite in aqueous solution — from induction-time analysis in cement pastes (e.g., Garrault/Nonat/Scherer literature) — sit in the ~0.03 – 0.10 J/m² range. The ~10× empirical ratio between DFT-vacuum and aqueous-measured values reflects a combination of dielectric screening of the electrostatic contribution, hydration structure at the interface, and surface reconstruction; it should not be attributed to dielectric screening alone. The 0.044 J/m² value bisected at A₀ = 1e30 to give onset S ≈ 4.6 in C3S paste (Session-50 prototype, pre-fix pipeline) sits well within the aqueous experimental envelope.|
 | θ | 180° (pinned) | 1 – 180 | Homogeneous limit; SEM shows Ca(OH)₂ nucleating near but not on C3S surfaces (JWB observation) |
-| A₀ | **1e25 /(m³·s)** (interim, 2026-07-27) | 1e22 – 1e32 | Session-50 originally recommended 1e30 /(m³·s) based on Kashchiev textbook order. After the CNT scaling fix landed 2026-07-27, that value produced ~32 % Portlandite by 1 h in Portland paste (vs Session-46 archive ~14 % at 24 h). Reduced to 1e25 as a bounded-behavior placeholder. **Pure-A₀ recalibration cannot recover Session-46-style trajectories** because SR growth is exponential-in-mass once nuclei exist; the correct fix requires Option (c) — see `docs/POST_ALPHA_TODOS.md` "CNT Portlandite calibration ..." for the full analysis. |
+| A₀ | **1e25 /(m³·s)** (interim, 2026-07-27) | 1e22 – 1e32 | Session-50 originally recommended 1e30 /(m³·s) based on Kashchiev textbook order. After the CNT scaling fix landed 2026-07-27, that value produced ~32 % Portlandite by 1 h in Portland paste (vs Session-46 archive ~14 % at 24 h). Reduced to 1e25 as a bounded-behavior placeholder. **Pure-A₀ recalibration cannot recover Session-46-style trajectories** because SR growth is exponential-in-mass once nuclei exist; the correct fix requires Option (c) — see `docs/DEFERRED.md` "CNT Portlandite calibration ..." for the full analysis. |
 | V_m | 33.08 cm³/mol | fixed | GEMS CemData18 at 298 K (comes from GEMS at runtime) |
 | T | 298.15 K | 277 – 353 | GEMS thermodynamic-database supported range |
 
@@ -124,7 +124,7 @@ envelope.
 **About the A₀ change from 1e30 to 1e25.** The Session-50 A₀ was
 calibrated against a broken production pipeline (Session-51 CNT
 placement had a ~10⁷× scaling bug plus a missing microPhaseVolume_
-sync; both fixed 2026-07-27 — see `POST_ALPHA_TODOS.md`). With the
+sync; both fixed 2026-07-27 — see `DEFERRED.md`). With the
 fix landed, the same A₀ = 1e30 produced ~50 000–70 000 Portlandite
 voxels per cycle at Portland-paste SI ~ 10, and Portlandite reached
 32 % by 1 h. A sweep across A₀ ∈ {1e30, 1e26, 1e24, 1e22, 1e10}
@@ -176,7 +176,7 @@ verification.
   saturation is a different regime, indexed by substrate-voxel count for
   heterogeneous nucleation, not same-phase interface. Fix: Standard and
   Pozzolanic have symmetric CNT eligibility. Site-saturation gating for
-  θ<180° is deferred to POST_ALPHA_TODOS.md.
+  θ<180° is deferred to DEFERRED.md.
 
 - **Do NOT sidestep to develop `SaturatingRateModel` mid-CNT-thread.**
   Step-6 revealed that Standard's Eq. 6 rate-law divergence at high Ω
@@ -217,14 +217,14 @@ verification.
 - **UI CNT parameter input** — Hydration Panel editor for the
   per-phase nucleation block, top-level `useNucleationKinetics`, and
   `nucleationCapFraction`. Currently JSON-only. Tracked in
-  `POST_ALPHA_TODOS.md`.
+  `DEFERRED.md`.
 
 - **Heterogeneous CNT site-saturation gating** — when the first phase
   with θ<180° is configured (C-S-H, ettringite, etc.), the rate
   calculation must bound N by available substrate voxels, not just
-  N_cap. Tracked in `POST_ALPHA_TODOS.md`.
+  N_cap. Tracked in `DEFERRED.md`.
 
 - **Vocabulary hygiene** — `Pi` → `PI`, `limitICTHRESH` →
   `LIMITICTHRESH`, `affinity` rename in Lattice/Isite/Interface (NOT
   ChemicalSystem or GEMS3K — both use "affinity" correctly in the
-  thermodynamic driving-force sense). Tracked in `POST_ALPHA_TODOS.md`.
+  thermodynamic driving-force sense). Tracked in `DEFERRED.md`.

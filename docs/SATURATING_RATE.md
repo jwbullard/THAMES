@@ -150,7 +150,7 @@ See `docs/CNT_ARCHITECTURE.md` for the CNT cycle-by-cycle flow.
   `~/tmp/thames-satrate-val/saturating_rate_validation.md`. Key result:
   4a cleared 6b's dt-collapse cleanly; 4b cleared 6b's stall point but
   hit a separate CNT ↔ GEMS mass-balance throttle documented in
-  `POST_ALPHA_TODOS.md`.
+  `DEFERRED.md`.
 
 ## 7. References
 
