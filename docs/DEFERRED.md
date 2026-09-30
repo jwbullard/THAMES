@@ -1522,3 +1522,94 @@ Deleting the mutation would remove, at no behavioral cost:
 
 Each bin is visited once, so no mutated value is re-read even within the loop;
 removal is provably behavior-preserving.
+
+### DCH temperature grid: 298.15 K is not a grid point, and making it one breaks GEMS
+
+**Found 2026-09-30** while implementing the meniscus correction to G0(H2O@).
+
+`src/data/gems/thames-dch.dat` has 39 temperature points spanning 277.15 to
+353.15 K at **2 K spacing**, with `Ttol = 1` K and `mLook = 0` (interpolation
+mode). Runs happen at 298.15 K, taken from the DBR's `<TK>`, not from
+simparams. 298.15 sits **exactly 1.0 K from both neighbours** (297.15 and
+299.15) and `check_grid_T` uses a strict `< Ttol`, so neither matches: reads
+fall through to Lagrange interpolation.
+
+That is fine for reading, and arguably more accurate. It is fatal for writing:
+`TNode::Set_DC_G0` requires a real grid slot and refuses otherwise. **So the
+meniscus correction cannot be applied at the temperature everybody runs at.**
+It fails loudly — `ChemicalSystem::applyMeniscusWaterCorrection` warns once and
+skips — rather than silently doing nothing.
+
+**Two routes to make 298.15 resolve were tried and BOTH break GEMS at
+construction**, with `nodeStatus_ = 4`, "Failed result with auto initial
+approx":
+
+1. Setting the DBR `<TK>` to 297.15, an exact grid point.
+2. Widening `Ttol` to 1.5 so 298.15 snaps to the 297.15 point.
+
+An unmodified sealed run on the same binary is fine, so this is not the new
+code. The common factor is that GEMS takes thermodynamic data **directly from
+a grid point instead of interpolating**. Note that route 1 is fully
+self-consistent — T and G0 both at 297.15 — and still fails, so it is not a
+mismatch between the temperature and the data. The G0 rows for C3S, C3A, H2O@
+and Portlandite were checked across all 39 points and are smooth, with no
+anomaly at index 10; the data is not corrupt.
+
+**Why this matters for the obvious fix.** Rebuilding the DCH at 1 K spacing
+would put 298.15 exactly on the grid — which is the configuration that fails
+above. So a rebuild may not merely fail to help; it may break the database.
+**Understand the AIA failure before rebuilding.**
+
+Also note `check_grid_T` returns the FIRST point within tolerance, not the
+nearest, so with 1 K spacing and `Ttol = 1` a temperature of 298.0 would still
+snap to 297.15. Any rebuild should tighten `Ttol` to about 0.5 K at the same
+time.
+
+**If a rebuild does go ahead, it must re-apply two hand edits or silently
+revert them:** G0(C3S) −65,211.81 J/mol (S56) and G0(C3A) −206,549.59 J/mol
+(S57), each a constant offset across all T points. Both are grid-independent,
+so they transfer to any spacing unchanged. The pre-edit backups still exist
+(`thames-dch.dat.pre-c3s-lnK-fix-20260731`, `.pre-c3a-lnK-fix-20260806`,
+`.pre-glass-am-rename-20260822`), so the exact deltas can be re-derived rather
+than trusted to memory. Key the edits on DC **names**, not indices, since a
+rebuild need not preserve ordering. Verify afterwards by recomputing ln K at
+298.15 K: C3S = −50.70, C3A = −48.75, with Portlandite log Ksp = −5.2004 as an
+untouched control.
+
+Separately: THAMES currently runs at 298.15 K while GEMS serves interpolated
+data, which is correct. But if `Ttol` were ever loosened, reads would snap to
+297.15 and the run would silently use 1 K-cold thermodynamics.
+
+### strainenergy is written by DC index but read with the G0 stride
+
+**Found 2026-09-30**, alongside the sizing bug fixed the same day.
+
+`ElasticModel.cc:845` writes `strainenergy[DCId] = ...`, one entry per
+dependent component. GEMS reads it as
+
+    jj = xCH * gridTP();                 // xCH * nTp * nPp
+    G0 = CSD->G0[jj + xTP] + strainenergy[jj + xTP];
+
+in `TNode::DC_G0` and again in `ipm_simplex.cpp`. The two conventions are
+incompatible. A value written for C3S (DC 115) is read as DC 2 at temperature
+slot 37 — wrong species, wrong temperature.
+
+The sizing has been fixed so the array is no longer read out of bounds, which
+removes the undefined behaviour. **The index mismatch remains**, which means
+the crystallization-pressure coupling in the sulfate-attack path has most
+likely never applied strain energy to the species it was computed for. It is
+invisible in ordinary runs twice over: `strainenergy` stays all zeros unless
+sulfate attack is active, and the reading branch only executes when the
+temperature resolves to a lookup grid point, which 298.15 K does not on the
+current 2 K grid.
+
+Fixing it means deciding the intended semantics. Strain energy is a property
+of a phase and should not depend on temperature, so the natural form is to
+broadcast each DC's value across all its temperature slots:
+
+    for (t = 0; t < nTp * nPp; ++t)
+      strainenergy[DCId * nTp * nPp + t] = value;
+
+That is a small change in `ElasticModel.cc`, but it alters the sulfate-attack
+path, which has no test fixture here — so it wants a sulfate-attack case to
+validate against before being taken.
