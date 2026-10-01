@@ -328,6 +328,19 @@ temperature. Full narrative: `docs/session75_summary.md`.
 
 ---
 
+### Session 76 (Oct 1, 2026): w/c 0.32 run, meniscus reporting fixes, C-S-H gel outputs
+
+Full narrative: `docs/session76_summary.md`. Submodule `924de7a`, `b21ed21`; super-repo `93f67efd`, `a24b59fd`. All pushed.
+
+- **The w/c 0.32 run** (sealed, `cem151-w32-neat`, Arcanite+Thenardite Thermodynamic) passed 85 h cleanly, confirming the S75 diagnosis, then **stopped at 96 h, DOR 0.587, on space**: CSHQ needed 2799 voxels, electrolyte 0, only 315 moist VOID sites. Gel water still untested; the physical fix is C-S-H densification.
+- **`924de7a`:** `MeniscusG0Shift(J/mol)` column (Step 2 confirmed live, -112 J/mol at 96 h); meniscus flicker was a **floating-point artifact** (1e-19 remainder, `0.50-(0.50-1e-19)=0` walked the drain to the 100 nm bin) — fixed with `min(available, remaining)` and `SUBVOXEL_REMAINDER_TOL`; pore-size rebuild before the three meniscus-reading writers so output matches what the kinetics use; `runmeta::finalize` on the space-exhausted stop (sidecar was stuck at `in_progress`).
+- **`b21ed21`:** `_CSH.csv` gains GelPorosity, SolidDensity, SatGelDensity, H2O/Si, GelPoreSaturation, Psi (Königsberger ψ on the Allen basis via function-local constants; no GEMS molar volume touched). **`_CSH.csv` and `_CSratio_solid.csv` composition was frozen at input-DBR values (Ca/Si 1.6046) in every past run** — `pGEMPhaseStoich_` was filled only at construction; now refreshed.
+- **Literature** (Königsberger 2016, Muller 2013, Jennings 2008, Allen 2007): gel porosity is packing not Ca/Si; master curve ρ_gel(ψ) independent of w/c; regime III φ = ψ → 0; no floor; largest gel pores first (inference).
+- **Evidence:** GEMS CSHQ solid is 2.25 g/cm³ with ~2.86 H₂O/Si. THAMES gel density flat ~1.715 for w/c 0.32 and 0.443 (coincide); crosses Königsberger Eq. 42 at ψ ≈ 0.59 — too dense early (~25 %), too light late (~7 %). Figure `~/Research/THAMES-Tests-2026/Figures/gel_density_vs_psi.png`. Matching Eq. 42 would give ~1.9× more C-S-H voxels early — step 2 changes setting/percolation, not just late age.
+- **Next:** Jeff's five densification decisions (main one: replace composition φ with φ(ψ)), then steps 2-5. See memory `project_gel_water_handoff.md`.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
