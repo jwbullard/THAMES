@@ -310,6 +310,24 @@ Full narrative: `docs/session74_summary.md`. Nothing pushed at time of writing.
 
 ---
 
+### Session 75 (Sep 30, 2026): GEMS database rebuild reconciled, verified, installed
+
+Single-thread session serving one end: get 298.15 K onto the DCH temperature
+grid so Step 2 of the meniscus correction can write `G0(H2O@)` at the run
+temperature. Full narrative: `docs/session75_summary.md`.
+
+- **Why it was blocked.** S74's `applyMeniscusWaterCorrection` was inert: the guard at `ChemicalSystem.cc:4458-4464` needs `fabs(T_ - TKval[j]) < Ttol`, and on the old 2 K grid 298.15 K sat exactly `Ttol` (1 K) from both neighbours, so the strict `<` failed and it warned-and-skipped every step. Widening `Ttol` in S74 crashed GEMS at construction — which is how the `strainenergy` out-of-bounds read was found and fixed in `5190772`.
+- **Rebuild attempt 3 accepted.** `nIC 14 / nDC 198 / nPH 100 / nPS 11 / nDCs 109` all exact; T 278.15-354.15 K at 2 K with **298.15 exactly on grid**; P 1-1001 bar, 6 points, ambient exact. `Ca(HSiO3)+` and `Si4O10-4` deliberately excluded by Jeff (speculative per the DB author) — **their absence is not a defect**. Earlier `Ptol`-tightening recommendation withdrawn: at 20 MPa spacing, 50 kPa only ever matches the exact point.
+- **Reconciled.** 46 renames new-to-current (17 phase, 29 DC), each proven by both identical stoichiometry and identical list position, scoped to the `PHNL`/`DCNL` blocks so quoted-token replacement cannot collide (`'ettringite'` vs `'ettringite05'`). Then the two G0 offsets by **name**, broadcast across all 234 T x P slots: C3S -65,211.81 and C3A -206,549.59 J/mol. Audit: name lists identical including order; exactly two G0 lines differ from the fresh export; everything else byte-identical to it.
+- **Verified at 298.15 K:** C3S ln K **-50.70**, C3A **-48.75**, Portlandite log Ksp **-5.2002** (control; the old file could only give -5.1895 because it had to interpolate). **Verification trap:** C3S reads -41.05 in the HSiO3- basis and -50.70 in the H4SiO4/SiO2@ basis S56 calibrated in — use `C3S + 3 H2O -> 3 Ca+2 + SiO2@ + 6 OH-`.
+- **Installed** over `src/data/gems/thames-{dch,dbr,ipm}.dat` with `*.pre-dch-rebuild-20260930` backups, after a clean backend rebuild (the old `bin/thames` predated the `strainenergy` fix and would have died on this DCH). Repo `.lst` manifests unchanged; the export's `thames-new-*.lst` discarded; IPM `<ID_key>` left as `"Pyrr G thames-new"` (GEM-Selektor record key, unused at runtime). **`src/data/gems/` is ignored wholesale** by the `Data/` rule at `.gitignore:227`, case-insensitively on macOS — backups need no gitignore work, but new files there are untracked.
+- **Smoke test** (Ca11mM): exit 0 in 29 s vs 27 s, DBR at `TK 298.15`/`P 100000` both exact, peak total_Si 104.8 uM vs 104.6 and final [Ca+2] 9.858 vs 9.857 mM — the 0.2 % shift is the 1 K grid change, not a regression.
+- **`strainenergy` DEFERRED entry corrected.** It claimed the index mismatch was hidden twice over, partly because 298.15 K interpolates. **That guard is now gone** — the reading branch fires on every call. Also found: `ElasticModel.cc:825-826` re-resizes the shared global to `numDCs_`, undoing the sizing fix for the elastic and sulfate-attack paths (`ThermalStrain.cc:2764`, `AppliedStrain.cc:959`); hydration unaffected. The proper fix must settle shape ownership and whether `ElasticModel` should touch a process-global at all.
+- **Gel water still untested, and two record corrections.** The 84.9 h w/c 0.32 stall was an Arcanite DC-depletion clamp (S66 KL#2), **not** gel water — my misdiagnosis. Step 2 is verified only as far as "the grid-point path constructs and runs"; the smoke fixture is saturated so the shift is zero by construction and the correction has never been seen to fire. **Next session, first thing:** sealed w/c 0.32 from the UI microstructure `cem151-w32-neat`, Arcanite and Thenardite pencil-edited to Thermodynamic, 672 h, Step 2 live. See memory `project_gel_water_handoff.md`, which now opens with it.
+- **Loose end flagged not taken:** `ChemicalSystem.cc:4453-4455` still says "a run at 298 K writes the 297.15 K point", now false.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)

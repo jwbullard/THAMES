@@ -1613,3 +1613,24 @@ broadcast each DC's value across all its temperature slots:
 That is a small change in `ElasticModel.cc`, but it alters the sulfate-attack
 path, which has no test fixture here — so it wants a sulfate-attack case to
 validate against before being taken.
+
+**Updated 2026-09-30, after the rebuilt DCH was installed.** Two things above
+are now wrong in the direction of complacency:
+
+- The rebuilt grid puts 298.15 K *exactly* on a lookup point. The branch that
+  reads `strainenergy` therefore executes on **every** run from now on, instead
+  of falling through to Lagrange interpolation. One of the two reasons this was
+  invisible is gone; only "stays all zeros unless sulfate attack is active" is
+  left holding it up.
+- `ElasticModel.cc:825-826` calls `strainenergy.resize(numDCs_, 0.0)`, which
+  **undoes the sizing fix on the shared global**. Any GEMS evaluation that
+  happens after `getAvgStrainengy()` is back to reading off the end. Callers are
+  `ThermalStrain.cc:2764` and `AppliedStrain.cc:959`, so the exposure is the
+  elastic and sulfate-attack paths, not hydration — the hydration smoke fixture
+  passes clean on the new DCH.
+
+So the proper implementation needs to settle three things together, not just
+the index arithmetic: who owns the vector's shape (one writer, sized once from
+`nDC * nTp * nPp`), what the broadcast semantics are, and whether
+`ElasticModel` should be writing to a process-global at all rather than handing
+a value to `ChemicalSystem`.
