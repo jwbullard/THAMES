@@ -1775,3 +1775,19 @@ Whatever is chosen, make the UI's `max_voxels` agree with micgen's actual limit,
 and surface the micgen log's error line in the UI failure dialog.
 
 **Workaround.** Keep generated systems at or below 278³ (`Isizemag` ≤ 21).
+
+---
+
+### Microstructure images written early and mislabeled when output times are less than a minute apart
+
+**Kind:** Latent bug class. It affected published Fig. 9 of the MSMSE-109162 manuscript.
+
+**Identified:** 2026-10-02 (MSMSE revision work in `~/Research/THAMES-Tests-2026`)
+
+**Symptom.** In a carbonation run with outputs every second for 57 s, the image labeled `…00m30s…img` contains the microstructure at 3.0 s. Every image is about 10× too early, and the image series covers only the first ~6 s. The time-series CSVs, written every cycle, are correct.
+
+**Root cause.** `Controller::doCycle` writes an image when `currTime >= outputImageTime_[i]` **or** `|currTime − outputImageTime_[i]| < thrTimeToWriteLattice`, with `thrTimeToWriteLattice = 0.0167` h (~1 min; `Controller.cc:1159` at HEAD, `:619` at c6f84fb). In the second case the file is labeled with the output time, not the current time. With sub-minute output spacing, every cycle is "within a minute" of the next output time, so each cycle writes the next image. Pore-size-distribution files follow the same trigger. Runs with outputs ≥ 1 min apart (all cement runs) are unaffected.
+
+**Proposed fix.** Drop the proximity clause, or make the tolerance tiny (the MSMSE frozen build uses 1e-9 h, verified to leave all time-series CSVs byte-identical). The adaptive controller already clips steps so that output times are hit exactly (`Controller.cc` "Ensure we hit output times exactly"). If a tolerance is kept for safety, make it relative to the output spacing, not absolute.
+
+**Status:** FIXED 2026-10-02 in submodule `2110309` (tolerance set to 1e-9 h, as in the MSMSE frozen build; an absolute rounding tolerance rather than none, because `lastGoodTime_ + (outTime − lastGoodTime_)` can land one ulp short of `outTime`).
