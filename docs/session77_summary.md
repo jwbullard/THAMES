@@ -97,3 +97,14 @@ binds.
   drawdown (`GelPoreSaturation`, internal RH).
 - A deliberately designed open-boundary carbonation or leaching case for the
   envelope shrink branch.
+
+## Addendum: explainer notation revised
+
+At Jeff's request the eyes-only `docs/gel_densification.tex/.pdf` was revised
+so every symbol is defined at first use and has one meaning: a notation table
+up front; descriptive subscripts (`tgt`, `prev`, `hold`, `comp`) replace the
+`*` superscripts (phi* -> phi_tgt, rho* -> rho_tgt); V_sCSH renamed V_A to
+avoid confusion with V_s; rho_gel defined explicitly; the three Konigsberger
+regimes defined in words; figure axes use the same symbols. Corrected an error
+in the first draft: only the floor at 0 applies to phi_tgt; the 0.99 cap comes
+after the envelope rule, as in the code. Files remain untracked.
