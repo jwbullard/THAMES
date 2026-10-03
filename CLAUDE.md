@@ -341,6 +341,20 @@ Full narrative: `docs/session76_summary.md`. Submodule `924de7a`, `b21ed21`; sup
 
 ---
 
+### Session 77 (Oct 2-3, 2026): C-S-H densification landed, generality-tested
+
+Full narrative: `docs/session77_summary.md`. Submodule `2110309`, `e6312b6`; super-repo `13163f69`, `46755d44`. All pushed.
+
+- **MSMSE Fig. 9 image bug** (`2110309`): image/PSD trigger tolerance 0.0167 h -> 1e-9 h (rounding tolerance, not zero: the clipped step can land one ulp short). MSMSE frozen build is `c6f84fb` (S38) — none of S55+ fixes in the manuscript runs.
+- **Step 2** (`e6312b6`): CSHQ gel porosity from Königsberger ψ (Eq. 42/13, onset held above ψ 0.942), exact conversion to the GEMS-solid basis; φ = 0 at ψ = 0.221. `GelDensificationParameters.h`, `ChemicalSystem::calcCSHPsi` (shared with `_CSH.csv`), optional `gel_densification` block (`enabled:false` byte-identical), `corPorCSHQ` deleted.
+- **Gel-envelope rule (parameter-free):** solid growing -> envelope may not shrink; solid shrinking -> envelope between proportional shrink and unchanged; committed only on accepted steps. Without it w/c 0.32 lost C-S-H voxels after 160 h. **Jeff's standing bar: rules must generalize, not fit one run** — my first version would have blocked carbonation/leaching; the unit test (`test_gel_densification.cc`, 19 checks) found the second gap.
+- **Generality:** sealed w/c 0.32 (672 h, DOR 0.697; was 96 h/0.587), sealed w/c 0.443 (envelope never binds), saturated w/c 0.443 (depercolation 49 -> 21 h), saturated fly ash, sealed 10 % limestone `cem151-w32-0p1LS` (672 h vs out-of-room at 100 h). DOR unchanged where both ran full length; setting/percolation earlier everywhere.
+- **Pitfalls:** never copy GEMS `.dat` files from a UI op folder (alpha-3 DB); `dist/THAMES.app` runs the alpha-3 backend; restart from a hydrated image re-equilibrates (unsupported); fixed CO₃ in sealed paste breaks GEMS regardless (filed, with the fatal `calculateSI` failure and its provenance gap).
+- **Docs:** `docs/gel_densification.tex/.pdf` + figures — Jeff's eyes-only explainer, deliberately untracked.
+- **Next:** step 4 (largest gel pores first), `wmc0_` restamp, then the gel-water drawdown test at w/c 0.32.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
