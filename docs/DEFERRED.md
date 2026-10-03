@@ -1791,3 +1791,132 @@ and surface the micgen log's error line in the UI failure dialog.
 **Proposed fix.** Drop the proximity clause, or make the tolerance tiny (the MSMSE frozen build uses 1e-9 h, verified to leave all time-series CSVs byte-identical). The adaptive controller already clips steps so that output times are hit exactly (`Controller.cc` "Ensure we hit output times exactly"). If a tolerance is kept for safety, make it relative to the output spacing, not absolute.
 
 **Status:** FIXED 2026-10-02 in submodule `2110309` (tolerance set to 1e-9 h, as in the MSMSE frozen build; an absolute rounding tolerance rather than none, because `lastGoodTime_ + (outTime − lastGoodTime_)` can land one ulp short of `outTime`).
+
+---
+
+### Use a smoothed, resolution-independent surface area in the rate laws
+
+**Kind:** Research direction.
+
+**Identified:** 2026-10-03 (MSMSE-109162 revision, `~/Research/THAMES-Tests-2026`)
+
+**Symptom.** The surface area that enters every surface-controlled rate law is the count of voxel faces a phase shares with electrolyte. The dissolution rule removes voxels at random, so it roughens surfaces on the scale of one voxel, and the face count includes all of that roughness. When the voxel size is reduced, the surfaces roughen more finely and the counted area keeps growing, so absolute rates do not converge. In the fixed-composition portlandite carbonation runs, the counted area at a given fraction dissolved grew by up to 39 % as the voxel size went from 1 to 1/3 µm on the same particle geometry.
+
+**What the tests showed.** The portlandite indicator was smoothed with a Gaussian of fixed physical width ℓ, and the area was measured from the smoothed field. On the subdivided microstructures (identical geometry, voxels of 1, 1/2, and 1/3 µm), the smoothed area with ℓ = 1 µm agreed to within about 1–2 % at every stage of dissolution, from the start to 30 % remaining. The face count over the same runs grew by 34–39 %. Two forms of the smoothed area were compared:
+- the area of the 0.5 contour of the smoothed field, found by marching cubes;
+- the sum of the magnitude of the gradient of the smoothed field over all voxels.
+
+The gradient form held up better late in dissolution, because small fragments fade out gradually instead of vanishing when they drop below the 0.5 contour. It is also the cheaper of the two, so it is the form to implement.
+
+**Proposed direction.**
+1. Replace the face count in the rate laws with the gradient form, computed from the phase indicator smoothed at a declared physical length ℓ. ℓ should be held fixed in micrometers, not in voxels; a default of ℓ = 1 µm suits the usual 1 µm voxels.
+2. Weight the gradient by the local fraction of neighboring non-solid material that is electrolyte, so that surface covered by other solids does not count. This weighting was tested and behaves as expected: it equals the total area when nothing coats the surface and falls as a coating forms.
+3. The smoothing is separable (one pass per axis) and each voxel change affects the smoothed field only within about three ℓ, so the area can be updated locally as voxels change, much as the face counts are now.
+
+**Open questions.**
+- Particles of the same phase closer than about 2ℓ merge in the smoothed field, and the area between them is lost. This did not arise in dilute suspensions but should be checked in a dense paste.
+- Particles only a voxel or two across contribute little smoothed area, so a phase made mostly of such particles would dissolve too slowly. See the entry on a hybrid treatment of fine particles.
+- Rate constants measured in the laboratory are normalized to BET or geometric area. Rates computed with a smoothed area are per unit area at scale ℓ, and that difference needs to be stated and, where possible, calibrated.
+
+**Files.** Test script `~/Research/THAMES-Tests-2026/Scripts/smoothed_area.py`; results `~/Research/THAMES-Tests-2026/Data/Processed/smoothed_area.csv`; explanatory note with worked examples `~/Research/THAMES-Tests-2026/Notes/GaussianSmoothing/GaussianSmoothing.pdf`; literature summary `~/Research/THAMES-Tests-2026/Manuscript/Revision1/LiteratureCheck-2026-10-02.md`.
+
+---
+
+### Make coating coverage and surface roughening independent of the voxel size
+
+**Kind:** Research direction.
+
+**Identified:** 2026-10-03 (MSMSE-109162 revision)
+
+**Symptom.** A precipitate placed on a dissolving surface is at least one voxel thick, so a given volume of precipitate covers an area that grows in proportion to 1/λ as the voxel size λ decreases. In the portlandite carbonation runs with heterogeneous nucleation of calcite, the portlandite area still exposed to electrolyte at half dissolution fell by 6 % at 1/2 µm and by 10 % at 1/3 µm, relative to 1 µm, on identical geometry. A smoothed area (previous entry) does not remove this effect, because the coverage itself differs, not only its measurement. The same lack of a physical length scale lets the dissolution rule roughen surfaces at whatever voxel size is used.
+
+**Proposed direction.** Two changes to the rules, either of which would give these processes a physical length scale:
+1. **Partial occupancy.** Allow a voxel to hold fractions of more than one material, and move the interface by amounts set by the local rate rather than by adding or removing whole voxels. A coating could then be thinner than one voxel. The pore-scale reactive-transport codes that converge in the benchmark of Molins et al. (2021) work this way. This is the larger change.
+2. **A curvature term in site selection.** Weight dissolution and growth sites by local curvature through a Gibbs–Thomson term with a physical interfacial energy, evaluated over a physical radius rather than the fixed 18-neighbor stencil. This builds on the local-porosity curvature estimate already used for dissolution (Bullard et al. 1995) and would give roughening a physical scale. It does not by itself make coatings thinner than a voxel.
+
+**Effect on published results.** Comparisons between simulations at the same voxel size remain robust. In the carbonation example, the ratio of times to dissolve half of the portlandite with and without heterogeneous nucleation levels off near 1.5 as the voxel size is reduced. The ratio at earlier times, which is most sensitive to coating coverage, has not yet leveled off.
+
+**Files.** As for the previous entry; run inputs and outputs in `~/Research/THAMES-Tests-2026/Data/Revision1Runs/`.
+
+---
+
+### Treat fine particles separately from the lattice in broad particle size distributions
+
+**Kind:** Research direction.
+
+**Identified:** 2026-10-03 (MSMSE-109162 revision)
+
+**Symptom.** A representative volume must be at least about three times the size of the largest particles, but the smallest particles need the finest voxels. For a cement with particles up to 40–60 µm, resolving 1 µm particles with four voxels across would take about 4 × 10⁸ voxels, roughly 300 GB at the measured 0.78 kB per voxel. At the usual 1 µm voxels, particles of 1–3 µm are only one to three voxels across. Yet in a typical cement these small particles carry a large share of the surface area, and therefore of the early dissolution rate. With a smoothed area (first entry), they contribute almost nothing, and a 2 µm particle disappears entirely when ℓ = 1 µm.
+
+**Proposed direction.** Track particles below a cutoff size, perhaps two or three voxels, as a population of size classes instead of placing them on the lattice. Each class would have an analytical surface area (a sphere, or a shape factor) and would shrink as it dissolves. Because the electrolyte in THAMES has the same composition everywhere, the dissolution rate of a fine particle does not depend on where it is, so this population can exchange mass with the same speciation calculation as the lattice phases without any spatial bookkeeping. Particles above the cutoff would stay on the lattice and use the smoothed area.
+
+**Costs and open questions.**
+- Fine particles would no longer act as places where products can form, or as solid that fills space. Either could be added back approximately, for example by placing a single voxel when a fine particle is consumed, or accepted as a stated limitation.
+- The cutoff size and its relation to ℓ need to be chosen so that no particle is counted twice or missed.
+- This is the principled version of what the constant area multiplier now does approximately.
+
+**Files.** Discussion recorded in the MSMSE revision session; see the project memory in `~/.claude/projects/-Users-jwbullard-Research-THAMES-Tests-2026-Manuscript/memory/`.
+
+---
+
+### A GEMS failure in `calculateSI` ends the run, though the main solve retries
+
+**Kind:** Latent bug class.
+
+**Identified:** 2026-10-03 (C-S-H densification generality tests, limestone cement with fixed CO₃²⁻)
+
+**Symptom.** A run dies with `GEM Exception Thrown ... ChemicalSystem::calculateSI - GEM_run failed result with auto initial approx (AIA) - ERR_GEM_AIA`. The same GEMS failure inside the main solve is caught and retried with a smaller step, so a run can survive hundreds of failures there and then die on the first one that happens to land in `calculateSI`. Seen in `~/tmp/thames-ls-test-v2/co3-on` (33 h, 679 AIA messages) and `co3-off` (58 h, 1066), with densification on and off alike.
+
+**Proposed fix.** Treat a `calculateSI` failure like a main-solve failure: retry, or skip the SI update for that step and keep the previous values, with a logged warning. It should not throw out of `doCycle`.
+
+---
+
+### GEMS exceptions record only "Backend died before completion"
+
+**Kind:** Latent bug class (provenance).
+
+**Identified:** 2026-10-03 (same runs)
+
+**Symptom.** When the `calculateSI` exception above ends a run, `run_metadata.json` says `exit_code 1`, `"Backend died before completion"`, `"No specific error reason recorded"`. The reason is only in `run.stderr`. Same class as the S74 ("no more water") and S76 ("no room to place hydration products") gaps.
+
+**Proposed fix.** Call `runmeta::finalize(1, "GEMS failed in <function>: <code>", ...)` in the handler that catches the `GEMException`, as the ChemicalSystem-constructor handlers already do.
+
+---
+
+### Fixed CO₃²⁻ in a sealed paste may be an ill-posed boundary condition
+
+**Kind:** Research direction.
+
+**Identified:** 2026-10-03 (same runs)
+
+**Symptom.** Holding CO₃²⁻ at 5 mM and Na⁺ at 10 mM (`"condition": "fixed"`, as in the CarbPort runs) in a sealed limestone-cement paste makes GEMS fail hundreds of times per simulated day, with or without C-S-H densification, until a failure kills the run. The same condition works for the saturated, portlandite-only CarbPort systems.
+
+**Why it matters.** `fixed` models an external reservoir that supplies or absorbs the species without limit. In a sealed paste there is no such reservoir, and the carbonate supply competes with the paste's own sulfate and aluminate chemistry. A real CO₂-ingress or carbonation test of hydrated paste (needed, among other things, to exercise the C-S-H gel-envelope shrink branch under sustained decalcification) has to be designed deliberately: saturated or open boundary, a defensible CO₂ activity, and probably a gradient rather than a uniform fixed concentration.
+
+**Workaround.** None needed for hydration runs. The envelope shrink branch is covered by `unit_tests/test_gel_densification.cc`.
+
+---
+
+### Sealed runs with C-S-H densification never register capillary depercolation
+
+**Kind:** Latent bug class (output and definition).
+
+**Identified:** 2026-10-02 (C-S-H densification, step 2)
+
+**Symptom.** In sealed w/c 0.32 and 0.443 runs with densification on, capillary porosity (VOID + ELECTROLYTE) loses spanning in x and z by about 12 h but keeps spanning in one axis through the growing void cluster, so `CapillaryDepercolation` never appears in `_SettingTimes.csv`. Without densification the same sealed runs reported it (19.7 h at w/c 0.32, 372 h at w/c 0.443). Saturated runs are unaffected: VOID is zero until the switch, and depercolation fires earlier with densification (21 h vs 49 h at w/c 0.443).
+
+**Why it matters.** In a sealed run the output is informational only; the saturated-to-sealed switch never needs it. But whether an empty, gas-filled cluster should count as "capillary" for transport depercolation is a definition question. It carries no liquid, so it cannot conduct ions, yet the S72 decision counts VOID + ELECTROLYTE.
+
+**Options.** Count only ELECTROLYTE in sealed mode; or report liquid and total capillary connectivity separately.
+
+---
+
+### `_CSH.csv` reports Ca/Si = 1 at t = 0
+
+**Kind:** Latent bug class (cosmetic).
+
+**Identified:** 2026-10-01
+
+**Symptom.** Before the first equilibration the CSHQ phase holds no Ca or Si. Both are floored at 1e-16 before dividing (`Controller.cc`, the `_CSH.csv` row writer), so the first row reads `Ca/Si = 1`. The gel-property columns beside it are correctly left empty.
+
+**Proposed fix.** Leave the Ca/Si cell empty when either amount is at the floor, as the gel columns do.
