@@ -1920,3 +1920,262 @@ The gradient form held up better late in dissolution, because small fragments fa
 **Symptom.** Before the first equilibration the CSHQ phase holds no Ca or Si. Both are floored at 1e-16 before dividing (`Controller.cc`, the `_CSH.csv` row writer), so the first row reads `Ca/Si = 1`. The gel-property columns beside it are correctly left empty.
 
 **Proposed fix.** Leave the Ca/Si cell empty when either amount is at the floor, as the gel columns do.
+
+---
+
+### Editing a material's phases can leave it permanently unsaveable
+
+**Kind:** Bug (data integrity; user-blocking).
+
+**Identified:** 2026-10-06 (building `cement168-TableII`, material 60, for the MSMSE-109162 revision in `~/Research/THAMES-Tests-2026`)
+
+**Symptom.** The material dialog showed "✓ Total: 1.0000", yet every Save failed with "Material validation failed: Total phase fraction must equal 1.0 (got 0.997571)". The stored `material_phase` rows held the values from an earlier save attempt, except Belite, which still had the 0.165171 copied from `cement168`. Those rows summed to 0.997571. Re-entering the values in the dialog could not fix it.
+
+**Root cause.** The edit path in `ThamesMaterialDialog` is not atomic, and it validates the old state before it writes the new one.
+- `thames_material_dialog.py:773` calls `MaterialService.update()`, and `update()` runs `_validate_material()` on the phases **currently stored in the database** (`material_service.py:298`). If those rows don't sum to 1, the save aborts here, before the dialog's phases are written. Once a bad set is stored, no edit can get past this check.
+- The phase replacement that follows (`thames_material_dialog.py:780–796`) runs `remove_phase` and `add_phase(..., validate_total=False)` once per phase, each in its own session, and only then calls `validate_material()`. When that final check fails, the new rows are already committed. That is how a partial or inconsistent set reached the database in the first place. Why Belite missed the update is not established; a cell edit not committed to `PhaseCompositionEditor.phases` is a candidate.
+
+**Proposed fix.**
+1. Do the metadata update, the phase removal, the phase additions and the total check in **one** session or transaction. Roll back everything if the final total fails.
+2. In that combined path, validate the **new** phase set, not the stored one. `update()` should skip phase validation when the caller is replacing the phases.
+3. Optional: after a failed save, reload the stored phases into the dialog, so the user sees what was actually stored.
+
+**Workaround.** Fix the stored rows directly, then Save again in the dialog. Back up `thames.db` first.
+```
+UPDATE material_phase SET mass_fraction = ... WHERE material_id = <id> AND gem_phase_name = ...;
+```
+Alternatively, delete the material and recreate it. `create()` adds all the phases in one session before validating (`material_service.py:221–233`).
+
+---
+
+### Mix Design: raise decimal entries from three to four places
+
+**Kind:** UI precision (low impact; requested by Jeff).
+
+**Identified:** 2026-10-06 (CCRL 168 paste with corundum internal standard, MSMSE-109162 revision)
+
+**Symptom.** Mass entries on the Mix Design page take only three decimals. The paste needed cement : corundum = 1 : 0.133, which as solid mass fractions is 0.8826 : 0.1174. It had to be entered as 0.883 : 0.117, giving a ratio of 0.1325 instead of 0.1330 (0.4 % low). That error is negligible here but avoidable.
+
+**Where.** In `src/app/windows/panels/mix_design_panel.py`, each of these spinners sets three digits and, where shown, a step of 0.001:
+- component mass: `Gtk.SpinButton.new_with_range(0.0, 10000.0, 0.001)` with `set_digits(3)` (around line 618);
+- `wb_ratio_spin` (324);
+- `water_content_spin` (338);
+- `fine_agg_mass_spin` (4273);
+- `coarse_agg_mass_spin` (4326);
+- `micro_air_content_spin` (4389).
+
+**Proposed fix.**
+- Use `set_digits(4)` and a 0.0001 step for **every** decimal entry on the page.
+- Check that the mix-design save and load paths, and the micgen input writer, do not round back to three places. Grep for `:.3f` and `round(..., 3)` along those paths.
+- The resolution field (two decimals) is a separate entry: "Image header stores resolution with two decimals; the UI resolution field allows only two".
+
+---
+
+### Hydration page: a phase's Kinetics label does not match its stored model after leaving the page
+
+**Kind:** UI display bug (cosmetic, but misleading).
+
+**Identified:** 2026-10-06 by Jeff (CCRL 168 operations)
+
+**Symptom.** Jeff changed Arcanite's kinetic model in the phase table, entered and saved the kinetic parameters, then left the Hydration page and came back. The Kinetics column showed a different model from the one he had saved. Opening the pencil editor showed the saved model with all the parameters he had entered, so the stored data are correct and only the label is stale. A user who trusts the label may think the change was lost, or may "fix" a phase that is already set correctly.
+
+**Where to look.** The phase table is `src/app/widgets/microstructure_phases_editor.py`.
+- `_edit_phase_kinetics` (line 220) updates `phase_data[...]['kinetics']` when the editor closes.
+- `set_kinetic_overrides` (line 388) restores the saved overrides when the page is rebuilt.
+- The likely cause is that the label column is filled from the phase defaults, or before the overrides are applied, and is not refreshed afterward. The fix is to derive the label from the same data the pencil editor reads, every time the row is drawn or reloaded.
+
+**Proposed fix.** Make the Kinetics label a function of the stored kinetics, through a cell-data function or a refresh at the end of `set_kinetic_overrides`. Add a test: set an override, rebuild the page, and assert the label.
+
+---
+
+### Hydration page: final time silently capped at 365 when the unit is hours
+
+**Kind:** UI bug (can corrupt a run setup without warning).
+
+**Identified:** 2026-10-06 by Jeff (setting up a 28 d heat-of-hydration run)
+
+**Symptom.** With the final-time unit set to hours, typing 672 reverts to 365.0 as soon as the field loses focus. Nothing warns that the value changed. Entering 28 d works. A user who doesn't notice the reversion gets a 365 h (15.2 d) run instead of 28 d.
+
+**Root cause.** `src/app/windows/panels/thames_hydration_panel.py:439` creates the field as `Gtk.SpinButton.new_with_range(0.1, 365, 0.1)`. That range was sized for the default unit, days. `_on_final_time_unit_changed` (line 1109) only syncs the spacing unit and the preview; it never rescales the range. The cap of 365 therefore applies in every unit: 365 s, 365 min, 365 h or 365 d.
+
+**Proposed fix.** On a unit change, set the range to the equivalent of the intended maximum in that unit (for example 365 d = 8760 h = 525 600 min = 31 536 000 s), and convert the current value rather than keeping the same number. The adaptive time-step spinners in the same file (lines 1075–1095) already do a per-unit `set_range`; follow that pattern.
+
+---
+
+### GEMS ignores the simulation temperature: it always runs at the DBR's 298.15 K
+
+**Kind:** Bug (wrong physics for any run not at 25 °C; silent).
+
+**Identified:** 2026-10-06 (CCRL 168 runs at 23 °C for the MSMSE-109162 revision). It was verified in both c6f84fb (the June code) and HEAD (e6312b6).
+
+**Symptom.** A run with `"temperature": 296.15` in `simparams.json` reports "Simulation performed at: T = 298.15K" in its `.report` file. Every GEMS equilibration in it is done at 298.15 K. The full 2 K temperature grid in `thames-dch.dat` (277.15–353.15 K) is never used except to interpolate at 298.15. Jeff built that grid precisely so that GEMS could run at other temperatures.
+
+**Root cause.** The simparams temperature never reaches `ChemicalSystem`.
+- `ChemicalSystem` sets `T_ = 298.0` in its constructor (`ChemicalSystem.cc:54`). It then calls `node_->GEM_restore_MT(nodeHandle_, nodeStatus_, T_, P_, ...)` (line 387 at HEAD), which **reads** T back from the DBR file's `<TK>`. Every later `GEM_from_MT(..., T_, P_, ...)` passes that value back to GEMS.
+- `ChemicalSystem::setTemperature` (`ChemicalSystem.h:5911`) has **no callers** in either version.
+- The UI copies one fixed `thames-dbr.dat` into every operation (`hydration_input_service.py::_copy_gems_files`, around line 977). That file has `<TK> 298.15`, and nothing writes the run temperature into it.
+- `KineticController` reads `environment.temperature` from simparams (line 277 at HEAD) and passes it to the kinetic models through `kineticData.temperature`. So Parrot–Killoh, Standard and Pozzolanic rates **are** Arrhenius-scaled to the requested temperature, relative to `reftemperature`.
+- `Controller` then sets the lattice temperature from `chemSys_->getTemperature()` (`Controller.cc:484`), i.e. 298.15. Anything that reads the lattice temperature therefore also uses 298.15 K: the kinetic-model constructors before `kineticData` overrides them, and the Kelvin-equation RH.
+
+**Net effect.** Kinetic rates use the requested T, while solubilities, speciation, phase assemblage, the lattice temperature and the reported temperature use 298.15 K. A 23 °C run is off by 2 K in its thermodynamics. A 40 °C or 5 °C run would be badly wrong, with nothing to warn the user.
+
+**Proposed fix.**
+1. After `GEM_restore_MT` and before the first `GEM_from_MT`, call `chemSys_->setTemperature(T_simparams)` (or set `T_` directly), so GEMS, the lattice and the report all use the requested temperature.
+2. Validate that T lies inside the DCH grid (277.15–353.15 K) and fail loudly otherwise.
+3. Alternatively, or as well, have the UI write `<TK>` into the operation's copy of `thames-dbr.dat`, so the files and simparams agree.
+4. Test at several temperatures, on and off grid points (296.15, 297.15, 313.15 K). See "DCH temperature grid: 298.15 K is not a grid point, and making it one breaks GEMS" above: forcing T onto an exact grid point has caused GEMS initial-approximation failures (`nodeStatus_ = 4`). That failure must be understood before relying on runs at arbitrary temperatures.
+5. After the fix, check that the `.report` line and the per-phase heat and enthalpy outputs use the run temperature.
+
+**Consequence for past runs.** Every run so far, including the published paper runs (all at 298.15 K), is unaffected **only** because it was meant to be at 25 °C. The CCRL 168 comparison runs (23 °C) have kinetics at 23 °C and thermodynamics at 25 °C, a caveat to state in the manuscript.
+
+---
+
+### Operations Monitor Stop marks a hydration run Cancelled but leaves the backend running
+
+**Kind:** Bug (orphaned processes; misleading status).
+
+**Identified:** 2026-10-06 (CCRL 168 operations)
+
+**Symptom.** Jeff stopped eight `HY-C168-*` hydration operations from the Operations Monitor shortly after they started. The monitor listed them as Cancelled or Completed, with durations of 13–31 s. In fact every backend kept running:
+- seven ran to their full end time (168 h or 672 h of simulated time, about 8 min each) and wrote complete results;
+- the 200³ run (`HY-C168-ws045-L200`) was still running 80 minutes later at 99 % CPU and 8 GB (PID 52208, the app's `Frameworks/bin/thames`), until it was killed by hand.
+
+The panel footer reported "0 active operations" the whole time. A user can't tell that the run is still consuming the machine, or that the "cancelled" folder will go on to fill with results.
+
+**Likely cause** (read from code, not traced at runtime):
+- `OperationsMonitoringPanel._stop_operation` (`operations_monitoring_panel.py:3782`) calls `operation.terminate_process()`, which acts only on `operation.process` or `operation.pid`.
+- Those handles are set when the monitor launches a process itself (`operations_monitoring_panel.py:3976–3977`, e.g. micgen).
+- THAMES hydration runs are launched by `THAMESExecutionService.start_simulation` (`thames_execution_service.py`), and the monitor's `Operation` for them apparently carries no process handle or PID.
+- `terminate_process()` therefore returns False, and the `else` branch marks the operation CANCELLED anyway ("process may have already ended") and persists that to the database.
+- The working path, `THAMESExecutionService.cancel_simulation` (line 500), is called only from the Hydration panel's own Cancel button (`thames_hydration_panel.py:1803`), never from the monitor.
+
+**Proposed fix.**
+1. Route the monitor's Stop for hydration operations through `THAMESExecutionService.cancel_simulation(operation_name)`, or store the Popen handle and PID on the monitor's `Operation` when the execution service starts a run.
+2. Never set CANCELLED unless termination was confirmed. If no handle exists, fall back to finding the process by its working directory (psutil `cwd` matches the operation folder) and terminate that.
+3. Count running backends found that way in "active operations".
+4. On app start, flag any `thames` process whose working directory is a CANCELLED operation's folder.
+
+**Related, minor.** The monitor shows start times in UTC (`datetime.utcnow()`), so 11:19 CDT appears as 16:19. It also logs a `STEP_DEBUG` INFO line every second for each cancelled operation (see "UI log grows without bound").
+
+---
+
+### Sealed runs gain water in the current code (c6f84fb conserves it)
+
+**Kind:** Bug (mass balance; regression since June 2026).
+
+**Identified:** 2026-10-06, by comparing the same CCRL 168 inputs (`HY-C168-ws045-m01`, `"saturated": 0`) run with HEAD (UI build f7959659) and with the frozen c6f84fb.
+
+**Symptom.** The `_icmoles.csv` totals for H and O should be constant in a sealed run. In c6f84fb they are, to four decimals, through 168 h. In HEAD they rise from the first steps onward:
+
+| t (h) | H, HEAD | O, HEAD | H, c6f84fb |
+|---|---|---|---|
+| 0 | 5.1673 | 4.8897 | 5.1673 |
+| 9 | 5.4632 | 5.0371 | 5.1673 |
+| 48 | 6.0676 | 5.3360 | (constant) |
+| 168 | 6.5500 | 5.5737 | 5.1673 |
+
+All values are mol per 100 g of solids. ΔH = 2ΔO, so pure water is being added: 0.69 mol (12 g) per 100 g of solids by 7 d, in a run that should be closed. Ca, Si, Al, S and the other elements are conserved in both.
+
+**Effect.**
+- Clinker consumption is almost unchanged (C3S at 7 d: 0.1320 HEAD vs 0.1321 c6f84fb).
+- The hydrate masses shift: monosulfate is 0.136 vs 0.145, ettringite 0.021 vs 0.027 at 72 h.
+- The pore solution never desiccates as it should.
+- `_Enthalpy.csv` is badly inflated (see the next entry).
+
+**Where to look.** Some commit between c6f84fb and e6312b6 adds water to the electrolyte in sealed mode. Candidates to bisect first:
+- 94bd4b0, "Enforce mass balance: transfer IC content aqueous↔solid on kinetic changes";
+- the C-S-H gel-water and densification commits;
+- the Kelvin/meniscus G0(H2O@) shift (5190772).
+
+Run `HY-C168-ws045-m01` for 9 h at each step and check `_icmoles.csv` H. That takes about 2 min per run.
+
+**Proposed fix.** Find the source, and add a mass-balance assertion. In sealed mode, the H and O totals must not change by more than a tolerance between cycles. Report it in `exit_status.json` diagnostics.
+
+---
+
+### `_Enthalpy.csv` is not a usable heat of hydration
+
+**Kind:** Bug (output); two separate problems.
+
+**Identified:** 2026-10-06 (CCRL 168 heat vs ASTM C186, MSMSE-109162 revision).
+
+**(1) Water that enters the system is counted as heat.** `Controller` writes Σᵢ H0ᵢ nᵢ over all DCs (`getDCEnthalpy`, `Controller.cc` near the `_Enthalpy.csv` writer). Water that enters the system adds its formation enthalpy (−285.8 kJ/mol) to that sum, and the drop in the sum reads as heat released.
+- In HEAD sealed runs, which gain water (previous entry), the heat at 7 d is about 2600 J/g of cement, against 339 ± 23 measured.
+- Saturated runs take up water by design, so they are inflated the same way. The published `HY-ccr152-ws45` (saturated) implies about 1440 J/g at 7 d.
+
+**(2) A drifting offset even when water is conserved.** In c6f84fb sealed runs (H and O constant), `_Enthalpy.csv` still disagrees with Σ Δnᵢ H0ᵢ. That second sum is computed from the run's own `_dcmoles.csv` and the H0 grid in its `thames-dch.dat`, interpolated to 298.15 K, with DCs matched by position.
+- The difference is −17.4 kJ per 100 g of solids at t = 0 and grows to −26.6 kJ at 168 h.
+- At 7 d, `_Enthalpy.csv` gives 418 J/g (w/s 0.45) and 460 J/g (w/c 0.40). The Hess-law sum gives 316 and 346 J/g. The latter matches C186 (339 ± 23) and a hand estimate from the degrees of reaction (about 300).
+- The formula in `getDCEnthalpy` (`DCH0_[i] * DCMoles_[i]`) is the same as the check. So THAMES must be using different `DCH0_` values, or different `DCMoles_`, from what `_dcmoles.csv` reports.
+- Suspects:
+  - `DCH0_` evaluated at a different T or P than GEMS uses (constructor before `GEM_restore_MT`, or a P-unit mismatch in `DC_H0(i, P_, T_)`);
+  - `_Enthalpy.csv` written at a different point in the cycle from `_dcmoles.csv`;
+  - DCs whose THAMES-side moles differ from the GEMS node's.
+- A regression of the offset on Δnᵢ was too ill-conditioned to say which. Next step: dump `DCH0_` once and compare it with the DCH grid, and write Σ H0 n alongside `_dcmoles.csv` at the same call site.
+
+**Proposed fix.** Report heat as −Σ Δnᵢ H0ᵢ(T) over a closed system, relative to t = 0. For open or saturated systems, subtract the enthalpy of water (and any other species) supplied from outside, so the output is the heat of reaction. State the units per gram of cement in the header. The analysis script `~/Research/THAMES-Tests-2026/Scripts/analyze_rev1_c168.py` implements the Hess-law version from the existing outputs.
+
+---
+
+### c6f84fb ends a sealed run when the electrolyte voxels run out
+
+**Kind:** Limitation (June code); check whether HEAD still does it.
+
+**Identified:** 2026-10-06 (`HY-C168-ws040-m01`/`-m02`, w/c 0.40, sealed, 28 d requested).
+
+**Symptom.** Both runs stopped at 544 h with exit 0 and "STOP Program", and no `exit_status.json`. The voxel census at the stop shows Electrolyte = 0 and Void = 3281. There is no GEMS failure; `Controller::doCycle` stops the program once no electrolyte voxels remain. The 28 d comparison with C186 heat therefore had to use 544 h.
+
+**HEAD does the same.** The HEAD (UI) copies of the same operations also ended early, at 652 h and 664 h. They ended with "STOP Program", Electrolyte = 0 and Void = 0, and wrote no `exit_status.json`. With Void = 0, every pore had been filled with solids. They lasted longer than c6f84fb partly because HEAD imports water into sealed runs (see "Sealed runs gain water in the current code"). The Operations Monitor showed both as Completed.
+
+**Proposed fix.**
+- In sealed mode, running out of liquid-filled porosity should not end the run silently. Either continue, with hydration slowed by low RH (desiccation), or stop and say so.
+- Any early stop must write `exit_status.json` with `success: false` (or a distinct status), the reason ("electrolyte exhausted") and the time reached.
+- The UI should then show the operation as stopped early, not Completed.
+
+---
+
+### Research direction: restore a strong curvature bias in dissolution-site selection
+
+**Kind:** Research direction (microstructure fidelity).
+
+**Identified:** 2026-10-06, from comparing THAMES 7 d CCRL 168 paste with the SEM of Bullard et al., J. Mater. Res. 26 (2011) 609, Fig. 7. Scripts and data are in `~/Research/THAMES-Tests-2026` (`Scripts/compare_sem_c168.py`, `Scripts/median_diagnostic_c168.py`, `Data/Processed/rev1_c168_*`).
+
+**Observation.** At 7 d the simulated microstructure is speckled at the voxel scale, and the unhydrated clinker is fragmented.
+
+| Clinker at 7 d | THAMES | SEM |
+|---|---|---|
+| Correlation decay length (normalized two-point correlation to 1/e) | 1.9 µm | 10.2 µm |
+| Isolated clinker pixels in 2D slices | 19 % | 0.2 % |
+
+In 3D, 12 % of the remaining clinker volume is in one-voxel clusters (4.7 % at t = 0).
+
+A median (majority) filter separates measurement effects from model effects:
+- **Pores.** The gap closes. With a 5×5 or 3×3×3 filter, THAMES pores go from 0.227 to 0.066–0.080 and their decay length from 0.78 to 2.4–3.0 µm; the SEM has 0.061 and 2.7 µm. The pore difference is mostly resolution and image processing.
+- **Clinker.** The gap does not close. Filtering removes 35–48 % of the THAMES clinker volume but raises its decay length only to 5–6.5 µm. The same filter leaves the SEM clinker essentially unchanged (0.098 to 0.096; 10.2 to 10.7 µm).
+
+So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as compact cores.
+
+**History.**
+- **2017 (8ed71c6) to March 2024.** `Lattice::dissolvePhase` worked through the dissolution sites from the end of each interface's list, which was ordered by weighted mean curvature (`wmc`): `for (i = isite.size() - 1; ...)`, with the comparator `cmp` in `Interface.cc`. That made a strong, nearly deterministic bias toward the most exposed (highest-curvature) sites.
+- **April 2024.** Commits 8379d74 ("diss0 - compute probability for dissolution based on the local environment") and 623b97e ("add wmc probability for dissolution", F. Nita) replaced the ordered sweep with a random pick weighted by `wmc`. In c6f84fb and HEAD this is `probRNG += wmcInt / sumWmcInt` in `Lattice::dissolvePhase`.
+- **Jeff's description of the original scheme (2026-10-06).** Sort the phase's dissolution sites by `wmc` in descending order, apply a slight random shuffle to the sorted list for noise, then remove sites from the top. **The sort of these long lists was the cost** that led to the change.
+- **The bias is now weak and linear in `wmc`.** For a solid voxel next to pure electrolyte, a flat-face site has 5 porous NN+NNN neighbors, an edge 9 and a corner 12, so the most exposed sites are favored by at most a factor of about 2.4. Jeff recalls that the change was made for efficiency.
+
+**Why the current rule fragments grains.**
+1. Selection proportional to `wmc` is only weakly selective, so particles are eroded almost uniformly over their surface, roughening and eventually breaking up.
+2. `wmc` is a porosity-weighted count over the 18-site NN+NNN shell (`Site::calcWmc`; neighbor porosity from `microPhasePorosityInt_`). A clinker fragment surrounded by C-S-H (porosity below 1) has a lower `wmc` than one surrounded by electrolyte. Encapsulated fragments are therefore *less* likely to dissolve, so they persist.
+3. The stencil spans about 3 voxels, so the curvature estimate is noisy and has no length scale beyond λ (cf. the R1.3 resolution discussion).
+4. **Cost:** every pick is a linear cumulative scan over the whole dissolution vector, O(N) per voxel. That may be the efficiency problem that motivated the change; the ordered sweep was O(1) per pick.
+
+**Options.**
+- **(a) A tunable bias, p ∝ exp(β·wmc).** β = 0 is uniform selection, and β → ∞ recovers the 2017 ordered sweep. Calibrate β against SEM statistics (the clinker decay length, the fraction of isolated pixels) rather than by eye.
+- **(b) Keep the strong bias without sorting.** `wmcInt` is a bounded integer: the sum of integer porosities over the site and its 18 NN+NNN neighbors, so at most 19 × the integer porosity scale of `microPhasePorosityInt_`. A comparison sort is therefore never needed; an array of buckets over that range is enough.
+  - **Bucket queue:** keep each phase's dissolution sites in buckets indexed by `wmcInt`. When a neighbor changes a site's `wmc`, move it between buckets in O(1), with each site storing its position (swap-with-last removal).
+  - **"Sort descending, shuffle slightly, take from the top"** then becomes: take sites from the highest non-empty bucket, choosing uniformly within it. The within-bucket random choice *is* the shuffle noise. Extra cross-bucket noise (the old partial shuffle) can be added by sometimes drawing from the next bucket down, or by option (a)'s weights.
+  - **Cost:** O(1) amortized per removal instead of O(N log N) per sort. The current code's O(N) cumulative scan per pick also goes away.
+  - Alternatives if buckets prove awkward: a counting sort (O(N + levels)) once per call instead of `std::sort`, or a partial selection of only the k sites needed this step (`std::nth_element`, O(N)).
+- **(b′) An efficient sampler.** `wmc` is a bounded integer, so keep sites in buckets by `wmcInt` and pick a bucket with weight count × exp(β·wmc), then a uniform site within it. That is O(number of wmc levels) per pick, and an update is an O(1) bucket move when a neighbor changes. This removes the efficiency objection for any β, including the old deterministic limit.
+- **(c) A better curvature estimate.** Use a larger stencil, or the Gaussian-smoothed indicator already used for the smoothed surface area (see "Use a smoothed, resolution-independent surface area in the rate laws"). This gives the bias a physical length scale independent of λ. Related: the Gibbs–Thomson (curvature) term in site selection, option 2 in `Manuscript/Revision1/LiteratureCheck-2026-10-02.md` of the THAMES-Tests-2026 project.
+- **(d) The porosity weighting.** Decide deliberately whether a solid neighbor such as C-S-H should lower a site's exposure. Physically, C-S-H gel is permeable to the solution, so it arguably should count like electrolyte for dissolution.
+
+**Acceptance test.** Rerun `HY-C168-ws045-m01` at 1 µm and compare with Fig. 7 after the same 3×3 median filter. Target: clinker decay length about 10 µm and isolated-pixel fraction about 0.2 %, without breaking the clinker kinetics, which Parrot–Killoh controls in aggregate and which should be unaffected. Also check that the surface-area-driven examples (gypsum, portlandite carbonation) change only within their stated uncertainty.
