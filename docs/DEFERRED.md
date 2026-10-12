@@ -2012,6 +2012,8 @@ Alternatively, delete the material and recreate it. `create()` adds all the phas
 
 ### GEMS ignores the simulation temperature: it always runs at the DBR's 298.15 K
 
+**Status (2026-10-12): FIXED in submodule `57c6484`.** `parseDoc` reads `environment.temperature` and rejects values outside 278.15–354.15 K; GEMS, the lattice and the `.report` now use it. Also fixed in the same commit: GEMS snapped any T within `Ttol` = 1 K of a grid point to that point's data (now `Ttol` = 0.01 K in code, so off-grid T is interpolated), and the meniscus correction now applies at any temperature. Verified at 296.15, 297.15, 298.15 (byte-identical) and 313.15 K. Runs made before this fix at T ≠ 298.15 K (e.g. the CCRL 168 runs at 296.15 K) used 298.15 K thermodynamics.
+
 **Kind:** Bug (wrong physics for any run not at 25 °C; silent).
 
 **Identified:** 2026-10-06 (CCRL 168 runs at 23 °C for the MSMSE-109162 revision). It was verified in both c6f84fb (the June code) and HEAD (e6312b6).
