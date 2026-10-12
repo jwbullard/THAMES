@@ -2221,6 +2221,8 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 ### Port the sum-tree (Fenwick) site selection to HEAD: removes the N⁶ cost per cycle
 
+**Status (2026-10-12): DONE in submodule `dbc9751`.** Audited all 20 mutation sites at HEAD (none new since c6f84fb); exact mode byte-identical to the unpatched binary at C168 N = 32, 50, 100 and sealed w/c 0.32 (672 h, densification on); self-check clean over ~6 M draws. Pure mode is now the only mode (exact-mode fallback and the old scan deleted); it was also byte-identical at N = 100 and sealed w/c 0.32. `THAMES_SUMTREE_CHECK` kept (bit 2 now recomputes picks by an exact integer prefix scan). Timing (C168, 672 h): N = 100 538 → 285 s; N = 200 completes in 31 min. The worktree `~/Code/THAMES/worktrees/c6f84fb-sumtree` is no longer needed. Remaining after this: the lattice backup/restore and full candidate-vector rebuilds (see "What dominates after the fix" below).
+
 **Kind:** Performance fix, ready to port. Jeff wants this in THAMES (2026-10-09).
 
 **Identified:** 2026-10-09, for MSMSE-109162 revision (reviewer R1.5). Work is in `~/Research/THAMES-Tests-2026`.
@@ -2287,3 +2289,15 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 - Next targets: incremental instead of full rebuilds, and cheaper backup/restore.
 
 **Related.** "Research direction: restore a strong curvature bias in dissolution-site selection" (above). Its option (b′) bucket sampler is an alternative data structure for `wmc`-biased dissolution. The Fenwick tree already supports any integer weights, including exp(β·wmc) quantized.
+
+---
+
+### `transformPhase` has no runnable test case: the sulfate-attack fixture is stale
+
+**Kind:** Latent bug class (test coverage).
+
+**Identified:** 2026-10-12 (sum-tree port)
+
+**Symptom.** `tests/sa_portcem-298K-sat-wc45` (the only input that reaches `Lattice::transformPhase`, through simtype 4) carries an old 92-phase, 180-DC GEMS database. On the current code it stops at the first cycle with "Could not find GEMPhaseIdLookup_ match to Electrolyte". So `transformPhase`, which the sum-tree port changed, is covered only by compilation and `unit_tests/test_sum_tree.cc`, and the sulfate-attack path as a whole may not have run on current code for some time.
+
+**Proposed fix.** Regenerate the fixture with the current database and phase names (for example from a UI-built CCRL 140 paste), confirm that simtype 4 runs, and add it to the regression set. Run it once with `THAMES_SUMTREE_CHECK=3`.
