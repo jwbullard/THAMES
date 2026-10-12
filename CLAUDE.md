@@ -355,6 +355,17 @@ Full narrative: `docs/session77_summary.md`. Submodule `2110309`, `e6312b6`; sup
 
 ---
 
+### Session 78 (Oct 12, 2026): DEFERRED corrections, the temperature bug, the sum-tree port
+
+Full narrative: `docs/session78_summary.md`. Submodule `57c6484`, `dbc9751`; super-repo `bc86a648`, `23ef7b45`, `a4a7cd98`, `b11498ac`. All pushed.
+
+- **DEFERRED corrections.** Two of Jeff's CCRL 168 entries compared `c6f84fb` with the UI backend `f7959659`, which is the **alpha-3 build, not current code**. Its sealed-run water gain is the S55 bug fixed in S70; current code conserves H/O through 672 h. Real remaining issue: the **released alpha-3/3.1 binaries still create water** in sealed runs. **Lesson: the UI app (`dist/THAMES.app`) runs its own frozen backend; never call it HEAD.**
+- **Temperature bug fixed (`57c6484`).** GEMS always ran at the DBR's 298.15 K (`parseDoc` never read `environment.temperature`); only kinetics used the requested T. Now read, range-checked (278.15–354.15 K), applied to GEMS, lattice and `.report`. Also: GEMS used grid data directly within `Ttol` = 1 K on a 2 K grid (up to 1 K error) → `Ttol` = 0.01 K in code (`GEMS_GRID_T_TOLERANCE`); meniscus correction now writes all (T, P) grid points so it works at any T. 298.15 K byte-identical; verified at 296.15/297.15/313.15 K. **Pre-fix runs at T ≠ 298.15 K (e.g. CCRL 168 at 23 °C) used 25 °C thermodynamics.**
+- **Sum-tree port (`dbc9751`).** Fenwick-tree weighted picks in growPhase/dissolvePhase/transformPhase; per-cycle cost N⁶ → N³ (N = 200 C168 672 h run: 31 min). Exact mode proven byte-identical at N = 32–100 and sealed w/c 0.32; then **pure mode only** (old scan deleted; also byte-identical at N = 100). `THAMES_SUMTREE_CHECK` self-test kept; `test_sum_tree.cc`. `transformPhase` untestable by a run (stale sulfate-attack fixture; filed).
+- **Next:** densification step 4 (largest gel pores first), `wmc0_` restamp, gel-water drawdown test.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
