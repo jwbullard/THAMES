@@ -1525,6 +1525,14 @@ removal is provably behavior-preserving.
 
 ### DCH temperature grid: 298.15 K is not a grid point, and making it one breaks GEMS
 
+**Status (2026-10-12): RESOLVED in S75.** The "AIA failure" was not GEMS
+rejecting grid-point data: it was the `strainenergy` out-of-bounds read in
+`thames.cc`, which runs only on a grid-point hit (fixed in submodule
+`5190772`). The DCH was then rebuilt with 298.15 K exactly on the grid (still
+2 K spacing, 278.15–354.15 K) and installed on 2026-09-30; the meniscus
+correction now applies. The text below is the original diagnosis, kept as a
+record. See `docs/session75_summary.md`.
+
 **Found 2026-09-30** while implementing the meniscus correction to G0(H2O@).
 
 `src/data/gems/thames-dch.dat` has 39 temperature points spanning 277.15 to
@@ -2023,7 +2031,7 @@ Alternatively, delete the material and recreate it. `create()` adds all the phas
 1. After `GEM_restore_MT` and before the first `GEM_from_MT`, call `chemSys_->setTemperature(T_simparams)` (or set `T_` directly), so GEMS, the lattice and the report all use the requested temperature.
 2. Validate that T lies inside the DCH grid (277.15–353.15 K) and fail loudly otherwise.
 3. Alternatively, or as well, have the UI write `<TK>` into the operation's copy of `thames-dbr.dat`, so the files and simparams agree.
-4. Test at several temperatures, on and off grid points (296.15, 297.15, 313.15 K). See "DCH temperature grid: 298.15 K is not a grid point, and making it one breaks GEMS" above: forcing T onto an exact grid point has caused GEMS initial-approximation failures (`nodeStatus_ = 4`). That failure must be understood before relying on runs at arbitrary temperatures.
+4. Test at several temperatures, on and off grid points (296.15, 297.15, 313.15 K). The grid-point AIA failures noted in "DCH temperature grid: 298.15 K is not a grid point, and making it one breaks GEMS" above turned out to be the `strainenergy` out-of-bounds read, fixed in S75, so grid points are no longer a known hazard. Note that the meniscus correction to G0(H2O@) can be applied only when T is a grid point (278.15–354.15 K at 2 K spacing, so 296.15 is one and 297.15 is not); off-grid it warns and skips.
 5. After the fix, check that the `.report` line and the per-phase heat and enthalpy outputs use the run temperature.
 
 **Consequence for past runs.** Every run so far, including the published paper runs (all at 298.15 K), is unaffected **only** because it was meant to be at 25 °C. The CCRL 168 comparison runs (23 °C) have kinetics at 23 °C and thermodynamics at 25 °C, a caveat to state in the manuscript.
@@ -2059,9 +2067,13 @@ The panel footer reported "0 active operations" the whole time. A user can't tel
 
 ---
 
-### Sealed runs gain water in the current code (c6f84fb conserves it)
+### Sealed runs gain water in the alpha-3 builds (fixed in the current code)
 
-**Kind:** Bug (mass balance; regression since June 2026).
+**Status (2026-10-12): fixed in the current code; still present in the released alpha-3 and alpha-3.1 builds.** The "HEAD" below is the UI's backend, `f7959659` (the alpha-3 build of 2026-09-16), not the current submodule. The water gain is the S55 aqueous↔solid transfer (`94bd4b0`, `commitSolidICTransfer`), which balanced charge but not O and H, so it created about 3 H₂O per C₃S dissolved. S70 fixed it in submodule `0343374` (step A: O and H balanced with H2O@). Checked on the current code (`2110309`/`e6312b6`): two sealed 672 h runs (`cem151-w32-neat`, `cem151-w32-0p1LS`) hold H and O constant to four decimals. No bisect is needed.
+
+**What remains:** (a) the released alpha-3 and alpha-3.1 binaries still create water in every sealed run, and anyone using them (NIST, ERDC) gets inflated hydrate water and `_Enthalpy.csv`; the next release fixes it, and the alpha-3/3.1 release notes should say so meanwhile. (b) The per-cycle mass-balance assertion proposed below is still worth adding.
+
+**Kind:** Bug (mass balance; regression introduced in S55, fixed in S70).
 
 **Identified:** 2026-10-06, by comparing the same CCRL 168 inputs (`HY-C168-ws045-m01`, `"saturated": 0`) run with HEAD (UI build f7959659) and with the frozen c6f84fb.
 
@@ -2100,7 +2112,7 @@ Run `HY-C168-ws045-m01` for 9 h at each step and check `_icmoles.csv` H. That ta
 **Identified:** 2026-10-06 (CCRL 168 heat vs ASTM C186, MSMSE-109162 revision).
 
 **(1) Water that enters the system is counted as heat.** `Controller` writes Σᵢ H0ᵢ nᵢ over all DCs (`getDCEnthalpy`, `Controller.cc` near the `_Enthalpy.csv` writer). Water that enters the system adds its formation enthalpy (−285.8 kJ/mol) to that sum, and the drop in the sum reads as heat released.
-- In HEAD sealed runs, which gain water (previous entry), the heat at 7 d is about 2600 J/g of cement, against 339 ± 23 measured.
+- In alpha-3 sealed runs, which gain water (previous entry; fixed in the current code), the heat at 7 d is about 2600 J/g of cement, against 339 ± 23 measured.
 - Saturated runs take up water by design, so they are inflated the same way. The published `HY-ccr152-ws45` (saturated) implies about 1440 J/g at 7 d.
 
 **(2) A drifting offset even when water is conserved.** In c6f84fb sealed runs (H and O constant), `_Enthalpy.csv` still disagrees with Σ Δnᵢ H0ᵢ. That second sum is computed from the run's own `_dcmoles.csv` and the H0 grid in its `thames-dch.dat`, interpolated to 298.15 K, with DCs matched by position.
@@ -2119,13 +2131,15 @@ Run `HY-C168-ws045-m01` for 9 h at each step and check `_icmoles.csv` H. That ta
 
 ### c6f84fb ends a sealed run when the electrolyte voxels run out
 
-**Kind:** Limitation (June code); check whether HEAD still does it.
+**Kind:** Limitation (June code and alpha-3); partly addressed in the current code (see Status below).
 
 **Identified:** 2026-10-06 (`HY-C168-ws040-m01`/`-m02`, w/c 0.40, sealed, 28 d requested).
 
 **Symptom.** Both runs stopped at 544 h with exit 0 and "STOP Program", and no `exit_status.json`. The voxel census at the stop shows Electrolyte = 0 and Void = 3281. There is no GEMS failure; `Controller::doCycle` stops the program once no electrolyte voxels remain. The 28 d comparison with C186 heat therefore had to use 544 h.
 
-**HEAD does the same.** The HEAD (UI) copies of the same operations also ended early, at 652 h and 664 h. They ended with "STOP Program", Electrolyte = 0 and Void = 0, and wrote no `exit_status.json`. With Void = 0, every pore had been filled with solids. They lasted longer than c6f84fb partly because HEAD imports water into sealed runs (see "Sealed runs gain water in the current code"). The Operations Monitor showed both as Completed.
+**The alpha-3 build does the same.** The UI copies of the same operations (backend `f7959659`, the alpha-3 build, not the current code) also ended early, at 652 h and 664 h. They ended with "STOP Program", Electrolyte = 0 and Void = 0, and wrote no `exit_status.json`. With Void = 0, every pore had been filled with solids. They lasted longer than c6f84fb partly because that build imports water into sealed runs (see "Sealed runs gain water in the alpha-3 builds"). The Operations Monitor showed both as Completed.
+
+**Status in the current code (2026-10-12).** Partly addressed. `exit_status.json` was replaced by `run_metadata.json` (S58). A stop for lack of water records `success: true` and "Simulation ended early: no more water in system" (S74), and a stop for lack of room records "Simulation ended early: no room to place hydration products" (S76). With C-S-H densification (S77, `e6312b6`), sealed w/c 0.32 and 10 % limestone pastes now run the full 672 h instead of stopping. Still open: the Operations Monitor should show an early stop as such, not as Completed.
 
 **Proposed fix.**
 - In sealed mode, running out of liquid-filled porosity should not end the run silently. Either continue, with hydration slowed by low RH (desiccation), or stop and say so.
@@ -2133,6 +2147,29 @@ Run `HY-C168-ws045-m01` for 9 h at each step and check `_icmoles.csv` H. That ta
 - The UI should then show the operation as stopped early, not Completed.
 
 ---
+
+### `checkICMoles` creates mass: each IC-floor trigger adds about 1e-5 mol of the element
+
+**Found 2026-10-07** in the MSMSE revision mass audit (c6f84fb; the code is unchanged in this respect at HEAD unless fixed since).
+
+**Symptom.** In saturated cement168 pastes (`Data/Revision1Runs/C168sat` in THAMES-Tests-2026), total Mg in `_icmoles.csv` is flat until about 80 h, then rises in steps of 1e-5 mol to +0.13 % (N = 100) and up to +0.16 % by 28 d. The extra Mg ends up in periclase, which grows. All other major elements (Al, Ca, Fe, K, S, Si) are constant to the 5 printed digits. Silica-fume pastes show no drift over 72 d.
+
+**Mechanism.**
+1. Periclase is a Standard kinetic phase meant to be inert (lowest UI rate constant). The pore solution becomes supersaturated in periclase (SI about 1.2 at 14 h, 2.3 at 668 h), so `StandardKineticModel` (around lines 213–216) grows it and drains aqueous Mg.
+2. `ChemicalSystem::checkICMoles` (`ChemicalSystem.h` around 3104–3231; `IC_FLOOR = 1e-5` in `global.h:275`) counts the Mg available without the moles pinned in kinetic phases. When that falls below the floor it adds the deficit as Mg+2 to `DCMoles_` **and** sets `ICMoles_[Mg] = IC_FLOOR` (line 3186). GEMS sees both, so every trigger adds about 1e-5 mol of Mg that came from nowhere.
+3. In the silica-fume paste the pH is lower, periclase stays undersaturated and the floor never fires.
+
+The same path fires for any element whose unpinned amount drops below 1e-5 mol. It fired at t = 0 for Cl, Na and N, and C sitting at exactly 2e-5 is consistent with the double count. Charge balance adds H/O alongside.
+
+**Fix.**
+- Drop the `ICMoles_[i] = IC_FLOOR` assignment when DC moles are added, or make the floor a lower bound on the aqueous species rather than an addition.
+- Count moles pinned in kinetic phases as available, so a supersaturated "inert" phase cannot drain an element to the floor.
+- Add an element-balance check per cycle (relative change of each IC above a tolerance → log a warning). There is none now.
+- Related: an **Inert** kinetic type for stand-in or unreactive phases (periclase here; quartz as a corundum stand-in) that never exchanges mass, instead of a Standard model with a tiny rate constant. The Standard model also grows a supersaturated phase, so "a vanishingly small rate" is not inert.
+
+### Adaptive time step: `recordFailure` is passed the failure count, not the GEMS error code
+
+**Found 2026-10-07** (c6f84fb). `Controller.cc:710` calls `adaptiveTimeController_->recordFailure(timesGEMFailed_loc)`. `AdaptiveTimeController::recordFailure(int gemsErrorCode)` (`AdaptiveTimeController.cc:47`) classifies its argument as a GEMS status code to choose how much to cut dt. It receives the number of consecutive failures instead, so the cut depends on how many times the step has failed (most failures ×0.25, the 4th and 8th ×0.5, the 9th ×0.1) rather than on the kind of failure. This affects only efficiency, not correctness: a rejected step is always retried at a smaller dt. **Fix:** pass the GEMS status of the failed solve. **Still present in the current code** (checked 2026-10-12 at `e6312b6`: `Controller.cc:1270`).
 
 ### Research direction: restore a strong curvature bias in dissolution-site selection
 
@@ -2179,3 +2216,72 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 - **(d) The porosity weighting.** Decide deliberately whether a solid neighbor such as C-S-H should lower a site's exposure. Physically, C-S-H gel is permeable to the solution, so it arguably should count like electrolyte for dissolution.
 
 **Acceptance test.** Rerun `HY-C168-ws045-m01` at 1 µm and compare with Fig. 7 after the same 3×3 median filter. Target: clinker decay length about 10 µm and isolated-pixel fraction about 0.2 %, without breaking the clinker kinetics, which Parrot–Killoh controls in aggregate and which should be unaffected. Also check that the surface-area-driven examples (gypsum, portlandite carbonation) change only within their stated uncertainty.
+
+### Port the sum-tree (Fenwick) site selection to HEAD: removes the N⁶ cost per cycle
+
+**Kind:** Performance fix, ready to port. Jeff wants this in THAMES (2026-10-09).
+
+**Identified:** 2026-10-09, for MSMSE-109162 revision (reviewer R1.5). Work is in `~/Research/THAMES-Tests-2026`.
+
+**Problem.** Each weighted random pick of a site to grow or dissolve is a linear cumulative scan over the whole candidate vector:
+`probRNG += w[i] / sum; if (rng <= probRNG) break;`
+- The scan length (interface sites) grows as N³, and so does the number of picks per cycle. The cost per cycle therefore grows as N⁶.
+- Locations at HEAD e6312b6, in `src/thameslib/Lattice.cc`:
+  - `growPhase`: around line 1801, over `growthVector[].affinityInt` / `affSumDbl`;
+  - `dissolvePhase`: around line 3121, over `dissolutionVector[].wmcInt` / `sumWmcDbl`;
+  - `transformPhase`: same pattern (called around line 4563).
+- **Measured in c6f84fb** (CCRL 168 paste, Apple M2 Max, 3 runs per size):
+
+  | N | 32 | 50 | 100 | 150 | 200 |
+  |---|---|---|---|---|---|
+  | ms/cycle | 28 | 51 | 563 | 4330 | 25290 |
+
+  - Local slopes rise to 6.1.
+  - A fit of a + bN³ + cN⁶ puts the N⁶ share at 63 % at N=100 and 94 % at N=200.
+  - The profiler puts 89–98 % of the time in growPhase/dissolvePhase, and under 2 % in GEMS.
+
+**Fix (done and verified on c6f84fb).**
+- **Patch:** `~/Research/THAMES-Tests-2026/Scripts/thames-c6f84fb-sumtree/sumtree.patch`.
+  - It adds a header-only `src/thameslib/SumTree.h`, a Fenwick tree over int64 weights with an O(log n) weighted descent.
+  - In Lattice.cc, the tree mirrors each local candidate vector everywhere that vector changes:
+    - `rebuild()`: initial build, the nucleation rebuild, the `needUpdate` rebuild when a phase's numLeft reaches 0, and the dissolvePhase rebuild;
+    - `push()`: appends;
+    - `swapRemove()`: swap-with-last-and-pop removals;
+    - `set()`: neighbor weight changes (affinity in growPhase, wmc in dissolvePhase).
+  - The callRNG() sequence and the uniform pick when the weight sum is 0 are unchanged.
+  - transformPhase's O(n)-per-draw sanity loop became the equivalent O(1) product.
+- **Full write-up:** `~/Research/THAMES-Tests-2026/Scripts/thames-c6f84fb-sumtree/README.md`. It covers the design, the environment switches, the verification and the profile.
+- **Built tree:** the worktree is at `~/Code/THAMES/worktrees/c6f84fb-sumtree` (detached at c6f84fb, uncommitted; build dir inside). Remove it with `git worktree remove` once the port is done.
+- **Results on c6f84fb:**
+  - Output is byte-identical at N = 32–200.
+  - ms/cycle: 28, 46, 262, 948, 2345.
+  - Speedup: 1.0, 1.1, 2.1, 4.6 and 10.8× (N=200 went from 5.5 h to 31 min).
+  - The slope is now about 3.2.
+  - Peak memory is essentially unchanged (the tree needs at most about 0.15 GB at N=200).
+
+**Exact vs pure mode. Decide this when porting.**
+- **Exact mode (the patch default).** The original scan adds up w_i/S in floating point, so a draw within rounding error of a boundary can land on either side. Exact mode detects such draws using a rigorous error bound (derived in SumTree.h) and lets the original scan, kept verbatim, decide.
+  - Fallback rate: 1e-5 at N=100, 2e-4 at N=150 and 1e-3 at N=200, costing 2–5 % at N=200.
+  - The rate grows roughly as n², so exact mode slows down again well beyond N=200.
+- **Pure mode** (`THAMES_SUMTREE_EXACT=0`) never falls back. It samples the same distribution in exact integer arithmetic.
+  - Trajectories diverge from the old code after the first near-tie (about cycle 20 at N=150).
+  - The results then differ from the old code by no more than the spread between realizations, as an independent replicate would (at most 2.4 SD at N=150, 1.3 SD at N=200).
+- **Recommended for HEAD.**
+  1. Use exact mode once, to prove that the port is identical to HEAD-without-patch.
+  2. Then make pure mode the default, or delete the fallback and the scan entirely. Pure mode is simpler, faster, and arguably *more* correct, since it uses exact integer prefix sums.
+
+**Porting steps.**
+1. `git apply --check` of sumtree.patch against HEAD e6312b6 succeeded on 2026-10-09 (the patch touches only Lattice.cc and the new SumTree.h). A clean textual apply does **not** prove the port is correct: Lattice.cc changed a lot after c6f84fb (about 940 lines changed, including the C-S-H densification work).
+2. Audit HEAD for any code that changes `growthVector` / `dissolutionVector` (or the weights `affinityInt` / `wmcInt` of their entries) between draws, and has no matching tree update. Each such place needs `push` / `swapRemove` / `set` / `rebuild`. Do this especially for new code added after c6f84fb.
+   - Run with `THAMES_SUMTREE_CHECK=1` (per-draw tree-vs-vector check; aborts on a mismatch) at N=32 and 50 on a C168 paste and on a sealed / densification case. This catches any place that was missed.
+3. Byte-identity regression: build HEAD with and without the patch (exact mode), run the same inputs with the same seed, and `cmp` all Result CSVs and .img files. Do this at N=32–100 and on one transformPhase case. The C168 runs never exercise transformPhase, so that path is untested beyond compiling and a unit test.
+4. Switch to pure mode and keep or drop the debug switches. Add the unit test from the worktree to the test suite, if there is one.
+5. Time it at N=100 and N=200 to confirm.
+
+**What dominates after the fix (N=200 profile).**
+- About 24 % goes to growPhase/dissolvePhase self time. This is the exact-mode fallback plus full candidate-vector rebuilds (the `setInGrowthVectorPos(-1)` loops and `Isite` vector copies, once per phase that meets its quota).
+- The per-cycle lattice backup/restore in `Controller::doCycle` (RestoreSite/Interface copies, malloc/free) is large.
+- GEMS is about 7 %.
+- Next targets: incremental instead of full rebuilds, and cheaper backup/restore.
+
+**Related.** "Research direction: restore a strong curvature bias in dissolution-site selection" (above). Its option (b′) bucket sampler is an alternative data structure for `wmc`-biased dissolution. The Fenwick tree already supports any integer weights, including exp(β·wmc) quantized.
