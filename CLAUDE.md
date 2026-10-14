@@ -379,6 +379,19 @@ Full narrative: `docs/session79_summary.md`. Submodule `af0c95f`; super-repo `6b
 
 ---
 
+### Session 80 (Oct 14, 2026): alpha-4 steps 1-4 — notes, version bump, macOS build, draft release
+
+Full narrative: `docs/session80_summary.md`. Commit `c61752dd` (pushed).
+
+- **Release notes** `release-notes-alpha-4.md` (Jeff-edited; no longer pure ASCII). **Version** `1.0.0-alpha.4` in `app_info.py`, `.iss`, spec CFBundle strings.
+- **macOS build:** backend `af0c95f1`, DCH sha256 `51521ce7…`; PyInstaller with the S67 GTK exports worked first time. Jeff's sealed w/c 0.32 UI run completed 672 h with all new CSVs. The hash isn't visible via `strings`; check `version.h` or a sidecar.
+- **UI fixes from the smoke test:** Data Plots list was hardcoded (two copies) → one `CSV_PLOT_FILES` table, 12 categories incl. DOR, pH, Humidity, Shrinkage, CSH, Percolation, meniscus-corrected SI; Hydration microstructure dropdown alphabetical; Operations page newest first (prepend + queries ordered by id). Two DEFERRED items closed.
+- **Draft prerelease** with `THAMES-1.0.0-alpha.4-macOS.zip` (sha256 `e613388c…`); no tag until publish.
+- **`post-session-sync.sh` does `git add -A`** — would commit Jeff's untracked gel-densification files; commit by name.
+- **Next: step 5 on Windows** (sync, `build-windows.sh clean`, PyInstaller, Inno Setup, smoke test), then step 6 (upload installer, edit Downloads line, publish).
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
