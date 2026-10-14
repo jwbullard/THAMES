@@ -1015,12 +1015,14 @@ class THAMESHydrationPanel(Gtk.Box):
             # Look for both THAMES (.thames.img) and VCCTL (.img) formats
             found_files = set()  # Track to avoid duplicates
 
-            for op_dir in ops_dir.iterdir():
+            # iterdir() returns filesystem order, which looks random to the
+            # user; list operations alphabetically (case-insensitive).
+            for op_dir in sorted(ops_dir.iterdir(), key=lambda p: p.name.lower()):
                 if not op_dir.is_dir():
                     continue
 
                 # Pattern 1: THAMES format - {name}.thames.img
-                for mic_file in op_dir.glob("*.thames.img"):
+                for mic_file in sorted(op_dir.glob("*.thames.img")):
                     if str(mic_file) not in found_files:
                         display_name = f"{op_dir.name} / {mic_file.name}"
                         self.microstructure_store.append([display_name, str(mic_file)])
@@ -1028,7 +1030,7 @@ class THAMESHydrationPanel(Gtk.Box):
                         self.logger.debug(f"Found THAMES microstructure: {display_name}")
 
                 # Pattern 2: VCCTL format - {name}.img (but not .thames.img)
-                for mic_file in op_dir.glob("*.img"):
+                for mic_file in sorted(op_dir.glob("*.img")):
                     # Skip if it's a THAMES file (already found) or a time-series file
                     if ".thames.img" in mic_file.name:
                         continue

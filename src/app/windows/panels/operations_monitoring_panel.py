@@ -2928,9 +2928,10 @@ class OperationsMonitoringPanel(Gtk.Box):
             
             tree_iter = self.operations_store.iter_next(tree_iter)
         
-        # Add new operations that weren't in the store
+        # Add new operations that weren't in the store. Operations arrive
+        # oldest first; prepending puts the newest (and running ones) at top.
         for operation_data in current_ops.values():
-            self.operations_store.append(operation_data)
+            self.operations_store.prepend(operation_data)
     
     def _update_system_resources_display(self) -> None:
         """Update system resources display."""
@@ -5469,7 +5470,7 @@ class OperationsMonitoringPanel(Gtk.Box):
             # Get all operations from database
             with self.service_container.database_service.get_read_only_session() as session:
                 from app.models.operation import Operation as DBOperation
-                db_operations = session.query(DBOperation).all()
+                db_operations = session.query(DBOperation).order_by(DBOperation.id).all()
 
             self.logger.info(f"Found {len(db_operations)} operations in database")
             print(f"=== SMART REFRESH DIAGNOSTIC ===")
@@ -5572,7 +5573,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                 try:
                     with self.service_container.database_service.get_read_only_session() as session:
                         from app.models.operation import Operation as DBOperation
-                        db_operations = session.query(DBOperation).all()
+                        db_operations = session.query(DBOperation).order_by(DBOperation.id).all()
                     break
                 except Exception as e:
                     if attempt == max_retries - 1:
@@ -5699,7 +5700,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                 try:
                     with self.service_container.database_service.get_read_only_session() as session:
                         from app.models.operation import Operation as DBOperation
-                        db_operations = session.query(DBOperation).all()
+                        db_operations = session.query(DBOperation).order_by(DBOperation.id).all()
                         break
                 except Exception as e:
                     if attempt == max_retries - 1:

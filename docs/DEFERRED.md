@@ -803,7 +803,9 @@ Option (1) alone should suffice for most cases because GEMS's equilibrium solve 
 
 ---
 
-### Results Viewer: pH and DOR cannot be plotted despite being in CSV output
+### Results Viewer: pH and DOR cannot be plotted despite being in CSV output — LANDED 2026-10-14 (Session 80)
+
+**LANDED status.** `hydration_results_viewer.py` now uses one module-level `CSV_PLOT_FILES` table for both the Data Plots list and comparison loading (the two hardcoded copies are gone). Added: Degree of Hydration, pH, meniscus-corrected SI, Internal Humidity, Shrinkage, C-S-H Gel, Percolation. Not added: `_SettingTimes.csv` (event table, not a time series), `_GelSpaceRatio.csv`, `_CSratio_solid.csv`; no generic "any CSV" fallback. Older operations simply do not offer the missing files.
 
 **Identified:** 2026-08-21 (Session 58, Phase 4 Test 5)
 
@@ -1059,7 +1061,9 @@ The preceding kinetic-step log shows `Ferrite SI = 6.25e-31` — Ferrite is esse
 
 ---
 
-### Hydration panel: microstructure dropdown has no discernible sort order
+### Hydration panel: microstructure dropdown has no discernible sort order — LANDED 2026-10-14 (Session 80)
+
+**LANDED status.** Alphabetical (case-insensitive by operation folder name, then file name), Jeff's preferred option over the date-prefixed design below.
 
 **Identified:** 2026-08-27 (Session 64, user-reported).
 

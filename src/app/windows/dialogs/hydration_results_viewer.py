@@ -6,12 +6,7 @@ Comprehensive viewer for THAMES hydration simulation results including:
 - Tab 1: 3D microstructure evolution visualization (PyVista)
 - Tab 2: Time-series data plots (matplotlib) for CSV output files
 
-CSV output files displayed:
-- Microstructure.csv - Phase volume fractions over time
-- Solution.csv - Aqueous species concentrations over time
-- SI.csv - Saturation indices over time
-- SurfaceAreas.csv - Phase surface areas over time
-- Enthalpy.csv - Enthalpy over time
+CSV output files displayed: see CSV_PLOT_FILES below.
 """
 
 import gi
@@ -53,6 +48,24 @@ try:
 except ImportError:
     PhaseColorService = None
     PHASE_COLOR_SERVICE_AVAILABLE = False
+
+# Data Plots categories: display name -> Result/ file suffix. Each file must
+# be a time series with a Time(h) column. Files missing from an operation
+# (e.g. one run by an older version) are simply not offered.
+CSV_PLOT_FILES = {
+    "Phase Volumes": "Microstructure.csv",
+    "Degree of Hydration": "DOR.csv",
+    "Solution Chemistry": "Solution.csv",
+    "pH": "pH.csv",
+    "Saturation Indices": "SI.csv",
+    "Saturation Indices (meniscus-corrected)": "SI_MeniscusCorrected.csv",
+    "Surface Areas": "SurfaceAreas.csv",
+    "Internal Humidity": "Humidity.csv",
+    "Shrinkage": "Shrinkage.csv",
+    "C-S-H Gel": "CSH.csv",
+    "Percolation": "Percolation.csv",
+    "Enthalpy": "Enthalpy.csv",
+}
 
 
 class HydrationResultsViewer(Gtk.Dialog):
@@ -1283,18 +1296,9 @@ class HydrationResultsViewer(Gtk.Dialog):
                 self.logger.info(f"No Result/ subdirectory found in {self.output_path}")
                 return
 
-            # Define the expected CSV files with user-friendly display names
-            csv_file_mappings = {
-                "Phase Volumes": "Microstructure.csv",
-                "Solution Chemistry": "Solution.csv",
-                "Saturation Indices": "SI.csv",
-                "Surface Areas": "SurfaceAreas.csv",
-                "Enthalpy": "Enthalpy.csv",
-            }
-
             # Find CSV files matching the expected names
             self.csv_files.clear()
-            for display_name, filename in csv_file_mappings.items():
+            for display_name, filename in CSV_PLOT_FILES.items():
                 # Look for files with the operation name prefix
                 pattern = f"*_{filename}"
                 matches = list(result_path.glob(pattern))
@@ -1704,18 +1708,9 @@ class HydrationResultsViewer(Gtk.Dialog):
             else:
                 search_path = output_dir
 
-            # Load available CSV files
-            csv_file_mappings = {
-                "Phase Volumes": "Microstructure.csv",
-                "Solution Chemistry": "Solution.csv",
-                "Saturation Indices": "SI.csv",
-                "Surface Areas": "SurfaceAreas.csv",
-                "Enthalpy": "Enthalpy.csv",
-            }
-
             self.comparison_data[op_name] = {}
 
-            for display_name, filename in csv_file_mappings.items():
+            for display_name, filename in CSV_PLOT_FILES.items():
                 # Try with operation prefix first
                 csv_files = list(search_path.glob(f"*_{filename}"))
                 if not csv_files:
