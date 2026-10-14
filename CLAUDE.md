@@ -366,6 +366,19 @@ Full narrative: `docs/session78_summary.md`. Submodule `57c6484`, `dbc9751`; sup
 
 ---
 
+### Session 79 (Oct 13, 2026): densification step 4, Known Limitations published, alpha-4 plan
+
+Full narrative: `docs/session79_summary.md`. Submodule `af0c95f`; super-repo `6bc12300` + wrap-up. All pushed.
+
+- **Step 4a (largest gel pores first) REVERTED.** φ 0.73 → 0.18 emptied the CSHQ curve above about 4 nm; with no pore capacity between 4 and 1000 nm, the sealed meniscus flip-flopped between about 2 nm (RH 0.35, kinetics off) and 1000 nm (densification water refloods VOID). Proportional scaling stays.
+- **Step 4b LANDED (`af0c95f`):** `Lattice::restampWettingWeights` brings old sites' `wmc0_` up to date. Neutral: setting-time shifts are seed noise (two seeds differ by up to 0.46 h); sum-tree self-check clean.
+- **DEFERRED (2):** setting-time seed noise (calibrate over seeds; seed hardcoded at `thames.cc:139`); erratic capillary-depercolation event in sealed runs.
+- **Physics:** option B (tracked sub-voxel pore population) comes after alpha-4 and will be designed together with inner/outer-product C-S-H. Jeff: densification proceeds outward from clinker. Shell throttle and proximity both hinge on D through inner product (a 1 µm rim limits only if D ≲ 10⁻¹⁵–10⁻¹⁴ m²/s). Memory `project_late_age_csh_pore_physics.md`.
+- **Known Limitations 9–12 published** on alpha-3 and alpha-3.1 (water creation, 25 °C equilibrium, `_Enthalpy.csv`, early stop shown as Completed).
+- **Next: alpha-4.** Four DEFERRED items wait. Steps: release notes → version bump → macOS build and bundle smoke test → draft release → Windows build (first since S66; expect MinGW fixes) → publish.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
