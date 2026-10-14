@@ -2301,3 +2301,31 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Symptom.** `tests/sa_portcem-298K-sat-wc45` (the only input that reaches `Lattice::transformPhase`, through simtype 4) carries an old 92-phase, 180-DC GEMS database. On the current code it stops at the first cycle with "Could not find GEMPhaseIdLookup_ match to Electrolyte". So `transformPhase`, which the sum-tree port changed, is covered only by compilation and `unit_tests/test_sum_tree.cc`, and the sulfate-attack path as a whole may not have run on current code for some time.
 
 **Proposed fix.** Regenerate the fixture with the current database and phase names (for example from a UI-built CCRL 140 paste), confirm that simtype 4 runs, and add it to the regression set. Run it once with `THAMES_SUMTREE_CHECK=3`.
+
+---
+
+### Setting times carry about ±0.3 h of random-seed noise at 100³
+
+**Kind:** Research direction (calibration method).
+
+**Identified:** 2026-10-13 (gel densification step 4b testing)
+
+**Symptom.** The same code and inputs with two random seeds (`seedRNG` is hardcoded at `thames.cc:139`; -25943 vs -31337) give initial set 1.99 vs 1.84 h (w/c 0.443 sealed), 0.95 vs 1.41 h (w/c 0.32 + 10 % limestone, sealed), 1.43 vs 1.20 h (w/c 0.32 sealed), and final set differing by up to 0.2 h. 28-day DOR agrees to four decimals. Any one-line code change that alters the draw sequence moves setting times by the same amount, so a single-run comparison cannot show whether a change affects setting.
+
+**Why it matters.** `FINAL_SET_CONNECTED_FRACTION = 0.80` (`Controller.h:231`) is provisional and wants Vicat calibration. A fit to one realization per mix would fit noise.
+
+**Proposed approach.** Calibrate and compare setting times as a mean over several seeds (or at 200³, which the sum tree now makes affordable), and report the spread. Consider making the seed an input (simparams.json, default -25943) so replicas need no rebuild.
+
+---
+
+### Capillary-depercolation time is erratic in sealed runs
+
+**Kind:** Latent bug class (output reliability).
+
+**Identified:** 2026-10-13 (gel densification step 4b testing)
+
+**Symptom.** `_SettingTimes.csv` reports `CapillaryDepercolation` for some sealed runs and not others with the same inputs: w/c 0.32 + 10 % limestone gives 23.1 h (reference build), absent (step 4b, seed -25943), and 16.6 h (step 4b, seed -31337); w/c 0.32 gives absent, 12.5 h and 14.8 h. The event is the first assessment at which no direction spans (`Controller.cc:1028-1031`), and capillary = VOID + ELECTROLYTE. In sealed paste the ramified VOID invasion cluster keeps that set near its percolation threshold, so the first-crossing time depends on one realization.
+
+**Why it matters.** In sealed mode the event only sets a flag and an output row; it changes no physics. In saturated mode it switches the run to sealed, so the same sensitivity could move that switch (not seen in the saturated cases tested: 21.3 vs 21.5 h).
+
+**Proposed fix.** Decide what the event means in sealed mode (perhaps omit it there, or report electrolyte-only depercolation), and for saturated mode consider requiring loss of spanning on consecutive assessments before switching.
