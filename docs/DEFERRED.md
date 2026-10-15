@@ -2398,7 +2398,7 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 ---
 
-### Bump the backend version after alpha-4, and on every release that ships backend changes
+### Bump the backend version after alpha-4, and on every release that ships backend changes — LANDED 2026-10-15 (Session 82)
 
 **Kind:** Release hygiene.
 
@@ -2407,6 +2407,8 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Symptom.** `THAMES_HYDRATION_VERSION` in `backend/thames-hydration/CMakeLists.txt:5-8` has been 5.2(.0) since `abfeee6` (2025-11-27) and was never bumped. As a result, every backend from then through alpha-4 reports `"version": "5.2.0"` in `run_metadata.json`, including the alpha-3 backend `f7959659` and the alpha-4 backend `243c6165`, although results differ between them. Only `git_hash` tells them apart. The existing backend tags were `v5.0.0`, `v5.0.1` and `v5.1.0` (May–June 2025). `v5.2.0` was created at `243c616` in S80 to match what the shipped binary reports.
 
 **Proposed fix.** Make the first backend commit after alpha-4 a version bump: 5.3.0, or 6.0.0 to reflect the scale of change since 5.1.0 (mass balance, water creation, ln K corrections, temperature, densification, percolation, new outputs). Then bump it on every UI release that ships backend changes, and tag the submodule `vX.Y.Z` together with the super-repo's `v1.0.0-alpha.N`. Add the bump to the release checklist next to `app_info.py`, the spec CFBundle strings and the `.iss`.
+
+**Resolution.** Submodule `c380cb6` bumps to 6.0.0, chosen over 5.3.0 because results change materially from 5.1. Image headers now take `THAMES_VERSION_STRING` from `version.h`; the separate `VERSIONBUGFIX` in `global.h` and the unused `VERSION`/`VERSION_MAJOR`/`VERSION_MINOR` macros are deleted, so the patch number has one source. The standing practice still applies: bump on every release that ships backend changes, and tag the submodule alongside the super-repo.
 
 ---
 
