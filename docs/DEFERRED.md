@@ -2353,3 +2353,17 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Why it matters.** In sealed mode the event only sets a flag and an output row; it changes no physics. In saturated mode it switches the run to sealed, so the same sensitivity could move that switch (not seen in the saturated cases tested: 21.3 vs 21.5 h).
 
 **Proposed fix.** Decide what the event means in sealed mode (perhaps omit it there, or report electrolyte-only depercolation), and for saturated mode consider requiring loss of spanning on consecutive assessments before switching.
+
+---
+
+### Windows-authored `input.in` fails on macOS/Linux (CRLF kept on every path read from stdin)
+
+**Kind:** Latent bug class (cross-platform input handling).
+
+**Identified:** 2026-10-14 (Session 80; Jeff copied two failed Windows hydration operations to macOS for diagnosis)
+
+**Symptom.** Running `bin/thames -o Result < input.in` on macOS with a Windows `input.in` (CRLF) stops at once with `ChemicalSystem constructor: FileException`; stdout shows `ChemicalSystem::isInputFormatJSON ... thames-dat.lst, Problem: Could not open`. `getline(cin, buff)` on POSIX keeps the trailing `\r`, so the backend looks for `thames-dat.lst\r`. Converting only `thames-dat.lst` to LF does not help; converting `input.in` does (verified on scratch copies). Windows itself is unaffected (text-mode stdin strips the CR), so this only bites when Windows operations are moved to macOS/Linux for diagnosis, which is exactly when it is least welcome.
+
+**Where.** `backend/thames-hydration/src/thames.cc`: the `getline(cin, buff)` reads of the GEM input list (`:174`), simparams file (`:257`), microstructure file (`:316`), and output root name (`:706`) use `buff` as-is. S58 added `rstrip()` (`src/thameslib/RunMetadata.cc:172`), but it is applied only inside RunMetadata's own DCH-name extraction, so the sidecar gets the right file while the simulation does not.
+
+**Proposed fix.** Apply the same trailing-whitespace/CR strip to `buff` after each `getline(cin, buff)` in `thames.cc` (move `rstrip` to a shared utility rather than calling into RunMetadata). The output root name matters too: a stray `\r` would end up inside every output file name. Workaround until then: `sed -i '' $'s/\r$//' input.in` before running.
