@@ -3780,20 +3780,86 @@ class OperationsMonitoringPanel(Gtk.Box):
         self._add_log_entry(f"Started operation: {name}")
         self._update_operations_list()
     
+    # Backend executables the UI launches with cwd set to the operation folder.
+    _BACKEND_PROCESS_NAMES = {'thames', 'thames.exe', 'micgen', 'micgen.exe'}
+
+    def _find_backend_processes(self, operation) -> List[psutil.Process]:
+        """Find backend processes running in this operation's folder.
+
+        Hydration runs are launched by THAMESExecutionService, which keeps the
+        Popen itself, so Operation.process / Operation.pid are never set for
+        them. Matching on the working directory finds the simulator whoever
+        launched it, including runs started before a UI restart.
+        """
+        op_dir = self._get_operation_directory(operation)
+        if not op_dir:
+            return []
+        try:
+            op_dir = os.path.normcase(os.path.realpath(op_dir))
+        except OSError:
+            return []
+        found = []
+        for proc in psutil.process_iter(['name']):
+            try:
+                if (proc.info['name'] or '').lower() not in self._BACKEND_PROCESS_NAMES:
+                    continue
+                if os.path.normcase(os.path.realpath(proc.cwd())) == op_dir:
+                    found.append(proc)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, OSError):
+                continue
+        return found
+
     def _stop_operation(self, operation_id: str) -> None:
-        """Stop an operation by terminating the underlying process."""
+        """Stop an operation by terminating the underlying process.
+
+        The operation is marked Cancelled only when no backend process is
+        left running in its folder; otherwise it stays Running and the
+        failure is reported.
+        """
         operation = self.operations.get(operation_id)
         if operation and operation.status in [OperationStatus.RUNNING, OperationStatus.PAUSED]:
-            # Try to terminate the actual process
-            if operation.terminate_process():
-                operation.status = OperationStatus.CANCELLED
-                operation.end_time = datetime.utcnow()
-                self._add_log_entry(f"Successfully terminated process for operation: {operation.name}")
-            else:
-                # Process might have already ended, just update status
-                operation.status = OperationStatus.CANCELLED
-                operation.end_time = datetime.utcnow()
-                self._add_log_entry(f"Operation marked as stopped: {operation.name} (process may have already ended)")
+            # Hydration: the execution service owns the process handle.
+            if operation.operation_type == OperationType.HYDRATION_SIMULATION:
+                try:
+                    from app.services.thames_execution_service import get_thames_execution_service
+                    execution_service = get_thames_execution_service()
+                    if execution_service.is_simulation_active(operation.name):
+                        execution_service.cancel_simulation(operation.name)
+                except Exception as e:
+                    self.logger.warning(f"Execution-service cancel failed for {operation.name}: {e}")
+
+            # Process handle or PID recorded on the operation (micgen, elastic).
+            operation.terminate_process()
+
+            # Anything still running in the operation folder (e.g. a run
+            # launched before the UI was restarted).
+            leftovers = self._find_backend_processes(operation)
+            for proc in leftovers:
+                try:
+                    proc.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            gone, alive = psutil.wait_procs(leftovers, timeout=5)
+            for proc in alive:
+                try:
+                    proc.kill()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+            if alive:
+                psutil.wait_procs(alive, timeout=3)
+
+            still_running = self._find_backend_processes(operation)
+            if still_running:
+                pids = ', '.join(str(p.pid) for p in still_running)
+                self.logger.error(f"Could not stop {operation.name}: process(es) {pids} still running")
+                self._add_log_entry(f"Could not stop {operation.name}: process(es) {pids} still running")
+                self._update_status(f"Could not stop {operation.name}; process {pids} is still running")
+                return
+
+            operation.status = OperationStatus.CANCELLED
+            operation.end_time = datetime.utcnow()
+            operation.close_output_files()
+            self._add_log_entry(f"Stopped operation: {operation.name}")
 
             # Persist the cancellation to the database. Without this, the DB keeps
             # the operation marked RUNNING forever and subsequent app launches

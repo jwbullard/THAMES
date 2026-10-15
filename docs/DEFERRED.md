@@ -21,7 +21,7 @@ Add new items at the bottom with date, short title, context, and proposed fix. S
 
 ## Open Items
 
-### Adaptive timestep: near-depletion phase causes kinetics-constraint stall
+### Adaptive timestep: near-depletion phase causes kinetics-constraint stall — LANDED 2026-10-14 (Session 81)
 
 **Identified:** 2026-04-21 (Session 41, ccr152-concrete 28-day hydration)
 
@@ -33,10 +33,20 @@ Add new items at the bottom with date, short title, context, and proposed fix. S
 
 **Alternative** (more invasive): when a phase drops below N voxels and is monotonically decreasing, dissolve its remainder in a single step and mark it suppressed for the rest of the simulation.
 
-**Files.** `backend/thames-hydration/src/thameslib/KineticController.cc` (or wherever `computeKineticsBasedMaxTimestep` is defined), `Controller.cc` for any integration changes.
+**Recurrence (2026-10-14, Session 81, alpha-4 Windows smoke test).** Sealed cem151 w/c 0.32 at 296 K, Arcanite + Thenardite already Thermodynamic, backend `af0c95f1`. Ran at dt_max = 4 h to 192 h, then the kinetics constraint cut dt to 1.08 h and by a factor of exactly 0.95 = 1 − maxRelativeChange every cycle after ("Kinetics constraint: reducing timestep from 4 to …" in `thames.log`); stuck at 213.65 h (31.8 %) by cycle 423. The limiting phase was **Anhydrite** (Standard), at 4e-13 m³/100 g (~1e-8 mol, sub-voxel) and falling 5 % per cycle: dt is sized to remove 5 % of what remains, so what remains falls 5 % and dt with it, converging on ~214.6 h without reaching it. The cap lifts only when moles fall below the 1e-15 skip (`KineticController.cc:2788`), ~300 more cycles. Each cycle also needed ~18 GEMS retries (`E17IPM` Mass Balance Refinement), ~80 s wall per cycle; not shown to be caused by the Anhydrite tail. The same mix completed on the Mac, so the occurrence depends on the microstructure realization, not the platform. The geometric decay is the signature: any phase whose rate does not fall in proportion to its remaining moles produces it.
 
-**Workarounds available during alpha.**
-- Suppress Arcanite / Thenardite / Bassanite / Anhydrite via the Hydration Products tree before launching a long run (loses explicit sulfate-release tracking but avoids the stall).
+**Preferred fix (Session 81): floor the constraint's denominator at one voxel's worth.** At `KineticController.cc:2796`, replace `dt = maxRelativeChange * |moles| / |rate|` with `dt = maxRelativeChange * max(|moles|, molesPerVoxel) / |rate|`. Well-populated phases are unchanged; for the last voxel the cap stops shrinking with the remainder, the next step requests more than is left, and the S62 DC-depletion clamp in `calculateKineticStep` dissolves exactly the remainder through `commitSolidICTransfer` (mass and charge conserved; GEMS re-equilibrates with the released ions). The departure from the kinetics is bounded by one voxel's worth of each phase (~1e-6 of a 100³ system) finishing within one step instead of an asymptotic tail. It also covers the mirror case, a phase precipitating from a trace amount, whose dt the same 5 % rule throttles; a "skip while dissolving" rule would miss that. No threshold to tune and no suppression state. **Units trap:** `molesPerVoxel` must be in the per-100-g normalized frame of `DCMoles_` (S53); derive it from the phase molar volume and the voxel volume in that frame and review the conversion before editing. Add a unit test for the floored constraint. Jeff first chose to ship alpha-4 with a Known Limitation and do this later; when the rerun with Anhydrite on Thermodynamic stalled too (Gypsum and Bassanite at 93.68 h, dt pinned at the 1e-5 h floor), he put the fix into alpha-4.
+
+**Landed (2026-10-14, Session 81, submodule `243c616`).** The arithmetic is in the new header `KineticTimestepLimit.h` (`namespace kinetic_dt`: `molesPerVoxel(N, V_m, ρ_0) = 100 / (N · 1e6 · V_m · ρ_0)` in the per-100-g frame, the same convention as the CNT placement blocks, and `timestepLimit`), called from `computeKineticsBasedMaxTimestep`; the 1e-15 skip is kept. Unit test `src/unit_tests/test_kinetic_timestep_limit.cc` (16 checks, hand-derived values, including the frame identity and the geometric-decay sequence). Both stalled runs, with identical inputs, now complete 672 h with exit 0: the Anhydrite run in 457 cycles (943 s wall, 8 depletion clamps) and the Gypsum/Bassanite run in 439 cycles (496 s, 70 clamps); DOR 0.698 at 672 h in both. Moving the arithmetic from the inline version into the header left all 31 CSVs byte-identical. Release-notes Known Limitation 2 removed for alpha-4 (now Fixed #9).
+
+**Correction: severe slowdowns, not hangs.** The UI's unfixed Gypsum/Bassanite run was in fact left running (the Stop bug below) and finished 672 h on its own: about 900 cycles at the 1e-5 h floor between 93.671 and 93.681 h, then it escaped; 1454 cycles and 950 s in all, against 439 cycles and 496 s fixed. The Anhydrite run would have lifted after about 300 more cycles at about 80 s each (several hours). The same inputs and binary hash (`af0c95f1`) on macOS completed in 444 cycles with no collapse, because Anhydrite bottomed out at 8 voxels there: compiler and math-library floating-point differences make the two platforms' microstructures diverge despite the shared seed. The mechanism has no platform branch and has been seen on macOS (S41); whether it fires depends on the trajectory. DOR at 672 h agrees across all three runs (0.698).
+
+**Still open.** The Anhydrite run needed 3707 GEMS `E17IPM` (Mass Balance Refinement) retries over the run, against 50 for the other; they slow a run but did not stop it. Not shown to be caused by the near-depleted phase.
+
+**Files.** `backend/thames-hydration/src/thameslib/KineticController.cc` (`computeKineticsBasedMaxTimestep`, lines 2742-2822), `Controller.cc` for any integration changes.
+
+**Workarounds used before the fix** (no longer needed from alpha-4 on).
+- Suppress Arcanite / Thenardite via the Hydration Products tree before launching a long run (loses explicit sulfate-release tracking but avoids the stall). Not the calcium sulfates (Gypsum, Bassanite, Anhydrite): their dissolution is not fast compared with a simulation cycle early in hydration (Jeff, S81).
 - Disable adaptive time stepping and use dense output spacing (hourly) so the fixed timestep stays GEMS-safe.
 
 ---
@@ -53,13 +63,15 @@ Add new items at the bottom with date, short title, context, and proposed fix. S
 
 ---
 
-### Windows: UI "stop and delete" may not fully kill thames.exe
+### Windows: UI "stop and delete" may not fully kill thames.exe — LANDED 2026-10-14 (Session 81)
 
 **Identified:** Noted as a known issue in CLAUDE.md (pre-alpha).
 
 **Symptom.** On Windows, clicking "Stop and Delete" in Operations may leave `thames.exe` running as a zombie process.
 
 **Proposed fix.** Use `taskkill /T` (tree-kill) on Windows to terminate child processes, or `psutil.Process.children(recursive=True)` before calling `terminate()`.
+
+**Resolution.** Not a Windows problem and not about child processes: the Operations page never held a handle to the hydration process at all. Fixed on both platforms with the "Operations Monitor Stop marks a hydration run Cancelled but leaves the backend running" entry below. Delete already refuses a Running operation, so Stop-then-Delete is now safe.
 
 ---
 
@@ -1190,7 +1202,11 @@ The two icons `database` and `statistics` at size 48 aren't in the bundled Carbo
 
 **Not a shipping blocker for alpha-3** — the alpha-3 release-notes Known Limitation #2 already documents the pencil-edit workaround so testers who hit the collapse have a clear recovery path. The default change is a beta-cycle polish item.
 
-**Also worth doing at the same time.** Audit the rest of the default kinetic-type assignments for other phases whose true dissolution timescale is much shorter than dt (candidates: Anhydrite, Bassanite, Gypsum, other alkali salts). If any of them behave the same way when they deplete, they belong on Thermodynamic dispatch too.
+**Also worth doing at the same time.** Audit the rest of the default kinetic-type assignments for other phases whose true dissolution timescale is much shorter than dt (candidates: other alkali salts). If any of them behave the same way when they deplete, they belong on Thermodynamic dispatch too. The calcium sulfates (Gypsum, Bassanite, Anhydrite) are excluded: their dissolution is not fast compared with a simulation cycle early in hydration, so they stay kinetic (Jeff, S81). Their late-age depletion stall is addressed by the voxel-floor fix in the "near-depletion phase causes kinetics-constraint stall" entry instead.
+
+**Open question (S81): does the default change misrepresent occluded alkali sulfates?** Jeff is not fully comfortable with Thermodynamic control even for Arcanite and Thenardite. In a real microstructure, alkali-sulfate grains can be occluded within another solid phase and cannot dissolve until hydration exposes them to pore fluid. Under Kinetic control, the lattice respects that, because only sites in contact with water dissolve. Thermodynamic dispatch hands the whole amount to GEMS at once, so occluded grains dissolve immediately, releasing alkalis and sulfate earlier than they could physically. Two things to settle before changing the default: (1) how much of the alkali sulfate is typically occluded in a realistic starting microstructure, and whether early release of it measurably changes pore-solution pH, sulfate balance or AFt/AFm timing; (2) whether the voxel-floor fix alone removes the late-age stall that motivated this entry. If it does, the main reason to change the default disappears and Standard kinetics can stay, keeping the occlusion behavior.
+
+**Update (S81): the voxel floor has landed (`243c616`), so question (2) can now be tested.** Both S81 verification runs had Arcanite and Thenardite on Thermodynamic already, so they do not answer it. Rerun the S66 case (cem151-fa-1, 28 d) with Arcanite and Thenardite on Standard and check that it completes without the late-age collapse. Alpha-4's release notes no longer recommend the Thermodynamic workaround.
 
 **Files.** Wherever the alpha-2/-3 default kinetic types are seeded (likely `config/kinetic_defaults.json` or a Python literal in `src/app/services/kinetic_preferences_service.py`). Confirm the pencil-edit dialog reads-then-writes the same file so users can override on either side.
 
@@ -2044,7 +2060,7 @@ Alternatively, delete the material and recreate it. `create()` adds all the phas
 
 ---
 
-### Operations Monitor Stop marks a hydration run Cancelled but leaves the backend running
+### Operations Monitor Stop marks a hydration run Cancelled but leaves the backend running — LANDED 2026-10-14 (Session 81; items 1–2)
 
 **Kind:** Bug (orphaned processes; misleading status).
 
@@ -2068,6 +2084,10 @@ The panel footer reported "0 active operations" the whole time. A user can't tel
 2. Never set CANCELLED unless termination was confirmed. If no handle exists, fall back to finding the process by its working directory (psutil `cwd` matches the operation folder) and terminate that.
 3. Count running backends found that way in "active operations".
 4. On app start, flag any `thames` process whose working directory is a CANCELLED operation's folder.
+
+**Landed (2026-10-14, Session 81), items 1 and 2.** Jeff reproduced it on Windows (Task Manager showed `thames.exe` running after Stop showed Cancelled). `_stop_operation` now (a) calls `THAMESExecutionService.cancel_simulation` for hydration operations the service is tracking, (b) still calls `operation.terminate_process()` for operations with a handle or PID (micgen), (c) finds any remaining `thames`/`micgen` process whose working directory is the operation folder (new `_find_backend_processes`, psutil `cwd`; covers runs launched before a UI restart) and terminates it, killing after 5 s, and (d) sets CANCELLED and writes the database only when no such process remains; otherwise the operation stays Running and the message bar names the PID. Python only, no platform branches. Tested on Windows against a real `thames.exe`: no handle and no service record (the reported case) → process killed, then Cancelled; service-owned → `cancel_simulation` called; process that survives → stays Running, no DB write.
+
+**Still open:** items 3 and 4 (count such processes as active operations; flag them at app start), and the UTC start-time display.
 
 **Related, minor.** The monitor shows start times in UTC (`datetime.utcnow()`), so 11:19 CDT appears as 16:19. It also logs a `STEP_DEBUG` INFO line every second for each cancelled operation (see "UI log grows without bound").
 

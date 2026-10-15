@@ -38,13 +38,14 @@ files.
      now applied to both. The database spans 5 °C to 81 °C (278.15 K to 354.15 K); a
      temperature outside that range is rejected at the start of the run with
      the reason recorded. Runs at 25 °C are unaffected by this fix. (Known
-     Limitation 10.)
+     Limitation 10 in alpha-3 / alpha-3.1.)
 
   3. **Runs that stop early now report the reason.** In earlier versions, a run that ended because no
      water or no room was left for new products was recorded as an
      unexplained failure, or left marked "in progress". The reason is now
      written to run_metadata.json, for example "Simulation ended early: no
-     room to place hydration products". (Known Limitation 12.)
+     room to place hydration products". (Known Limitation 12 in alpha-3 /
+     alpha-3.1.)
 
   4. **Low water-to-cement sealed pastes no longer stall for lack of room.**
      A sealed w/c = 0.32 paste used to stop at about 4 days (degree of hydration
@@ -74,6 +75,27 @@ files.
      every rate calculation kept that correction near a multiplicative factor
      of 1. It is now updated every step (see Changed #5).
 
+  9. **Runs no longer crawl when a minority phase nearly runs out.** When a
+     kinetically controlled phase such as Arcanite, Thenardite, Anhydrite,
+     Gypsum or Bassanite dwindled to less than one voxel's worth of
+     material, each cycle was limited to a small fraction of what remained,
+     so the timestep shrank geometrically and the run could sit for hours
+     at a fixed percent complete while its log kept growing. The timestep
+     limit now treats any remainder as at least one voxel's worth, so the
+     remainder is consumed in a single step. In two sealed w/c = 0.32 runs
+     that had crawled at about 94 h and 214 h, the first took 1454 cycles
+     to reach 28 days and now takes 439; the second, at roughly 80 s per
+     cycle, now finishes in about 15 minutes. Changing the
+     kinetic type of these phases to Thermodynamic is no longer needed.
+     (Known Limitation 2 in alpha-3 / alpha-3.1.)
+
+  10. **Stop now stops the simulator.** On the Operations page, pressing
+     Stop on a running hydration marked it Cancelled, but the `thames`
+     process kept running in the background (visible in Task Manager or
+     Activity Monitor). Stop now ends the process, and marks the operation
+     Cancelled only after the process has exited; if it cannot be stopped,
+     the operation stays Running and the message bar says so.
+
 ### Added since alpha-3.1
 
   1. **Setting times.** Initial set is detected when a connected solid path
@@ -84,7 +106,7 @@ files.
      0/1 columns (InitialSet, FinalSet) are added to Microstructure.csv.
      Setting needs the particle-ID image (.pimg) that micgen writes with
      every microstructure; without it the columns are left empty. See Known
-     Limitation 11 before comparing setting times with Vicat data.
+     Limitation 9 before comparing setting times with Vicat data.
 
   2. **Self-desiccation and humidity outputs.** `<name>_Humidity.csv` reports
      the internal relative humidity and its two parts (the Kelvin term from
@@ -96,7 +118,7 @@ files.
   3. **Chemical shrinkage.** `<name>_Shrinkage.csv` reports chemical shrinkage
      (about 0.057 mL per g of solids at 28 days for a w/c = 0.44 portland
      paste, within the measured range) and a provisional autogenous strain
-     (see Known Limitation 10).
+     (see Known Limitation 8).
 
   4. **C-S-H gel properties.** `<name>_CSH.csv` now includes the gel porosity, solid and
      saturated gel densities, H2O/Si, the fraction of gel pores holding
@@ -168,72 +190,59 @@ files.
      It will hard-crash on environments that lack GPU acceleration (*e.g*.,
      Sandbox-style container runs).
 
-  2. Adaptive timestep can still collapse to very small cycle sizes at late
-     ages if a soluble sulfate phase, such as Arcanite or Thenardite, or another
-     minority phase drops close to zero. Recommended workaround: in
-     the Hydration Products tree, click the pencil-edit icon for Arcanite
-     (and Thenardite if present), change the kinetic type from Standard to
-     Thermodynamic, and click OK. These highly soluble sulfates equilibrate
-     with the pore fluid far faster than a simulation cycle, so kinetic
-     control adds nothing physically unless those phases are fully occluded
-     within another solid.
-
-  3. Loading a 200³ microstructure in the 3D viewer can use about 5 GB of
+  2. Loading a 200³ microstructure in the 3D viewer can use about 5 GB of
      RAM.
 
-  4. Clicking "Stop and Delete" on a running simulation occasionally leaves
-     the `thames` or `micgen` models running briefly before they exit. Not harmful.
-
-  5. Closing the THAMES UI while a simulation is running does NOT stop the
+  3. Closing the THAMES UI while a simulation is running does NOT stop the
      simulator. The next launch will flag the operation as Cancelled even
      though the simulator may still be running. **Workaround**: use the Stop button before
      quitting, or leave THAMES open until the run finishes.
 
-  6. The microstructure generation model `micgen` may report a non-zero exit code on some Windows machines after
+  4. The microstructure generation model `micgen` may report a non-zero exit code on some Windows machines after
      successfully writing all output files. If the output files are complete
      and readable, the result is safe to use.
 
-  7. Windows only, on mixes that contain fly ash: the Hydration Products
+  5. Windows only, on mixes that contain fly ash: the Hydration Products
      tree may auto-select amorphous glass phases (K6A2S(am), CAS2(am), and
      the other three (am) phases) even when the initial microstructure does
      not contain them. **Workaround**: uncheck (am) phases
      that are known to be absent from the initial microstructure before
      starting a hydration run.
 
-  8. Mix Design auto-save silently rejects some validation errors; they
+  6. Mix Design auto-save silently rejects some validation errors; they
      appear only as DEBUG lines in `thames.log`. If a mix change does not
      seem to persist, look for "Error auto-saving mix design" in `thames.log`.
 
-  9. The data in `<name>_Enthalpy.csv` are not heat of hydration. It reports the summed
+  7. The data in `<name>_Enthalpy.csv` are not heat of hydration. It reports the summed
      formation enthalpy of the whole system. Water drawn in from outside
      (saturated runs) is counted as heat, and an unexplained drift remains
      even when water is conserved. Do not compare it with calorimetry.
 
-  10. The autogenous strain in `<name>_Shrinkage.csv` is a framework, not a
+  8. The autogenous strain in `<name>_Shrinkage.csv` is a framework, not a
      prediction. It comes out roughly ten times smaller than measured
      values (no creep, and capillary tension acts only where pores have
      emptied). Chemical shrinkage in the same file is reliable.
 
-  11. Setting times are provisional. The 80 % criterion for final set has
+  9. Setting times are provisional. The 80 % criterion for final set has
      not yet been calibrated against Vicat measurements, and at 100³ the
      detected times vary by about +/- 0.3 h from one random realization to
      another. Compare setting times between mixes only when the
      differences exceed that fluctuation, or else average several runs.
 
-  12. The CapillaryDepercolation time in `<name>_SettingTimes.csv` is unreliable in
+  10. The CapillaryDepercolation time in `<name>_SettingTimes.csv` is unreliable in
      sealed runs (it can appear, move by several hours, or be absent between
      otherwise identical runs). It changes nothing in a sealed run. In
      saturated runs it marks the switch to sealed curing and has been
      consistent in testing.
 
-  13. Internal relative humidity in sealed pastes is semi-quantitative. Pore
+  11. Internal relative humidity in sealed pastes is semi-quantitative. Pore
      sizes between 0.1 μm and 1 μm are represented only approximately,
      and the finest C-S-H pores shrink in proportion rather than
      preferentially as the gel densifies. Treat *absolute* humidity values as
      approximate. Testing has indicated that relative *trends* in humidity
      changes are reasonable.
 
-  14. Restarting a hydration run from an already hydrated microstructure
+  12. Restarting a hydration run from an already hydrated microstructure
      re-equilibrates the pore solution from scratch and is not supported.
 
 ### Crash Diagnostics
