@@ -418,6 +418,15 @@ Narrative appended to `docs/session80_summary.md`. Super-repo `a652d47a`, `53d9e
   - `build-macos.sh clean`, not `make`, to restamp the git hash.
   - Commit only when asked.
 
+### Session 82 (Oct 15, 2026): backend 6.0.0, Resolution field removed, tutorial project started
+
+Full narrative: `docs/session82_summary.md`. Submodule `c380cb6` + super-repo `d2a9c036` (pushed); `15aee172` + wrap-up local, not pushed.
+
+- **Backend 6.0.0** (`c380cb6`): CMake MAJOR 6; `VERSIONBUGFIX`, back-compat `VERSION*` macros and unused `THAMES_HYDRATION_VERSION` deleted; `Lattice.cc` and `AppliedStrain.cc` use `THAMES_VERSION_STRING`. Image headers now `#THAMES:Version: 6.0.0`. Submodule on branch `main`. **Bump again on every backend-changing release.**
+- **Resolution field removed** from the Hydration page (`15aee172`): widget, config field, `to_dict`/`from_dict`, Load Operation restore. Old configs with `"resolution"` still load. Files stayed CRLF.
+- **Tutorial videos** moved to their own project, `~/Teaching/Tutorials/THAMES-Videos/`, with its own memories.
+- **Open:** push when Jeff says; alpha-3/3.1 pages pointing to alpha-4; CRLF sync scripts; stopped-run sidecar fix; backend CRLF stripping on stdin paths.
+
 ---
 
 ## PRIORITY TASKS
