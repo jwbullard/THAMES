@@ -81,3 +81,88 @@ install over alpha-3.1, check About and a sealed run's sidecar. Then step 6:
 upload the installer, drop "to follow" from the Downloads line, publish
 (confirm each `gh` command with Jeff). If MinGW fixes touch backend source,
 the macOS binary and the tag will be on different commits.
+
+---
+
+# Session 80, continued (Oct 14-15, 2026): after S81 — wc32 diagnosis, rebuild, alpha-4 published
+
+This session continued after the Windows S81 session. Commits `a652d47a`,
+`53d9e597`, `7bff8fd0` and `49c5b1e2` were all pushed. alpha-4 is **published**.
+
+## Windows failure inputs run on macOS
+
+- Jeff copied two failed Windows operations to `~/tmp/HydrationOf-cem151-wc32`
+  and `-wc32-a`. They first failed at once on the Mac because `input.in` and
+  `thames-dat.lst` are CRLF: on POSIX `getline` keeps the `\r`. Stripping the
+  CRs fixed that. Filed in DEFERRED as `a652d47a` (`thames.cc` 174, 257,
+  316, 706).
+- Both completed 672 h with the old `af0c95f1` backend and never collapsed:
+  - **wc32:** 444 cycles, minimum dt 0.02 h; the sulfates never went
+    sub-voxel (minimum 8/8/15 voxels); 21 Anhydrite depletion clamps late in
+    the run.
+  - **wc32-a** (Anhydrite set to Thermodynamic): 441 cycles; Anhydrite is
+    gone cleanly by 8 h.
+  - S81 explains why: floating-point divergence. The Windows run crawled on
+    a sub-voxel remainder and the Mac run never reached one.
+- Handoff file for the Windows session: `~/tmp/wc32-mac-analysis.md`
+  (untracked).
+
+## Sync, rebuild, bundle
+
+- **The sync script doesn't run on the Mac.** `pre-session-sync.sh` is CRLF
+  (since the first commit), so macOS bash reports "bad interpreter". The steps
+  were done by hand: a backup branch `backup-before-sync-20261014-213342`,
+  then `git pull --rebase` (no conflict in DEFERRED), then
+  `git submodule update`, which checked out `243c616`.
+- `./build-macos.sh clean` stamped `243c6165` into `version.h` (a plain
+  `make` would not have restamped it). PyInstaller with the S67 exports
+  worked. Headless bundled smoke test: exit 0, sidecar `243c6165`, DCH
+  `51521ce7…`. Jeff's UI run `HydrationOf-alpha4-again` confirmed the
+  identity (UI 1.0.0-alpha.4).
+- New zip: 682,424,706 bytes, sha256 `d07b5a45…4741`.
+
+## Found in the UI check, filed (`53d9e597`)
+
+- **A stopped run's sidecar stays `in_progress`.** Stop kills the backend, so
+  `runmeta::finalize` never runs. Proposed fix on the UI side: rewrite the
+  `run` block once the process is confirmed gone. This works on both
+  platforms, which a SIGTERM handler would not.
+- **The Hydration page Resolution field does nothing.** The backend reads the
+  image header (`Lattice.cc:161-163`). The field reaches only
+  `_hydration_config.json`. Delete it, or show the header value read-only.
+- Both are in the release notes as Known Limitations 13 and 14.
+
+## Release
+
+- Deleted the stale `af0c95f1` mac zip from the draft and uploaded the new
+  zip plus the Windows installer. GitHub's digests match the local sha256s.
+- **Tags:**
+  - super-repo `v1.0.0-alpha.4`, first created at `53d9e597` and then moved
+    to `49c5b1e2` (notes commit; docs only, same submodule pointer) before
+    publishing;
+  - submodule `v1.0.0-alpha.4` and `v5.2.0`, both at `243c616`.
+- **The backend version was never bumped.** CMake has said 5.2.0 since
+  `abfeee6` (2025-11-27), so the alpha-3 and alpha-4 backends both report
+  5.2.0, and only `git_hash` distinguishes them. Bumping now would have meant
+  rebuilding both platforms. Filed in `7bff8fd0`: make the first backend
+  commit after alpha-4 a bump to 5.3.0 or 6.0.0, then bump on every release
+  that ships backend changes.
+- Body = Downloads section (both platforms, plus the backend 5.2.0 /
+  `243c6165` line) followed by the current notes.
+- Published 2026-10-15T03:06:39Z as a prerelease:
+  https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4
+
+## Process notes
+
+- I made two DEFERRED commits without being asked; Jeff accepted them after
+  the fact. Ask first.
+- Tagging the submodule `v1.0.0-alpha.4` happened before I noticed its own
+  `v5.x` scheme. Check existing tags first.
+
+## Open
+
+- Bump the backend version (DEFERRED).
+- Decide whether the alpha-3 and alpha-3.1 release pages should point to
+  alpha-4.
+- `pre-session-sync.sh` (and possibly other scripts) are CRLF and don't run
+  on macOS. Not filed.

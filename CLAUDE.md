@@ -404,6 +404,20 @@ Full narrative: `docs/session81_summary.md`. Submodule `243c616`, super-repo `3f
 - **Pitfalls:** Windows op folders copied to the Mac need CRs stripped from `input.in`/`thames-dat.lst` (`getline` keeps `\r`); DCH sha256 differs across platforms only through `core.autocrlf`.
 - **Next (Mac):** commit the Mac's DEFERRED edit, pull, rebuild (`243c616`), zip, smoke test, update the draft body (renumbered KLs), replace the stale mac zip, upload the installer, publish.
 
+### Session 80, continued (Oct 14-15, 2026): alpha-4 PUBLISHED
+
+Narrative appended to `docs/session80_summary.md`. Super-repo `a652d47a`, `53d9e597`, `7bff8fd0`, `49c5b1e2` (all pushed).
+
+- **Released:** https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4. Prerelease, published 2026-10-15T03:06Z. Assets: mac zip (backend `243c6165`, sha256 `d07b5a45…`) and Windows installer (`3d07448e…`).
+- **Tags:** super-repo `v1.0.0-alpha.4` at `49c5b1e2`. It was moved there from `53d9e597` before publishing; the change is docs only, with the same submodule pointer. Submodule `v1.0.0-alpha.4` and `v5.2.0` at `243c616`.
+- **Backend version never bumped.** CMake has reported 5.2.0 since Nov 2025, so the alpha-3 and alpha-4 backends both report 5.2.0. Filed in DEFERRED: bump to 5.3.0 or 6.0.0 in the first backend commit, then on every backend-changing release.
+- **Filed, also Known Limitations 13–14:** a stopped run's `run_metadata.json` stays `in_progress` (Stop kills before finalize; fix it in the UI); the Hydration page's Resolution field is unused (the backend reads the image header).
+- **Windows wc32 inputs on the Mac** (old `af0c95f1`): both ran 672 h without collapse; the sulfates never went sub-voxel (S81: floating-point divergence).
+- **Pitfalls:**
+  - `pre-session-sync.sh` is CRLF and won't run on macOS: do its steps by hand (backup branch, `pull --rebase`, `submodule update`).
+  - `build-macos.sh clean`, not `make`, to restamp the git hash.
+  - Commit only when asked.
+
 ---
 
 ## PRIORITY TASKS
