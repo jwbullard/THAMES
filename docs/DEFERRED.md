@@ -2407,3 +2407,15 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Symptom.** `THAMES_HYDRATION_VERSION` in `backend/thames-hydration/CMakeLists.txt:5-8` has been 5.2(.0) since `abfeee6` (2025-11-27) and was never bumped. As a result, every backend from then through alpha-4 reports `"version": "5.2.0"` in `run_metadata.json`, including the alpha-3 backend `f7959659` and the alpha-4 backend `243c6165`, although results differ between them. Only `git_hash` tells them apart. The existing backend tags were `v5.0.0`, `v5.0.1` and `v5.1.0` (May–June 2025). `v5.2.0` was created at `243c616` in S80 to match what the shipped binary reports.
 
 **Proposed fix.** Make the first backend commit after alpha-4 a version bump: 5.3.0, or 6.0.0 to reflect the scale of change since 5.1.0 (mass balance, water creation, ln K corrections, temperature, densification, percolation, new outputs). Then bump it on every UI release that ships backend changes, and tag the submodule `vX.Y.Z` together with the super-repo's `v1.0.0-alpha.N`. Add the bump to the release checklist next to `app_info.py`, the spec CFBundle strings and the `.iss`.
+
+---
+
+### `pre-session-sync.sh` and `post-session-sync.sh` are CRLF and do not run on macOS
+
+**Kind:** Release hygiene (developer tooling).
+
+**Identified:** 2026-10-14 (Session 80, continued; first Mac sync after S81)
+
+**Symptom.** `./pre-session-sync.sh` on macOS fails at once with `bad interpreter: /bin/bash^M: no such file or directory`. Both sync scripts are stored in the index with CRLF line endings (`git ls-files --eol`: `i/crlf w/crlf`), apparently since they were first committed (`e07c01b6`). The OS-switching procedure in CLAUDE.md therefore cannot run on the Mac, and Mac sessions have been doing the steps by hand (backup branch, `git pull --rebase`, `git submodule update`). `build-macos.sh` and `build-windows.sh` are LF and run on both platforms, so MSYS2 bash is happy with LF.
+
+**Proposed fix.** Convert both scripts to LF and add a `.gitattributes` rule `*.sh text eol=lf`, so no checkout or `core.autocrlf` setting reintroduces CRs. That rule currently holds only the LFS line. Check on Windows afterwards that both scripts still run under MSYS2. Separately, `post-session-sync.sh` runs `git add -A`, which would commit untracked work such as Jeff's private `docs/gel_densification.*`. Consider staging tracked changes only (`git add -u`) and listing the untracked files for a decision.
