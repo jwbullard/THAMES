@@ -245,6 +245,15 @@ files.
   12. Restarting a hydration run from an already hydrated microstructure
      re-equilibrates the pore solution from scratch and is not supported.
 
+  13. A hydration run stopped from the Operations page leaves its
+     `Result/run_metadata.json` reading `"exit_reason": "in_progress"`. The
+     Operations page shows it correctly as Cancelled, but the sidecar alone
+     cannot distinguish a user stop from a crash.
+
+  14. The Resolution (μm/voxel) field on the Hydration page has no effect.
+     The simulation always uses the resolution stored in the microstructure
+     image; the field will be removed in a future release.
+
 ### Crash Diagnostics
   If THAMES crashes (window disappears with no message), look in:
     Windows: %LOCALAPPDATA%\THAMES\logs\thames-crash.log
