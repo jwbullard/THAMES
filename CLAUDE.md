@@ -392,6 +392,20 @@ Full narrative: `docs/session80_summary.md`. Commit `c61752dd` (pushed).
 
 ---
 
+### Session 81 (Oct 14, 2026): alpha-4 Windows build, timestep crawl fixed, Stop button fixed
+
+Full narrative: `docs/session81_summary.md`. Submodule `243c616`, super-repo `3f5c9433` (both pushed).
+
+- **Crawl, not hang.** Windows smoke test (cem151 w/c 0.32 sealed) sat at 213.65 h: a sub-voxel Anhydrite remainder made the kinetics limit shrink dt by exactly 0.95 per cycle (Zeno). A rerun crawled at the 1e-5 h floor at 93.68 h on Gypsum/Bassanite but escaped after ~900 cycles. Same inputs and hash on the Mac never went sub-voxel (floating-point divergence despite the shared seed); the mechanism is platform-independent (seen on macOS in S41).
+- **Voxel floor (`243c616`):** `dt = f·max(|n|, n_vox)/|r|`, `n_vox = 100/(N·1e6·V_m·ρ_0)` (per-100-g frame); the S62 clamp clears the remainder in one step. `KineticTimestepLimit.h` + `test_kinetic_timestep_limit.cc` (16 checks). Runs: 1454 → 439 cycles; Jeff's installed-app rerun 462 cycles, 8.6 min, DOR 0.698.
+- **Stop button:** hydration Popen lives in `THAMESExecutionService`, so the Operations panel's Stop marked Cancelled and left `thames` running. Now cancels via the service, kills any `thames`/`micgen` whose cwd is the op folder, marks Cancelled only when none remain. Jeff-verified in the UI.
+- **Notes:** Fixed #9/#10; KL 2 and 4 removed, list renumbered 1-12. DEFERRED entries LANDED.
+- **Installer** `THAMES-1.0.0-alpha.4-win64-setup.exe` (sha256 `3d07448e…`), copied to the Mac. Windows has no `gh`.
+- **Pitfalls:** Windows op folders copied to the Mac need CRs stripped from `input.in`/`thames-dat.lst` (`getline` keeps `\r`); DCH sha256 differs across platforms only through `core.autocrlf`.
+- **Next (Mac):** commit the Mac's DEFERRED edit, pull, rebuild (`243c616`), zip, smoke test, update the draft body (renumbered KLs), replace the stale mac zip, upload the installer, publish.
+
+---
+
 ## PRIORITY TASKS
 
 ### 1. Adaptive Time Stepping (COMPLETE)
@@ -405,9 +419,7 @@ User Manual at `docs/USER_MANUAL.md` (~1,200 lines) with 26 screenshots. 2 scree
 
 ### 4. Known Issues
 - UI memory bloat: Loading 200³ microstructures causes ~5.9 GB RAM usage
-- Windows process termination: UI "stop and delete" may not fully kill thames.exe
 - micgen exit segfault during `freemicgen()` cleanup (after output written, low priority)
-- Near-depletion phases can collapse adaptive timestep at late ages
 - Reconciler flips live child operations to CANCELLED on UI restart (persist child PID at launch)
 - Silent Pydantic validation failures in Mix Design auto-save
 
