@@ -2395,3 +2395,15 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Where.** `thames_hydration_panel.py:366-378` (widget), `:1539` (copied into `HydrationInputConfig`), `:1613` (logged), `:1965` (restored by Load Operation); `hydration_input_service.py:63, 112, 135` (field, `to_dict`, `from_dict`). It reaches `<op>_hydration_config.json` only; not `input.in` or `simparams.json`. Concelas reads resolution from the backend's own output, not from this field.
 
 **Proposed fix.** Delete the widget and the `HydrationInputConfig.resolution` field. Keep `from_dict` tolerant of the key in old `_hydration_config.json` files (it already uses `.get`). If seeing the resolution is useful, show the image header value as a read-only label when a microstructure is chosen.
+
+---
+
+### Bump the backend version after alpha-4, and on every release that ships backend changes
+
+**Kind:** Release hygiene.
+
+**Identified:** 2026-10-14 (Session 80, alpha-4 tagging)
+
+**Symptom.** `THAMES_HYDRATION_VERSION` in `backend/thames-hydration/CMakeLists.txt:5-8` has been 5.2(.0) since `abfeee6` (2025-11-27) and was never bumped. As a result, every backend from then through alpha-4 reports `"version": "5.2.0"` in `run_metadata.json`, including the alpha-3 backend `f7959659` and the alpha-4 backend `243c6165`, although results differ between them. Only `git_hash` tells them apart. The existing backend tags were `v5.0.0`, `v5.0.1` and `v5.1.0` (May–June 2025). `v5.2.0` was created at `243c616` in S80 to match what the shipped binary reports.
+
+**Proposed fix.** Make the first backend commit after alpha-4 a version bump: 5.3.0, or 6.0.0 to reflect the scale of change since 5.1.0 (mass balance, water creation, ln K corrections, temperature, densification, percolation, new outputs). Then bump it on every UI release that ships backend changes, and tag the submodule `vX.Y.Z` together with the super-repo's `v1.0.0-alpha.N`. Add the bump to the release checklist next to `app_info.py`, the spec CFBundle strings and the `.iss`.
