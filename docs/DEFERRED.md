@@ -2367,3 +2367,31 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Where.** `backend/thames-hydration/src/thames.cc`: the `getline(cin, buff)` reads of the GEM input list (`:174`), simparams file (`:257`), microstructure file (`:316`), and output root name (`:706`) use `buff` as-is. S58 added `rstrip()` (`src/thameslib/RunMetadata.cc:172`), but it is applied only inside RunMetadata's own DCH-name extraction, so the sidecar gets the right file while the simulation does not.
 
 **Proposed fix.** Apply the same trailing-whitespace/CR strip to `buff` after each `getline(cin, buff)` in `thames.cc` (move `rstrip` to a shared utility rather than calling into RunMetadata). The output root name matters too: a stray `\r` would end up inside every output file name. Workaround until then: `sed -i '' $'s/\r$//' input.in` before running.
+
+---
+
+### A stopped run's `run_metadata.json` stays `in_progress`
+
+**Kind:** Latent bug class (provenance).
+
+**Identified:** 2026-10-14 (Session 80, alpha-4 macOS UI check of the S81 Stop fix)
+
+**Symptom.** Jeff stopped `HydrationOf-alpha4-again` from the Operations page after 230 cycles. The backend process was gone and the operation showed Cancelled, but `Result/run_metadata.json` still read `"exit_reason": "in_progress"`, `"finished_utc": ""`, `"success": false`. Read on its own, a user-stopped run is indistinguishable from a crash or a hard kill.
+
+**Where.** `src/app/windows/panels/operations_monitoring_panel.py::_stop_operation` (S81 `3f5c9433`) terminates the backend, then kills it after 5 s. `runmeta::finalize` never runs, and nothing on the UI side writes the outcome.
+
+**Proposed fix.** In the UI, once `_stop_operation` has confirmed no backend process remains, rewrite the sidecar's `run` block: `exit_reason: "Cancelled by user"`, `finished_utc` now, `success: false`, `exit_code` null or a reserved value, keeping every other field. This works on both platforms. A backend SIGTERM handler alone would not: it misses the kill fallback and Windows, where terminate is a hard kill. Only rewrite a sidecar that still says `in_progress`, so a run that finished between the click and the kill keeps its own record.
+
+---
+
+### Hydration page "Resolution (μm/voxel)" field does nothing
+
+**Kind:** Release hygiene (misleading UI).
+
+**Identified:** 2026-10-14 (Session 80; Jeff's observation, confirmed in code)
+
+**Symptom.** The Hydration page offers a Resolution spin button (0.1–10 μm/voxel, default 1.0) whose tooltip says it "should match the resolution used when generating the microstructure". The value is never used by the simulation: the backend takes the resolution from the image header (`#THAMES:Image_Resolution:`, read at `Lattice.cc:161-163`). A user who changes the field expects it to matter, and it silently doesn't.
+
+**Where.** `thames_hydration_panel.py:366-378` (widget), `:1539` (copied into `HydrationInputConfig`), `:1613` (logged), `:1965` (restored by Load Operation); `hydration_input_service.py:63, 112, 135` (field, `to_dict`, `from_dict`). It reaches `<op>_hydration_config.json` only; not `input.in` or `simparams.json`. Concelas reads resolution from the backend's own output, not from this field.
+
+**Proposed fix.** Delete the widget and the `HydrationInputConfig.resolution` field. Keep `from_dict` tolerant of the key in old `_hydration_config.json` files (it already uses `.get`). If seeing the resolution is useful, show the image header value as a read-only label when a microstructure is chosen.
