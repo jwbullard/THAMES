@@ -2384,7 +2384,7 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 ---
 
-### Hydration page "Resolution (μm/voxel)" field does nothing
+### Hydration page "Resolution (μm/voxel)" field does nothing — LANDED 2026-10-15 (Session 82)
 
 **Kind:** Release hygiene (misleading UI).
 
@@ -2395,6 +2395,8 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Where.** `thames_hydration_panel.py:366-378` (widget), `:1539` (copied into `HydrationInputConfig`), `:1613` (logged), `:1965` (restored by Load Operation); `hydration_input_service.py:63, 112, 135` (field, `to_dict`, `from_dict`). It reaches `<op>_hydration_config.json` only; not `input.in` or `simparams.json`. Concelas reads resolution from the backend's own output, not from this field.
 
 **Proposed fix.** Delete the widget and the `HydrationInputConfig.resolution` field. Keep `from_dict` tolerant of the key in old `_hydration_config.json` files (it already uses `.get`). If seeing the resolution is useful, show the image header value as a read-only label when a microstructure is chosen.
+
+**Resolution.** Removed: the spin button and its three uses in `thames_hydration_panel.py` (config, log line, Load Operation restore) and the `resolution` field with its `to_dict`/`from_dict` entries in `hydration_input_service.py`. Old `_hydration_config.json` files that still carry the key load unchanged (`from_dict` ignores it); verified on an existing operation. Done before recording tutorial videos so the field never appears on camera in later releases. Remains Known Limitation 14 for alpha-4.
 
 ---
 

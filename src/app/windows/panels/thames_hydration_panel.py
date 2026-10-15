@@ -363,22 +363,6 @@ class THAMESHydrationPanel(Gtk.Box):
 
         row = 0
 
-        # Resolution (micrometers per voxel)
-        resolution_label = Gtk.Label("Resolution (μm/voxel):")
-        resolution_label.set_halign(Gtk.Align.START)
-        content.attach(resolution_label, 0, row, 1, 1)
-
-        self.resolution_spin = Gtk.SpinButton.new_with_range(0.1, 10.0, 0.1)
-        self.resolution_spin.set_value(1.0)
-        self.resolution_spin.set_digits(2)
-        self.resolution_spin.set_tooltip_text(
-            "Microstructure resolution in micrometers per voxel. "
-            "This should match the resolution used when generating the microstructure."
-        )
-        content.attach(self.resolution_spin, 1, row, 1, 1)
-
-        row += 1
-
         # Temperature
         temp_label = Gtk.Label("Temperature (°C):")
         temp_label.set_halign(Gtk.Align.START)
@@ -1536,7 +1520,6 @@ class THAMESHydrationPanel(Gtk.Box):
         )
 
         config = HydrationInputConfig(
-            resolution=self.resolution_spin.get_value(),
             temperature=temp_kelvin,
             reference_temperature=298.15,
             saturated=self.saturated_radio.get_active(),
@@ -1610,7 +1593,6 @@ class THAMESHydrationPanel(Gtk.Box):
             self._log_message(f"  - Operation: {op_name}")
             self._log_message(f"  - Microstructure phases: {len(micro_phases)}")
             self._log_message(f"  - Total phases: {len(all_phases)}")
-            self._log_message(f"  - Resolution: {self.resolution_spin.get_value()} μm/voxel")
             self._log_message(f"  - Temperature: {self.temperature_spin.get_value()}°C")
             time_unit = self.final_time_unit_combo.get_active_text()
             self._log_message(f"  - Final time: {self.final_time_spin.get_value()} {time_unit}")
@@ -1960,9 +1942,6 @@ class THAMESHydrationPanel(Gtk.Box):
         # Operation name: append -01, -02, etc. to make unique
         new_name = self._generate_incremented_name(operation_name)
         self.operation_name_entry.set_text(new_name)
-
-        # Resolution
-        self.resolution_spin.set_value(config.resolution)
 
         # Temperature (config stores Kelvin, UI shows Celsius)
         self.temperature_spin.set_value(config.temperature - 273.15)

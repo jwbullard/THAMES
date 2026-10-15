@@ -59,9 +59,6 @@ class HydrationInputConfig:
     This dataclass holds all the settings needed to generate simparams.json
     and related files. It can be serialized for persistence.
     """
-    # Microstructure settings
-    resolution: float = 1.0  # micrometers per voxel
-
     # Environment settings
     temperature: float = 298.15  # Kelvin (25°C)
     reference_temperature: float = 298.15
@@ -109,7 +106,6 @@ class HydrationInputConfig:
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary."""
         return {
-            "resolution": self.resolution,
             "temperature": self.temperature,
             "reference_temperature": self.reference_temperature,
             "saturated": self.saturated,
@@ -132,7 +128,6 @@ class HydrationInputConfig:
     def from_dict(cls, data: Dict[str, Any]) -> 'HydrationInputConfig':
         """Create from dictionary."""
         return cls(
-            resolution=data.get("resolution", 1.0),
             temperature=data.get("temperature", 298.15),
             reference_temperature=data.get("reference_temperature", 298.15),
             saturated=data.get("saturated", True),
