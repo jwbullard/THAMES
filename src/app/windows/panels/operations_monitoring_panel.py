@@ -3859,6 +3859,8 @@ class OperationsMonitoringPanel(Gtk.Box):
             operation.status = OperationStatus.CANCELLED
             operation.end_time = datetime.utcnow()
             operation.close_output_files()
+            if operation.operation_type == OperationType.HYDRATION_SIMULATION:
+                self._record_stop_in_run_metadata(operation)
             self._add_log_entry(f"Stopped operation: {operation.name}")
 
             # Persist the cancellation to the database. Without this, the DB keeps
@@ -3867,7 +3869,41 @@ class OperationsMonitoringPanel(Gtk.Box):
             self._update_operation_in_database(operation)
 
             self._update_operations_list()
-    
+
+    def _record_stop_in_run_metadata(self, operation) -> None:
+        """Finalize a stopped run's run_metadata.json on the backend's behalf.
+
+        Stop kills the backend before runmeta::finalize can run, which leaves
+        the sidecar reading "in_progress", indistinguishable from a crash.
+        Only a sidecar that still says "in_progress" is rewritten, so a run
+        that finished between the click and the kill keeps its own record.
+        exit_code is null because no backend exit code was produced.
+        """
+        operation_dir = self._get_operation_directory(operation)
+        if not operation_dir:
+            return
+        metadata_file = os.path.join(operation_dir, "Result", "run_metadata.json")
+        try:
+            with open(metadata_file, 'r', encoding='utf-8') as f:
+                metadata = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return
+        run_block = metadata.get('run')
+        if not isinstance(run_block, dict) or run_block.get('exit_reason') != "in_progress":
+            return
+        run_block['finished_utc'] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        run_block['exit_code'] = None
+        run_block['exit_reason'] = "Stopped by user"
+        run_block['success'] = False
+        tmp_file = metadata_file + ".tmp"
+        try:
+            with open(tmp_file, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2)
+                f.write("\n")
+            os.replace(tmp_file, metadata_file)
+        except OSError as e:
+            self.logger.warning(f"Could not record stop in {metadata_file}: {e}")
+
     def _pause_operation(self, operation_id: str) -> None:
         """Pause or resume an operation using real process control."""
         operation = self.operations.get(operation_id)

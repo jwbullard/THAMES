@@ -1093,9 +1093,14 @@ class THAMESHydrationPanel(Gtk.Box):
         GLib.idle_add(self._do_time_preview_update)
 
     def _on_final_time_unit_changed(self, widget) -> None:
-        """Handle final time unit change - sync spacing unit and update preview."""
-        # Sync linear spacing unit to match final time unit
+        """Handle final time unit change - rescale range, sync spacing unit, update preview."""
         new_unit_id = self.final_time_unit_combo.get_active_id()
+        # The maximum is 365 days in every unit. The entered number is kept,
+        # not converted, so typing a value and then choosing its unit works.
+        max_in_unit = {"s": 365 * 86400.0, "min": 365 * 1440.0, "hr": 365 * 24.0, "d": 365.0}
+        if new_unit_id in max_in_unit:
+            self.final_time_spin.set_range(0.1, max_in_unit[new_unit_id])
+        # Sync linear spacing unit to match final time unit
         if new_unit_id and hasattr(self, 'linear_spacing_unit_combo'):
             self.linear_spacing_unit_combo.set_active_id(new_unit_id)
         # Then update preview
