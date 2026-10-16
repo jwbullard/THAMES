@@ -2016,7 +2016,7 @@ Alternatively, delete the material and recreate it. `create()` adds all the phas
 
 ---
 
-### Hydration page: final time silently capped at 365 when the unit is hours
+### Hydration page: final time silently capped at 365 when the unit is hours — LANDED 2026-10-16 (Session 83)
 
 **Kind:** UI bug (can corrupt a run setup without warning).
 
@@ -2027,6 +2027,8 @@ Alternatively, delete the material and recreate it. `create()` adds all the phas
 **Root cause.** `src/app/windows/panels/thames_hydration_panel.py:439` creates the field as `Gtk.SpinButton.new_with_range(0.1, 365, 0.1)`. That range was sized for the default unit, days. `_on_final_time_unit_changed` (line 1109) only syncs the spacing unit and the preview; it never rescales the range. The cap of 365 therefore applies in every unit: 365 s, 365 min, 365 h or 365 d.
 
 **Proposed fix.** On a unit change, set the range to the equivalent of the intended maximum in that unit (for example 365 d = 8760 h = 525 600 min = 31 536 000 s), and convert the current value rather than keeping the same number. The adaptive time-step spinners in the same file (lines 1075–1095) already do a per-unit `set_range`; follow that pattern.
+
+**Resolution.** `_on_final_time_unit_changed` now sets the range to 365 d expressed in the chosen unit (31 536 000 s, 525 600 min, 8 760 h, 365 d). Unlike the proposal, the entered number is kept, not converted: converting would break the common flow of typing a value and then choosing its unit (672 typed in days, then hours, would become 16 128 h). Load Operation sets the unit before the value, so it is unaffected. Remaining edge: switching to a coarser unit clamps a number that exceeds 365 d in that unit (672 h then days gives 365 d). Tested headlessly against real GTK widgets.
 
 ---
 
@@ -2356,7 +2358,7 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 ---
 
-### Windows-authored `input.in` fails on macOS/Linux (CRLF kept on every path read from stdin)
+### Windows-authored `input.in` fails on macOS/Linux (CRLF kept on every path read from stdin) — LANDED 2026-10-16 (Session 83)
 
 **Kind:** Latent bug class (cross-platform input handling).
 
@@ -2368,9 +2370,11 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 **Proposed fix.** Apply the same trailing-whitespace/CR strip to `buff` after each `getline(cin, buff)` in `thames.cc` (move `rstrip` to a shared utility rather than calling into RunMetadata). The output root name matters too: a stray `\r` would end up inside every output file name. Workaround until then: `sed -i '' $'s/\r$//' input.in` before running.
 
+**Resolution.** New static `readInputLine` in `thames.cc` replaces `getline(cin, buff)` at the four filename reads (GEM input list, simparams, microstructure, output root); it drops a trailing `\r` only, not other whitespace, so no filename changes meaning. The line-174 read that discards the rest of the simtype line is unchanged. `RunMetadata`'s `rstrip` stays; it is now redundant on these paths but harmless. Verified on the AliteCa11mM smoke fixture: LF, CRLF `input.in`, and CRLF `input.in` + CRLF `thames-dat.lst` all exit 0 with 71 identical outputs (CSV data byte-identical, no CR in any file name). GEMS3K reads a CRLF `.lst` without trouble.
+
 ---
 
-### A stopped run's `run_metadata.json` stays `in_progress`
+### A stopped run's `run_metadata.json` stays `in_progress` — LANDED 2026-10-16 (Session 83)
 
 **Kind:** Latent bug class (provenance).
 
@@ -2381,6 +2385,8 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Where.** `src/app/windows/panels/operations_monitoring_panel.py::_stop_operation` (S81 `3f5c9433`) terminates the backend, then kills it after 5 s. `runmeta::finalize` never runs, and nothing on the UI side writes the outcome.
 
 **Proposed fix.** In the UI, once `_stop_operation` has confirmed no backend process remains, rewrite the sidecar's `run` block: `exit_reason: "Cancelled by user"`, `finished_utc` now, `success: false`, `exit_code` null or a reserved value, keeping every other field. This works on both platforms. A backend SIGTERM handler alone would not: it misses the kill fallback and Windows, where terminate is a hard kill. Only rewrite a sidecar that still says `in_progress`, so a run that finished between the click and the kill keeps its own record.
+
+**Resolution.** New `_record_stop_in_run_metadata` in `operations_monitoring_panel.py`, called from `_stop_operation` for hydration operations after no backend process remains and after the status is set to Cancelled (so the monitor loop never sees a finalized sidecar on a Running operation). It rewrites only a sidecar still reading `in_progress`: `exit_reason: "Stopped by user"`, `finished_utc` now, `exit_code: null` (no backend exit code exists), `success: false`; all other blocks unchanged; written atomically via a temp file and `os.replace`. Tested headlessly on a copied sidecar (rewrite, other blocks preserved, second call a no-op). Remains Known Limitation 13 for alpha-4.
 
 ---
 
@@ -2414,7 +2420,7 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 ---
 
-### `pre-session-sync.sh` and `post-session-sync.sh` are CRLF and do not run on macOS
+### `pre-session-sync.sh` and `post-session-sync.sh` are CRLF and do not run on macOS — LANDED 2026-10-16 (Session 83)
 
 **Kind:** Release hygiene (developer tooling).
 
@@ -2423,3 +2429,5 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Symptom.** `./pre-session-sync.sh` on macOS fails at once with `bad interpreter: /bin/bash^M: no such file or directory`. Both sync scripts are stored in the index with CRLF line endings (`git ls-files --eol`: `i/crlf w/crlf`), apparently since they were first committed (`e07c01b6`). The OS-switching procedure in CLAUDE.md therefore cannot run on the Mac, and Mac sessions have been doing the steps by hand (backup branch, `git pull --rebase`, `git submodule update`). `build-macos.sh` and `build-windows.sh` are LF and run on both platforms, so MSYS2 bash is happy with LF.
 
 **Proposed fix.** Convert both scripts to LF and add a `.gitattributes` rule `*.sh text eol=lf`, so no checkout or `core.autocrlf` setting reintroduces CRs. That rule currently holds only the LFS line. Check on Windows afterwards that both scripts still run under MSYS2. Separately, `post-session-sync.sh` runs `git add -A`, which would commit untracked work such as Jeff's private `docs/gel_densification.*`. Consider staging tracked changes only (`git add -u`) and listing the untracked files for a decision.
+
+**Resolution.** Both scripts converted to LF; `.gitattributes` gains `/*.sh text eol=lf`. The rule is anchored to the repo root on purpose: an unanchored `*.sh` would also match 53 vendored CRLF scripts under `backend/src/zlib/` and mark them all modified. `bash -n` passes on both. Still to confirm: a real run of each on macOS and under MSYS2 on Windows. The `git add -A` in `post-session-sync.sh` is unchanged (not yet decided).
