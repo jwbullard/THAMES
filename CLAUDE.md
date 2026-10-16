@@ -427,6 +427,17 @@ Full narrative: `docs/session82_summary.md`. Submodule `c380cb6` + super-repo `d
 - **Tutorial videos** moved to their own project, `~/Teaching/Tutorials/THAMES-Videos/`, with its own memories.
 - **Open:** push when Jeff says; alpha-3/3.1 pages pointing to alpha-4; CRLF sync scripts; stopped-run sidecar fix; backend CRLF stripping on stdin paths.
 
+### Session 83 (Oct 16, 2026): four DEFERRED items closed; densification/meniscus code map
+
+Full narrative: `docs/session83_summary.md`. Submodule `c23c5a8`; super-repo `c4c2f62b`, `ffaeebde`, `255d18da` + wrap-up (all pushed).
+
+- **Stop** writes `exit_reason: "Stopped by user"` (`exit_code` null) into a still-`in_progress` sidecar; Jeff-verified.
+- **CRLF `input.in`** runs on POSIX: `readInputLine` in `thames.cc` drops a trailing `\r` at the four file-name reads (`c23c5a8`).
+- **Sync scripts LF**, `.gitattributes` `/*.sh text eol=lf` (root-anchored; unanchored would hit 53 vendored zlib scripts). **The Mac can now run `./pre-session-sync.sh`**; untested on both platforms. Never run the sync scripts as a test (they take no arguments).
+- **Final time** range is 365 d in the chosen unit; the number is kept, not converted.
+- **Code map** `docs/gel_meniscus_code_map.{md,pdf}` (untracked): function, `file:line`, commit, one-line purpose for gel densification and meniscus tracking.
+- **Next:** science — where/how gel densification happens (proximity to clinker, option B) and the 100 nm-1 um PSD gap. Start from memory `project_late_age_csh_pore_physics.md`.
+
 ---
 
 ## PRIORITY TASKS
