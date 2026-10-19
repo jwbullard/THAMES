@@ -438,6 +438,16 @@ Full narrative: `docs/session83_summary.md`. Submodule `c23c5a8`; super-repo `c4
 - **Code map** `docs/gel_meniscus_code_map.{md,pdf}` (untracked): function, `file:line`, commit, one-line purpose for gel densification and meniscus tracking.
 - **Next:** science — where/how gel densification happens (proximity to clinker, option B) and the 100 nm-1 um PSD gap. Start from memory `project_late_age_csh_pore_physics.md`.
 
+### Session 84 (Oct 19, 2026): pore populations re-examined; Allen-basis gel porosity reported
+
+Full narrative: `docs/session84_summary.md`. Submodule + super-repo wrap-up (pushed).
+
+- **`pre-session-sync.sh` works on macOS** (first real run after the S83 LF conversion).
+- **The CSHQ pore curve mixes three NMR populations** (from Naber 2020): 0.1-2 nm interlayer (25 %), 2-10 nm gel (36 %), 20-100 nm interhydrate (39 %). Konigsberger's phi is gel-pore porosity only (interlayer is in the Allen solid; interhydrate is capillary), so the interlayer and interhydrate bins are gel volume with wrong size labels. **Muller 2013 sizes adopted** (0.85 / 2.5 / 8-10 nm).
+- **Water inventory:** relabeling changes no water, envelope or voxel count. But ~1.07 H2O/Si of NMR gel water sits inside the GEMS CSHQ solid (17 % of gel water at 24 h, 41 % at 28 d), invisible to PSD/Kelvin; `GelPorosity` in `_CSH.csv` is GEMS-basis and under-reports Muller's.
+- **Landed:** `_CSH.csv` column `GelPorosityAllen` (0.397 vs 0.235 at 28 d, sealed w/c 0.32); Allen constants at file scope in `ChemicalSystem.cc`; other columns byte-identical.
+- **Next:** gel curve = Muller gel pores only (log-normal, with width); fine capillary class (~8 nm to voxel size) carried by hydrate voxels, calibrated on Muller Fig. 2, resolution-aware; retire `CAPILLARY_BRIDGE_SHARE`. Memory `project_late_age_csh_pore_physics.md`.
+
 ---
 
 ## PRIORITY TASKS
