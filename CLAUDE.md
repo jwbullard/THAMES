@@ -448,6 +448,15 @@ Full narrative: `docs/session84_summary.md`. Submodule + super-repo wrap-up (pus
 - **Landed:** `_CSH.csv` column `GelPorosityAllen` (0.397 vs 0.235 at 28 d, sealed w/c 0.32); Allen constants at file scope in `ChemicalSystem.cc`; other columns byte-identical.
 - **Next:** gel curve = Muller gel pores only (log-normal, with width); fine capillary class (~8 nm to voxel size) carried by hydrate voxels, calibrated on Muller Fig. 2, resolution-aware; retire `CAPILLARY_BRIDGE_SHARE`. Memory `project_late_age_csh_pore_physics.md`.
 
+### Session 85 (Oct 20, 2026): new banner, version label, tagline, app icons
+
+Full narrative: `docs/session85_summary.md`. Commits `ce553bbc`, `beb3d83e` + wrap-up (pushed).
+
+- **Home page:** single banner image `icons/thames-banner-light.png` (from the tutorial project's `Graphics/Tools/banner.py`, white paper), HiDPI-sharp; tagline "An integrated cement hydration simulation package using the GEMS3K library".
+- **Version label** showed VCCTL's hard-coded `10.0.0`; `application.py` now uses `app_info.APP_VERSION` (`v1.0.0-alpha.4`), also in exported project metadata.
+- **Icons:** teal tower tile in `icons/thames-icon.png`, `icon.ico`, `icon.icns` (macOS on Apple's 824/1024 grid); same file names, no spec change.
+- **Left:** `app_name = "VCCTL"`, NIST epilog, app ID `edu.tamu.vcctl.gtk`.
+
 ---
 
 ## PRIORITY TASKS
