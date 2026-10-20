@@ -559,7 +559,7 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         """Gather comprehensive project data for export."""
         project_data = {
             'project_name': 'THAMES Project',
-            'thames_version': '10.0.0',
+            'thames_version': self.app.app_version,
             'author': 'THAMES User',
             'project_description': 'THAMES simulation project with cement hydration and microstructure analysis.',
             'generated_timestamp': datetime.now().isoformat(),
@@ -940,50 +940,34 @@ Services:"""
         welcome_box.set_margin_left(50)
         welcome_box.set_margin_right(50)
         
-        # THAMES header with icon and title
-        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=20)
-        header_box.set_halign(Gtk.Align.CENTER)
-
-        # THAMES logo icon
+        # THAMES banner: logo, name and subtitle in one image
         try:
             from pathlib import Path
             import sys
             # Handle both development and PyInstaller bundle
             if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-                icon_path = Path(sys._MEIPASS) / "icons" / "thames-icon.png"
+                banner_path = Path(sys._MEIPASS) / "icons" / "thames-banner-light.png"
             else:
-                icon_path = Path(__file__).parent.parent.parent.parent / "icons" / "thames-icon.png"
-            icon_path = icon_path.resolve()  # Make absolute path to avoid working directory issues
-            if icon_path.exists():
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(icon_path), 80, 80, True)
-                thames_icon = Gtk.Image.new_from_pixbuf(pixbuf)
-                thames_icon.set_valign(Gtk.Align.CENTER)  # Vertically center the icon
-                header_box.pack_start(thames_icon, False, False, 0)
+                banner_path = Path(__file__).parent.parent.parent.parent / "icons" / "thames-banner-light.png"
+            banner_path = banner_path.resolve()  # Make absolute path to avoid working directory issues
+            if banner_path.exists():
+                # Load at device resolution so the banner stays sharp on HiDPI displays
+                display_width = 700
+                monitor = Gdk.Display.get_default().get_monitor(0)
+                scale = monitor.get_scale_factor() if monitor else 1
+                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
+                    str(banner_path), display_width * scale, -1, True)
+                surface = Gdk.cairo_surface_create_from_pixbuf(pixbuf, scale, None)
+                banner = Gtk.Image.new_from_surface(surface)
+                banner.set_halign(Gtk.Align.CENTER)
+                welcome_box.pack_start(banner, False, False, 0)
         except Exception as e:
-            self.logger.warning(f"Could not load THAMES icon: {e}")
-        
-        # Title and subtitle in vertical box
-        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        title_box.set_valign(Gtk.Align.CENTER)  # Center the text box vertically
-        
-        title_label = Gtk.Label()
-        title_label.set_markup('<span size="30000" weight="bold">THAMES</span>')  # Increased from xx-large
-        title_label.set_halign(Gtk.Align.START)  # Left-align the title
-        title_box.pack_start(title_label, False, False, 0)
-
-        subtitle_label = Gtk.Label()
-        subtitle_label.set_markup('<span size="18000">Thermodynamic Hydration And Microstructure Evolution Simulator</span>')  # Increased from large
-        subtitle_label.set_halign(Gtk.Align.START)  # Left-align the subtitle
-        title_box.pack_start(subtitle_label, False, False, 0)
-        
-        header_box.pack_start(title_box, False, False, 0)
-        welcome_box.pack_start(header_box, False, False, 0)
+            self.logger.warning(f"Could not load THAMES banner: {e}")
         
         # Description
         desc_label = Gtk.Label()
         desc_label.set_markup("""
-<span size="14000">Developed by Texas A&amp;M University,
-THAMES is an advanced cement hydration simulator using GEMS thermodynamic database.
+<span size="14000">An integrated cement hydration simulation package using the GEMS3K library
 
 This GTK3 desktop application provides an intuitive interface for:</span>
         """)

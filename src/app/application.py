@@ -16,6 +16,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio, GLib
 
 from app.windows.main_window import VCCTLMainWindow
+from app.resources.app_info import APP_VERSION
 
 
 class VCCTLApplication(Gtk.Application):
@@ -31,7 +32,7 @@ class VCCTLApplication(Gtk.Application):
         # Application metadata
         self.app_name = "VCCTL"
         self.app_title = "Virtual Cement and Concrete Testing Laboratory"
-        self.app_version = "10.0.0"
+        self.app_version = APP_VERSION
         self.app_description = "Desktop application for cement and concrete materials modeling"
         
         # Main window reference
