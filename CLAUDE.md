@@ -456,6 +456,7 @@ Full narrative: `docs/session85_summary.md`. Commits `ce553bbc`, `beb3d83e` + wr
 - **Version label** showed VCCTL's hard-coded `10.0.0`; `application.py` now uses `app_info.APP_VERSION` (`v1.0.0-alpha.4`), also in exported project metadata.
 - **Icons:** teal tower tile in `icons/thames-icon.png`, `icon.ico`, `icon.icns` (macOS on Apple's 824/1024 grid); same file names, no spec change.
 - **Left:** `app_name = "VCCTL"`, NIST epilog, app ID `edu.tamu.vcctl.gtk`.
+- **1.0.0-alpha.4.1** (`c2305717`): internal build for the tutorial videos, no tag/release; installed at `~/Applications/THAMES.app` (backend 6.0.0 `6e49f9a7`); `dist/THAMES.app` is this build.
 
 ---
 

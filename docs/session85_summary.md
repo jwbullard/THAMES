@@ -42,3 +42,20 @@ affect how macOS tracks the app; needs its own decision).
 Science thread unchanged: start from memory
 `project_late_age_csh_pore_physics.md` (S84 design: Muller-scale gel curve,
 fine capillary class carried by hydrate voxels, digitize Muller Fig. 2).
+
+## Continued: 1.0.0-alpha.4.1 internal build (`c2305717`)
+
+- **Version bumped to `1.0.0-alpha.4.1`** in `app_info.py`, the spec's macOS
+  CFBundle strings and the `.iss` (`MyAppVersionDisplay` "1.0.0 (alpha 4.1)").
+  Internal only, for the tutorial videos: **no tag, no GitHub release.** Both
+  the home-page corner label and Help -> About read `APP_VERSION`.
+- **macOS build** with PyInstaller (S67 GTK exports), `--clean`. Verified:
+  Info.plist 1.0.0-alpha.4.1; `APP_VERSION` constant in the compiled PYZ;
+  new banner, `thames-icon.png` and `icon.icns` in the bundle; `codesign
+  --verify --deep --strict` passes. Bundled backend differs from `bin/thames`
+  only in its rpath (`@loader_path/..`); smoke run with it reports 6.0.0
+  `6e49f9a7`, exit 0.
+- **Installed at `~/Applications/THAMES.app`** (1.3 GB). `dist/THAMES.app` is
+  now this build (the published alpha-4 zips are untouched). Its backend
+  differs from both published releases, so video results won't match an
+  alpha-4 install exactly.
