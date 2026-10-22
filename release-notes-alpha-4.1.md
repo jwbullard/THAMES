@@ -13,8 +13,8 @@ changes files.
 
 ### Downloads
 
-- **Windows:** `THAMES-1.0.0-alpha.4.1-win64-setup.exe`. Inno Setup installer; in-place upgrade over 1.0.0-alpha.4 preserves user data (AppId unchanged).
-- **macOS (Apple Silicon):** `THAMES-1.0.0-alpha.4.1-macOS.zip`. Unzip anywhere and drag `THAMES.app` to `/Applications`. First launch: right-click → Open (ad-hoc signed; Gatekeeper may otherwise refuse).
+- **Windows:** `THAMES-1.0.0-alpha.4.1-win64-setup.exe` (624 MB). Inno Setup installer; in-place upgrade over 1.0.0-alpha.4 preserves user data (AppId unchanged).
+- **macOS (Apple Silicon):** `THAMES-1.0.0-alpha.4.1-macOS.zip` (675 MB). Unzip anywhere and drag `THAMES.app` to `/Applications`. First launch: right-click → Open (ad-hoc signed; Gatekeeper may otherwise refuse).
 
 ### Changed since alpha-4
 
@@ -62,6 +62,11 @@ changes files.
 
   Known Limitations 1-12 from the alpha-4 release notes still apply.
   Limitations 13 and 14 are fixed in this release (see above).
+
+  Windows only: after upgrading over alpha-4, an existing desktop shortcut
+  may keep showing the old icon. The program itself has the new icon; this
+  is Windows' icon cache and clears after you sign out and back in (or
+  restart).
 
 ### Crash Diagnostics
   If THAMES crashes (window disappears with no message), look in:
