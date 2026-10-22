@@ -458,6 +458,15 @@ Full narrative: `docs/session85_summary.md`. Commits `ce553bbc`, `beb3d83e` + wr
 - **Left:** `app_name = "VCCTL"`, NIST epilog, app ID `edu.tamu.vcctl.gtk`.
 - **1.0.0-alpha.4.1** (`c2305717`): internal build for the tutorial videos, no tag/release; installed at `~/Applications/THAMES.app` (backend 6.0.0 `6e49f9a7`); `dist/THAMES.app` is this build.
 
+### Session 86 (Oct 22, 2026): alpha-4.1 prepared as a public prerelease
+
+Full narrative: `docs/session86_summary.md`. Commits `78767261`, `effc5e56` + wrap-up (pushed).
+
+- **Decision:** publish 1.0.0-alpha.4.1 as a separate prerelease (alpha-3.1 pattern); the video Ep 2 end card points to `/releases`.
+- **Results unchanged vs alpha-4:** smoke fixture, 33 files identical except `_CSH.csv`'s added `GelPorosityAllen` column.
+- **Draft prerelease** created with the macOS zip (sha256 `04707cf6…`) and `release-notes-alpha-4.1.md`; no tag until publish.
+- **Next:** Windows build per `docs/alpha-4.1-windows-build.md` (rebuild backend to 6.0.0), then on the Mac upload the installer, publish, tag backend `v6.0.0` at `6e49f9a`.
+
 ---
 
 ## PRIORITY TASKS
