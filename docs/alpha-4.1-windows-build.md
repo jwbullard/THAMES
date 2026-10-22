@@ -13,7 +13,7 @@ session's memories; this file carries everything needed.
 | Backend | submodule `6e49f9a` = THAMES-Hydration **6.0.0** (alpha-4 shipped `243c616`, 5.2.0) |
 | macOS artifact | built and uploaded to the draft: `THAMES-1.0.0-alpha.4.1-macOS.zip`, 675,250,874 bytes, SHA-256 `04707cf638e31f5c21b4b43c07fd6c396ed963f4a284f6359f256a30ebe7d4c1` |
 | GitHub release | **draft** prerelease "THAMES 1.0.0-alpha.4.1" exists (macOS zip + notes attached). No tag yet; it is created on publish |
-| Windows installer | **to be built in this session** |
+| Windows installer | built 2026-10-22 and smoke-tested: `THAMES-1.0.0-alpha.4.1-win64-setup.exe`, 623,513,515 bytes, SHA-256 `9f28dae6c909a209031dae211bfeaa9028fd1101c151383cef6c04c07a159d39` (see "Windows build result" below) |
 | Release notes | `release-notes-alpha-4.1.md` (in repo, Jeff-edited, final) |
 
 ## What alpha-4.1 is
@@ -91,6 +91,30 @@ Install over the existing alpha-4, then:
    reads `"exit_reason": "Stopped by user"`.
 6. A completed hydration's `Result\run_metadata.json` reports backend 6.0.0,
    `6e49f9a7`; its `_CSH.csv` ends with a `GelPorosityAllen` column.
+
+## Windows build result (2026-10-22)
+
+- `./build-windows.sh clean`: `version.h` stamps `6.0.0` / `6e49f9a7`. A
+  short headless run of the fresh `bin\thames.exe` wrote `version` `6.0.0`,
+  `git_hash` `6e49f9a7`, build date `2026-10-22T13:51:21Z`.
+- PyInstaller (project venv): the bundled `thames.exe` and `micgen.exe` are
+  byte-identical to `bin\`.
+- Inno Setup: `dist\THAMES-1.0.0-alpha.4.1-win64-setup.exe`,
+  **623,513,515 bytes**, SHA-256
+  **`9f28dae6c909a209031dae211bfeaa9028fd1101c151383cef6c04c07a159d39`**.
+- Smoke test (Jeff, in-place upgrade over alpha-4): all six items pass.
+  Banner sharp and correctly sized on Windows; tagline and
+  v1.0.0-alpha.4.1 on the home page; About shows the version and tower
+  logo; taskbar, Start menu and installer icons are the new teal tower; no
+  Resolution field; 672 h stays 672 h; Stop on `SmokeTest-For-4.1` left no
+  `thames.exe` running and wrote `"exit_reason": "Stopped by user"` with
+  backend 6.0.0 / `6e49f9a7`; `_CSH.csv` ends with `GelPorosityAllen`.
+- Only blemish: the existing desktop shortcut still shows the old icon.
+  The installed exe's embedded icon is the new tower (checked by
+  extraction) and the shortcut was rewritten by the install, so this is
+  Windows' icon cache; `ie4uinit.exe -show` and Properties -> Change Icon
+  did not refresh it. Expected to clear at the next sign-in. Testers
+  upgrading over alpha-4 may see the same.
 
 ## Publishing (back on the Mac; Windows has no `gh`)
 
