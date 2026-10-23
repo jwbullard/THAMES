@@ -2431,3 +2431,59 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Proposed fix.** Convert both scripts to LF and add a `.gitattributes` rule `*.sh text eol=lf`, so no checkout or `core.autocrlf` setting reintroduces CRs. That rule currently holds only the LFS line. Check on Windows afterwards that both scripts still run under MSYS2. Separately, `post-session-sync.sh` runs `git add -A`, which would commit untracked work such as Jeff's private `docs/gel_densification.*`. Consider staging tracked changes only (`git add -u`) and listing the untracked files for a decision.
 
 **Resolution.** Both scripts converted to LF; `.gitattributes` gains `/*.sh text eol=lf`. The rule is anchored to the repo root on purpose: an unanchored `*.sh` would also match 53 vendored CRLF scripts under `backend/src/zlib/` and mark them all modified. `bash -n` passes on both. Still to confirm: a real run of each on macOS and under MSYS2 on Windows. The `git add -A` in `post-session-sync.sh` is unchanged (not yet decided).
+
+---
+
+### Read-only material banner still says "migrated from VCCTL"
+
+**Kind:** Release hygiene (user-facing wording).
+
+**Identified:** 2026-10-23 (Jeff, Materials page)
+
+**Symptom.** Double-clicking a built-in material opens it read-only with an orange banner whose second line reads "This material was migrated from VCCTL and cannot be modified." THAMES should not refer to VCCTL in user-facing text.
+
+**Where.** `src/app/windows/dialogs/thames_material_dialog.py:588-589`, the Pango markup for the banner.
+
+**Proposed fix.** Change the second line to "This material is part of the built-in database that ships with THAMES" (Jeff's wording). One string; check the file's line endings before editing. While there, `material_dialog.py` (the older VCCTL-era dialog, with read-only messages at ~686 and ~3377) may hold similar wording if it is still reachable; delete it if it is not.
+
+---
+
+### Materials page: a new tag never appears in the "Filter by Tag" dropdown
+
+**Kind:** Latent bug class (UI state not refreshed after a write).
+
+**Identified:** 2026-10-23 (Jeff, Materials page)
+
+**Symptom.** Editing a material (e.g. a cement) and giving it a tag that did not exist before (e.g. `custom`) saves the tag, but the tag never appears in the "Filter by Tag" dropdown. Leaving the Materials page and coming back does not help; only restarting THAMES would.
+
+**Root cause.** The dropdown is filled once, when the Materials panel is built (`src/app/windows/panels/materials_panel.py:215-229`), from `MaterialService.get_all_tags()` (`material_service.py:630`), which reads the `Tag` table live. Nothing refills the combo after a save, and switching pages reuses the existing panel instead of rebuilding it.
+
+**Proposed fix.** Move the population into a `_refresh_tag_filter()` helper that clears the combo, re-adds "All Tags" plus `get_all_tags()`, and restores the previous selection if that tag still exists (otherwise "All Tags"). Call it after every material save, duplicate, import and delete, and when the Materials page is shown. Block the `changed` handler while repopulating so the filter does not fire spuriously. The same pattern may apply to any other filter combos built once at panel construction; check the panel for siblings.
+
+---
+
+### Read-only material dialog: Description field is not disabled
+
+**Kind:** Release hygiene (UI consistency).
+
+**Identified:** 2026-10-23 (Jeff, Materials page)
+
+**Symptom.** Opening a built-in (immutable) material, every field is greyed out except Description, which still looks editable.
+
+**Root cause.** `src/app/windows/dialogs/thames_material_dialog.py:598-605`: the other widgets get `set_sensitive(False)`, but the description `TextView` only gets `set_editable(False)` (line 605), which blocks typing but leaves it looking enabled with a visible cursor. The view is also built with `editable=not self.is_immutable` (line 357).
+
+**Proposed fix.** Use `set_sensitive(False)` on the description `TextView` like its siblings. Make it insensitive on the `TextView` only, not its `ScrolledWindow`, so a long description can still be scrolled and read.
+
+---
+
+### Materials page: PSD shows "Log-Normal" but displays the Rosin-Rammler parameters
+
+**Kind:** Latent bug class (GTK3 Stack set before its children are shown).
+
+**Identified:** 2026-10-23 (Jeff, Materials page)
+
+**Symptom.** Expanding the Particle Size Distribution section of the material dialog shows "Log-Normal" in the type dropdown, but the parameter fields shown are the Rosin-Rammler ones. The displayed parameters should match the selected type.
+
+**Root cause (likely; from reading the code, not yet confirmed by a run).** The dialog creates the widget as `UnifiedPSDWidget('generic')` (`thames_material_dialog.py:145`). Its constructor calls `_setup_default_parameters()` (`src/app/widgets/unified_psd_widget.py:400`), whose generic branch selects `log_normal` in the combo and calls `parameter_stack.set_visible_child_name("log_normal")` (lines 425-430). That happens before any stack child has been shown, and GTK3 ignores a request to show a child that is not yet visible. When the dialog is later shown, the stack displays its first-added child, `rosin_rammler` (added first at line 130). `load_from_material_data` (line 812 onward) makes the same paired calls, so a saved material's PSD may show the wrong panel too.
+
+**Proposed fix.** Show the stack's children (`box.show_all()`) before `add_named`, or set the visible child after the widget is realized (connect to `map` or use `GLib.idle_add`). Simplest robust version: in `_on_mode_changed` and wherever the mode is set, set the visible child from the combo's active id, and call that once more when the widget is first mapped, so the combo is the single source of truth. Check all four types (Rosin-Rammler, Log-Normal, Fuller, Custom) for a new material and for a saved one of each type.
