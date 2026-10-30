@@ -2487,3 +2487,33 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Root cause (likely; from reading the code, not yet confirmed by a run).** The dialog creates the widget as `UnifiedPSDWidget('generic')` (`thames_material_dialog.py:145`). Its constructor calls `_setup_default_parameters()` (`src/app/widgets/unified_psd_widget.py:400`), whose generic branch selects `log_normal` in the combo and calls `parameter_stack.set_visible_child_name("log_normal")` (lines 425-430). That happens before any stack child has been shown, and GTK3 ignores a request to show a child that is not yet visible. When the dialog is later shown, the stack displays its first-added child, `rosin_rammler` (added first at line 130). `load_from_material_data` (line 812 onward) makes the same paired calls, so a saved material's PSD may show the wrong panel too.
 
 **Proposed fix.** Show the stack's children (`box.show_all()`) before `add_named`, or set the visible child after the widget is realized (connect to `map` or use `GLib.idle_add`). Simplest robust version: in `_on_mode_changed` and wherever the mode is set, set the visible child from the combo's active id, and call that once more when the widget is first mapped, so the combo is the single source of truth. Check all four types (Rosin-Rammler, Log-Normal, Fuller, Custom) for a new material and for a saved one of each type.
+
+---
+
+### Limestone mix stops at 5 h: GEMS E06IPM when SO4_CO3_AFt forms while Gypsum and Bassanite are kinetic
+
+**Kind:** Latent bug class (GEMS failure on a default product set).
+
+**Identified:** 2026-10-30 (Jeff, tutorial sandbox, operation `HydrationOf-MyPaste-Thermo`, alpha-4.1 backend `6e49f9a7`)
+
+**Symptom.** A saturated 28 d run of a limestone paste (`MyPaste`, 4.8 vol% Calcite, 298.15 K; Arcanite, Bassanite and Gypsum Standard, Calcite Thermodynamic) stopped at 4.998 h with `exit_reason` "GEMS solver exceeded maximum consecutive failures". `ipmlog.txt` shows `E06IPM: IPM Main Descent`. dt fell to the 1e-5 h floor and GEMS still failed, 50 times running. Every call is already AIA (`ChemicalSystem.cc`, `calculateState`), so a fresh start does not rescue it.
+
+**Tests.** Copies of the operation, same backend, 672 h target:
+
+| Change | Result |
+|---|---|
+| `SO4_CO3_AFt` removed | Completed, 508 cycles, DOR 0.797 |
+| Arcanite, Bassanite, Gypsum all Thermodynamic | Completed, 180 cycles, DOR 0.797 |
+| Calcite Standard, placeholder k = 1e-8 | Completed, 494 cycles, DOR 0.797 |
+| Arcanite alone Thermodynamic | Failed, 5.06 h |
+| `ettr` removed | Failed, 4.82 h |
+| `ettr-AlFe` removed | Failed, 4.81 h |
+| Calcite Standard, Jeff's k and diffusion constants = 1e-6 | Unfinished at this writing (110 h, cycle 1670); past the failure point |
+
+**Reading (best explanation, not proven).** Not Arcanite (fully gone by 4 h) and not competition among the AFt phases. The failure needs `SO4_CO3_AFt` forming, drawing on freely available Calcite, while Gypsum and Bassanite amounts are held by kinetics, so GEMS cannot adjust them. With slow Calcite, `SO4_CO3_AFt` forms only well after Gypsum is gone. With sulfates thermodynamic, the same phase forms without trouble. Same class as the S46 silica-fume stall.
+
+**Why it matters.** The Limestone product list includes `SO4_CO3_AFt`, so a new user with a limestone mix can hit this with default choices. The stop reads as a solver failure and gives no hint of the cause.
+
+**Workarounds.** Uncheck `SO4_CO3_AFt`: bulk results at 28 d are nearly unchanged, at the cost of carbonate in AFt (8-9 mol% carbonate end-member when kept). Or set Gypsum and Bassanite Thermodynamic.
+
+**Proposed fix.** Options, to be weighed: drop `SO4_CO3_AFt` from the default Limestone list (see the Cement Type item in `THAMES-Videos/Scripts/THAMES-UI-Issues.md`); make the sulfates Thermodynamic by default (the S66 question); or find out why GEMS has no feasible path with those phases locked, for example by relaxing the kinetic DC bounds on a repeated E06IPM. Also name the likely cause in the failure message.
