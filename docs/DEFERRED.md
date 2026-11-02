@@ -2516,7 +2516,7 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 
 **Workarounds.** Uncheck `SO4_CO3_AFt`: bulk results at 28 d are nearly unchanged, at the cost of carbonate in AFt (8-9 mol% carbonate end-member when kept). Or set Gypsum and Bassanite Thermodynamic.
 
-**Proposed fix.** Options, to be weighed: drop `SO4_CO3_AFt` from the default Limestone list (see the Cement Type item in `THAMES-Videos/Scripts/THAMES-UI-Issues.md`); make the sulfates Thermodynamic by default (the S66 question); or find out why GEMS has no feasible path with those phases locked, for example by relaxing the kinetic DC bounds on a repeated E06IPM. Also name the likely cause in the failure message.
+**Proposed fix.** Options, to be weighed: drop `SO4_CO3_AFt` from the default Limestone list (see the Cement Type item in `docs/UI-Issues.md`); make the sulfates Thermodynamic by default (the S66 question); or find out why GEMS has no feasible path with those phases locked, for example by relaxing the kinetic DC bounds on a repeated E06IPM. Also name the likely cause in the failure message.
 
 ---
 
