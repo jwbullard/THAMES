@@ -2517,3 +2517,39 @@ So THAMES leaves ragged, fragmented remnant grains where real grains dissolve as
 **Workarounds.** Uncheck `SO4_CO3_AFt`: bulk results at 28 d are nearly unchanged, at the cost of carbonate in AFt (8-9 mol% carbonate end-member when kept). Or set Gypsum and Bassanite Thermodynamic.
 
 **Proposed fix.** Options, to be weighed: drop `SO4_CO3_AFt` from the default Limestone list (see the Cement Type item in `THAMES-Videos/Scripts/THAMES-UI-Issues.md`); make the sulfates Thermodynamic by default (the S66 question); or find out why GEMS has no feasible path with those phases locked, for example by relaxing the kinetic DC bounds on a repeated E06IPM. Also name the likely cause in the failure message.
+
+---
+
+### Kinetic precipitation is capped by a single stand-in ion, not the element's total in solution
+
+**Kind:** Latent bug class (mass-balance bookkeeping; a blocker for kinetic Al-, Si- or Fe-bearing products such as JMAK-CSHQ).
+
+**Identified:** 2026-10-30 (Jeff's question, from `HydrationOf-MyPaste-Thermo`, Calcite Standard at k = 0.2 umol/m2/s, backend `6e49f9a7`). Introduced by the S55 mass-balance fix, `94bd4b0`.
+
+**Symptom.** The run took 16,831 cycles and over an hour, against about 500 cycles and a few minutes for comparable runs. Nearly every step was capped by the kinetics limit, down to about 0.001 h. `thames.log` has 16,717 `Standard/mass-cap: Calcite` lines, median `availableScale` 5e-5.
+
+**Root cause.** This is THAMES, not GEMS3K; GEMS speciates correctly. `icNameToAqDCName` (`KineticController.cc:1306`) maps each element to one fixed aqueous species, and `solidICAvailabilityScale` (:1322) limits precipitation by the moles of that species alone. Carbon's stand-in is `HCO3-`. At 67.4 h the solution held CO3-2 1.76e-3, Mg(CO3)@ 8.9e-4, Ca(CO3)@ 7.8e-5 and HCO3- only 4.8e-7 mol, so about 2.7e-3 mol of dissolved carbon was treated as 4.8e-7 mol, more than 5,000x too little. Dissolution is unaffected: GEMS works from the bulk composition and re-speciates.
+
+The timestep limit makes it worse. `computeKineticsBasedMaxTimestep` uses the uncapped rate (about 3.4 mol/h at SI 610), so dt stays near 0.001 h while each step moves only what the cap allows. This is the cause of the wall time.
+
+**Not only carbon.** At pH > 12 the same table is a poor fit for Al (`Al+3`; really AlO2- type species), Fe (`Fe+3`; hydroxy complexes) and Si (`SiO2@`; charged silicates and CaSiO3@, the S56 finding). `Ca+2` is reasonable, with CaOH+ comparable. It has stayed hidden because few phases precipitate through this path. This is the same error as the S59 total-Si accounting: one species taken for the whole element.
+
+**Proposed fix.** Compute availability from the element's total in the aqueous phase, summed over all aqueous DCs as moles x stoichiometry (the calculation proposed for the `Solution.csv` total-element columns). `commitSolidICTransfer` must change too, since it cannot subtract more than the stand-in holds: draw down the aqueous species in proportion, or work on the bulk composition directly and let GEMS re-speciate. The map must stay in sync with `ChemicalSystem::checkICMoles`, so check that as well. Make the timestep limit use the rate actually applied after the cap. Regression: rerun this case and confirm a saturated cement paste is byte-identical if no phase precipitates kinetically.
+
+---
+
+### Kinetic dissolution overshoots a small aqueous pool: sawtooth in AFm and AFt
+
+**Kind:** Latent bug class (explicit stepping of a stiff solid-solution coupling).
+
+**Identified:** 2026-10-30 (Jeff, from the Phase Volumes plot of `HydrationOf-MyPaste-Thermo`; same run as the entry above)
+
+**Symptom.** With Calcite on Standard kinetics, Calcite falls in stairs, with `C4AcH11` stepping up, `monosulf-AlFe` dropping and `ettr` rising at the same moments (about 19 large events, e.g. 97, 150 and 227 h). The curves are an artifact. Final DOR is close to the clean runs (0.7967 vs 0.7973), but the AFm, AFt and Calcite trajectories after about 1 d should not be interpreted.
+
+**Root cause.** The timestep limit caps a step at 5 % of the solid (`maxRelativeChange`), which says nothing about the aqueous pool, and the rate uses SI from the start of the step. At 63.9 h, with SI 0.57 and CO3-2 at 3.8e-6 mol, one 3.49 h step dissolved 4.9 % of the Calcite, about 0.004 mol. CO3-2 rose about 470x and SI(Calcite) reached 610. GEMS put the carbonate into monocarboaluminate, displacing sulfate from monosulfate into ettringite. SI then relaxes over about 10 h; as it falls below 1, dt regrows and the next overshoot follows. Excursions shrink as the system ages.
+
+**Evidence that it is rate-dependent.** k = 0.2 umol/m2/s gives the stairs (largest monosulfate drop 0.0096). k = 0.01 umol/m2/s completes in 494 cycles with a largest drop of 0.0015. Calcite Thermodynamic with `SO4_CO3_AFt` removed completes in 508 cycles with no monosulfate drop.
+
+**Proposed fix (needs a design decision).** Add a step limit based on the aqueous pool of the limiting element, so that one kinetic step cannot change it by more than a set factor, or cap the step where SI would cross 1 (a linearized estimate of dSI/dn). Alternative: iterate the kinetic step implicitly with GEMS, at more cost. Fixing the stand-in cap above lets SI relax much faster but does not remove the overshoot, so do that first and then re-measure. The same coupling should exist for any Standard phase with a sparingly soluble ion.
+
+**Workaround.** Calcite Thermodynamic with `SO4_CO3_AFt` unchecked, or a much lower Calcite rate constant.
