@@ -467,6 +467,16 @@ Full narrative: `docs/session86_summary.md`. Commits `78767261`, `effc5e56` + wr
 - **Draft prerelease** created with the macOS zip (sha256 `04707cf6…`) and `release-notes-alpha-4.1.md`; no tag until publish.
 - **Next:** Windows build per `docs/alpha-4.1-windows-build.md` (rebuild backend to 6.0.0), then on the Mac upload the installer, publish, tag backend `v6.0.0` at `6e49f9a`.
 
+### Session 87 (Oct 30 - Nov 5, 2026): kinetics bugs filed, UI list in the repo, alpha-4.2 UI fixes
+
+Full narrative: `docs/session87_summary.md`. Commits `ec9be522`, `965985bd`, `0d2b00bb`, `495e3e36` + wrap-up (pushed). alpha-4.1 published 2026-10-22 (tag at `958792fb`, backend `v6.0.0` at `6e49f9a`).
+
+- **DEFERRED (latent bug classes, from S55 `94bd4b0`):** kinetic precipitation capped by one stand-in ion (`HCO3-` for C) instead of the element's total in solution, while the timestep limit uses the uncapped rate; kinetic dissolution overshoots a small aqueous pool. Together they made a limestone rerun take 16,831 cycles with a sawtooth. Also filed: limestone 5 h `E06IPM` stop needing `SO4_CO3_AFt`.
+- **UI to-do list is now `docs/UI-Issues.md`** (moved from the unversioned tutorial folder). Its top section is the alpha.4.2 / alpha.5 release triage.
+- **`0d2b00bb`, alpha-4.2 UI fixes (Jeff-tested):** hydrotalcite / zeolite P no longer duplicated as two phases (rerun-verified); Load from previous locks only starting-microstructure phases; Kinetics column; Pozzolanic list; scroll guard; menu tabs; Fullscreen; log noise; Mix Design limits. Operations Delete no longer raises `files_store` AttributeError: the hidden Files sub-tab's 722 lines of file-browser code deleted.
+- **Load from previous reruns from the original microstructure;** starting from a later age needs backend restart support (alpha.5 decision).
+- **Next:** alpha-4.2 release mechanics (memory `project_release_alpha42_alpha5_plan.md`).
+
 ---
 
 ## PRIORITY TASKS
