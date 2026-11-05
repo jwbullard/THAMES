@@ -13,7 +13,7 @@ session's memories; this file carries everything needed.
 | Backend | **unchanged**: submodule `6e49f9a` = THAMES-Hydration 6.0.0, the same as alpha-4.1 |
 | macOS artifact | built, smoke-tested, uploaded to the draft: `THAMES-1.0.0-alpha.4.2-macOS.zip`, 675,538,545 bytes, SHA-256 `303180c827332c6b927636c1a7845013812927bd32eb9c1f54ce76b6a90fa0e2` |
 | GitHub release | **draft** prerelease "THAMES 1.0.0-alpha.4.2" (macOS zip + notes). No tag until publish |
-| Windows installer | to build (this session) |
+| Windows installer | built 2026-11-05 from `main` at `d799d374`, smoke-tested (all 8 checks passed): `THAMES-1.0.0-alpha.4.2-win64-setup.exe`, 623,568,930 bytes, SHA-256 `97bac2b367aa814df74d91bb7bed69e5057fdab8cc750ad770b303c8748e9578`. Backend not rebuilt (`bin\` = 6.0.0, `6e49f9a7`, built 2026-10-22). Copy to the Mac's `dist/` |
 | Release notes | `release-notes-alpha-4.2.md` (Jeff-edited); Windows size says "size TBD" |
 
 ## What alpha-4.2 is
