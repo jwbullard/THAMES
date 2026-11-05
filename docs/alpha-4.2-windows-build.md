@@ -88,5 +88,25 @@ On the Mac:
 3. Publish (`gh release edit v1.0.0-alpha.4.2 --draft=false`), which creates
    tag `v1.0.0-alpha.4.2` on `main`. Keep it a prerelease. No backend tag
    (backend unchanged; `v6.0.0` already at `6e49f9a`).
-4. Amend alpha-4.1's published Known Limitations (hydrotalcite / zeolite P,
-   fixed in 4.2), if not already done.
+4. **After** publishing (Jeff's decision, 2026-11-05), amend alpha-4.1's
+   release body: insert the block below under its Known Limitations, after
+   the line "Limitations 13 and 14 are fixed in this release (see above)."
+   Only the body changes (`gh release edit v1.0.0-alpha.4.1 --notes-file
+   <edited body>`); tag and assets untouched. Jeff approved this text.
+
+```
+  15. **Hydrotalcite and zeolite P are entered twice.** Selecting either as
+      a hydration product puts the same phase into the simulation under two
+      phase numbers, and both are filled, so the amount of that product is
+      probably doubled. Do not select them in this version; fixed in
+      1.0.0-alpha.4.2.
+
+  16. **Limestone mixes can stop after a few hours** with a chemical
+      equilibrium failure when `SO4_CO3_AFt` is checked (the default for the
+      Limestone cement type) while calcite is under thermodynamic control and
+      gypsum or bassanite under kinetic control. Workaround: uncheck
+      `SO4_CO3_AFt`.
+
+  17. **Calcite under kinetic control can make a run slow and noisy.**
+      Workaround: leave calcite under thermodynamic control.
+```
