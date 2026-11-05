@@ -13,6 +13,14 @@ from typing import Optional, Dict, Any
 from ..config.config_manager import ConfigManager
 from ..resources.app_info import APP_NAME
 
+# Folders inside the operations directory that are not operations: shared
+# data (per-microstructure metadata, grading files, particle shapes, aggregate
+# library) and tooling clutter. Panels that list operations skip these.
+NON_OPERATION_FOLDERS = frozenset({
+    'microstructure_metadata', 'grading_files', 'particle_shape_set',
+    'aggregate', '.git', '__pycache__',
+})
+
 
 class DirectoriesService:
     """Service for managing application directories and operation paths."""

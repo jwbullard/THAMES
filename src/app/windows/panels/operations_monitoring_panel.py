@@ -23,12 +23,12 @@ from dataclasses import dataclass, field, asdict
 from enum import Enum
 
 gi.require_version('Gtk', '3.0')
-gi.require_version('GdkPixbuf', '2.0')
-from gi.repository import Gtk, GObject, Pango, GLib, GdkPixbuf
+from gi.repository import Gtk, GObject, Pango, GLib
 
 if TYPE_CHECKING:
     from app.windows.main_window import VCCTLMainWindow
 
+from app.services.directories_service import NON_OPERATION_FOLDERS
 from app.services.service_container import get_service_container
 from app.services.phase_id_mapping_service import PhaseIdMappingService
 from app.utils.icon_utils import set_tool_button_custom_icon, create_button_with_icon
@@ -800,9 +800,6 @@ class OperationsMonitoringPanel(Gtk.Box):
         # Performance Metrics tab - HIDDEN to free up horizontal space
         # self._create_performance_metrics_tab()
         
-        # Operations Files tab - HIDDEN (functionality available in main Files tab)
-        # self._create_operations_files_tab()
-        
         # Results Analysis Dashboard tab
         self._create_results_analysis_tab()
         
@@ -1097,157 +1094,6 @@ class OperationsMonitoringPanel(Gtk.Box):
         tab_box.pack_start(history_frame, True, True, 0)
         
         self.details_notebook.append_page(tab_box, Gtk.Label("Performance"))
-    
-    def _create_operations_files_tab(self) -> None:
-        """Create the operations files browser tab."""
-        tab_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        tab_box.set_margin_left(10)
-        tab_box.set_margin_right(10)
-        tab_box.set_margin_top(10)
-        tab_box.set_margin_bottom(10)
-        
-        # Toolbar for file operations
-        toolbar = Gtk.Toolbar()
-        toolbar.set_style(Gtk.ToolbarStyle.BOTH_HORIZ)
-        
-        # Refresh button - use Carbon icon
-        refresh_button = Gtk.ToolButton()
-        refresh_icon = self._load_carbon_icon("restart", 32)
-        if refresh_icon:
-            # Scale down to toolbar size (24px)
-            scaled_icon = refresh_icon.scale_simple(24, 24, GdkPixbuf.InterpType.BILINEAR)
-            refresh_button.set_icon_widget(Gtk.Image.new_from_pixbuf(scaled_icon))
-        else:
-            refresh_button.set_icon_name("view-refresh")  # Fallback to GTK icon
-        refresh_button.set_label("Refresh")
-        refresh_button.set_tooltip_text("Scan Operations directory for new files and updated operation results")
-        refresh_button.connect('clicked', self._on_refresh_files_clicked)
-        toolbar.insert(refresh_button, -1)
-        
-        # Open folder button - use Carbon icon
-        open_folder_button = Gtk.ToolButton()
-        folder_icon = self._load_carbon_icon("folder--open", 32)
-        if folder_icon:
-            # Scale down to toolbar size (24px)
-            scaled_icon = folder_icon.scale_simple(24, 24, GdkPixbuf.InterpType.BILINEAR)
-            open_folder_button.set_icon_widget(Gtk.Image.new_from_pixbuf(scaled_icon))
-        else:
-            open_folder_button.set_icon_name("folder")  # Fallback to GTK icon
-        open_folder_button.set_label("Open Folder")
-        open_folder_button.set_tooltip_text("Open the Operations directory in your system's file manager")
-        open_folder_button.connect('clicked', self._on_open_operations_folder_clicked)
-        toolbar.insert(open_folder_button, -1)
-        
-        # Separator
-        toolbar.insert(Gtk.SeparatorToolItem(), -1)
-        
-        # Delete operation button - use Carbon icon
-        delete_button = Gtk.ToolButton()
-        delete_icon = self._load_carbon_icon("trash-can", 32)
-        if delete_icon:
-            # Scale down to toolbar size (24px)
-            scaled_icon = delete_icon.scale_simple(24, 24, GdkPixbuf.InterpType.BILINEAR)
-            delete_button.set_icon_widget(Gtk.Image.new_from_pixbuf(scaled_icon))
-        else:
-            delete_button.set_icon_name("edit-delete")  # Fallback to GTK icon
-        delete_button.set_label("Delete")
-        delete_button.set_tooltip_text("Permanently delete the selected operation folder and all its contents")
-        delete_button.connect('clicked', self._on_delete_operation_clicked)
-        toolbar.insert(delete_button, -1)
-        
-        tab_box.pack_start(toolbar, False, False, 0)
-        
-        # Create paned layout - file tree on left, file details on right
-        files_paned = Gtk.Paned(orientation=Gtk.Orientation.HORIZONTAL)
-        
-        # File tree (left side)
-        tree_frame = Gtk.Frame(label="Operations Directory")
-        tree_scrolled = Gtk.ScrolledWindow()
-        tree_scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        tree_scrolled.set_size_request(200, 400)  # Reduced width to allow narrower windows
-        
-        # Create file tree store: Icon, Name, Path, Type, Size, Modified
-        self.files_store = Gtk.TreeStore(GdkPixbuf.Pixbuf, str, str, str, str, str)
-        
-        # Create tree view
-        self.files_view = Gtk.TreeView(model=self.files_store)
-        self.files_view.set_rules_hint(True)
-        self.files_view.get_selection().set_mode(Gtk.SelectionMode.SINGLE)
-        self.files_view.get_selection().connect('changed', self._on_file_selection_changed)
-        
-        # Name column with icon
-        name_column = Gtk.TreeViewColumn("Name")
-        
-        # Add icon renderer
-        icon_renderer = Gtk.CellRendererPixbuf()
-        name_column.pack_start(icon_renderer, False)
-        name_column.add_attribute(icon_renderer, "pixbuf", 0)
-        
-        # Add text renderer
-        name_renderer = Gtk.CellRendererText()
-        name_column.pack_start(name_renderer, True)
-        name_column.add_attribute(name_renderer, "text", 1)
-        name_column.set_expand(True)
-        self.files_view.append_column(name_column)
-        
-        # Size column
-        size_column = Gtk.TreeViewColumn("Size")
-        size_renderer = Gtk.CellRendererText()
-        size_column.pack_start(size_renderer, False)
-        size_column.add_attribute(size_renderer, "text", 4)  # Updated column index
-        size_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        size_column.set_fixed_width(80)
-        self.files_view.append_column(size_column)
-        
-        # Modified column
-        modified_column = Gtk.TreeViewColumn("Modified")
-        modified_renderer = Gtk.CellRendererText()
-        modified_column.pack_start(modified_renderer, False)
-        modified_column.add_attribute(modified_renderer, "text", 5)  # Updated column index
-        modified_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED)
-        modified_column.set_fixed_width(120)
-        self.files_view.append_column(modified_column)
-        
-        tree_scrolled.add(self.files_view)
-        tree_frame.add(tree_scrolled)
-        files_paned.pack1(tree_frame, True, False)
-        
-        # File details (right side)
-        details_frame = Gtk.Frame(label="File Details")
-        details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        details_box.set_margin_left(10)
-        details_box.set_margin_right(10)
-        details_box.set_margin_top(5)
-        details_box.set_margin_bottom(5)
-        
-        # File info
-        self.file_info_label = Gtk.Label("Select a file to view details")
-        self.file_info_label.set_halign(Gtk.Align.START)
-        self.file_info_label.set_line_wrap(True)
-        details_box.pack_start(self.file_info_label, False, False, 0)
-        
-        # File preview area
-        preview_scrolled = Gtk.ScrolledWindow()
-        preview_scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        preview_scrolled.set_size_request(200, 300)  # Reduced width to allow narrower windows
-        
-        self.file_preview = Gtk.TextView()
-        self.file_preview.set_editable(False)
-        self.file_preview.set_cursor_visible(False)
-        self.file_preview.set_wrap_mode(Gtk.WrapMode.WORD)
-        preview_scrolled.add(self.file_preview)
-        details_box.pack_start(preview_scrolled, True, True, 0)
-        
-        details_frame.add(details_box)
-        files_paned.pack2(details_frame, False, False)
-        
-        tab_box.pack_start(files_paned, True, True, 0)
-        
-        # Add tab to notebook
-        self.details_notebook.append_page(tab_box, Gtk.Label("Files"))
-        
-        # Load initial file tree
-        self._load_operations_files()
     
     def _create_results_analysis_tab(self) -> None:
         """Create the results analysis dashboard tab."""
@@ -1560,7 +1406,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                 if loop_iteration % 30 == 1:  # Every 30 seconds
                     running_ops = sum(1 for op in self.operations.values() 
                                      if op.status in [OperationStatus.RUNNING, OperationStatus.PAUSED])
-                    self.logger.info(f"Monitoring loop iteration {loop_iteration}: {len(self.operations)} total operations, {running_ops} running")
+                    self.logger.debug(f"Monitoring loop iteration {loop_iteration}: {len(self.operations)} total operations, {running_ops} running")
                 
                 # Update system resources with error isolation
                 try:
@@ -1582,7 +1428,9 @@ class OperationsMonitoringPanel(Gtk.Box):
                     
                     # Log significant changes
                     if running_after != running_before or (loop_iteration % 60 == 1):
-                        self.logger.info(f"Operations update: {running_before}->{running_after} running, {operations_before}->{operations_after} total")
+                        changed = (running_after != running_before or operations_after != operations_before)
+                        (self.logger.info if changed else self.logger.debug)(
+                            f"Operations update: {running_before}->{running_after} running, {operations_before}->{operations_after} total")
                         
                         # Log details of running operations
                         for op in self.operations.values():
@@ -1743,7 +1591,7 @@ class OperationsMonitoringPanel(Gtk.Box):
 
                 if not operation.is_process_running():
                     # Process has ended, determine if it completed successfully
-                    self.logger.info(f"Process {operation.id} ({operation.name}) has ended")
+                    self.logger.debug(f"Process {operation.id} ({operation.name}) has ended")
                     
                     if operation.process and operation.process.returncode is not None:
                         return_code = operation.process.returncode
@@ -1794,7 +1642,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                             operation.progress = 1.0
                             operation.current_step = "Process completed"
                         else:
-                            self.logger.info(f"Process {operation.id} ended without return code - output files not ready, continuing monitor")
+                            self.logger.debug(f"Process {operation.id} ended without return code - output files not ready, continuing monitor")
                             continue
                     
                     operation.end_time = current_time
@@ -1913,7 +1761,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                     output_dir = self._get_operation_directory(operation)
 
                 if not output_dir or not os.path.exists(output_dir):
-                    self.logger.info(f"Output directory for {operation.name} not found - operation not complete")
+                    self.logger.debug(f"Output directory for {operation.name} not found - operation not complete")
                     return False
 
                 self.logger.info(f"Verifying microstructure completion in: {output_dir}")
@@ -1945,7 +1793,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                     self.logger.info(f"Operation {operation.name} verified complete - VCCTL output files exist")
                     return True
                 else:
-                    self.logger.info(f"Operation {operation.name} not complete - thames_img:{thames_img_exists}, thames_pimg:{thames_pimg_exists}, vcctl_img:{vcctl_img_exists}, vcctl_pimg:{vcctl_pimg_exists}")
+                    self.logger.debug(f"Operation {operation.name} not complete - thames_img:{thames_img_exists}, thames_pimg:{thames_pimg_exists}, vcctl_img:{vcctl_img_exists}, vcctl_pimg:{vcctl_pimg_exists}")
                     return False
             
             # For hydration operations, check for actual completion indicators
@@ -1974,7 +1822,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                                 self.logger.info(f"Hydration operation {operation.name} verified complete - reached {current_time:.2f}h of {target_time_hours:.2f}h target")
                                 return True
                             else:
-                                self.logger.info(f"Hydration operation {operation.name} not complete - only {current_time:.2f}h of {target_time_hours:.2f}h target")
+                                self.logger.debug(f"Hydration operation {operation.name} not complete - only {current_time:.2f}h of {target_time_hours:.2f}h target")
                                 return False
                         except Exception as e:
                             self.logger.warning(f"Error reading hydration progress for completion check: {e}")
@@ -3098,9 +2946,9 @@ class OperationsMonitoringPanel(Gtk.Box):
             self.operation_eta_value.set_text("Unknown")
         
         # Enhanced current step display with better fallbacks
-        self.logger.info(f"STEP_DEBUG: Operation {operation.name}, current_step='{operation.current_step}', status={operation.status}")
+        self.logger.debug(f"STEP_DEBUG: Operation {operation.name}, current_step='{operation.current_step}', status={operation.status}")
         if operation.current_step:
-            self.logger.info(f"STEP_DEBUG: Setting step text to: '{operation.current_step}'")
+            self.logger.debug(f"STEP_DEBUG: Setting step text to: '{operation.current_step}'")
             self.operation_step_value.set_text(operation.current_step)
         elif operation.status == OperationStatus.RUNNING:
             if operation.operation_type == OperationType.HYDRATION_SIMULATION:
@@ -3181,7 +3029,7 @@ class OperationsMonitoringPanel(Gtk.Box):
             def force_step_update():
                 try:
                     self.operation_step_value.set_text(operation.current_step)
-                    self.logger.info(f"FORCE_UPDATE: Set step to '{operation.current_step}'")
+                    self.logger.debug(f"FORCE_UPDATE: Set step to '{operation.current_step}'")
                     return False  # Don't repeat
                 except Exception as e:
                     self.logger.error(f"FORCE_UPDATE error: {e}")
@@ -3426,7 +3274,6 @@ class OperationsMonitoringPanel(Gtk.Box):
 
             # Refresh the UI
             self._update_operations_list()
-            self._load_operations_files()  # Refresh file browser
             
             # Update status with results
             if failed_count == 0:
@@ -3498,9 +3345,8 @@ class OperationsMonitoringPanel(Gtk.Box):
 
             # Get all folders in Operations directory
             folder_names = set()
-            special_folders = {'grading_files', 'microstructure_metadata', '.git', '__pycache__', 'particle_shape_set', 'aggregate'}
             for item in operations_dir.iterdir():
-                if item.is_dir() and item.name not in special_folders:
+                if item.is_dir() and item.name not in NON_OPERATION_FOLDERS:
                     folder_names.add(item.name)
 
             # DIAGNOSTIC: Log filesystem folders
@@ -3595,11 +3441,6 @@ class OperationsMonitoringPanel(Gtk.Box):
                 # Refresh from database to reflect any record removals
                 self._smart_refresh_from_database()
                 self._update_ui()
-                # Refresh the file browser so the deleted folders disappear
-                try:
-                    self._load_operations_files()
-                except Exception:
-                    pass
 
                 # Report results
                 msg = f"Sync complete! Removed {deleted_count} orphaned DB record(s)"
@@ -4266,555 +4107,6 @@ class OperationsMonitoringPanel(Gtk.Box):
         """Update status bar message."""
         self.status_bar.pop(self.status_context)
         self.status_bar.push(self.status_context, message)
-    
-    # Operations Files Browser Methods
-    
-    def _load_operations_files(self) -> None:
-        """Load the Operations directory structure into the file tree."""
-        self.logger.info("=== Starting _load_operations_files ===")
-        
-        # Get the Operations directory path using absolute path from project root
-        # Don't rely on current working directory since genmic changes it
-        # Path: src/app/windows/panels/operations_monitoring_panel.py -> go up 5 levels to project root
-        project_root = Path(__file__).resolve().parent.parent.parent.parent.parent
-        operations_dir = project_root / "Operations"
-        self.logger.info(f"Project root: {project_root}")
-        self.logger.info(f"Operations directory: {operations_dir}")
-        self.logger.info(f"Operations directory exists: {operations_dir.exists()}")
-        
-        if not operations_dir.exists():
-            self.files_store.clear()
-            icon = self._get_file_icon("warning")
-            self.files_store.append(None, [icon, "No Operations directory found", "", "info", "", ""])
-            return
-        
-        # Build the new tree data first, then replace the store content
-        new_tree_data = []
-        
-        # Add retry logic and better error handling for running operations
-        max_retries = 3
-        success = False
-        
-        for attempt in range(max_retries):
-            try:
-                self.logger.info(f"Attempt {attempt + 1}: scanning operations directory")
-                all_items = list(operations_dir.iterdir())
-                self.logger.info(f"Found {len(all_items)} total items in Operations directory")
-                
-                operation_dirs = sorted([
-                    d for d in all_items 
-                    if d.is_dir() and not d.name.startswith('.') and d.name not in ['__pycache__', 'Thumbs.db']
-                ])
-                self.logger.info(f"Found {len(operation_dirs)} operation directories: {[d.name for d in operation_dirs]}")
-                
-                # Successfully got directory list, now build tree data
-                for op_dir in operation_dirs:
-                    self.logger.info(f"Building data for operation directory: {op_dir.name}")
-                    op_data = self._build_operation_folder_data(op_dir)
-                    if op_data:
-                        new_tree_data.append(op_data)
-                        self.logger.info(f"Successfully built data for {op_dir.name} with {len(op_data['files'])} files")
-                    else:
-                        self.logger.warning(f"Failed to build data for {op_dir.name}")
-                
-                success = True
-                self.logger.info(f"Successfully gathered data for {len(new_tree_data)} operations")
-                break  # Success, exit retry loop
-                
-            except (PermissionError, OSError, FileNotFoundError) as e:
-                self.logger.warning(f"File access error on attempt {attempt + 1}: {e}")
-                if attempt < max_retries - 1:
-                    # Wait a bit before retrying
-                    import time
-                    time.sleep(0.1)
-            except Exception as e:
-                self.logger.error(f"Unexpected error loading operation directories: {e}")
-                break
-        
-        # Now update the display - clear and rebuild
-        try:
-            self.logger.info("=== Updating display ===")
-            self.files_store.clear()
-            
-            # Add root Operations folder
-            folder_icon = self._get_file_icon("folder")
-            root_iter = self.files_store.append(None, [folder_icon, "Operations", str(operations_dir), "folder", "", ""])
-            
-            if success and new_tree_data:
-                self.logger.info(f"Adding {len(new_tree_data)} operations to display")
-                # Add all the operation folders we successfully gathered
-                for op_data in new_tree_data:
-                    self._add_operation_folder_from_data(root_iter, op_data)
-            else:
-                self.logger.warning(f"Failed to load operations: success={success}, data_count={len(new_tree_data)}")
-                # Failed to load after retries
-                warning_icon = self._get_file_icon("warning")
-                self.files_store.append(root_iter, [
-                    warning_icon, "⚠️ Files temporarily unavailable (operation running?)", 
-                    "", "warning", "", ""
-                ])
-            
-            # Expand the root by default
-            self.files_view.expand_row(self.files_store.get_path(root_iter), False)
-            self.logger.info("=== Display update complete ===\n")
-            
-        except Exception as e:
-            self.logger.error(f"Error updating files display: {e}")
-            self.files_store.clear()
-            error_icon = self._get_file_icon("error")
-            self.files_store.append(None, [error_icon, f"Error loading files: {e}", "", "error", "", ""])
-    
-    def _build_operation_folder_data(self, op_dir: Path) -> dict:
-        """Build operation folder data structure without adding to tree store."""
-        try:
-            # Get folder info with error handling for running operations
-            try:
-                stat_info = op_dir.stat()
-                modified_time = datetime.fromtimestamp(stat_info.st_mtime).strftime("%Y-%m-%d %H:%M")
-            except (PermissionError, OSError, FileNotFoundError):
-                # Folder access issues, likely due to running operation
-                modified_time = "Accessing..."
-            
-            folder_data = {
-                'name': op_dir.name,
-                'path': str(op_dir),
-                'type': 'folder',
-                'size': '',
-                'modified': modified_time,
-                'files': []
-            }
-            
-            # Add files in the operation directory with retry logic
-            max_retries = 2
-            for attempt in range(max_retries):
-                try:
-                    files = sorted(op_dir.iterdir())
-                    for file_path in files:
-                        if file_path.is_file():
-                            file_data = self._build_file_data(file_path)
-                            if file_data:
-                                folder_data['files'].append(file_data)
-                    break  # Success, exit retry loop
-                    
-                except (PermissionError, OSError, FileNotFoundError) as e:
-                    if attempt == max_retries - 1:
-                        # Final attempt failed - add warning indicator
-                        folder_data['files'].append({
-                            'name': "⚠️ Files temporarily inaccessible",
-                            'path': "",
-                            'type': 'warning',
-                            'size': "",
-                            'modified': ""
-                        })
-                    else:
-                        # Brief pause before retry
-                        import time
-                        time.sleep(0.05)
-                except Exception as e:
-                    self.logger.error(f"Error loading files in {op_dir}: {e}")
-                    folder_data['files'].append({
-                        'name': f"Error loading files: {e}",
-                        'path': "",
-                        'type': 'error',
-                        'size': "",
-                        'modified': ""
-                    })
-                    break
-            
-            return folder_data
-            
-        except Exception as e:
-            self.logger.error(f"Error building operation folder data for {op_dir}: {e}")
-            return None
-    
-    def _build_file_data(self, file_path: Path) -> dict:
-        """Build file data structure without adding to tree store."""
-        try:
-            # Handle file access issues gracefully for running operations
-            try:
-                stat_info = file_path.stat()
-                file_size = self._format_file_size(stat_info.st_size)
-                modified_time = datetime.fromtimestamp(stat_info.st_mtime).strftime("%Y-%m-%d %H:%M")
-            except (PermissionError, OSError, FileNotFoundError):
-                # File is being written to or temporarily inaccessible
-                file_size = "..."
-                modified_time = "Writing..."
-            
-            # Determine file type for icon
-            file_type = self._get_file_type(file_path)
-            
-            return {
-                'name': file_path.name,
-                'path': str(file_path),
-                'type': file_type,
-                'size': file_size,
-                'modified': modified_time
-            }
-            
-        except Exception as e:
-            # Log error but don't prevent the overall refresh from working
-            self.logger.debug(f"Skipping file {file_path.name}: {e}")
-            return None
-    
-    def _add_operation_folder_from_data(self, parent_iter, op_data: dict) -> None:
-        """Add an operation folder to the tree from pre-built data."""
-        try:
-            # Add operation folder
-            folder_icon = self._get_file_icon(op_data['type'])
-            folder_iter = self.files_store.append(parent_iter, [
-                folder_icon,
-                op_data['name'],
-                op_data['path'],
-                op_data['type'],
-                op_data['size'],
-                op_data['modified']
-            ])
-            
-            # Add files
-            for file_data in op_data['files']:
-                file_icon = self._get_file_icon(file_data['type'], Path(file_data['path']) if file_data['path'] else None)
-                self.files_store.append(folder_iter, [
-                    file_icon,
-                    file_data['name'],
-                    file_data['path'],
-                    file_data['type'],
-                    file_data['size'],
-                    file_data['modified']
-                ])
-                
-        except Exception as e:
-            self.logger.error(f"Error adding operation folder from data: {e}")
-    
-    def _add_operation_folder(self, parent_iter, op_dir: Path) -> None:
-        """Add an operation folder and its files to the tree."""
-        try:
-            # Get folder info with error handling for running operations
-            try:
-                stat_info = op_dir.stat()
-                modified_time = datetime.fromtimestamp(stat_info.st_mtime).strftime("%Y-%m-%d %H:%M")
-            except (PermissionError, OSError, FileNotFoundError):
-                # Folder access issues, likely due to running operation
-                modified_time = "Accessing..."
-            
-            # Add operation folder
-            folder_icon = self._get_file_icon("folder")
-            folder_iter = self.files_store.append(parent_iter, [
-                folder_icon,
-                op_dir.name,
-                str(op_dir),
-                "folder", 
-                "",
-                modified_time
-            ])
-            
-            # Add files in the operation directory with retry logic
-            max_retries = 2
-            for attempt in range(max_retries):
-                try:
-                    files = sorted(op_dir.iterdir())
-                    for file_path in files:
-                        if file_path.is_file():
-                            self._add_file_item(folder_iter, file_path)
-                    break  # Success, exit retry loop
-                    
-                except (PermissionError, OSError, FileNotFoundError) as e:
-                    if attempt == max_retries - 1:
-                        # Final attempt failed
-                        warning_icon = self._get_file_icon("warning")
-                        self.files_store.append(folder_iter, [
-                            warning_icon, "⚠️ Files temporarily inaccessible", 
-                            "", "warning", "", ""
-                        ])
-                    else:
-                        # Brief pause before retry
-                        import time
-                        time.sleep(0.05)
-                except Exception as e:
-                    self.logger.error(f"Error loading files in {op_dir}: {e}")
-                    error_icon = self._get_file_icon("error")
-                    self.files_store.append(folder_iter, [error_icon, f"Error loading files: {e}", "", "error", "", ""])
-                    break
-                
-        except Exception as e:
-            self.logger.error(f"Error adding operation folder {op_dir}: {e}")
-    
-    def _add_file_item(self, parent_iter, file_path: Path) -> None:
-        """Add a file item to the tree."""
-        try:
-            # Handle file access issues gracefully for running operations
-            try:
-                stat_info = file_path.stat()
-                file_size = self._format_file_size(stat_info.st_size)
-                modified_time = datetime.fromtimestamp(stat_info.st_mtime).strftime("%Y-%m-%d %H:%M")
-            except (PermissionError, OSError, FileNotFoundError):
-                # File is being written to or temporarily inaccessible
-                file_size = "..."
-                modified_time = "Writing..."
-            
-            # Determine file type for icon
-            file_type = self._get_file_type(file_path)
-            
-            file_icon = self._get_file_icon(file_type, file_path)
-            self.files_store.append(parent_iter, [
-                file_icon,
-                file_path.name,
-                str(file_path),
-                file_type,
-                file_size,
-                modified_time
-            ])
-            
-        except Exception as e:
-            # Log error but don't prevent the overall refresh from working
-            self.logger.debug(f"Skipping file {file_path.name}: {e}")
-    
-    def _format_file_size(self, size_bytes: int) -> str:
-        """Format file size in human readable format."""
-        if size_bytes < 1024:
-            return f"{size_bytes} B"
-        elif size_bytes < 1024 * 1024:
-            return f"{size_bytes / 1024:.1f} KB"
-        elif size_bytes < 1024 * 1024 * 1024:
-            return f"{size_bytes / (1024 * 1024):.1f} MB"
-        else:
-            return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
-    
-    def _get_file_type(self, file_path: Path) -> str:
-        """Determine file type based on extension."""
-        suffix = file_path.suffix.lower()
-        if suffix in ['.txt', '.log']:
-            return 'text'
-        elif suffix in ['.img', '.pimg']:
-            return 'image'
-        elif suffix in ['.c3s', '.c3a', '.c4f', '.alu', '.sil', '.k2o', '.n2o']:
-            return 'data'
-        elif suffix in ['.dat']:
-            return 'binary'
-        else:
-            return 'file'
-    
-    def _get_file_icon(self, file_type: str, file_path: Path = None) -> GdkPixbuf.Pixbuf:
-        """Get appropriate icon for file type using GTK theme icons."""
-        try:
-            icon_theme = Gtk.IconTheme.get_default()
-            
-            # Use only icons that are confirmed to be available
-            if file_type == 'folder':
-                icon_name = 'folder'
-            else:
-                # All other file types use text-x-generic (universally available)
-                icon_name = 'text-x-generic'
-            
-            # Try to load the icon
-            if icon_theme.has_icon(icon_name):
-                pixbuf = icon_theme.load_icon(icon_name, 16, Gtk.IconLookupFlags.FORCE_SIZE)
-                return pixbuf
-                
-            # Fallback - try the most basic icons
-            fallback_icons = ['folder', 'text-x-generic']
-            for fallback_name in fallback_icons:
-                if icon_theme.has_icon(fallback_name):
-                    pixbuf = icon_theme.load_icon(fallback_name, 16, Gtk.IconLookupFlags.FORCE_SIZE)
-                    return pixbuf
-                    
-        except Exception as e:
-            self.logger.warning(f"Failed to load icon for {file_type}: {e}")
-        
-        # Return None if all else fails - no icon will be displayed
-        return None
-    
-    def _load_carbon_icon(self, icon_name: str, size: int = 32) -> GdkPixbuf.Pixbuf:
-        """Load a Carbon icon from the icons directory."""
-        from pathlib import Path
-        
-        try:
-            # Build path to Carbon icon - use current working directory as project root
-            # This is more reliable than calculating from __file__
-            project_root = Path.cwd()
-            icon_path = project_root / "icons" / "carbon" / str(size) / f"{icon_name}.svg"
-            
-            self.logger.info(f"Attempting to load Carbon icon: {icon_name} from {icon_path}")
-            
-            if icon_path.exists():
-                # Load SVG and scale to desired size
-                pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(
-                    str(icon_path), size, size, True
-                )
-                self.logger.info(f"Successfully loaded Carbon icon: {icon_name} ({pixbuf.get_width()}x{pixbuf.get_height()})")
-                return pixbuf
-            else:
-                self.logger.warning(f"Carbon icon not found: {icon_path}")
-                
-        except Exception as e:
-            self.logger.error(f"Failed to load Carbon icon {icon_name}: {e}")
-        
-        return None
-    
-    # Event handlers for file browser
-    
-    def _on_refresh_files_clicked(self, button) -> None:
-        """Handle refresh files button click."""
-        self.logger.info("=== Files tab refresh button clicked ===")
-        self._load_operations_files()
-        self._update_status("Operations files refreshed")
-    
-    def _on_open_operations_folder_clicked(self, button) -> None:
-        """Handle open operations folder button click."""
-        try:
-            operations_dir = Path.cwd() / "Operations"
-            if operations_dir.exists():
-                # Open in file manager (works on macOS, Linux, Windows)
-                import subprocess
-                import sys
-                
-                if sys.platform == "darwin":  # macOS
-                    subprocess.run(["open", str(operations_dir)])
-                elif sys.platform.startswith("linux"):  # Linux
-                    subprocess.run(["xdg-open", str(operations_dir)])
-                elif sys.platform == "win32":  # Windows
-                    subprocess.run(["explorer", str(operations_dir)])
-                    
-                self._update_status(f"Opened Operations folder: {operations_dir}")
-            else:
-                self._update_status("Operations folder does not exist")
-                
-        except Exception as e:
-            self.logger.error(f"Failed to open Operations folder: {e}")
-            self._update_status(f"Error opening folder: {e}")
-    
-    def _on_delete_operation_clicked(self, button) -> None:
-        """Handle delete operation button click."""
-        self.logger.info(f"🗑️ FILE TREE DEBUG: Delete button clicked")
-        selection = self.files_view.get_selection()
-        model, tree_iter = selection.get_selected()
-        self.logger.info(f"🗑️ FILE TREE DEBUG: Selection - model: {model is not None}, tree_iter: {tree_iter is not None}")
-        
-        if tree_iter:
-            file_name = model.get_value(tree_iter, 1)  # Name is in column 1
-            file_path = model.get_value(tree_iter, 2)  # Path is in column 2  
-            file_type = model.get_value(tree_iter, 3)  # Type is in column 3
-            
-            self.logger.info(f"🗑️ FILE TREE DEBUG: Selected item - name: '{file_name}', path: '{file_path}', type: '{file_type}'")
-            self.logger.info(f"🗑️ FILE TREE DEBUG: Type check - file_type == 'folder': {file_type == 'folder'}")
-            self.logger.info(f"🗑️ FILE TREE DEBUG: Path check - 'Operations' in file_path: {'Operations' in file_path}")
-            self.logger.info(f"🗑️ FILE TREE DEBUG: Combined condition: {file_type == 'folder' and 'Operations' in file_path}")
-            
-            if file_type == "folder" and "Operations" in file_path:
-                # Show confirmation dialog
-                dialog = Gtk.MessageDialog(
-                    transient_for=self.main_window,
-                    message_type=Gtk.MessageType.WARNING,
-                    buttons=Gtk.ButtonsType.YES_NO,
-                    text="Delete Operation Folder?"
-                )
-                dialog.format_secondary_text(
-                    f"Are you sure you want to delete the operation folder '{file_name}'?\n\n"
-                    "This will permanently delete all files including:\n"
-                    "• Input files\n"
-                    "• Output files (.img, .pimg)\n"
-                    "• Log files\n"
-                    "• Correlation files\n\n"
-                    "This action cannot be undone."
-                )
-                
-                response = dialog.run()
-                dialog.destroy()
-                
-                if response == Gtk.ResponseType.YES:
-                    try:
-                        import shutil
-                        self.logger.info(f"🗑️ FILE TREE DELETION: Attempting to delete folder: {file_path}")
-                        self.logger.info(f"🗑️ FILE TREE DELETION: Folder exists: {os.path.exists(file_path)}")
-                        shutil.rmtree(file_path)
-                        self._load_operations_files()  # Refresh the tree
-                        self.logger.info(f"🗑️ FILE TREE DELETION: Successfully deleted folder: {file_path}")
-                        self._update_status(f"Deleted operation folder: {file_name}")
-                    except Exception as e:
-                        self.logger.error(f"Failed to delete operation folder: {e}")
-                        self._update_status(f"Error deleting folder: {e}")
-            else:
-                self.logger.info(f"🗑️ FILE TREE DEBUG: Selection failed conditions - not deleting")
-                self._update_status("Please select an operation folder to delete")
-        else:
-            self.logger.info(f"🗑️ FILE TREE DEBUG: No tree_iter - no selection found")
-            self._update_status("No operation selected")
-    
-    def _on_file_selection_changed(self, selection) -> None:
-        """Handle file selection change in the tree view."""
-        model, tree_iter = selection.get_selected()
-        
-        if tree_iter:
-            file_path = model.get_value(tree_iter, 1)  # Path is in column 1
-            file_name = model.get_value(tree_iter, 0)  # Name is in column 0
-            file_type = model.get_value(tree_iter, 2)  # Type is in column 2
-            file_size = model.get_value(tree_iter, 3)  # Size is in column 3
-            file_modified = model.get_value(tree_iter, 4)  # Modified is in column 4
-            
-            # Update file info
-            if file_type == "folder":
-                self.file_info_label.set_text(f"Folder: {file_name}\nPath: {file_path}\nModified: {file_modified}")
-                self._clear_file_preview()
-            else:
-                self.file_info_label.set_text(
-                    f"File: {file_name}\n"
-                    f"Type: {file_type}\n"
-                    f"Size: {file_size}\n" 
-                    f"Modified: {file_modified}\n"
-                    f"Path: {file_path}"
-                )
-                self._load_file_preview(file_path, file_type)
-        else:
-            self.file_info_label.set_text("Select a file to view details")
-            self._clear_file_preview()
-    
-    def _load_file_preview(self, file_path: str, file_type: str) -> None:
-        """Load file preview in the text view."""
-        try:
-            path = Path(file_path)
-            if not path.exists():
-                self._set_preview_text("File not found")
-                return
-            
-            # Only preview text files and logs
-            if file_type in ['text', 'data'] or path.suffix.lower() in ['.txt', '.log', '.dat']:
-                try:
-                    # Try to read as text (limit to 10KB for performance)
-                    max_size = 10 * 1024  # 10KB
-                    if path.stat().st_size > max_size:
-                        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                            content = f.read(max_size)
-                        content += f"\n\n[File truncated - showing first {max_size} bytes]"
-                    else:
-                        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                            content = f.read()
-                    
-                    self._set_preview_text(content)
-                    
-                except UnicodeDecodeError:
-                    # Try as binary file
-                    with open(path, 'rb') as f:
-                        data = f.read(min(1024, path.stat().st_size))
-                    hex_content = ' '.join(f'{b:02x}' for b in data)
-                    self._set_preview_text(f"Binary file (hex preview):\n{hex_content}")
-                    
-            elif file_type == 'image':
-                self._set_preview_text(f"Microstructure image file: {path.name}\n\nThis is a binary image file generated by genmic.\nUse the 3D Visualization tool to view the microstructure.")
-            else:
-                self._set_preview_text(f"Binary file: {path.name}\n\nFile type: {file_type}\nUse appropriate tools to view this file.")
-                
-        except Exception as e:
-            self.logger.error(f"Error loading file preview: {e}")
-            self._set_preview_text(f"Error loading file: {e}")
-    
-    def _set_preview_text(self, text: str) -> None:
-        """Set text in the preview area."""
-        buffer = self.file_preview.get_buffer()
-        buffer.set_text(text)
-    
-    def _clear_file_preview(self) -> None:
-        """Clear the file preview area."""
-        buffer = self.file_preview.get_buffer()
-        buffer.set_text("")
     
     # =========================================================================
     # Results Analysis Dashboard Methods
@@ -5518,7 +4810,7 @@ class OperationsMonitoringPanel(Gtk.Box):
                 if item.is_dir():
                     folder_name = item.name
                     # Skip special folders
-                    if folder_name in ['grading_files', '.git', '__pycache__']:
+                    if folder_name in NON_OPERATION_FOLDERS:
                         continue
                     # Check if folder has a corresponding database operation
                     if folder_name not in db_operation_names:

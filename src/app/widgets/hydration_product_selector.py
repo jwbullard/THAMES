@@ -271,7 +271,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
             self.category_iters['microstructure'] = micro_iter
 
             for gems_name in sorted(self.microstructure_phases):
-                kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
+                kinetic_type = self._display_kinetic_type(gems_name)
                 has_csh = self.service.has_special_csh_data(gems_name)
 
                 # Get display name from service or use GEMS name
@@ -342,7 +342,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
                 if data:
                     is_suggested = gems_name in suggested
                     has_csh = self.service.has_special_csh_data(gems_name)
-                    kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
+                    kinetic_type = self._display_kinetic_type(gems_name)
 
                     self.store.append(category_iter, [
                         gems_name in self.selected_products,  # selected
@@ -702,7 +702,7 @@ class HydrationProductSelectorWidget(Gtk.Box):
                 data = self.service.get_product_data(gems_name)
                 is_suggested = gems_name in suggested
                 has_csh = self.service.has_special_csh_data(gems_name)
-                kinetic_type = self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
+                kinetic_type = self._display_kinetic_type(gems_name)
 
                 self.store.append(category_iter, [
                     gems_name in self.selected_products,
@@ -1007,6 +1007,18 @@ class HydrationProductSelectorWidget(Gtk.Box):
         # Update the TreeStore to show "Thermodynamic"
         self._update_kinetic_type_in_store(gems_name, "Thermodynamic")
         self.logger.debug(f"Set kinetics for {gems_name} to Thermodynamic (no kinetic model)")
+
+    def _display_kinetic_type(self, gems_name: str) -> str:
+        """Kinetic type for the Kinetics column: the user's choice, else the default.
+
+        The tree is rebuilt on cement-type changes, search, and microstructure
+        changes; reading only the defaults there made the column revert while
+        the Configure dialog and the run kept the user's choice.
+        """
+        config = self.kinetic_configurations.get(gems_name)
+        if config and config.get('type'):
+            return config['type']
+        return self.kinetic_defaults.get_kinetic_type(gems_name) or "Thermodynamic"
 
     def _update_kinetic_type_in_store(self, gems_name: str, kinetic_type: str) -> None:
         """Update the kinetic type display in the TreeStore for a phase."""

@@ -220,27 +220,18 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         mix_design_item.connect('activate', lambda w: self.switch_to_tab("mix_design"))
         tools_submenu.append(mix_design_item)
         
-        microstructure_item = Gtk.MenuItem(label="Microstructure Parameters")
-        microstructure_item.connect('activate', lambda w: self.switch_to_tab("microstructure"))
-        tools_submenu.append(microstructure_item)
-        
         hydration_item = Gtk.MenuItem(label="Hydration Simulation")
         hydration_item.connect('activate', lambda w: self.switch_to_tab("hydration"))
         tools_submenu.append(hydration_item)
-        
-        file_manager_item = Gtk.MenuItem(label="File Manager")
-        file_manager_item.connect('activate', lambda w: self.switch_to_tab("files"))
-        tools_submenu.append(file_manager_item)
-        
+
+        elastic_item = Gtk.MenuItem(label="Elastic Moduli")
+        elastic_item.connect('activate', lambda w: self.switch_to_tab("elastic moduli"))
+        tools_submenu.append(elastic_item)
+
         operations_item = Gtk.MenuItem(label="Operation Manager")
         operations_item.connect('activate', lambda w: self.switch_to_tab("operations"))
         tools_submenu.append(operations_item)
         
-        tools_submenu.append(Gtk.SeparatorMenuItem())
-        
-        service_status_item = Gtk.MenuItem(label="Service Status")
-        service_status_item.connect('activate', self._on_service_status_clicked)
-        tools_submenu.append(service_status_item)
         
         tools_section.set_submenu(tools_submenu)
         menu.append(tools_section)
@@ -679,40 +670,20 @@ class VCCTLMainWindow(Gtk.ApplicationWindow):
         else:
             self.update_status(f"Export failed: {message}", "error", 5)
     
-    def _on_service_status_clicked(self, widget: Gtk.Widget) -> None:
-        """Show service status dialog."""
-        try:
-            service_container = get_service_container()
-            health = service_container.health_check()
-            
-            dialog = Gtk.MessageDialog(
-                transient_for=self,
-                flags=0,
-                message_type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK,
-                text="Service Status"
-            )
-            
-            status_text = f"""Container Status: {health.get('container_status', 'unknown')}
-Database Status: {health.get('database_status', 'unknown')}
-
-Services:"""
-            
-            for service_name, service_info in health.get('services', {}).items():
-                status = service_info.get('status', 'unknown')
-                count = service_info.get('record_count', 'N/A')
-                status_text += f"\n  {service_name}: {status} ({count} records)"
-            
-            dialog.format_secondary_text(status_text)
-            dialog.run()
-            dialog.destroy()
-            
-        except Exception as e:
-            self.update_status(f"Could not get service status: {e}", "error", 5)
-    
     def _on_fullscreen_clicked(self, widget: Gtk.Widget) -> None:
-        """Toggle fullscreen mode."""
-        if self.is_maximized():
+        """View → Fullscreen menu item."""
+        self.toggle_fullscreen()
+
+    def toggle_fullscreen(self) -> None:
+        """Enter or leave fullscreen, based on the window's actual state.
+
+        (Testing is_maximized() here meant fullscreen could never be left:
+        a fullscreen window is not "maximized".)
+        """
+        gdk_window = self.get_window()
+        is_fullscreen = bool(
+            gdk_window and gdk_window.get_state() & Gdk.WindowState.FULLSCREEN)
+        if is_fullscreen:
             self.unfullscreen()
             self.update_status("Exited fullscreen mode", "info", 2)
         else:
@@ -1224,38 +1195,40 @@ This GTK3 desktop application provides an intuitive interface for:</span>
                 # This ensures newly created materials appear in dropdowns
                 self.mix_design_panel.refresh_material_lists()
     
+    # Aliases accepted by switch_to_tab, mapped to the tab label (lower case)
+    _TAB_ALIASES = {
+        "mix_design": "mix design",
+        "mix": "mix design",
+        "simulation": "hydration",
+        "elastic_moduli": "elastic moduli",
+        "elastic": "elastic moduli",
+        "simulations": "operations",
+        "visualization": "results",
+    }
+
     def switch_to_tab(self, tab_name: str) -> bool:
-        """Switch to a specific tab by name."""
-        tab_mapping = {
-            "home": 0,
-            "materials": 1,
-            "mix_design": 2,
-            "mix": 2,  # Alias
-            "microstructure": 3,
-            "parameters": 3,  # Alias
-            "hydration": 4,
-            "simulation": 4,  # Alias
-            "files": 5,
-            "file_management": 5,  # Alias
-            "operations": 6,
-            "simulations": 6,  # Alias
-            "results": 7,
-            "visualization": 7  # Alias
-        }
-        
-        tab_index = tab_mapping.get(tab_name.lower())
-        if tab_index is not None:
-            self.notebook.set_current_page(tab_index)
-            return True
+        """Switch to a tab by its label (case-insensitive) or an alias.
+
+        Looks the tab up by the notebook's own labels, not a hard-coded index,
+        so removing or reordering tabs can't send menu items to the wrong page.
+        """
+        wanted = tab_name.lower()
+        wanted = self._TAB_ALIASES.get(wanted, wanted)
+        for index in range(self.notebook.get_n_pages()):
+            label = self.notebook.get_tab_label_text(self.notebook.get_nth_page(index))
+            if label and label.lower() == wanted:
+                self.notebook.set_current_page(index)
+                return True
+        self.logger.warning(f"switch_to_tab: no tab named '{tab_name}'")
         return False
-    
+
     def get_current_tab_name(self) -> str:
-        """Get the name of the currently active tab."""
-        tab_names = ["Home", "Materials", "Mix Design", "Microstructure", "Hydration", "Files", "Operations", "Results"]
+        """Get the label of the currently active tab."""
         current_page = self.notebook.get_current_page()
-        if 0 <= current_page < len(tab_names):
-            return tab_names[current_page]
-        return "Unknown"
+        if current_page < 0:
+            return "Unknown"
+        label = self.notebook.get_tab_label_text(self.notebook.get_nth_page(current_page))
+        return label or "Unknown"
     
     def cleanup(self) -> None:
         """Cleanup resources before window is destroyed."""
@@ -1412,18 +1385,20 @@ This GTK3 desktop application provides an intuitive interface for:</span>
         # Connect F1 key to help
         def on_key_press(widget, event):
             if event.keyval == Gdk.KEY_F1:
-                # Determine context based on current tab
-                current_tab = self.get_current_tab_name().lower()
-                if current_tab == "materials":
-                    self.show_contextual_help("materials_panel")
-                elif current_tab == "mix design":
-                    self.show_contextual_help("mix_design_panel")
-                elif current_tab == "microstructure":
-                    self.show_contextual_help("microstructure_panel")
-                elif current_tab == "hydration":
-                    self.show_contextual_help("simulation_panel")
+                # Same User Manual section as the page's (i) button, found by
+                # the current page's panel class; the manual top otherwise.
+                from app.help.panel_help_button import PANEL_DOCUMENTATION_MAP
+                from app.help.documentation_viewer import get_documentation_viewer
+                page = self.notebook.get_nth_page(self.notebook.get_current_page())
+                anchor = PANEL_DOCUMENTATION_MAP.get(type(page).__name__) if page else None
+                self.logger.info(
+                    f"F1 help: tab {self.notebook.get_current_page()} "
+                    f"'{self.get_current_tab_name()}' ({type(page).__name__}) -> {anchor}")
+                viewer = get_documentation_viewer()
+                if anchor:
+                    viewer.open_section(anchor, self)
                 else:
-                    self._show_help_dialog()
+                    viewer.open_user_guide(parent_window=self)
                 return True
             return False
         

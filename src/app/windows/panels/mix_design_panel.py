@@ -978,10 +978,10 @@ class MixDesignPanel(Gtk.Box):
     
     def _on_create_mix_clicked(self, button) -> None:
         """Handle create mix button click."""
-        self.logger.info("DEBUG: Generate Microstructure button clicked!")
-        self.logger.info(f"DEBUG: _loading_in_progress={getattr(self, '_loading_in_progress', False)}")
-        self.logger.info(f"DEBUG: auto_calculate_enabled={self.auto_calculate_enabled}")
-        self.logger.info(f"DEBUG: component_rows count={len(self.component_rows)}")
+        self.logger.debug("DEBUG: Generate Microstructure button clicked!")
+        self.logger.debug(f"DEBUG: _loading_in_progress={getattr(self, '_loading_in_progress', False)}")
+        self.logger.debug(f"DEBUG: auto_calculate_enabled={self.auto_calculate_enabled}")
+        self.logger.debug(f"DEBUG: component_rows count={len(self.component_rows)}")
         
         # Show immediate feedback that operation is starting
         mix_name = self.mix_name_entry.get_text().strip() or "Untitled Mix"
@@ -993,6 +993,10 @@ class MixDesignPanel(Gtk.Box):
         # hung it, because the dropped components leave the volume fractions
         # unable to close.
         blocking_errors = self._check_unassigned_masses()
+        # An empty name used to pass here and fail later at auto-save, launching
+        # an operation with no saved mix design.
+        if not self.mix_name_entry.get_text().strip():
+            blocking_errors = ["Mix name is required. Enter a name at the top of the page."] + blocking_errors
         if not blocking_errors:
             mix_design = self._create_mix_design_from_ui()
             if mix_design is None:
@@ -1609,12 +1613,12 @@ class MixDesignPanel(Gtk.Box):
             # rather than letting the fraction sum look wrong for no reason.
             for problem in self._check_unassigned_masses():
                 self.logger.error(f"Mix design input problem: {problem}")
-            self.logger.info(f"DEBUG: _create_mix_design_from_ui - found {len(self.component_rows)} UI component rows")
+            self.logger.debug(f"DEBUG: _create_mix_design_from_ui - found {len(self.component_rows)} UI component rows")
             for i, row in enumerate(self.component_rows):
                 material_selector = row.get('material_selector')
                 name = material_selector.get_selected_material_name() if material_selector else None
                 mass_kg = row['mass_spin'].get_value()
-                self.logger.info(f"DEBUG: UI Row {i+1}: name='{name}', mass={mass_kg}")
+                self.logger.debug(f"DEBUG: UI Row {i+1}: name='{name}', mass={mass_kg}")
             mix_name = self.mix_name_entry.get_text().strip()
             if not mix_name:
                 mix_name = "Untitled Mix"
@@ -3208,7 +3212,7 @@ class MixDesignPanel(Gtk.Box):
             # Execute genmic program immediately
             self.logger.info(f"Starting genmic execution...")
             try:
-                self.logger.info(f"DEBUG: About to call _execute_genmic with saved_mix_design_id={saved_mix_design_id}")
+                self.logger.debug(f"DEBUG: About to call _execute_genmic with saved_mix_design_id={saved_mix_design_id}")
                 self._execute_genmic(str(input_file_path), mix_folder_path, saved_mix_design_id)
             except Exception as e:
                 self.logger.error(f"Error in genmic execution: {e}")
@@ -3269,7 +3273,7 @@ class MixDesignPanel(Gtk.Box):
             # Execute genmic program immediately
             self.logger.info(f"Starting genmic execution...")
             try:
-                self.logger.info(f"DEBUG: About to call _execute_genmic with saved_mix_design_id={saved_mix_design_id}")
+                self.logger.debug(f"DEBUG: About to call _execute_genmic with saved_mix_design_id={saved_mix_design_id}")
                 self._execute_genmic(filename, mix_folder_path, saved_mix_design_id)
             except Exception as e:
                 self.logger.error(f"Error in genmic execution: {e}")
@@ -3569,22 +3573,22 @@ class MixDesignPanel(Gtk.Box):
                             current_mix = self._create_mix_design_from_ui()
                             
                             # Debug: check what attributes are available
-                            self.logger.info(f"DEBUG: current_mix type: {type(current_mix)}")
-                            self.logger.info(f"DEBUG: current_mix attributes: {dir(current_mix)}")
+                            self.logger.debug(f"DEBUG: current_mix type: {type(current_mix)}")
+                            self.logger.debug(f"DEBUG: current_mix attributes: {dir(current_mix)}")
                             
                             # Get system size - try different sources
                             system_size = 100  # Default fallback
                             if hasattr(current_mix, 'system_size_x'):
                                 system_size = int(current_mix.system_size_x)
-                                self.logger.info(f"DEBUG: Using system_size_x = {system_size}")
+                                self.logger.debug(f"DEBUG: Using system_size_x = {system_size}")
                             elif hasattr(current_mix, 'system_size'):
                                 system_size = int(current_mix.system_size)
-                                self.logger.info(f"DEBUG: Using system_size = {system_size}")
+                                self.logger.debug(f"DEBUG: Using system_size = {system_size}")
                             else:
                                 # Fallback to UI widget values
                                 try:
                                     system_size = int(self.system_size_x_spin.get_value())
-                                    self.logger.info(f"DEBUG: Using UI system_size_x = {system_size}")
+                                    self.logger.debug(f"DEBUG: Using UI system_size_x = {system_size}")
                                 except:
                                     self.logger.warning(f"DEBUG: Using default system_size = {system_size}")
                             
@@ -3592,12 +3596,12 @@ class MixDesignPanel(Gtk.Box):
                             resolution = 1.0  # Default fallback
                             if hasattr(current_mix, 'resolution'):
                                 resolution = float(current_mix.resolution)
-                                self.logger.info(f"DEBUG: Using resolution = {resolution}")
+                                self.logger.debug(f"DEBUG: Using resolution = {resolution}")
                             else:
                                 # Fallback to UI widget value
                                 try:
                                     resolution = float(self.resolution_spin.get_value())
-                                    self.logger.info(f"DEBUG: Using UI resolution = {resolution}")
+                                    self.logger.debug(f"DEBUG: Using UI resolution = {resolution}")
                                 except:
                                     self.logger.warning(f"DEBUG: Using default resolution = {resolution}")
                             
@@ -3606,14 +3610,14 @@ class MixDesignPanel(Gtk.Box):
                             if hasattr(current_mix, 'components'):
                                 from dataclasses import asdict, is_dataclass
                                 components = current_mix.components
-                                self.logger.info(f"DEBUG: Found {len(components)} components")
+                                self.logger.debug(f"DEBUG: Found {len(components)} components")
                                 
                                 # Convert MixComponent objects to dictionaries
                                 for comp in components:
                                     if isinstance(comp, dict):
                                         # Already a dictionary, use as-is
                                         materials_data.append(comp)
-                                        self.logger.info(f"DEBUG: Component already a dict: {comp.get('material_name', 'Unknown')}")
+                                        self.logger.debug(f"DEBUG: Component already a dict: {comp.get('material_name', 'Unknown')}")
                                     elif is_dataclass(comp):
                                         # Convert dataclass to dictionary using asdict
                                         comp_dict = asdict(comp)
@@ -3627,7 +3631,7 @@ class MixDesignPanel(Gtk.Box):
                                             comp_dict['name'] = comp_dict['material_name']
                                         
                                         materials_data.append(comp_dict)
-                                        self.logger.info(f"DEBUG: Converted component {comp_dict.get('name', 'Unknown')} from dataclass to dict")
+                                        self.logger.debug(f"DEBUG: Converted component {comp_dict.get('name', 'Unknown')} from dataclass to dict")
                                     else:
                                         # Fallback for other object types
                                         comp_dict = {
@@ -3638,15 +3642,15 @@ class MixDesignPanel(Gtk.Box):
                                             'specific_gravity': getattr(comp, 'specific_gravity', 2.65)
                                         }
                                         materials_data.append(comp_dict)
-                                        self.logger.info(f"DEBUG: Converted component {comp_dict['name']} using fallback method")
+                                        self.logger.debug(f"DEBUG: Converted component {comp_dict['name']} using fallback method")
                             
-                            self.logger.info(f"DEBUG: Prepared {len(materials_data)} materials for metadata storage")
+                            self.logger.debug(f"DEBUG: Prepared {len(materials_data)} materials for metadata storage")
                             
                             # Store metadata with operation parameters
                             operations_dir = self.service_container.directories_service.get_operations_path()
                             success = bridge.store_microstructure_metadata(
                                 operation_name=operation_name,
-                                microstructure_file=str(operations_dir / operation_name / f"{operation_name}.pimg"),
+                                microstructure_file=str(operations_dir / operation_name / f"{operation_name}.thames.img"),
                                 system_size=system_size,
                                 resolution=resolution,
                                 materials_data=materials_data
@@ -4269,7 +4273,7 @@ class MixDesignPanel(Gtk.Box):
         fine_mass_label.set_tooltip_text("Mass of fine aggregate in kg")
         grid.attach(fine_mass_label, 0, 0, 1, 1)
         
-        self.fine_agg_mass_spin = Gtk.SpinButton.new_with_range(0.0, 10.0, 0.01)
+        self.fine_agg_mass_spin = Gtk.SpinButton.new_with_range(0.0, 100000.0, 0.01)
         self.fine_agg_mass_spin.set_digits(3)
         self.fine_agg_mass_spin.set_value(0.0)
         grid.attach(self.fine_agg_mass_spin, 1, 0, 1, 1)
@@ -4322,7 +4326,7 @@ class MixDesignPanel(Gtk.Box):
         coarse_mass_label.set_tooltip_text("Mass of coarse aggregate in kg")
         grid.attach(coarse_mass_label, 0, 3, 1, 1)
         
-        self.coarse_agg_mass_spin = Gtk.SpinButton.new_with_range(0.0, 10.0, 0.01)
+        self.coarse_agg_mass_spin = Gtk.SpinButton.new_with_range(0.0, 100000.0, 0.01)
         self.coarse_agg_mass_spin.set_digits(3)
         self.coarse_agg_mass_spin.set_value(0.0)
         grid.attach(self.coarse_agg_mass_spin, 1, 3, 1, 1)
@@ -4473,17 +4477,21 @@ class MixDesignPanel(Gtk.Box):
         # Random seed
         seed_label = Gtk.Label("Random Seed:")
         seed_label.set_halign(Gtk.Align.START)
-        seed_label.set_tooltip_text("Seed for random number generation (0 = random)")
+        seed_tooltip = ("Seed for the random number generator: a negative integer. "
+                        "The same seed with the same inputs gives the same "
+                        "microstructure. Click Generate for a new seed.")
+        seed_label.set_tooltip_text(seed_tooltip)
         grid.attach(seed_label, 0, 0, 1, 1)
         
         seed_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         
         self.random_seed_spin = Gtk.SpinButton.new_with_range(-2147483647, -1, 1)
         self.random_seed_spin.set_value(-1)
+        self.random_seed_spin.set_tooltip_text(seed_tooltip)
         seed_box.pack_start(self.random_seed_spin, True, True, 0)
         
         self.generate_seed_button = Gtk.Button(label="Generate")
-        self.generate_seed_button.set_tooltip_text("Generate new random seed")
+        self.generate_seed_button.set_tooltip_text("Pick a new random negative seed")
         seed_box.pack_start(self.generate_seed_button, False, False, 0)
         
         grid.attach(seed_box, 1, 0, 1, 1)
@@ -5269,24 +5277,24 @@ class MixDesignPanel(Gtk.Box):
             self.logger.info(f"DEBUG Shape Loading: cement={cement_shape}, fine={fine_agg_shape}, coarse={coarse_agg_shape}")
             
             try:
-                self.logger.info(f"DEBUG: Starting cement shape loading...")
+                self.logger.debug(f"DEBUG: Starting cement shape loading...")
                 # Set shape combos using a simpler approach
                 # Try to find the shape by iterating through combo items
                 cement_found = False
                 cement_count = self.cement_shape_combo.get_model().iter_n_children(None)
-                self.logger.info(f"DEBUG: Cement combo has {cement_count} items")
+                self.logger.debug(f"DEBUG: Cement combo has {cement_count} items")
                 for i in range(cement_count):
                     self.cement_shape_combo.set_active(i)
                     active_id = self.cement_shape_combo.get_active_id()
-                    self.logger.info(f"DEBUG: Cement index {i}: active_id='{active_id}'")
+                    self.logger.debug(f"DEBUG: Cement index {i}: active_id='{active_id}'")
                     if active_id == cement_shape:
                         cement_found = True
-                        self.logger.info(f"DEBUG: Set cement shape to index {i} for shape '{cement_shape}'")
+                        self.logger.debug(f"DEBUG: Set cement shape to index {i} for shape '{cement_shape}'")
                         break
                 if not cement_found:
                     self.logger.warning(f"DEBUG: Could not find cement shape '{cement_shape}' in combo box")
                     self.cement_shape_combo.set_active(0)  # Default to first item
-                self.logger.info(f"DEBUG: Completed cement shape loading")
+                self.logger.debug(f"DEBUG: Completed cement shape loading")
             except Exception as e:
                 self.logger.error(f"DEBUG: Error in cement shape loading: {e}")
                 import traceback
@@ -5298,7 +5306,7 @@ class MixDesignPanel(Gtk.Box):
                 self.fine_agg_shape_combo.set_active(i)
                 if self.fine_agg_shape_combo.get_active_id() == fine_agg_shape:
                     fine_found = True
-                    self.logger.info(f"DEBUG: Set fine agg shape to index {i} for shape '{fine_agg_shape}'")
+                    self.logger.debug(f"DEBUG: Set fine agg shape to index {i} for shape '{fine_agg_shape}'")
                     break
             if not fine_found:
                 self.logger.warning(f"DEBUG: Could not find fine agg shape '{fine_agg_shape}' in combo box")
@@ -5310,7 +5318,7 @@ class MixDesignPanel(Gtk.Box):
                 self.coarse_agg_shape_combo.set_active(i)
                 if self.coarse_agg_shape_combo.get_active_id() == coarse_agg_shape:
                     coarse_found = True
-                    self.logger.info(f"DEBUG: Set coarse agg shape to index {i} for shape '{coarse_agg_shape}'")
+                    self.logger.debug(f"DEBUG: Set coarse agg shape to index {i} for shape '{coarse_agg_shape}'")
                     break
             if not coarse_found:
                 self.logger.warning(f"DEBUG: Could not find coarse agg shape '{coarse_agg_shape}' in combo box")
@@ -5339,17 +5347,17 @@ class MixDesignPanel(Gtk.Box):
                 # Calculate exact total mass from stored water reference
                 total_mass = water_reference_mass / water_mass_fraction
                 total_powder_mass = total_mass - water_reference_mass
-                self.logger.info(f"DEBUG: Using water reference mass {water_reference_mass} kg, calculated total_mass={total_mass}, total_powder_mass={total_powder_mass}")
+                self.logger.debug(f"DEBUG: Using water reference mass {water_reference_mass} kg, calculated total_mass={total_mass}, total_powder_mass={total_powder_mass}")
                 # Set water content to exact reference value
                 self.water_content_spin.set_value(water_reference_mass)
             else:
                 # Fallback to old calculation method for mixes without reference mass (backward compatibility)
                 if water_mass_fraction > 0:
                     total_powder_mass = total_water_content * total_solid_mass_fractions / water_mass_fraction
-                    self.logger.info(f"DEBUG: Fallback calculation - total_powder_mass={total_powder_mass} from water_content={total_water_content}")
+                    self.logger.debug(f"DEBUG: Fallback calculation - total_powder_mass={total_powder_mass} from water_content={total_water_content}")
                 else:
                     total_powder_mass = total_water_content / wb_ratio if wb_ratio > 0 else 0.0
-                    self.logger.info(f"DEBUG: W/B ratio fallback - total_powder_mass={total_powder_mass}")
+                    self.logger.debug(f"DEBUG: W/B ratio fallback - total_powder_mass={total_powder_mass}")
             
             # For exact mass reconstruction, use water reference mass instead of stored field
             if water_reference_mass:

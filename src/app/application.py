@@ -68,7 +68,12 @@ class VCCTLApplication(Gtk.Application):
         logs_dir.mkdir(parents=True, exist_ok=True)
         log_file = logs_dir / 'thames.log'
 
-        file_handler = logging.FileHandler(log_file, mode='a', encoding='utf-8')
+        # Rotate so the log can't grow without bound (it reached ~380 MB from
+        # per-second monitoring chatter): 10 MB x (1 + 3 backups) at most.
+        from logging.handlers import RotatingFileHandler
+        file_handler = RotatingFileHandler(
+            log_file, mode='a', maxBytes=10 * 1024 * 1024, backupCount=3,
+            encoding='utf-8')
         stream_handler = logging.StreamHandler(sys.stdout)
         logging.basicConfig(
             level=logging.INFO,
@@ -82,7 +87,11 @@ class VCCTLApplication(Gtk.Application):
     def _on_startup(self, app: Gtk.Application) -> None:
         """Called once when the application starts."""
         self.logger.info("Application startup")
-        
+
+        # Scroll wheel must not edit spin buttons / combo boxes (see module doc)
+        from app.utils import scroll_guard
+        scroll_guard.install()
+
         # Set application properties
         GLib.set_application_name(self.app_name)
         GLib.set_prgname('vcctl-gtk')

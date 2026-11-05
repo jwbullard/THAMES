@@ -17,6 +17,8 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from pathlib import Path
 import logging
+import subprocess
+import sys
 import tempfile
 import webbrowser
 from typing import Dict, Optional
@@ -293,7 +295,13 @@ class DocumentationViewer:
     def _open_in_browser(self, url: str, parent_window: Optional[Gtk.Window]):
         logger.info(f"Opening documentation: {url}")
         try:
-            webbrowser.open(url)
+            if sys.platform == "darwin":
+                # webbrowser uses AppleScript `open location`; when the browser
+                # is not running, it launches, restores its session, and drops
+                # the URL. LaunchServices (`open`) delivers it after launch.
+                subprocess.run(["open", url], check=True)
+            else:
+                webbrowser.open(url)
         except Exception as e:
             logger.error(f"Failed to open documentation in browser: {e}")
             self._show_browser_error_dialog(parent_window, str(e))

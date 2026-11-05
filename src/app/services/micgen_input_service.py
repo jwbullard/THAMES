@@ -1131,8 +1131,13 @@ class MicgenInputService:
         for phase_name, aggregate in phase_aggregates.items():
             # Get phase ID from mapping
             if phase_name not in phase_mapping.gem_to_micro:
-                logger.warning(f"Phase '{phase_name}' not in phase mapping, skipping")
-                continue
+                # Skipping would leave its volume in total_solids_vol, so every
+                # other phase's fraction would be too low: a wrong
+                # microstructure with no error. Fail instead.
+                raise MicgenInputGenerationError(
+                    f"Phase '{phase_name}' is in the mix but has no phase ID in "
+                    f"the phase mapping; cannot build the microstructure input."
+                )
 
             phase_id = phase_mapping.gem_to_micro[phase_name]
 

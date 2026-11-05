@@ -44,8 +44,8 @@ class PhaseConfigurationDialog(Gtk.Dialog):
     KINETIC_TYPES = [
         ("Thermodynamic", "No kinetic model - thermodynamically controlled"),
         ("ParrotKilloh", "Clinker phases (Alite, Belite, Aluminate, Ferrite)"),
-        ("Standard", "Sulfate phases (Gypsum, Bassanite, Anhydrite)"),
-        ("Pozzolanic", "Pozzolanic phases (Quartz, Fly ash, Silica fume)"),
+        ("Standard", "Typical for non-silicates"),
+        ("Pozzolanic", "Pozzolanic phases (Aluminosilicate glasses, silica fume)"),
     ]
 
     def __init__(

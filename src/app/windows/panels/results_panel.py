@@ -312,11 +312,11 @@ class ResultsPanel(Gtk.Box):
 
         # Check if this is an elastic operation to exclude certain buttons
         is_elastic = self._is_elastic_operation(operation)
-        self.logger.info(f"Results panel: Operation '{operation.name}' is elastic operation: {is_elastic}")
+        self.logger.debug(f"Results panel: Operation '{operation.name}' is elastic operation: {is_elastic}")
 
         # 3D Visualization button (NOT for elastic operations)
         has_3d = self._has_3d_results(operation)
-        self.logger.info(f"Results panel: Operation '{operation.name}' has 3D results: {has_3d}")
+        self.logger.debug(f"Results panel: Operation '{operation.name}' has 3D results: {has_3d}")
         if has_3d and not is_elastic:
             self.view_3d_button = Gtk.Button()
             self.view_3d_button.set_size_request(200, 60)
@@ -431,7 +431,7 @@ class ResultsPanel(Gtk.Box):
 
         # Data Plotting button (NOT for elastic operations)
         has_csv = self._has_csv_data(operation)
-        self.logger.info(f"Results panel: Operation '{operation.name}' has CSV data: {has_csv}")
+        self.logger.debug(f"Results panel: Operation '{operation.name}' has CSV data: {has_csv}")
         if has_csv and not is_elastic:
             self.plot_data_button = Gtk.Button()
             self.plot_data_button.set_size_request(200, 60)
@@ -534,15 +534,15 @@ class ResultsPanel(Gtk.Box):
         """Check if operation has 3D microstructure results (.img files)."""
         try:
             output_dir = self._get_operation_output_dir(operation)
-            self.logger.info(f"Results panel: Checking 3D results for '{operation.name}' in directory: {output_dir}")
+            self.logger.debug(f"Results panel: Checking 3D results for '{operation.name}' in directory: {output_dir}")
             
             if not output_dir:
-                self.logger.info(f"Results panel: No output directory found for '{operation.name}'")
+                self.logger.debug(f"Results panel: No output directory found for '{operation.name}'")
                 return False
             
             output_path = Path(output_dir)
             if not output_path.exists():
-                self.logger.info(f"Results panel: Output directory does not exist: {output_path}")
+                self.logger.debug(f"Results panel: Output directory does not exist: {output_path}")
                 return False
             
             # Look for any .img files (hydration time-series, final, or regular microstructures)
@@ -550,7 +550,7 @@ class ResultsPanel(Gtk.Box):
             final_img_files = list(output_path.glob("HydrationOf_*.img.*.*"))
             regular_img_files = list(output_path.glob("*.img"))
             
-            self.logger.info(f"Results panel: Found in '{operation.name}': {len(hydration_img_files)} hydration img files, {len(final_img_files)} final img files, {len(regular_img_files)} regular img files")
+            self.logger.debug(f"Results panel: Found in '{operation.name}': {len(hydration_img_files)} hydration img files, {len(final_img_files)} final img files, {len(regular_img_files)} regular img files")
             
             return len(hydration_img_files) > 0 or len(final_img_files) > 0 or len(regular_img_files) > 0
             
@@ -562,20 +562,20 @@ class ResultsPanel(Gtk.Box):
         """Check if operation has CSV data files for plotting."""
         try:
             output_dir = self._get_operation_output_dir(operation)
-            self.logger.info(f"Results panel: Checking CSV data for '{operation.name}' in directory: {output_dir}")
+            self.logger.debug(f"Results panel: Checking CSV data for '{operation.name}' in directory: {output_dir}")
             
             if not output_dir:
-                self.logger.info(f"Results panel: No output directory found for '{operation.name}'")
+                self.logger.debug(f"Results panel: No output directory found for '{operation.name}'")
                 return False
             
             output_path = Path(output_dir)
             if not output_path.exists():
-                self.logger.info(f"Results panel: Output directory does not exist: {output_path}")
+                self.logger.debug(f"Results panel: Output directory does not exist: {output_path}")
                 return False
             
             # Look for CSV files
             csv_files = list(output_path.glob("*.csv"))
-            self.logger.info(f"Results panel: Found {len(csv_files)} CSV files in '{operation.name}'")
+            self.logger.debug(f"Results panel: Found {len(csv_files)} CSV files in '{operation.name}'")
             
             return len(csv_files) > 0
             
@@ -663,8 +663,9 @@ class ResultsPanel(Gtk.Box):
             # Also scan for nested elastic operations (e.g., Operations/HY-Elk/Elastic-HY-Elk-657.89h/)
             all_result_folders = []
 
+            from app.services.directories_service import NON_OPERATION_FOLDERS
             for result_folder in operations_dir.iterdir():
-                if not result_folder.is_dir():
+                if not result_folder.is_dir() or result_folder.name in NON_OPERATION_FOLDERS:
                     continue
 
                 # Add top-level operation folder
@@ -674,13 +675,13 @@ class ResultsPanel(Gtk.Box):
                 for nested_folder in result_folder.iterdir():
                     if (nested_folder.is_dir() and
                         nested_folder.name.startswith('Elastic-')):
-                        self.logger.info(f"Results panel: Found nested elastic operation: {nested_folder.name}")
+                        self.logger.debug(f"Results panel: Found nested elastic operation: {nested_folder.name}")
                         all_result_folders.append(nested_folder)
 
             # Process all found result folders
             for result_folder in all_result_folders:
                 result_name = result_folder.name
-                self.logger.info(f"Results panel: Processing result folder: {result_name}")
+                self.logger.debug(f"Results panel: Processing result folder: {result_name}")
 
                 # Determine result type based on folder contents and name patterns
                 result_type = self._determine_result_type(result_folder)
@@ -722,7 +723,7 @@ class ResultsPanel(Gtk.Box):
                     result_obj
                 ])
                 
-                self.logger.info(f"Results panel: Added result '{result_name}' of type '{result_type}'")
+                self.logger.debug(f"Results panel: Added result '{result_name}' of type '{result_type}'")
             
             self.logger.info(f"Results panel: Loaded {len(self.operation_liststore)} results from Operations folder")
             
@@ -738,7 +739,7 @@ class ResultsPanel(Gtk.Box):
             files = list(result_folder.rglob("*"))
             file_names = [f.name.lower() for f in files if f.is_file()]
             
-            self.logger.info(f"Results panel: Analyzing '{result_folder.name}' - found {len(file_names)} files")
+            self.logger.debug(f"Results panel: Analyzing '{result_folder.name}' - found {len(file_names)} files")
             
             # First check: Elastic moduli operations
             if folder_name.startswith('elastic-') or 'elastic' in folder_name:
@@ -748,12 +749,12 @@ class ResultsPanel(Gtk.Box):
                 has_elastic_progress = any('elastic_progress.json' in fname for fname in file_names)
 
                 if has_effective_moduli or has_itz_moduli or has_elastic_progress:
-                    self.logger.info(f"Results panel: '{result_folder.name}' classified as Elastic Moduli (files detected)")
+                    self.logger.debug(f"Results panel: '{result_folder.name}' classified as Elastic Moduli (files detected)")
                     return "Elastic Moduli"
 
             # Second check: Explicit hydration folder names
             if any(pattern in folder_name for pattern in ['hydration', 'hydrationsim']):
-                self.logger.info(f"Results panel: '{result_folder.name}' classified as Hydration (folder name)")
+                self.logger.debug(f"Results panel: '{result_folder.name}' classified as Hydration (folder name)")
                 return "Hydration Simulation"
             
             # Check for specific hydration file patterns that indicate time-series simulation
@@ -765,29 +766,29 @@ class ResultsPanel(Gtk.Box):
             has_csv_data = any('.csv' in fname for fname in file_names)
             has_img_files = any('.img' in fname for fname in file_names)
             
-            self.logger.info(f"Results panel: '{result_folder.name}' - time_series_img: {has_time_series_img}, csv: {has_csv_data}, img: {has_img_files}")
+            self.logger.debug(f"Results panel: '{result_folder.name}' - time_series_img: {has_time_series_img}, csv: {has_csv_data}, img: {has_img_files}")
             
             # Hydration simulation: Has time-series img files OR has both CSV and img files
             if has_time_series_img:
-                self.logger.info(f"Results panel: '{result_folder.name}' classified as Hydration (time-series files)")
+                self.logger.debug(f"Results panel: '{result_folder.name}' classified as Hydration (time-series files)")
                 return "Hydration Simulation"
             
             if has_csv_data and has_img_files:
-                self.logger.info(f"Results panel: '{result_folder.name}' classified as Hydration (CSV + IMG files)")
+                self.logger.debug(f"Results panel: '{result_folder.name}' classified as Hydration (CSV + IMG files)")
                 return "Hydration Simulation"
             
             # Microstructure generation: Has .img files but no time-series or CSV
             if has_img_files and not has_time_series_img and not has_csv_data:
-                self.logger.info(f"Results panel: '{result_folder.name}' classified as Microstructure (IMG only)")
+                self.logger.debug(f"Results panel: '{result_folder.name}' classified as Microstructure (IMG only)")
                 return "Microstructure Generation"
             
             # Other analysis types
             if has_csv_data and not has_img_files:
-                self.logger.info(f"Results panel: '{result_folder.name}' classified as Data Analysis (CSV only)")
+                self.logger.debug(f"Results panel: '{result_folder.name}' classified as Data Analysis (CSV only)")
                 return "Data Analysis"
             
             # If no clear pattern, classify as unknown
-            self.logger.info(f"Results panel: '{result_folder.name}' classified as Unknown")
+            self.logger.debug(f"Results panel: '{result_folder.name}' classified as Unknown")
             return "Unknown Analysis"
             
         except Exception as e:
@@ -818,7 +819,7 @@ class ResultsPanel(Gtk.Box):
                 op_status = "No status"
                 if hasattr(operation, 'status'):
                     op_status = str(operation.status)
-                self.logger.info(f"Results panel: Operation '{operation.name}': status = '{op_status}'")
+                self.logger.debug(f"Results panel: Operation '{operation.name}': status = '{op_status}'")
                 
                 # Only include completed operations - check various status formats
                 status_check = False
@@ -854,7 +855,7 @@ class ResultsPanel(Gtk.Box):
                         else:
                             op_type = op_type_str
                     
-                    self.logger.info(f"Results panel: Operation '{operation.name}' classified as '{op_type}'")
+                    self.logger.debug(f"Results panel: Operation '{operation.name}' classified as '{op_type}'")
                     
                     # Add to list
                     self.operation_liststore.append([
@@ -863,7 +864,7 @@ class ResultsPanel(Gtk.Box):
                         completion_date,
                         operation
                     ])
-                    self.logger.info(f"Results panel: Added completed operation '{operation.name}'")
+                    self.logger.debug(f"Results panel: Added completed operation '{operation.name}'")
             
             # Temporary debug: If no completed operations found, show all operations for debugging
             completed_count = len(self.operation_liststore)

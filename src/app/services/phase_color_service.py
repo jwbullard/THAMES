@@ -13,6 +13,7 @@ phase IDs differ.
 
 import json
 import logging
+import zlib
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
@@ -160,6 +161,7 @@ PHASE_COLORS: Dict[str, str] = {
     "periclase": "#1A671A",      # Dark green
     "Brucite": "#1A671A",        # Dark green (from VCCTL: 26,103,26)
     "hydrotalc-pyro": "#2E8B57", # Sea green
+    "OH-hydrotalc": "#2E8B57",   # Sea green (Mg-Al hydrotalcite)
 
     # ----- Other -----
     "Graphite": "#1C1C1C",       # Near black
@@ -245,9 +247,9 @@ class PhaseColorService:
 
     def _get_fallback_color(self, phase_name: str) -> str:
         """Generate a consistent fallback color for an unknown phase."""
-        # Use hash of phase name to get consistent color assignment
-        hash_val = hash(phase_name)
-        index = abs(hash_val) % len(FALLBACK_COLORS)
+        # CRC32, not hash(): Python salts str hashes per process, so hash()
+        # gave the same phase a different color in every session.
+        index = zlib.crc32(phase_name.encode("utf-8")) % len(FALLBACK_COLORS)
         return FALLBACK_COLORS[index]
 
     def create_color_mapping(

@@ -610,22 +610,28 @@ class SimParamsService:
 
             phases_list.append(entry)
 
-        # Add hydration products if provided and not already in mapping
+        # Add hydration products if provided and not already in mapping.
+        # The mapping is keyed by GEMS phase name, and a product key can differ
+        # from its GEMS name ("hydrotalcite" -> "OH-hydrotalc", "zeoliteP_Ca" ->
+        # "ZeoliteP"), so translate first and test the GEMS name. Testing the key
+        # gave the same GEMS phase two microstructure ids, both filled by the
+        # backend.
         if hydration_products:
             next_id = phase_id_mapping.next_available_id
+            added = set(phase_id_mapping.gem_to_micro)
             for product_name in hydration_products:
-                if product_name not in phase_id_mapping.gem_to_micro:
-                    # Look up the GEMS phase name from hydration products data
-                    # The product_name is the key, but gems_name may differ (e.g., "hydrotalcite" -> "OH-hydrotalc")
-                    gems_phase_name = self._get_gems_phase_name(product_name)
-                    entry = self.phase_builder.build_phase_entry(
-                        thamesname=self._get_thamesname(product_name),
-                        phase_id=next_id,
-                        gemphasename=gems_phase_name,
-                        is_cement_component=False
-                    )
-                    phases_list.append(entry)
-                    next_id += 1
+                gems_phase_name = self._get_gems_phase_name(product_name)
+                if gems_phase_name in added:
+                    continue
+                entry = self.phase_builder.build_phase_entry(
+                    thamesname=self._get_thamesname(gems_phase_name),
+                    phase_id=next_id,
+                    gemphasename=gems_phase_name,
+                    is_cement_component=False
+                )
+                phases_list.append(entry)
+                added.add(gems_phase_name)
+                next_id += 1
 
         # Build microstructure section
         microstructure = {

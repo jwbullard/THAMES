@@ -717,8 +717,8 @@ class ElasticModuliPanel(Gtk.Box):
                 if progress_file.exists() and progress_file.stat().st_size > 0:
                     files_found += 1
 
-                # Log what we found for debugging (use info level to ensure visibility)
-                self.logger.info(
+                # Per-folder detail; debug level (one line per operation folder per scan)
+                self.logger.debug(
                     f"Checking {operation_name}: "
                     f"THAMES evidence: CSV={len(thames_csv_files)}, IMG={len(thames_img_files)}, "
                     f"simparams={simparams_file.exists()}, progress={progress_file.exists()}, "

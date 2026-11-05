@@ -177,11 +177,11 @@ class MixDesignCreate(BaseModel):
     
     # Fine aggregate parameters
     fine_aggregate_name: Optional[str] = Field(None, max_length=128)
-    fine_aggregate_mass: float = Field(ge=0.0, le=10.0, default=0.0)
+    fine_aggregate_mass: float = Field(ge=0.0, le=100000.0, default=0.0)  # kg; matches the UI spin
     
     # Coarse aggregate parameters
     coarse_aggregate_name: Optional[str] = Field(None, max_length=128)
-    coarse_aggregate_mass: float = Field(ge=0.0, le=10.0, default=0.0)
+    coarse_aggregate_mass: float = Field(ge=0.0, le=100000.0, default=0.0)  # kg; matches the UI spin
     
     # Grading template associations
     fine_aggregate_grading_template: Optional[str] = Field(None, max_length=64)
@@ -278,11 +278,11 @@ class MixDesignUpdate(BaseModel):
     
     # Fine aggregate parameters
     fine_aggregate_name: Optional[str] = Field(None, max_length=128)
-    fine_aggregate_mass: Optional[float] = Field(None, ge=0.0, le=10.0)
+    fine_aggregate_mass: Optional[float] = Field(None, ge=0.0, le=100000.0)
     
     # Coarse aggregate parameters
     coarse_aggregate_name: Optional[str] = Field(None, max_length=128)
-    coarse_aggregate_mass: Optional[float] = Field(None, ge=0.0, le=10.0)
+    coarse_aggregate_mass: Optional[float] = Field(None, ge=0.0, le=100000.0)
     
     # Grading template associations
     fine_aggregate_grading_template: Optional[str] = Field(None, max_length=64)

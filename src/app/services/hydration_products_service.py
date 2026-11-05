@@ -725,7 +725,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="Mullite",
         category=ProductCategory.OTHER,
         description="Aluminosilicate (Al6Si2O13) - common in fly ash",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -762,7 +762,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="Silica Fume",
         category=ProductCategory.OTHER,
         description="Amorphous silica - reactive pozzolan",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -771,7 +771,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="K6A2S Glass",
         category=ProductCategory.OTHER,
         description="Potassium aluminosilicate glass phase",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -780,7 +780,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="CAS Glass",
         category=ProductCategory.OTHER,
         description="Calcium aluminosilicate glass - fly ash phase",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -789,7 +789,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="CA2S Glass",
         category=ProductCategory.OTHER,
         description="Calcium dialuminosilicate glass - fly ash phase",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -798,7 +798,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="C2AS Glass (Gehlenite)",
         category=ProductCategory.OTHER,
         description="Dicalcium aluminosilicate glass - gehlenite composition",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 
@@ -807,7 +807,7 @@ ADDITIONAL_PRODUCTS: Dict[str, HydrationProductData] = {
         display_name="CAS2 Glass (Anorthite)",
         category=ProductCategory.OTHER,
         description="Calcium aluminodisilicate glass - anorthite composition",
-        suggested_for=["pozzolanic"],
+        suggested_for=[],  # never a hydration product: in the microstructure or absent
         default_affinity=[],
     ),
 

@@ -240,7 +240,9 @@ class THAMESHydrationPanel(Gtk.Box):
             self.input_new_radio, "Load from previous hydration operation"
         )
         self.input_load_radio.set_tooltip_text(
-            "Load all parameters from a previous hydration run, then tweak and re-run"
+            "Load all parameters from a previous hydration run, then tweak and re-run. "
+            "The new run starts again from that run's original starting "
+            "microstructure, not from its final (hydrated) microstructure."
         )
         self.input_load_radio.connect("toggled", self._on_input_mode_toggled)
         content.pack_start(self.input_load_radio, False, False, 0)
@@ -1005,6 +1007,14 @@ class THAMESHydrationPanel(Gtk.Box):
                 if not op_dir.is_dir():
                     continue
 
+                # Skip hydration operations. Their folder holds a copy of the
+                # starting image, but their phase mapping lists every product
+                # allowed in that run, so selecting the copy locked products
+                # as microstructure phases. Starting images belong to the
+                # microstructure operation that made them.
+                if (op_dir / "simparams.json").exists():
+                    continue
+
                 # Pattern 1: THAMES format - {name}.thames.img
                 for mic_file in sorted(op_dir.glob("*.thames.img")):
                     if str(mic_file) not in found_files:
@@ -1289,10 +1299,24 @@ class THAMESHydrationPanel(Gtk.Box):
                 excluded = {'VOID', 'Electrolyte', 'aq_gen', 'gas_gen'}
                 # Normalize phase names to handle case variations (arcanite -> Arcanite)
                 # and use a set to remove duplicates that result from normalization
+                # A copy inside a hydration operation (Load Operation fallback
+                # when the source microstructure operation is gone) comes with
+                # that run's mapping, which also lists its products. Keep only
+                # the ids actually present in the image.
+                ids_present = None
+                if (self.selected_microstructure_path.parent / "simparams.json").exists():
+                    ids_present, _, read_errors = (
+                        self.hydration_input_service.read_microstructure_phase_ids(
+                            self.selected_microstructure_path))
+                    if read_errors:
+                        ids_present = None
                 phase_set = set()
-                for phase_name in micro_to_gem.values():
-                    if phase_name not in excluded:
-                        phase_set.add(normalize_phase_name(phase_name))
+                for phase_id, phase_name in micro_to_gem.items():
+                    if phase_name in excluded:
+                        continue
+                    if ids_present is not None and int(phase_id) not in ids_present:
+                        continue
+                    phase_set.add(normalize_phase_name(phase_name))
                 microstructure_phases = list(phase_set)
 
                 num_phases = len(microstructure_phases)

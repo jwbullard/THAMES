@@ -625,11 +625,8 @@ class KeyboardManager(GObject.Object):
         self.logger.info("View zoom reset shortcut activated")
     
     def _on_view_fullscreen(self) -> None:
-        """Handle view fullscreen shortcut."""
-        if self.main_window.is_maximized():
-            self.main_window.unmaximize()
-        else:
-            self.main_window.maximize()
+        """Handle view fullscreen shortcut (same toggle as View → Fullscreen)."""
+        self.main_window.toggle_fullscreen()
     
     def _on_view_refresh(self) -> None:
         """Handle view refresh shortcut."""
