@@ -1159,13 +1159,13 @@ Icon not found: 48-database   (tried all sizes)
 Icon not found: 48-statistics (tried all sizes)
 ```
 
-The two icons `database` and `statistics` at size 48 aren't in the bundled Carbon icon set. Silent fallback — wherever these icons are referenced in the UI, the user sees a placeholder / blank slot / broken icon graphic.
+**Corrected 2026-11-11 (seen again on alpha-4.2 in the tutorial sandbox): the icons are NOT missing on screen.** The callers are the status-bar indicators in `main_window.py::_create_service_indicators` / `_update_service_status` (:716, :728, :744, :758). `icon_utils.load_icon_with_fallback` tries Carbon first (`icons/carbon/<size>/<name>.svg`, which logs the warning on a miss), then the custom mapping, which finds `icons/48-database.svg` and `icons/48-statistics.svg`; both are bundled and load at 16 px (checked headlessly). So the only problem is log noise: the Carbon lookup runs and warns before a fallback that always succeeds.
 
-**Where.** `src/app/services/carbon_icon_manager.py` (or wherever `CarbonIconManager` looks up icons) — the size-N-name lookup pattern `"{size}-{name}"` returns None for these two. Grep for `"database"` and `"statistics"` as icon lookup keys to find the callers.
+**Fix.** In `load_icon_with_fallback`, try the custom mapping first when the name is one of its direct `48-*` entries, or have `CarbonIconManager.get_icon_path` log at DEBUG when called from the fallback chain. One-line either way.
 
-**Proposed fix.** Two options: (a) add the missing SVGs to the Carbon icon bundle if they exist in Carbon's superset (they might; the bundled set may be a subset); (b) swap the callers to use Adwaita or another available equivalent icon (e.g., `document-open` or a generic-tools icon for statistics). Option (b) is smaller; option (a) is cleaner if the icons are semantically important.
+**Related, cause not yet found:** the same startup also prints `Gtk-WARNING: Could not find the icon 'missing-image-ltr'. The 'hicolor' theme was not found either`. GTK prints this when some `Gtk.Image` fails to load its own icon and GTK then cannot draw its "broken image" placeholder, because that placeholder lives in the Adwaita theme, which neither the bundle nor Homebrew has (the bundle does ship `share/icons/hicolor` with an `index.theme`). So one widget somewhere shows a blank image. Find it by running from source with `G_DEBUG=fatal-warnings` (crashes at the call, giving a traceback) or by searching for `set_from_icon_name` / `new_from_icon_name` calls with names that are not in `icon_utils`'s mapping.
 
-**Impact.** Cosmetic — user sees missing icons in two UI spots. Present in every shipped alpha to date.
+**Impact.** Cosmetic: two log warnings per launch (status bar icons display correctly), plus one blank image of unknown location. Present in every shipped alpha to date.
 
 ---
 
