@@ -476,7 +476,9 @@ Full narrative: `docs/session87_summary.md`. Commits `ec9be522`, `965985bd`, `0d
 - **`0d2b00bb`, alpha-4.2 UI fixes (Jeff-tested):** hydrotalcite / zeolite P no longer duplicated as two phases (rerun-verified); Load from previous locks only starting-microstructure phases; Kinetics column; Pozzolanic list; scroll guard; menu tabs; Fullscreen; log noise; Mix Design limits. Operations Delete no longer raises `files_store` AttributeError: the hidden Files sub-tab's 722 lines of file-browser code deleted.
 - **Load from previous reruns from the original microstructure;** starting from a later age needs backend restart support (alpha.5 decision).
 - **alpha-4.2 macOS side done (Nov 5):** version bumped, notes `release-notes-alpha-4.2.md` (Jeff-edited), zip built + smoke-tested + installed in `~/Applications`, draft prerelease created (`ddf10f36`). Backend unchanged (6.0.0, `6e49f9a`).
-- **Next (Windows): follow `docs/alpha-4.2-windows-build.md`** — installer only, no backend rebuild; then on the Mac upload, publish, and post the alpha-4.1 Known Limitations amendment (approved text in that file).
+- **alpha-4.2 PUBLISHED 2026-11-11:** https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4.2 (prerelease, tag at `61a77821`; Windows installer 623,568,930 bytes, sha256 `97bac2b3…`; no backend tag). alpha-4.1 page amended with Known Limitations 15–17.
+- **Also (Nov 11):** DEFERRED icon entry corrected — `48-database`/`48-statistics` warnings are log noise (custom fallback loads them); a GTK `missing-image-ltr` warning means one unknown image is blank.
+- **Next:** alpha.5 after the video series (triage in `docs/UI-Issues.md`); science thread from memory `project_late_age_csh_pore_physics.md`.
 
 ---
 

@@ -60,3 +60,18 @@ unused `GdkPixbuf` import; panel builds headlessly with its three tabs.
 - Alpha-4.2 release mechanics: version bump, release notes, builds, amend
   alpha-4.1 Known Limitations (memory `project_release_alpha42_alpha5_plan.md`).
 - Science thread unchanged: memory `project_late_age_csh_pore_physics.md`.
+
+## Continued (Nov 5-11): alpha-4.2 released
+
+- **Release notes** `release-notes-alpha-4.2.md` (Jeff-edited): 13 fixes,
+  hydrotalcite first with a rerun request; new Known Limitations 13-14
+  (limestone `SO4_CO3_AFt` stop, kinetic calcite).
+- **Version** `1.0.0-alpha.4.2` in `app_info.py`, spec macOS block, `.iss`.
+  Backend not rebuilt (6.0.0, `6e49f9a7`).
+- **macOS:** zip 675,538,545 bytes, sha256 `303180c8…`; installed in
+  `~/Applications`. **Windows** (Jeff, per `docs/alpha-4.2-windows-build.md`):
+  installer 623,568,930 bytes, sha256 `97bac2b3…`, 8/8 smoke checks.
+- **Published 2026-11-11**, prerelease, tag `v1.0.0-alpha.4.2` at `61a77821`.
+  alpha-4.1 page amended with Known Limitations 15-17.
+- **Operations Delete `files_store` error** fixed before the build (hidden
+  file browser deleted); **icon warnings** re-diagnosed in DEFERRED.
