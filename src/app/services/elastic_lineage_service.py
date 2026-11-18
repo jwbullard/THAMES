@@ -134,7 +134,7 @@ class ElasticLineageService:
             aggregate_properties = self._resolve_aggregate_properties(session, mix_design_data, output_directory)
             
             # 5. Calculate volume fractions from mix design components
-            volume_fractions = self._calculate_volume_fractions(mix_design_data)
+            volume_fractions = self._calculate_volume_fractions(mix_design_data, session)
             
             lineage = {
                 'hydration_operation': hydration_op,
@@ -159,7 +159,7 @@ class ElasticLineageService:
         coarse_agg_name = mix_design_data.get('coarse_aggregate_name')
         
         # Extract volume fractions from components or direct fields
-        volume_fractions = self._calculate_volume_fractions(mix_design_data)
+        volume_fractions = self._calculate_volume_fractions(mix_design_data, session)
         
         # Resolve fine aggregate
         fine_vf = volume_fractions.get('fine_aggregate_volume_fraction', 0.0)
@@ -321,132 +321,68 @@ class ElasticLineageService:
                          f"total fraction retained {total_fraction:.6f})")
         return temp_grading_path
 
-    def _calculate_volume_fractions(self, mix_design_data: Dict[str, Any]) -> Dict[str, float]:
-        """Calculate volume fractions from mix design components."""
+    def _calculate_volume_fractions(self, mix_design_data: Dict[str, Any],
+                                    session: Optional[Session] = None) -> Dict[str, float]:
+        """Aggregate and air volume fractions of the concrete, as Mix Design computes them.
+
+        phi_i = (1 - air) * (m_i / SG_i) / sum_j (m_j / SG_j) over binder
+        components, water and both aggregates (mix_service._calculate_volume_fractions).
+        Binder components store their mass fraction of the whole batch and their
+        SG; water and aggregate masses are mix fields; aggregate SGs come from the
+        aggregate records. (Before alpha-4.3 this used fixed densities 2650/3150
+        and estimated the binder mass from w/b, so lightweight aggregates or
+        binders far from SG 3.15 got the wrong concrete fractions.)
+        """
+        air = float(mix_design_data.get('air_volume_fraction') or 0.0)
         volume_fractions = {
             'fine_aggregate_volume_fraction': 0.0,
             'coarse_aggregate_volume_fraction': 0.0,
-            'air_volume_fraction': 0.0
+            'air_volume_fraction': air,
         }
-        
-        # Try to get from direct fields first
-        volume_fractions['air_volume_fraction'] = mix_design_data.get('air_volume_fraction', 0.0)
-        
-        # Don't use component volume fractions as they might be incorrect
-        # We'll calculate them correctly below using masses and densities
-        components = mix_design_data.get('components', [])
-        if isinstance(components, list):
-            self.logger.info(f"🔍 Found {len(components)} components in mix design data")
-            for component in components:
-                if not isinstance(component, dict):
-                    continue
+        water = float(mix_design_data.get('total_water_content') or 0.0)
+        fine_mass = float(mix_design_data.get('fine_aggregate_mass') or 0.0)
+        coarse_mass = float(mix_design_data.get('coarse_aggregate_mass') or 0.0)
+        if fine_mass <= 0.0 and coarse_mass <= 0.0:
+            return volume_fractions
 
-                material_type = component.get('material_type', '').lower()
-                material_name = component.get('material_name', '').lower()
-                volume_fraction = component.get('volume_fraction', 0.0)
+        binders = [c for c in (mix_design_data.get('components') or [])
+                   if isinstance(c, dict) and c.get('material_type', '').lower() not in ('water', 'aggregate', 'air')]
+        binder_mass_fraction = sum(float(c.get('mass_fraction') or 0.0) for c in binders)
+        if binder_mass_fraction >= 1.0:
+            self.logger.warning("Binder mass fractions sum to >= 1; cannot compute aggregate volume fractions")
+            return volume_fractions
+        total_mass = (water + fine_mass + coarse_mass) / (1.0 - binder_mass_fraction)
 
-                self.logger.info(f"  Component: {material_name}, type={material_type}, vf={volume_fraction:.4f} (will recalculate)")
+        volume = water / 1.0  # specific gravity of water
+        for c in binders:
+            sg = float(c.get('specific_gravity') or 0.0)
+            if sg <= 0.0:
+                sg = 3.15
+                self.logger.warning(f"No specific gravity for '{c.get('material_name')}'; using 3.15")
+            volume += float(c.get('mass_fraction') or 0.0) * total_mass / sg
 
-                # Only extract air content from components
-                if 'air' in material_type:
-                    volume_fractions['air_volume_fraction'] += volume_fraction
-        
-        # Also try calculated properties
-        calculated_props = mix_design_data.get('calculated_properties', {})
-        if isinstance(calculated_props, dict):
-            for key, value in calculated_props.items():
-                if key in volume_fractions and isinstance(value, (int, float)):
-                    volume_fractions[key] = max(volume_fractions[key], value)
-        
-        # Try direct aggregate mass fields (convert to approximate volume fractions)
-        fine_mass = mix_design_data.get('fine_aggregate_mass', 0.0)
-        coarse_mass = mix_design_data.get('coarse_aggregate_mass', 0.0)
-        
-        # Log current state before correction
-        self.logger.info(f"🔍 Before correction: fine_vf={volume_fractions['fine_aggregate_volume_fraction']:.4f}, "
-                        f"coarse_vf={volume_fractions['coarse_aggregate_volume_fraction']:.4f}, "
-                        f"fine_mass={fine_mass:.2f}, coarse_mass={coarse_mass:.2f}")
+        def aggregate_sg(name: Optional[str]) -> float:
+            sg = None
+            if name and session is not None:
+                agg = session.query(Aggregate).filter(
+                    (Aggregate.display_name == name) | (Aggregate.name == name)).first()
+                sg = agg.specific_gravity if agg else None
+            if not sg or sg <= 0.0:
+                self.logger.warning(f"No specific gravity for aggregate '{name}'; using 2.65")
+                sg = 2.65
+            return float(sg)
 
-        # ALWAYS recalculate volume fractions when we have mass data
-        # The components might have incorrect volume fractions from the UI
-        if (fine_mass > 0 or coarse_mass > 0):
-            # Get air content (default to 0.02 if not specified)
-            air_content = volume_fractions.get('air_volume_fraction', 0.02)
+        fine_volume = fine_mass / aggregate_sg(mix_design_data.get('fine_aggregate_name')) if fine_mass > 0 else 0.0
+        coarse_volume = coarse_mass / aggregate_sg(mix_design_data.get('coarse_aggregate_name')) if coarse_mass > 0 else 0.0
+        volume += fine_volume + coarse_volume
 
-            # We need to properly calculate volume fractions accounting for all solids
-            # Don't trust the volume fractions from components as they might be wrong
-
-            # Use typical densities
-            fine_density = 2650.0  # kg/m³ (typical for sand)
-            coarse_density = 2650.0  # kg/m³ (typical for gravel)
-            cement_density = 3150.0  # kg/m³ (typical for cement)
-            water_density = 1000.0  # kg/m³
-
-            # Try to estimate total solid volume from known data
-            # If we have total_water_content and water_binder_ratio, we can estimate cement mass
-            total_water = mix_design_data.get('total_water_content', 0.0)
-            w_b_ratio = mix_design_data.get('water_binder_ratio', 0.0)
-
-            if total_water > 0 and w_b_ratio > 0:
-                # Estimate cement mass from water content and w/b ratio
-                cement_mass = total_water / w_b_ratio
-            else:
-                # Use a typical cement mass if we can't calculate it
-                # Assume cement is roughly equal to fine aggregate for a typical mix
-                cement_mass = fine_mass if fine_mass > 0 else 300.0  # kg/m³
-
-            # Calculate sum of (mass/density) for ALL components
-            sum_mass_over_density = 0.0
-
-            # Add cement
-            if cement_mass > 0:
-                sum_mass_over_density += cement_mass / cement_density
-
-            # Add water
-            if total_water > 0:
-                sum_mass_over_density += total_water / water_density
-
-            # Add aggregates
-            if fine_mass > 0:
-                sum_mass_over_density += fine_mass / fine_density
-            if coarse_mass > 0:
-                sum_mass_over_density += coarse_mass / coarse_density
-
-            # Apply corrected equation if we have valid data
-            if sum_mass_over_density > 0:
-                correction_factor = (1 - air_content) / sum_mass_over_density
-
-                # Validate correction factor
-                import math
-                if math.isnan(correction_factor) or math.isinf(correction_factor):
-                    self.logger.error(f"Invalid correction factor: {correction_factor}")
-                    correction_factor = 1.0  # Use safe default
-
-                self.logger.info(f"🔍 Calculation details:")
-                self.logger.info(f"  - Air content: {air_content:.4f}")
-                self.logger.info(f"  - Cement mass: {cement_mass:.2f} kg/m³")
-                self.logger.info(f"  - Water mass: {total_water:.2f} kg/m³")
-                self.logger.info(f"  - Fine aggregate mass: {fine_mass:.2f} kg/m³")
-                self.logger.info(f"  - Coarse aggregate mass: {coarse_mass:.2f} kg/m³")
-                self.logger.info(f"  - Sum(mass/density): {sum_mass_over_density:.6f}")
-                self.logger.info(f"  - Correction factor: {correction_factor:.6f}")
-
-                if fine_mass > 0:
-                    fine_vf = (fine_mass / fine_density) * correction_factor
-                    # Ensure volume fraction is within valid range [0, 1]
-                    fine_vf = max(0.0, min(1.0, fine_vf))
-                    volume_fractions['fine_aggregate_volume_fraction'] = fine_vf
-                    self.logger.info(f"  -> Fine VF = ({fine_mass}/{fine_density}) * {correction_factor:.6f} = {fine_vf:.4f}")
-
-                if coarse_mass > 0:
-                    coarse_vf = (coarse_mass / coarse_density) * correction_factor
-                    # Ensure volume fraction is within valid range [0, 1]
-                    coarse_vf = max(0.0, min(1.0, coarse_vf))
-                    volume_fractions['coarse_aggregate_volume_fraction'] = coarse_vf
-                    self.logger.info(f"  -> Coarse VF = ({coarse_mass}/{coarse_density}) * {correction_factor:.6f} = {coarse_vf:.4f}")
-        
+        scale = (1.0 - air) / volume
+        volume_fractions['fine_aggregate_volume_fraction'] = fine_volume * scale
+        volume_fractions['coarse_aggregate_volume_fraction'] = coarse_volume * scale
+        self.logger.info(f"Concrete volume fractions: fine {fine_volume * scale:.4f}, "
+                         f"coarse {coarse_volume * scale:.4f}, air {air:.4f}")
         return volume_fractions
-    
+
     def discover_hydrated_microstructures(self, hydration_operation: Operation) -> List[HydratedMicrostructure]:
         """
         Discover all available hydrated microstructures from hydration operation directory.

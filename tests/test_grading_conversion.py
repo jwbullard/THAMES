@@ -82,10 +82,19 @@ class TestRetainedToPassing(unittest.TestCase):
             self, passing_to_retained(retained_to_passing(C33_FINE_MID_RETAINED)),
             C33_FINE_MID_RETAINED)
 
-    def test_rescales_totals_other_than_100(self):
-        # Old templates can sum to 99.9 (Gap-grading) or 250 (Manual Test)
-        result = retained_to_passing([(2.0, 30.0), (1.0, 20.0)])
-        assert_points_close(self, result, [(2.0, 40.0), (1.0, 0.0)])
+    def test_total_below_100_leaves_remainder_passing_finest_sieve(self):
+        # A sieve analysis that omits the pan: the missing 1 % passed 0.075 mm.
+        # (FineAdjust.gdg, 2026-11-18: rescaling turned 97.5 into 97.47.)
+        fine_adjust = [(4.75, 2.5), (2.36, 7.5), (1.18, 22.5), (0.6, 25.0),
+                       (0.3, 25.0), (0.15, 12.5), (0.075, 4.0)]
+        assert_points_close(self, retained_to_passing(fine_adjust),
+                            [(4.75, 97.5), (2.36, 90.0), (1.18, 67.5), (0.6, 42.5),
+                             (0.3, 17.5), (0.15, 5.0), (0.075, 1.0)])
+
+    def test_total_above_100_is_rescaled(self):
+        # Would otherwise give negative % passing (e.g. the old 250 % test row)
+        result = retained_to_passing([(2.0, 30.0), (1.0, 120.0)])
+        assert_points_close(self, result, [(2.0, 80.0), (1.0, 0.0)])
 
     def test_zero_rows_above_material_show_100(self):
         result = retained_to_passing([(4.0, 0.0), (2.0, 50.0), (1.0, 50.0)])

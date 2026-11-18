@@ -268,6 +268,14 @@ alpha-4.3 removed the Elastic page's "Generate Input File" button, its handler a
 
 ---
 
+### Mix component "volume_fraction" stored as mass fraction / SG, not a volume fraction
+
+**Kind:** latent bug class. **Identified:** 2026-11-18 (alpha-4.3 item 8c).
+
+Each binder component saved in `mix_design.components` carries `volume_fraction = mass_fraction / specific_gravity` (`mix_design_panel.py:1838`), never normalized: for TestConc01's MyCement it is 0.0629 where the true concrete volume fraction is about 0.138. `mix_service._calculate_volume_fractions` computes normalized values on its own path, and since alpha-4.3 Elastic computes aggregate fractions from masses and SGs, so neither reads it. Remaining readers seen: microstructure metadata (`models/microstructure_operation.py:199`) and mix reload (`mix_design_panel.py:5641`). Trace every reader; then either store the normalized value or rename the field to what it is.
+
+---
+
 ### Concrete-scale "what-if" overrides in Elastic Moduli (decided against for alpha-4.3)
 
 **Kind:** research direction. **Discussed:** 2026-11-17.

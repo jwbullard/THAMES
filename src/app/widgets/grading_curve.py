@@ -145,8 +145,9 @@ def passing_to_retained(passing_points: List[Tuple[float, float]]) -> List[Tuple
 def retained_to_passing(retained_points: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
     """Convert individual % retained to cumulative % passing.
 
-    Stored gradings that do not sum to 100 are rescaled first, so the finest
-    sieve always shows 0 % passing.
+    A total below 100 means the remainder passed the finest sieve (the pan),
+    so it shows as % passing that sieve and nothing is rescaled. Only a total
+    above 100, which would give negative % passing, is rescaled to 100.
 
     Returns:
         (sieve size mm, % passing), largest sieve first; empty if the total is 0.
@@ -155,7 +156,11 @@ def retained_to_passing(retained_points: List[Tuple[float, float]]) -> List[Tupl
     total = sum(value for _, value in points)
     if total <= 0.0:
         return []
-    scale = 100.0 / total
+    scale = 1.0
+    if total > 100.0 + 1e-6:
+        scale = 100.0 / total
+        logging.getLogger('VCCTL.GradingCurveWidget').warning(
+            f"Grading % retained totals {total:g} (> 100); rescaled to 100")
     passing = []
     cumulative = 0.0
     for size, value in points:
@@ -434,9 +439,12 @@ class GradingCurveWidget(Gtk.Box):
         Each stored sieve goes to the table row with the nearest opening within
         10 %; rows with no stored sieve are left blank.
         """
-        self.grading_data = sorted(data, key=lambda p: p[0], reverse=True)
+        # Keep the stored % retained identical to what the table shows: a
+        # remainder passing the finest sieve is counted as retained on it
+        shown = retained_to_passing(data)
+        self.grading_data = passing_to_retained(shown)
         passing_by_row = {}
-        for data_size, passing in retained_to_passing(self.grading_data):
+        for data_size, passing in shown:
             best_row, best_diff = None, float('inf')
             for i, entry in enumerate(self.sieve_entries):
                 diff = abs(entry['size_mm'] - data_size)

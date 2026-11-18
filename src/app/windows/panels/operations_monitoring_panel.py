@@ -3883,15 +3883,26 @@ class OperationsMonitoringPanel(Gtk.Box):
         try:
             # Convert UI enum to database enum
             from app.models.operation import OperationStatus as DBOperationStatus
-            
-            db_operation = self.service_container.operation_service.create_operation(
-                name=name,
-                operation_type=operation_type.value,
-                notes=f"Process starting in {working_dir}"
-            )
+
+            # Some launches create their record first (Elastic's
+            # create_operation_with_lineage). Names are unique, so a QUEUED record
+            # with this name is this run's: track the process under it instead of
+            # failing on the unique name and falling back to a temporary ID.
+            operation_service = self.service_container.operation_service
+            db_operation = operation_service.get_by_name(name)
+            if db_operation is not None and str(db_operation.status).upper().endswith(
+                    DBOperationStatus.QUEUED.value):
+                self.logger.info(f"Using the existing queued database operation: {name} "
+                                 f"with ID {db_operation.id}")
+            else:
+                db_operation = operation_service.create_operation(
+                    name=name,
+                    operation_type=operation_type.value,
+                    notes=f"Process starting in {working_dir}"
+                )
+                self.logger.info(f"Created database operation: {name} with ID {db_operation.id}")
             # Use the database operation ID as the operation_id
             operation_id = str(db_operation.id)
-            self.logger.info(f"Created database operation: {name} with ID {operation_id}")
         except Exception as e:
             self.logger.error(f"Failed to create database operation: {e}")
             self.logger.error(f"Exception type: {type(e).__name__}")
