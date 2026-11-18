@@ -18,7 +18,7 @@ and makes the other changes described below.
 ### Downloads
 
 - **Windows:** `THAMES-1.0.0-alpha.4.3-win64-setup.exe` (SIZE MB). Inno Setup installer; in-place upgrade over 1.0.0-alpha.4.2 preserves user data (AppId unchanged).
-- **macOS (Apple Silicon):** `THAMES-1.0.0-alpha.4.3-macOS.zip` (SIZE MB). Unzip anywhere and drag `THAMES.app` to `/Applications`. First launch: right-click → Open (ad-hoc signed; Gatekeeper may otherwise refuse).
+- **macOS (Apple Silicon):** `THAMES-1.0.0-alpha.4.3-macOS.zip` (674 MB). Unzip anywhere and drag `THAMES.app` to `/Applications`. First launch: right-click → Open (ad-hoc signed; Gatekeeper may otherwise refuse).
 
 ### Fixed since alpha-4.2 that change results
 
@@ -113,6 +113,15 @@ and makes the other changes described below.
  15. **Smaller fix.** Elastic Moduli no longer leaves stray grading files in
      the Operations folder or writes a database error to the log on every
      run.
+
+ 16. **Database updates now run in the installed app.** Since alpha-3, the
+     database updates that a release makes on first launch failed silently
+     in the installed (packaged) app; they worked only when THAMES was run
+     from source. This release applies them, including two from earlier
+     releases: removing aggregate names left on mixes with no aggregate
+     (alpha-3), and renaming glass phases to their (am) forms in material
+     compositions (alpha-3; this affects only databases upgraded in place
+     from alpha-2).
 
 ### Known Limitations
 

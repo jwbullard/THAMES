@@ -36,10 +36,10 @@ class MigrationManager:
         """Initialize the migration manager."""
         self.db_service = db_service
         self.logger = logging.getLogger('VCCTL.Migrations')
-        self.migrations_dir = Path(__file__).parent / 'migration_scripts'
-        
-        # Ensure migrations directory exists
-        self.migrations_dir.mkdir(exist_ok=True)
+        # (Before alpha-4.3 this created an unused 'migration_scripts' folder
+        # next to this file. Inside the app bundle that folder cannot be
+        # created, so the constructor raised and no migration ever ran in a
+        # packaged release.)
     
     def initialize_migration_table(self) -> None:
         """Create the migrations tracking table if it doesn't exist."""
