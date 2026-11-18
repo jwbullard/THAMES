@@ -117,3 +117,41 @@ Nothing pushed until the wrap-up commit.
 3. Release steps: `release-notes-alpha-4.3.md` (log-normal and measured-PSD
    entries change results), Known Limitations on published alpha-3..4.2 (ask
    before `gh release edit`), version bump, macOS + Windows builds.
+
+---
+
+## Continued, Nov 18: alpha-4.3 release work
+
+Commits `e7cec4aa`, `c932ffe3`, `563d949a`, `ed6e2bef` (pushed).
+
+- **Grading import** no longer rescales totals below 100 (remainder passes the
+  finest sieve; Jeff's `FineAdjust.gdg`); the table and storage now agree.
+- **Item 8c:** Elastic volume fractions use the Mix Design formula with the
+  materials' SGs.
+- **One Operations record per Elastic run:** the Operations panel reuses the
+  QUEUED record that Elastic already created. Since S3, every Elastic launch
+  logged `UNIQUE constraint failed: operations.name`.
+- **Release notes** `release-notes-alpha-4.3.md` (Jeff-edited; KL 17 ships).
+  Version `1.0.0-alpha.4.3` in `app_info.py`, `.iss`, spec.
+- **Ship-blocker found in the bundle:** `MigrationManager.__init__` created an
+  unused `migration_scripts` folder; inside PyInstaller that fails, so **no
+  migration has run in any packaged release since alpha-3**. mkdir removed
+  (`563d949a`); an upgrade test on 4.2's shipped DB applied all six 2026
+  migrations. Notes item 16 added.
+- **macOS:** zip 673,832,469 bytes, SHA-256 `2d218c10…`, backend 6.0.0
+  `6e49f9a7` (bundled `thames` identical to `bin/thames` apart from rpath;
+  smoke fixture matches 4.2). Draft prerelease created, no tag.
+- **Known Limitations for published pages:** untracked draft
+  `release-notes-KL-amendments-alpha-4.3.md`, entries A-G; apply after
+  publishing, one page at a time with Jeff's OK.
+- **Windows handoff:** `docs/alpha-4.3-windows-build.md`.
+
+### Next
+
+1. Windows installer per the handoff doc; then on the Mac upload, fill in the
+   size, publish, apply KL A-G.
+2. Not yet filed: the ServiceContainer's migration error is printed before
+   logging is configured, so it never reaches `thames.log` (that is why the
+   bundle bug went unseen for three releases).
+3. Videos: install the 4.3 build as the recording app, re-make MyPaste and
+   Ep 7 off-camera, then Ep 8.

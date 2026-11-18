@@ -489,7 +489,8 @@ Full narrative: `docs/session88_summary.md`. One super-repo commit (UI/data only
 - **Log-normal PSD bug since S7:** micgen used density, not CDF differences (MyCement d50 0.74 vs ~9 µm). Fixed; micgen and `cement_psd.csv` now use the **stored PSD table for every mode** (measured PSDs never carry a model). "Std Dev" → "σ of ln(d)".
 - **VCCTL measured PSDs recovered** from `~/Code/VCCTL` Derby DB (readable only at `f2eb05a0^`) → `docs/reference_data/vcctl_psd/`. Migrations `20261117_03_split_shared_psd` (Duplicate shared PSD records) and `_04_vcctl_measured_psd` (ustype1 = cement151, cement116, cement168, sacci-425). dh/cementhoc/cementotc/cementrci: no data anywhere yet.
 - **Rule:** import checks must use a scratch HOME — two checks migrated Jeff's real DB this session (memory `feedback_scratch_home_for_imports.md`).
-- **Next:** Jeff tests in the sandbox and re-makes Ep 7 (MyCement now cement151's PSD); item 8c; alpha-4.3 release steps (results-changing notes + Known Limitations on published alphas).
+- **Nov 18:** grading import rescaling, item 8c (SG-based volume fractions), one Operations record per Elastic run; notes + version bump. **Bundle ship-blocker:** `MigrationManager.__init__` mkdir failed inside PyInstaller, so no migration ran in any packaged release since alpha-3; fixed (`563d949a`). macOS zip in a draft prerelease (sha256 `2d218c10…`).
+- **Next:** Windows installer per `docs/alpha-4.3-windows-build.md`; publish; apply Known Limitations A-G (Mac-only draft `release-notes-KL-amendments-alpha-4.3.md`) to published pages.
 
 ---
 
