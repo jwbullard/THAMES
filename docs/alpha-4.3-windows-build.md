@@ -1,0 +1,108 @@
+# Alpha-4.3 Windows build handoff (2026-11-18, Session 88)
+
+Written on macOS for the follow-on Windows session. Project memory is keyed to
+the working-directory path, so the Windows session will **not** see the mac
+session's memories; this file carries everything needed.
+
+## Status
+
+| Item | State |
+|---|---|
+| Source | pushed; `main` at `563d949a` or later. **`563d949a` is required** (see "Migration fix" below) |
+| Version strings | already `1.0.0-alpha.4.3` in `app_info.py`, `installer/thames-windows.iss` (version + display "1.0.0 (alpha 4.3)"), and the macOS block of `thames-windows.spec` |
+| Backend | **unchanged**: submodule `6e49f9a` = THAMES-Hydration 6.0.0, the same as alpha-4.1 and 4.2 |
+| macOS artifact | built, smoke-tested, uploaded to the draft: `THAMES-1.0.0-alpha.4.3-macOS.zip`, 673,832,469 bytes, SHA-256 `2d218c10751bcb8035683b4636709226574bf7ab6c1d9520fddc45016b4dee8e` |
+| GitHub release | **draft** prerelease "THAMES 1.0.0-alpha.4.3" (macOS zip + notes). No tag until publish |
+| Windows installer | to build |
+| Release notes | `release-notes-alpha-4.3.md` (Jeff-edited); Windows size says "SIZE MB" |
+| Known Limitations for published pages | `release-notes-KL-amendments-alpha-4.3.md` is an **untracked Mac-only draft**; applied from the Mac after publishing. Nothing to do on Windows |
+
+## What alpha-4.3 is
+
+A UI and data patch over alpha-4.2 (full list in `release-notes-alpha-4.3.md`,
+narrative in `docs/session88_summary.md`). It changes results through the UI:
+log-normal PSDs were discretized wrongly, four VCCTL cements get their measured
+PSDs, the C-33 / #57 grading templates are corrected, Elastic Moduli now uses the
+mix's applied grading, the real ITZ width and SG-based volume fractions. The
+grading editor takes cumulative % passing. Operation names get `-01`, `-02`
+instead of overwriting. No platform branches in any of it.
+
+### Migration fix (ship-blocker found during the mac build)
+
+`MigrationManager.__init__` used to `mkdir` an unused `migration_scripts`
+folder next to the module. Inside a PyInstaller bundle that fails, the
+constructor raises, and **no database migration has run in any packaged
+release since alpha-3** (it worked only from source). Fixed in `563d949a`.
+alpha-4.3's six database changes (four `20261117_*` plus the alpha-3
+`20260824_01` and `20260827_01`) only reach users who upgrade in place if the
+installer is built from that commit.
+
+## Windows build steps
+
+The backend does not need rebuilding: alpha-4.1's `thames.exe` / `micgen.exe`
+(6.0.0, `6e49f9a7`) are what alpha-4.3 ships.
+
+```bash
+./pre-session-sync.sh
+git log --oneline -1                      # must be 563d949a or later
+git submodule update --init               # submodule must stay at 6e49f9a
+PATH="/c/msys64/mingw64/bin:$PATH" pyinstaller --clean --noconfirm thames-windows.spec
+"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\thames-windows.iss
+```
+
+Expected output: `dist\THAMES-1.0.0-alpha.4.3-win64-setup.exe` (alpha-4.2's
+was 623,568,930 bytes).
+
+**Check the backend before packaging.** `bin\` must hold 6.0.0 / `6e49f9a7`
+(a short hydration's `Result\run_metadata.json`: `thames_backend.version`,
+`git_hash`). If `bin\` is missing or stale, run `./build-windows.sh clean`.
+
+**Cautions**
+
+- Use the `pyinstaller` inside the project venv, not a system one (Session 67).
+- Working directory must be `C:\Users\jwbullard\Desktop\foo\THAMES`, not
+  `C:\Users\jwbullard\THAMES` (Session 33).
+- AppId unchanged, so installs upgrade in place; user data in
+  `%LOCALAPPDATA%\THAMES\` is untouched.
+- Several Python files are CRLF; don't let an editor convert them.
+- Any check that imports app modules from source (`python -c "from app...`)
+  runs the migrations on the **real** database. Set a scratch
+  `LOCALAPPDATA` for such checks.
+
+## Smoke test before copying the installer back
+
+**Back up `%LOCALAPPDATA%\THAMES\database\` first**, then install over the
+existing alpha-4.2 (the in-place upgrade is the case that matters), and:
+
+1. Home page and Help -> About show **1.0.0-alpha.4.3**.
+2. **Migrations ran.** `%LOCALAPPDATA%\THAMES\logs\thames.log` shows no
+   "migration_scripts" / "No such file or directory" error, and the
+   `migrations` table holds `20261117_01` .. `_04` (plus `20260824_01` and
+   `20260827_01` if this database never had them):
+   `sqlite3 thames.db "select version from migrations order by version"`.
+3. Materials: `ustype1` opens as **Custom** PSD with a table; "σ of ln(d)"
+   label on a Log-Normal material. Duplicate a material, change the copy's
+   PSD, reopen the original: unchanged.
+4. Mix Design -> Grading…: entry is cumulative % passing; the coarse table has
+   No. 8 and No. 16; templates "ASTM C-33 Fine Aggregate" and "ASTM #57 Stone"
+   plot as sensible S-curves; Import and Export of a `.gdg` work and the file
+   dialog closes.
+5. A small mortar (any cement + fine aggregate, Grading… -> Apply, save):
+   microstructure, short hydration, then Elastic Moduli. The form is
+   read-only; running it twice on the same microstructure gives the second run
+   `-01`. Effective Moduli shows an ITZ width that is not 10 μm; ITZ Analysis
+   shows nonzero layers.
+6. `run_metadata.json` reports backend 6.0.0 / `6e49f9a7`.
+
+## Publishing (back on the Mac; Windows has no `gh`)
+
+Copy the installer to the Mac's `dist/` and record its size and SHA-256 here.
+On the Mac:
+
+1. `gh release upload v1.0.0-alpha.4.3 dist/THAMES-1.0.0-alpha.4.3-win64-setup.exe`
+2. Replace "SIZE MB" in the Windows Downloads line, in the release body and in
+   `release-notes-alpha-4.3.md`.
+3. Publish (`gh release edit v1.0.0-alpha.4.3 --draft=false`), creating tag
+   `v1.0.0-alpha.4.3` on `main`. Keep it a prerelease. No backend tag.
+4. Then apply `release-notes-KL-amendments-alpha-4.3.md` (A-G) to the
+   alpha-2 .. alpha-4.2 pages, one page at a time, Jeff approving each.
