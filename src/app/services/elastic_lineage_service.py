@@ -185,7 +185,9 @@ class ElasticLineageService:
                     bulk_modulus=fine_agg.bulk_modulus or 30.0,  # Default GPa
                     shear_modulus=fine_agg.shear_modulus or 18.0,
                     volume_fraction=fine_vf,
-                    grading_path=self._get_aggregate_grading_path(fine_agg, output_directory, fine_template_name),
+                    grading_path=self._get_aggregate_grading_path(
+                        fine_agg, output_directory, fine_template_name,
+                        mix_design_data.get('fine_aggregate_grading_data')),
                     grading_template_name=fine_template_name
                 )
                 self.logger.info(f"Resolved fine aggregate: {fine_agg.display_name} (VF: {fine_vf:.3f}) with template: {fine_template_name}")
@@ -216,7 +218,9 @@ class ElasticLineageService:
                     bulk_modulus=coarse_agg.bulk_modulus or 36.7,  # Default GPa
                     shear_modulus=coarse_agg.shear_modulus or 22.0,
                     volume_fraction=coarse_vf,
-                    grading_path=self._get_aggregate_grading_path(coarse_agg, output_directory, coarse_template_name),
+                    grading_path=self._get_aggregate_grading_path(
+                        coarse_agg, output_directory, coarse_template_name,
+                        mix_design_data.get('coarse_aggregate_grading_data')),
                     grading_template_name=coarse_template_name
                 )
                 self.logger.info(f"Resolved coarse aggregate: {coarse_agg.display_name} (VF: {coarse_vf:.3f}) with template: {coarse_template_name}")
@@ -225,143 +229,98 @@ class ElasticLineageService:
         
         return properties
     
-    def _get_aggregate_grading_path(self, aggregate: Aggregate, output_directory: str = None, template_name: str = None) -> str:
-        """Get grading file path for aggregate by creating temporary .gdg file from database templates."""
+    def _get_aggregate_grading_path(self, aggregate: Aggregate, output_directory: str = None,
+                                    template_name: str = None, grading_points=None) -> str:
+        """Write the aggregate's grading to a .gdg file and return its path ("" on failure).
+
+        Uses the grading points stored with the mix when present (mixes saved
+        from alpha-4.3 on). Older mixes fall back to a template: by name, then
+        one tied to the aggregate, then a standard or any template of the type.
+        """
+        from app.models.grading import GradingType
+
+        agg_type_str = "fine" if aggregate.is_fine_aggregate else "coarse"
+        grading_type = GradingType.FINE if aggregate.is_fine_aggregate else GradingType.COARSE
         try:
-            # Import grading model
-            from app.models.grading import Grading, GradingType
-            
-            # Determine aggregate type for grading template selection
-            agg_type_str = "fine" if aggregate.is_fine_aggregate else "coarse"
-            grading_type = GradingType.FINE if aggregate.is_fine_aggregate else GradingType.COARSE
-            
-            self.logger.info(f"🔍 Looking for {agg_type_str} grading template for aggregate: {aggregate.display_name}")
-            self.logger.info(f"🔍 Aggregate ID: {aggregate.id}, Type: {aggregate.type}")
-            
-            # Get database session properly
-            with self.database_service.get_session() as session:
-                grading = None
-
-                # Step 1: Try to find grading template by specific name (if provided)
-                if template_name:
-                    grading = session.query(Grading).filter(
-                        Grading.name == template_name,
-                        Grading.type == grading_type
-                    ).first()
-                    self.logger.info(f"🔍 Step 1 - By template name '{template_name}': {'Found' if grading else 'Not found'}")
-
-                if not grading:
-                    # Step 2: Try to find a grading template by aggregate ID
-                    grading = session.query(Grading).filter(
-                        Grading.aggregate_id == aggregate.id
-                    ).first()
-                    self.logger.info(f"🔍 Step 2 - By aggregate ID: {'Found' if grading else 'Not found'}")
-
-                if not grading:
-                    # Step 3: Try to find a standard grading template by type
-                    grading = session.query(Grading).filter(
-                        Grading.type == grading_type,
-                        Grading.is_standard == 1
-                    ).first()
-                    self.logger.info(f"🔍 Step 3 - Standard template: {'Found' if grading else 'Not found'}")
-
-                if not grading:
-                    # Step 4: Try to find ANY grading template of the correct type
-                    grading = session.query(Grading).filter(
-                        Grading.type == grading_type
-                    ).first()
-                    self.logger.info(f"🔍 Step 4 - Any template: {'Found' if grading else 'Not found'}")
-                
-                # Session will auto-close when we exit this block, so get the data we need
-                if grading and grading.sieve_data:
-                    grading_name = grading.name
-                    grading_sieve_data = grading.sieve_data  # Copy the data before session closes
-                    self.logger.info(f"🔍 Found grading: {grading_name} (sieve_data: Yes)")
-                else:
-                    grading_name = None
-                    grading_sieve_data = None
-            
-            if not grading_name or not grading_sieve_data:
-                self.logger.warning(f"No grading template found for {agg_type_str} aggregate: {aggregate.display_name}")
-                return ""
-            
-            # Create grading file in operation directory where elastic.c can find it
-            import os
-            from pathlib import Path
-            
-            # Create grading filename
-            grading_filename = f"{aggregate.display_name}_{agg_type_str}_grading.gdg"
-            
-            # Determine where to create the file
-            if output_directory:
-                # Use the specified output directory (proper location)
-                output_path = Path(output_directory)
-                output_path.mkdir(parents=True, exist_ok=True)
-                actual_file_path = output_path / grading_filename
-                # Return path relative to output directory for display
-                temp_grading_path = f"./{grading_filename}"  # Relative to operation working directory
+            if grading_points:
+                grading_name = template_name or "grading applied in Mix Design"
+                grading_sieve_data = [[float(size), float(value)] for size, value in grading_points]
+                self.logger.info(f"Using the mix's stored {agg_type_str} grading for "
+                                 f"{aggregate.display_name} ({len(grading_sieve_data)} points)")
             else:
-                # Fallback to operations base directory
-                actual_file_path = self.operations_dir / grading_filename
-                # Return relative path from operations directory
-                temp_grading_path = f"./{grading_filename}"
-            
-            # Convert sieve data to .gdg format in CSV with header (as required by elastic.c)
-            lines = []
-            # Add CSV header as required
-            lines.append("Opening_diameter_mm,Fraction_retained")
-
-            # Sort by sieve size (largest first for standard format)
-            sorted_points = sorted(grading_sieve_data, key=lambda x: x[0], reverse=True)
-
-            # DEBUG: Log the raw grading data we received
-            self.logger.info(f"DEBUG: Raw grading data for {aggregate.display_name} (template: {grading_name}):")
-            for i, point in enumerate(sorted_points[:5]):  # Show first 5 points
-                self.logger.info(f"  [{i}] Size: {point[0]:.3f}mm, Value: {point[1]:.1f}")
-
-            # DEBUG: Also log what the total looks like
-            total_value = sum(point[1] for point in sorted_points)
-            self.logger.info(f"  Total of all values: {total_value:.1f} (if this is 0, template has bad data)")
-
-            # Calculate mass fractions for each sieve
-            # Database templates now store individual percent retained data
-            for i, point in enumerate(sorted_points):
-                size_mm = point[0]
-                percent_retained = point[1]  # This is individual % retained on this sieve
-
-                # Convert percent retained directly to fraction
-                fraction_retained_on_sieve = percent_retained / 100.0
-
-                # Ensure non-negative values
-                fraction_retained_on_sieve = max(0.0, fraction_retained_on_sieve)
-
-                # DEBUG: Log the calculation for first few sieves
-                if i < 5:
-                    self.logger.info(f"  Sieve {size_mm:.3f}mm: {percent_retained:.1f}% retained -> {fraction_retained_on_sieve:.6f} fraction retained")
-
-                lines.append(f"{size_mm:.3f},{fraction_retained_on_sieve:.6f}")
-
-            # No pan entry needed when using individual percent retained
-            # All material should be accounted for in the sieve fractions
-
-            gdg_content = '\n'.join(lines)
-
-            # Write to file in operations directory
-            with open(actual_file_path, 'w') as f:
-                f.write(gdg_content)
-
-            # Verify fractions sum to 1.0
-            total_fraction = sum(float(line.split(',')[1]) for line in lines[1:])  # Skip header
-            self.logger.info(f"Created grading file for {aggregate.display_name}: {actual_file_path}")
-            self.logger.info(f"Grading template used: {grading_name} with {len(grading_sieve_data)} sieve points")
-            self.logger.info(f"Total fraction retained: {total_fraction:.6f} (should be ~1.0)")
-            
-            return temp_grading_path
-            
+                grading_name, grading_sieve_data = self._find_grading_template(
+                    aggregate, grading_type, agg_type_str, template_name)
+            if not grading_sieve_data:
+                self.logger.warning(f"No grading found for {agg_type_str} aggregate: {aggregate.display_name}")
+                return ""
+            return self._write_grading_file(aggregate, agg_type_str, output_directory,
+                                            grading_name, grading_sieve_data)
         except Exception as e:
             self.logger.error(f"Failed to create grading file for aggregate {aggregate.display_name}: {e}")
             return ""
-    
+
+    def _find_grading_template(self, aggregate: Aggregate, grading_type, agg_type_str: str,
+                               template_name: Optional[str]):
+        """Find a template for a mix with no stored grading points; returns (name, sieve_data)."""
+        from app.models.grading import Grading
+
+        with self.database_service.get_session() as session:
+            grading = None
+            if template_name:
+                grading = session.query(Grading).filter(
+                    Grading.name == template_name, Grading.type == grading_type).first()
+            if not grading:
+                grading = session.query(Grading).filter(
+                    Grading.aggregate_id == aggregate.id).first()
+            fallback = None
+            if not grading:
+                grading = session.query(Grading).filter(
+                    Grading.type == grading_type, Grading.is_standard == 1).first()
+                fallback = "standard"
+            if not grading:
+                grading = session.query(Grading).filter(Grading.type == grading_type).first()
+                fallback = "first available"
+            if not grading or not grading.sieve_data:
+                return None, None
+            if fallback:
+                # Older mix with no stored grading and no usable template name
+                self.logger.warning(
+                    f"No grading stored for {agg_type_str} aggregate {aggregate.display_name}; "
+                    f"using the {fallback} {agg_type_str} template '{grading.name}'")
+            return grading.name, list(grading.sieve_data)  # copy before the session closes
+
+    def _write_grading_file(self, aggregate: Aggregate, agg_type_str: str,
+                            output_directory: Optional[str], grading_name: str,
+                            grading_sieve_data) -> str:
+        """Write [[sieve_mm, % retained], ...] as the CSV .gdg file elastic.c reads."""
+        from pathlib import Path
+
+        grading_filename = f"{aggregate.display_name}_{agg_type_str}_grading.gdg"
+        # Path relative to the operation's working directory
+        temp_grading_path = f"./{grading_filename}"
+        if not output_directory:
+            # Lineage resolved for display only (no run folder yet): name the
+            # file but do not write it. Writing it into the Operations root
+            # left stray .gdg files there before alpha-4.3.
+            return temp_grading_path
+        output_path = Path(output_directory)
+        output_path.mkdir(parents=True, exist_ok=True)
+        actual_file_path = output_path / grading_filename
+
+        # Header line required by elastic.c; one line per sieve, largest first,
+        # with individual fraction retained (no pan entry)
+        lines = ["Opening_diameter_mm,Fraction_retained"]
+        for size_mm, percent_retained in sorted(grading_sieve_data, key=lambda x: x[0], reverse=True):
+            lines.append(f"{size_mm:.3f},{max(0.0, percent_retained / 100.0):.6f}")
+        with open(actual_file_path, 'w') as f:
+            f.write('\n'.join(lines))
+
+        total_fraction = sum(max(0.0, value) for _, value in grading_sieve_data) / 100.0
+        self.logger.info(f"Created grading file for {aggregate.display_name}: {actual_file_path} "
+                         f"({grading_name}, {len(grading_sieve_data)} sieves, "
+                         f"total fraction retained {total_fraction:.6f})")
+        return temp_grading_path
+
     def _calculate_volume_fractions(self, mix_design_data: Dict[str, Any]) -> Dict[str, float]:
         """Calculate volume fractions from mix design components."""
         volume_fractions = {
@@ -828,6 +787,8 @@ class ElasticLineageService:
                 # Grading template associations
                 'fine_aggregate_grading_template': mix_design.fine_aggregate_grading_template,
                 'coarse_aggregate_grading_template': mix_design.coarse_aggregate_grading_template,
+                'fine_aggregate_grading_data': getattr(mix_design, 'fine_aggregate_grading_data', None),
+                'coarse_aggregate_grading_data': getattr(mix_design, 'coarse_aggregate_grading_data', None),
             }
             
             # Convert components to list format for volume fraction calculation

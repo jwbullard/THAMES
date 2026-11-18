@@ -149,7 +149,6 @@ class MigrationManager:
             self._create_basic_fly_ash,
             self._create_basic_slag,
             self._create_basic_fillers,
-            self._create_basic_gradings,
         ]
         
         for operation in seed_operations:
@@ -250,22 +249,6 @@ class MigrationManager:
                 if not existing:
                     filler = InertFiller(**filler_data)
                     session.add(filler)
-    
-    def _create_basic_gradings(self) -> None:
-        """Create basic grading curves."""
-        from app.models import Grading, GradingType
-        
-        gradings = [
-            {'name': 'standard_coarse_grading', 'type': GradingType.COARSE, 'max_diameter': 25.0},
-            {'name': 'standard_fine_grading', 'type': GradingType.FINE, 'max_diameter': 4.75},
-        ]
-        
-        with self.db_service.get_session() as session:
-            for grading_data in gradings:
-                existing = session.query(Grading).filter_by(name=grading_data['name']).first()
-                if not existing:
-                    grading = Grading(**grading_data)
-                    session.add(grading)
     
     def _apply_glass_phase_am_rename_migration(self) -> None:
         """Rename bare glass phases to (am) form in material_phase table.
@@ -524,6 +507,161 @@ class MigrationManager:
         
         return version_info
     
+    def _apply_grading_templates_percent_retained_migration(self) -> None:
+        """Correct the shipped grading templates and delete two junk ones.
+
+        Templates store individual % retained on each sieve (the editor shows
+        cumulative % passing and converts).  Two shipped templates were wrong:
+
+        - "ASTM C-33 Fine Aggregate" held the C 33 LOWER limits as cumulative
+          % passing (summing to 262), so every consumer read most of the sand
+          as sitting on the coarsest sieves.  Now the mid-band of the C 33
+          limits as % retained; material passing 0.15 mm sits on 0.075 mm.
+        - "ASTM #57 Stone" put all of the stone between 19 and 31.5 mm.  Now
+          the mid-band of the C 33 #57 limits; material passing 2.36 mm sits
+          on 1.18 mm, the finest row of the coarse table.
+
+        "Manual Test Grading" (a test row) and "standard_fine_grading" (no
+        data) are deleted unless a mix design names them.
+
+        Idempotent: the updates write fixed values and the deletes match by
+        name, so re-running is a no-op.
+        """
+        try:
+            self.logger.info("Applying grading-template % retained migration...")
+            sql = """
+            UPDATE grading
+               SET sieve_data = '[[4.75, 2.5], [2.36, 7.5], [1.18, 22.5], [0.6, 25.0], [0.3, 25.0], [0.15, 12.5], [0.075, 5.0]]',
+                   max_diameter = 4.75,
+                   is_standard = 1,
+                   description = 'ASTM C 33 fine aggregate, mid-band of the grading limits',
+                   updated_at = CURRENT_TIMESTAMP,
+                   modified_at = CURRENT_TIMESTAMP
+             WHERE name = 'ASTM C-33 Fine Aggregate' AND type = 'FINE';
+            UPDATE grading
+               SET sieve_data = '[[25.0, 2.5], [12.5, 55.0], [4.75, 37.5], [2.36, 2.5], [1.18, 2.5]]',
+                   max_diameter = 25.0,
+                   is_standard = 1,
+                   description = 'ASTM C 33 size No. 57 coarse aggregate, mid-band of the grading limits',
+                   updated_at = CURRENT_TIMESTAMP,
+                   modified_at = CURRENT_TIMESTAMP
+             WHERE name = 'ASTM #57 Stone' AND type = 'COARSE';
+            DELETE FROM grading
+             WHERE name IN ('Manual Test Grading', 'standard_fine_grading')
+               AND name NOT IN (SELECT fine_aggregate_grading_template FROM mix_design
+                                 WHERE fine_aggregate_grading_template IS NOT NULL)
+               AND name NOT IN (SELECT coarse_aggregate_grading_template FROM mix_design
+                                 WHERE coarse_aggregate_grading_template IS NOT NULL);
+            """
+            self.run_sql_migration(
+                sql,
+                "20261117_01_grading_templates_percent_retained",
+                "Correct C-33 and #57 grading templates; delete junk templates (alpha-4.3)"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to apply grading-template migration: {e}")
+            raise
+
+    def _apply_mix_design_grading_data_migration(self) -> None:
+        """Add columns that store each mix's applied aggregate grading points.
+
+        Until alpha-4.3 a mix kept only the grading template NAME; the points
+        applied in the Grading dialog were lost on save, and Elastic re-read
+        the template by name (falling back to unrelated templates when there
+        was none), so hand-edited gradings never reached the calculation.
+
+        Idempotent: each column is added only if it is missing.
+        """
+        try:
+            self.logger.info("Applying mix-design grading-data migration...")
+            with self.db_service.get_session() as session:
+                existing = {row[1] for row in session.execute(
+                    text("PRAGMA table_info(mix_design)")).fetchall()}
+                for column in ("fine_aggregate_grading_data", "coarse_aggregate_grading_data"):
+                    if column not in existing:
+                        session.execute(text(f"ALTER TABLE mix_design ADD COLUMN {column} JSON"))
+                session.add(Migration(
+                    version="20261117_02_mix_design_grading_data",
+                    name="Store applied aggregate grading points with each mix (alpha-4.3)"))
+                session.commit()
+        except Exception as e:
+            self.logger.error(f"Failed to apply mix-design grading-data migration: {e}")
+            raise
+
+    def _apply_split_shared_psd_migration(self) -> None:
+        """Give every material its own PSD record.
+
+        Duplicating a material used to reuse the original's psd_data_id, so
+        editing the copy's PSD also changed the original's, including the
+        measured PSDs of immutable VCCTL cements (e.g. cement133 and
+        "cement133 (Copy 1)"). For each shared record, the material with the
+        lowest id keeps it and every other material gets a copy.
+
+        Idempotent: once no record is shared, nothing changes.
+        """
+        try:
+            self.logger.info("Applying split-shared-PSD migration...")
+            columns = ("psd_reference, psd_custom_points, psd_mode, psd_d50, psd_n, psd_dmax, "
+                       "psd_median, psd_spread, psd_exponent, diameter_percentile_10, "
+                       "diameter_percentile_50, diameter_percentile_90, created_at, updated_at")
+            with self.db_service.get_session() as session:
+                shared = session.execute(text(
+                    "SELECT psd_data_id FROM material WHERE psd_data_id IS NOT NULL "
+                    "GROUP BY psd_data_id HAVING COUNT(*) > 1")).fetchall()
+                for (psd_id,) in shared:
+                    material_ids = [row[0] for row in session.execute(text(
+                        "SELECT id FROM material WHERE psd_data_id = :psd ORDER BY id"),
+                        {"psd": psd_id}).fetchall()]
+                    for material_id in material_ids[1:]:
+                        session.execute(text(
+                            f"INSERT INTO psd_data ({columns}) SELECT {columns} FROM psd_data WHERE id = :psd"),
+                            {"psd": psd_id})
+                        new_id = session.execute(text("SELECT last_insert_rowid()")).scalar()
+                        session.execute(text("UPDATE material SET psd_data_id = :new WHERE id = :mid"),
+                                        {"new": new_id, "mid": material_id})
+                        self.logger.info(f"Material {material_id}: own PSD record {new_id} (was shared {psd_id})")
+                session.add(Migration(
+                    version="20261117_03_split_shared_psd",
+                    name="Give every material its own PSD record (alpha-4.3)"))
+                session.commit()
+        except Exception as e:
+            self.logger.error(f"Failed to apply split-shared-PSD migration: {e}")
+            raise
+
+    def _apply_vcctl_measured_psd_migration(self) -> None:
+        """Give four VCCTL cements their measured PSDs.
+
+        Every cement migrated from VCCTL had a measured PSD, never a model.
+        ustype1, cement116, cement168 and sacci-425 reached THAMES as a model
+        (Log-Normal or Rosin-Rammler) or with no data at all, so their
+        microstructures used a model or the default PSD. Their measured tables,
+        recovered from VCCTL 9's Derby database, are in vcctl_psd_data.py.
+
+        Each material's own psd_data row is set to Custom with the measured
+        points; model parameters are cleared. Materials not present are
+        skipped. Idempotent: the same values are written each time.
+        """
+        import json
+        from app.database.vcctl_psd_data import VCCTL_MEASURED_PSD
+        try:
+            self.logger.info("Applying VCCTL measured-PSD migration...")
+            with self.db_service.get_session() as session:
+                for material_name, (reference, points) in VCCTL_MEASURED_PSD.items():
+                    session.execute(text(
+                        "UPDATE psd_data SET psd_mode = 'custom', psd_custom_points = :points, "
+                        "psd_reference = :reference, psd_d50 = NULL, psd_n = NULL, psd_dmax = NULL, "
+                        "psd_median = NULL, psd_spread = NULL, psd_exponent = NULL, "
+                        "updated_at = CURRENT_TIMESTAMP "
+                        "WHERE id = (SELECT psd_data_id FROM material WHERE name = :name)"),
+                        {"points": json.dumps(points), "reference": reference, "name": material_name})
+                session.add(Migration(
+                    version="20261117_04_vcctl_measured_psd",
+                    name="Measured VCCTL PSDs for ustype1, cement116, cement168, sacci-425 (alpha-4.3)"))
+                session.commit()
+        except Exception as e:
+            self.logger.error(f"Failed to apply VCCTL measured-PSD migration: {e}")
+            raise
+
     def upgrade_database(self) -> None:
         """Upgrade database to latest version."""
         try:
@@ -550,6 +688,23 @@ class MigrationManager:
                 # Check for orphan-aggregate cleanup migration (S64 follow-up)
                 if "20260827_01_clear_orphan_aggregate_names" not in applied_migrations:
                     self._apply_clear_orphan_aggregate_names_migration()
+
+                # Check for grading-template % retained migration (alpha-4.3)
+                if "20261117_01_grading_templates_percent_retained" not in applied_migrations:
+                    self._apply_grading_templates_percent_retained_migration()
+
+                # Check for mix-design grading-data columns (alpha-4.3)
+                if "20261117_02_mix_design_grading_data" not in applied_migrations:
+                    self._apply_mix_design_grading_data_migration()
+
+                # Split PSD records shared by duplicated materials (alpha-4.3); must
+                # run before the measured-PSD migration, which edits records by material
+                if "20261117_03_split_shared_psd" not in applied_migrations:
+                    self._apply_split_shared_psd_migration()
+
+                # Check for VCCTL measured-PSD migration (alpha-4.3)
+                if "20261117_04_vcctl_measured_psd" not in applied_migrations:
+                    self._apply_vcctl_measured_psd_migration()
 
                 self.logger.info(f"Current version: {version_info['current_version']}")
                 self.logger.info(f"Applied migrations: {version_info['applied_migrations']}")

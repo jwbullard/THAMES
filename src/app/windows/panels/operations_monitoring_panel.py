@@ -1904,8 +1904,10 @@ class OperationsMonitoringPanel(Gtk.Box):
         paste-scale results, this hook reads it and invokes concelas_runner
         to append concrete-scale moduli and strengths to EffectiveModuli.csv.
 
-        Fails silently (logs and returns) so a concelas problem never
-        downgrades an otherwise-successful paste-scale elastic result.
+        A Concelas problem never downgrades an otherwise-successful
+        paste-scale result, but it is no longer silent: the reason concrete
+        moduli are missing goes to Result/ConcelasStatus.txt, which the
+        Effective Moduli viewer shows.
         """
         try:
             output_dir = self._get_operation_directory(operation)
@@ -1931,6 +1933,13 @@ class OperationsMonitoringPanel(Gtk.Box):
 
             from app.services.concelas_service import AggregateSource
             from app.services.concelas_runner import run_and_append
+
+            # Why concrete moduli are incomplete or missing, for the viewer
+            problems = []
+            for agg_type in ("fine", "coarse"):
+                if agg_type in payload and not payload[agg_type].get("grading"):
+                    problems.append(f"the {agg_type} aggregate grading could not be read, "
+                                    f"so the {agg_type} aggregate was left out")
 
             fine = None
             if "fine" in payload and payload["fine"].get("grading"):
@@ -1959,6 +1968,10 @@ class OperationsMonitoringPanel(Gtk.Box):
             result_dir = output_path / "Result"
             elastic_output_dir = result_dir if result_dir.exists() else output_path
 
+            if fine is None and coarse is None:
+                self._write_concelas_status(elastic_output_dir, "Concrete moduli were not computed: " + "; ".join(problems))
+                return
+
             self.logger.info(
                 f"Running concelas post-processing in {elastic_output_dir} "
                 f"(fine={fine is not None}, coarse={coarse is not None})"
@@ -1979,6 +1992,8 @@ class OperationsMonitoringPanel(Gtk.Box):
                 f"E={result.concrete_young_gpa:.3f} GPa, "
                 f"concrete_cube_strength={result.concrete_cube_strength_mpa:.2f} MPa"
             )
+            if problems:
+                self._write_concelas_status(elastic_output_dir, "Concrete moduli are incomplete: " + "; ".join(problems))
 
         except Exception as e:
             self.logger.error(
@@ -1986,7 +2001,21 @@ class OperationsMonitoringPanel(Gtk.Box):
             )
             import traceback
             self.logger.error(traceback.format_exc())
-            # Swallow: paste-scale elastic results are still valid
+            # Paste-scale elastic results are still valid; record why concrete ones are missing
+            try:
+                output_path = Path(self._get_operation_directory(operation) or "")
+                target = output_path / "Result" if (output_path / "Result").exists() else output_path
+                self._write_concelas_status(target, f"Concrete moduli were not computed: Concelas failed ({e})")
+            except Exception:
+                pass
+
+    def _write_concelas_status(self, directory: Path, message: str) -> None:
+        """Record why concrete moduli are missing; the Effective Moduli viewer shows it."""
+        self.logger.warning(message)
+        try:
+            (Path(directory) / "ConcelasStatus.txt").write_text(message + "\n")
+        except Exception as e:
+            self.logger.error(f"Could not write ConcelasStatus.txt: {e}")
 
     def _remap_phase_colors(self, colors_path: Path, old_to_new: Dict[int, int]) -> None:
         """Update phase colors JSON file with remapped IDs."""

@@ -11,7 +11,7 @@ import math
 from typing import List, Tuple, Optional, Dict, Any
 
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, GObject, Gdk, Pango, cairo
+from gi.repository import Gtk, GObject, Gdk, GLib, Pango, cairo
 
 # Import Phase 1 services for template functionality
 from app.services.grading_service import GradingService
@@ -80,10 +80,93 @@ COARSE_AGGREGATE_SIEVES = [
     (6.3, '1/4"'),        # 6.300 - 6.700 mm
     (5.6, 'No. 3-1/2'),   # 5.600 - 6.300 mm
     (4.75, 'No. 4'),      # 4.750 - 5.600 mm
+    (2.36, 'No. 8'),      # 2.360 - 4.750 mm (C 33 coarse sizes go to No. 16)
+    (1.18, 'No. 16'),     # 1.180 - 2.360 mm
 ]
 
 # Default to coarse aggregate sieves for backward compatibility
 STANDARD_SIEVES = COARSE_AGGREGATE_SIEVES
+
+# Template loaded when the editor opens with no grading of its own
+DEFAULT_TEMPLATE_NAMES = {
+    'fine': "ASTM C-33 Fine Aggregate",
+    'coarse': "ASTM #57 Stone",
+}
+
+
+# Gradings are ENTERED as cumulative % passing (the ASTM C136 / C33 convention)
+# and STORED as individual % retained on each sieve, which is what templates,
+# .gdg files, Elastic, Concelas and elastic.c all read.  These two functions are
+# the only place the conversion happens.
+
+def validate_passing(passing_points: List[Tuple[float, float]]) -> Optional[str]:
+    """Return an error message for a % passing table, or None if it is valid.
+
+    Args:
+        passing_points: (sieve size mm, cumulative % passing) for the sieves in
+            use, in any order.
+    """
+    if not passing_points:
+        return "Enter % passing on at least one sieve."
+    points = sorted(passing_points, key=lambda p: p[0], reverse=True)
+    for size, passing in points:
+        if passing < 0.0 or passing > 100.0:
+            return f"% passing on the {size:g} mm sieve must be between 0 and 100."
+    for (size_a, pass_a), (size_b, pass_b) in zip(points, points[1:]):
+        if pass_b > pass_a + 1e-9:
+            return (f"% passing rises from {pass_a:g} on the {size_a:g} mm sieve "
+                    f"to {pass_b:g} on the finer {size_b:g} mm sieve; it cannot "
+                    f"increase on a finer sieve.")
+    return None
+
+
+def passing_to_retained(passing_points: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    """Convert cumulative % passing to individual % retained (sums to 100).
+
+    Material coarser than the top sieve in use (100 minus its % passing) is
+    counted as retained on that sieve, and material passing the finest sieve in
+    use is counted as retained on the finest sieve, since the tables have no pan.
+    The input must already pass validate_passing().
+
+    Returns:
+        (sieve size mm, % retained), largest sieve first.
+    """
+    points = sorted(passing_points, key=lambda p: p[0], reverse=True)
+    retained = []
+    previous = 100.0
+    for size, passing in points:
+        retained.append([size, previous - passing])
+        previous = passing
+    if retained:
+        retained[-1][1] += previous
+    return [(size, value) for size, value in retained]
+
+
+def retained_to_passing(retained_points: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    """Convert individual % retained to cumulative % passing.
+
+    Stored gradings that do not sum to 100 are rescaled first, so the finest
+    sieve always shows 0 % passing.
+
+    Returns:
+        (sieve size mm, % passing), largest sieve first; empty if the total is 0.
+    """
+    points = sorted(retained_points, key=lambda p: p[0], reverse=True)
+    total = sum(value for _, value in points)
+    if total <= 0.0:
+        return []
+    scale = 100.0 / total
+    passing = []
+    cumulative = 0.0
+    for size, value in points:
+        cumulative += value * scale
+        passing.append((size, max(0.0, round(100.0 - cumulative, 9))))
+    return passing
+
+
+def _format_percent(value: float) -> str:
+    """Format a percentage for a sieve entry: up to two decimals, no trailing zeros."""
+    return f"{value:.2f}".rstrip('0').rstrip('.')
 
 
 class GradingCurveWidget(Gtk.Box):
@@ -119,9 +202,11 @@ class GradingCurveWidget(Gtk.Box):
             self.logger.warning(f"Failed to initialize grading service: {e}")
             self.grading_service = None
 
-        # Grading data: list of (size_mm, percent_retained)
+        # Grading data: list of (size_mm, percent_retained) for the sieves in use.
+        # The table shows the same grading as cumulative % passing.
         self.grading_data = []
-        
+        self._entry_error = None  # message when the table cannot be read
+
         # Template state
         self.current_template_name = None
         self.available_templates = []
@@ -130,13 +215,12 @@ class GradingCurveWidget(Gtk.Box):
         # UI state
         self.plot_width = 400
         self.plot_height = 300
-        self.margin = 40
         
         # Setup UI
         self._setup_ui()
-        self._setup_default_data()
         self._load_available_templates()
-        
+        self._load_default_template()
+
         self.logger.debug("Grading curve widget initialized")
     
     def _setup_ui(self) -> None:
@@ -168,31 +252,6 @@ class GradingCurveWidget(Gtk.Box):
         toolbar_box.set_margin_bottom(5)
         toolbar_box.set_margin_left(10)
         toolbar_box.set_margin_right(10)
-        
-        # Preset curves
-        preset_label = Gtk.Label("Preset:")
-        toolbar_box.pack_start(preset_label, False, False, 0)
-        
-        self.preset_combo = Gtk.ComboBoxText()
-        self.preset_combo.append("custom", "Custom")
-        self.preset_combo.append("well_graded", "Well Graded")
-        self.preset_combo.append("gap_graded", "Gap Graded")
-        self.preset_combo.append("uniform", "Uniform")
-        self.preset_combo.set_active(0)
-        self.preset_combo.connect('changed', self._on_preset_changed)
-        toolbar_box.pack_start(self.preset_combo, False, False, 0)
-        
-        # Aggregate type
-        type_label = Gtk.Label("Type:")
-        toolbar_box.pack_start(type_label, False, False, 0)
-        
-        self.type_combo = Gtk.ComboBoxText()
-        self.type_combo.append("combined", "Combined")
-        self.type_combo.append("coarse", "Coarse")
-        self.type_combo.append("fine", "Fine")
-        self.type_combo.set_active(0)
-        self.type_combo.connect('changed', self._on_type_changed)
-        toolbar_box.pack_start(self.type_combo, False, False, 0)
         
         # Template buttons
         template_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
@@ -233,27 +292,7 @@ class GradingCurveWidget(Gtk.Box):
         io_box.pack_start(export_button, False, False, 0)
         
         toolbar_box.pack_end(io_box, False, False, 0)
-        
-        # Add separator
-        separator2 = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        toolbar_box.pack_end(separator2, False, False, 0)
-        
-        # Control buttons
-        button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        button_box.get_style_context().add_class("linked")
-        
-        normalize_button = Gtk.Button(label="Normalize")
-        normalize_button.set_tooltip_text("Ensure curve is monotonic and normalized")
-        normalize_button.connect('clicked', self._on_normalize_clicked)
-        button_box.pack_start(normalize_button, False, False, 0)
-        
-        smooth_button = Gtk.Button(label="Smooth")
-        smooth_button.set_tooltip_text("Smooth the grading curve")
-        smooth_button.connect('clicked', self._on_smooth_clicked)
-        button_box.pack_start(smooth_button, False, False, 0)
-        
-        toolbar_box.pack_end(button_box, False, False, 0)
-        
+
         self.pack_start(toolbar_box, False, False, 0)
     
     def _create_sieve_table(self, parent: Gtk.Frame) -> None:
@@ -268,11 +307,14 @@ class GradingCurveWidget(Gtk.Box):
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         
         size_header = Gtk.Label("Sieve Size")
-        size_header.set_size_request(120, -1)
+        size_header.set_size_request(140, -1)
         size_header.get_style_context().add_class("dim-label")
         header_box.pack_start(size_header, False, False, 0)
         
-        passing_header = Gtk.Label("% Retained")
+        passing_header = Gtk.Label("% Passing")
+        passing_header.set_tooltip_text(
+            "Cumulative % passing each sieve, as in ASTM C136 reports and C33 limits.\n"
+            "Leave a row blank if that sieve is not used.")
         passing_header.set_size_request(80, -1)
         passing_header.get_style_context().add_class("dim-label")
         header_box.pack_start(passing_header, False, False, 0)
@@ -293,7 +335,14 @@ class GradingCurveWidget(Gtk.Box):
         scrolled.add(self.sieve_entries_box)
         
         table_box.pack_start(scrolled, True, True, 0)
-        
+
+        # Status line: the first problem in the table, or how the remainder is handled
+        self.status_label = Gtk.Label()
+        self.status_label.set_line_wrap(True)
+        self.status_label.set_max_width_chars(40)
+        self.status_label.set_xalign(0.0)
+        table_box.pack_start(self.status_label, False, False, 0)
+
         parent.add(table_box)
         
         # Create sieve entry rows
@@ -309,26 +358,27 @@ class GradingCurveWidget(Gtk.Box):
             entry_box.set_margin_bottom(1)
             
             # Size label
-            size_label_widget = Gtk.Label(size_label)
-            size_label_widget.set_size_request(120, -1)
+            size_label_widget = Gtk.Label(f"{size_label} ({size_mm:g} mm)")
+            size_label_widget.set_size_request(140, -1)
             size_label_widget.set_halign(Gtk.Align.START)
             entry_box.pack_start(size_label_widget, False, False, 0)
             
-            # Retained percentage entry
-            passing_spin = Gtk.SpinButton.new_with_range(0.0, 100.0, 0.1)
-            passing_spin.set_digits(1)
-            passing_spin.set_size_request(80, -1)
-            passing_spin.connect('value-changed', self._on_sieve_value_changed)
-            entry_box.pack_start(passing_spin, False, False, 0)
-            
+            # Cumulative % passing entry; blank means the sieve is not used
+            passing_entry = Gtk.Entry()
+            passing_entry.set_width_chars(7)
+            passing_entry.set_alignment(1.0)
+            passing_entry.set_size_request(80, -1)
+            passing_entry.connect('changed', self._on_sieve_value_changed)
+            entry_box.pack_start(passing_entry, False, False, 0)
+
             self.sieve_entries_box.pack_start(entry_box, False, False, 0)
-            
+
             # Store entry data
             entry_data = {
                 'size_mm': size_mm,
                 'size_label': size_label,
                 'box': entry_box,
-                'spin': passing_spin
+                'entry': passing_entry
             }
             self.sieve_entries.append(entry_data)
     
@@ -369,78 +419,42 @@ class GradingCurveWidget(Gtk.Box):
         
         parent.add(plot_box)
     
-    def _setup_default_data(self) -> None:
-        """Setup default grading data."""
-        # Default coarse aggregate grading - differential percent retained (sums to 100%)
-        # Based on typical well-graded coarse aggregate distribution
-        if self.aggregate_type == 'coarse':
-            default_data = [
-                (75.0, 5.0),    # 3" sieve: 5% retained
-                (50.0, 10.0),   # 2" sieve: 10% retained
-                (37.5, 10.0),   # 1-1/2" sieve: 10% retained
-                (25.0, 15.0),   # 1" sieve: 15% retained
-                (19.0, 15.0),   # 3/4" sieve: 15% retained
-                (12.5, 15.0),   # 1/2" sieve: 15% retained
-                (9.5, 12.0),    # 3/8" sieve: 12% retained
-                (4.75, 10.0),   # No. 4 sieve: 10% retained
-                (2.36, 5.0),    # No. 8 sieve: 5% retained
-                (1.18, 2.0),    # No. 16 sieve: 2% retained
-                (0.60, 1.0),    # No. 30 sieve: 1% retained
-                # Total: 100%
-            ]
-        else:
-            # Default fine aggregate grading - differential percent retained (sums to 100%)
-            # Based on typical well-graded fine aggregate distribution
-            default_data = [
-                (4.75, 3.0),    # No. 4 sieve: 3% retained
-                (2.36, 8.0),    # No. 8 sieve: 8% retained
-                (1.18, 12.0),   # No. 16 sieve: 12% retained
-                (0.60, 18.0),   # No. 30 sieve: 18% retained
-                (0.30, 22.0),   # No. 50 sieve: 22% retained
-                (0.15, 20.0),   # No. 100 sieve: 20% retained
-                (0.075, 14.0),  # No. 200 sieve: 14% retained
-                (0.038, 3.0),   # No. 400 sieve: 3% retained
-                # Total: 100%
-            ]
-
-        self.set_grading_data(default_data)
+    def _load_default_template(self) -> None:
+        """Open with the standard template for this aggregate type, if present."""
+        name = DEFAULT_TEMPLATE_NAMES.get(self.aggregate_type)
+        for grading in self.available_templates:
+            if grading.name == name:
+                self.load_from_grading_template(grading)
+                return
+        self._refresh_status()
     
     def set_grading_data(self, data: List[Tuple[float, float]]) -> None:
-        """Set the grading data and update the UI."""
-        self.grading_data = data.copy()
+        """Set the grading from (size_mm, percent_retained) pairs and show it as % passing.
+
+        Each stored sieve goes to the table row with the nearest opening within
+        10 %; rows with no stored sieve are left blank.
+        """
+        self.grading_data = sorted(data, key=lambda p: p[0], reverse=True)
+        passing_by_row = {}
+        for data_size, passing in retained_to_passing(self.grading_data):
+            best_row, best_diff = None, float('inf')
+            for i, entry in enumerate(self.sieve_entries):
+                diff = abs(entry['size_mm'] - data_size)
+                if diff < best_diff and diff <= 0.1 * entry['size_mm']:
+                    best_row, best_diff = i, diff
+            if best_row is None:
+                self.logger.warning(f"No sieve row near {data_size} mm; point not shown")
+            else:
+                passing_by_row[best_row] = passing
         
-        # Update sieve entries with more flexible matching
-        for entry in self.sieve_entries:
-            size_mm = entry['size_mm']
-            spin = entry['spin']
-            
-            # Find matching data point with flexible tolerance
-            percent_retained = 0.0
-            best_match = None
-            best_diff = float('inf')
-
-            for data_size, data_percent in self.grading_data:
-                # Try exact match first
-                if abs(data_size - size_mm) < 0.001:
-                    percent_retained = data_percent
-                    break
-
-                # Track closest match as backup
-                diff = abs(data_size - size_mm)
-                if diff < best_diff and diff < (size_mm * 0.1):  # Within 10% of sieve size
-                    best_diff = diff
-                    best_match = data_percent
-
-            # If no exact match, use closest match if reasonable
-            if percent_retained == 0.0 and best_match is not None:
-                percent_retained = best_match
-
-            # Block signals while setting value to prevent recursive calls
-            spin.handler_block_by_func(self._on_sieve_value_changed)
-            spin.set_value(percent_retained)
-            spin.handler_unblock_by_func(self._on_sieve_value_changed)
+        for i, entry in enumerate(self.sieve_entries):
+            widget = entry['entry']
+            widget.handler_block_by_func(self._on_sieve_value_changed)
+            widget.set_text(_format_percent(passing_by_row[i]) if i in passing_by_row else "")
+            widget.handler_unblock_by_func(self._on_sieve_value_changed)
         
-        # Redraw plot
+        self._entry_error = None
+        self._refresh_status()
         self.drawing_area.queue_draw()
         
         # Try to find and select matching template (only if not already updating)
@@ -448,8 +462,59 @@ class GradingCurveWidget(Gtk.Box):
             self._select_matching_template()
     
     def get_grading_data(self) -> List[Tuple[float, float]]:
-        """Get the current grading data."""
+        """Get the current grading as (size_mm, percent_retained), largest sieve first."""
         return self.grading_data.copy()
+    
+    def get_validation_error(self) -> Optional[str]:
+        """Return why the table cannot be used, or None if it is valid."""
+        if self._entry_error:
+            return self._entry_error
+        return validate_passing(self._read_passing_entries()[0])
+    
+    def run_dialog(self, dialog: Gtk.Dialog) -> int:
+        """Run a dialog holding this widget; keep it open while OK is pressed on an invalid table."""
+        while True:
+            response = dialog.run()
+            if response != Gtk.ResponseType.OK:
+                return response
+            error = self.get_validation_error()
+            if not error:
+                return response
+            self._show_error("Grading not valid", error)
+    
+    def _read_passing_entries(self) -> Tuple[List[Tuple[float, float]], Optional[str]]:
+        """Read the table as (size_mm, % passing) for non-blank rows, plus any parse error."""
+        points = []
+        for entry in self.sieve_entries:
+            text = entry['entry'].get_text().strip()
+            if not text:
+                continue
+            try:
+                value = float(text)
+            except ValueError:
+                return points, f"'{text}' on the {entry['size_label']} sieve is not a number."
+            points.append((entry['size_mm'], value))
+        return points, None
+    
+    def _refresh_status(self) -> None:
+        """Show the first problem in the table, or how the remainder is handled."""
+        points, parse_error = self._read_passing_entries()
+        error = parse_error or validate_passing(points)
+        if error:
+            self.status_label.set_markup(
+                f'<span color="#b00020">{GLib.markup_escape_text(error)}</span>')
+            return
+        # The one assumption worth stating: there is no pan row, so material
+        # passing the finest sieve in use is counted as retained on it
+        low_size, low_passing = min(points, key=lambda p: p[0])
+        note = ""
+        if low_passing > 0.0:
+            label = dict(self.sieves).get(low_size, f"{low_size:g} mm")
+            note = (f"{_format_percent(low_passing)} % of the sample passes the "
+                    f"{label} ({low_size:g} mm) sieve. With no pan row, it is "
+                    f"counted as retained on that sieve.")
+        self.status_label.set_markup(
+            f'<span size="small">{GLib.markup_escape_text(note)}</span>')
     
     def load_from_grading_template(self, grading) -> bool:
         """Load grading data from a Grading model template.
@@ -563,98 +628,24 @@ class GradingCurveWidget(Gtk.Box):
                             break
     
     def _update_grading_from_sieves(self) -> None:
-        """Update grading data from sieve entries."""
-        self.grading_data.clear()
-
-        for entry in self.sieve_entries:
-            size_mm = entry['size_mm']
-            percent_retained = entry['spin'].get_value()
-
-            # Include all sieves for proper template storage and interpolation
-            # This ensures the full sieve set is available for elastic calculations
-            self.grading_data.append((size_mm, percent_retained))
-
-        # Sort by size (largest first)
-        self.grading_data.sort(reverse=True)
-
+        """Update the stored % retained from the % passing table, when the table is valid."""
+        points, parse_error = self._read_passing_entries()
+        self._entry_error = parse_error
+        if not parse_error and not validate_passing(points):
+            self.grading_data = passing_to_retained(points)
+            # An edit that no longer matches the loaded template clears its name,
+            # so Apply never labels a hand-edited grading with a template name
+            if not self._updating_template_selection:
+                self._select_matching_template()
+        self._refresh_status()
+        
         # Emit signal
         self.emit('curve-changed')
     
-    def _on_sieve_value_changed(self, spin) -> None:
-        """Handle sieve value change."""
+    def _on_sieve_value_changed(self, entry) -> None:
+        """Handle a change in a sieve's % passing."""
         self._update_grading_from_sieves()
         self.drawing_area.queue_draw()
-    
-    def _on_preset_changed(self, combo) -> None:
-        """Handle preset selection change."""
-        preset = combo.get_active_id()
-        
-        if preset == "well_graded":
-            data = [
-                (75.0, 100.0), (50.0, 95.0), (25.0, 85.0), (19.0, 75.0),
-                (12.5, 65.0), (9.5, 55.0), (4.75, 40.0), (2.36, 30.0),
-                (1.18, 22.0), (0.60, 16.0), (0.30, 10.0), (0.15, 6.0), (0.075, 3.0)
-            ]
-        elif preset == "gap_graded":
-            data = [
-                (75.0, 100.0), (25.0, 90.0), (19.0, 85.0), (12.5, 80.0),
-                (9.5, 40.0), (4.75, 35.0), (2.36, 30.0), (0.30, 8.0), (0.075, 2.0)
-            ]
-        elif preset == "uniform":
-            data = [
-                (25.0, 100.0), (19.0, 95.0), (12.5, 85.0), (9.5, 60.0),
-                (4.75, 15.0), (2.36, 5.0), (0.075, 0.0)
-            ]
-        else:
-            return  # Custom - don't change
-        
-        self.set_grading_data(data)
-    
-    def _on_type_changed(self, combo) -> None:
-        """Handle aggregate type change."""
-        # This could be used to filter available sieves or apply type-specific presets
-        pass
-    
-    def _on_normalize_clicked(self, button) -> None:
-        """Handle normalize button click."""
-        if not self.grading_data:
-            return
-        
-        # Sort data by size
-        self.grading_data.sort(reverse=True)
-        
-        # Ensure monotonic decrease (larger sizes have higher % passing)
-        for i in range(1, len(self.grading_data)):
-            if self.grading_data[i][1] > self.grading_data[i-1][1]:
-                # Fix by setting to previous value
-                size = self.grading_data[i][0]
-                percent = self.grading_data[i-1][1]
-                self.grading_data[i] = (size, percent)
-        
-        # Update UI
-        self.set_grading_data(self.grading_data)
-        self.emit('curve-changed')
-    
-    def _on_smooth_clicked(self, button) -> None:
-        """Handle smooth button click."""
-        if len(self.grading_data) < 3:
-            return
-        
-        # Simple smoothing: average with neighbors
-        smoothed_data = []
-        for i, (size, percent) in enumerate(self.grading_data):
-            if i == 0 or i == len(self.grading_data) - 1:
-                # Keep endpoints unchanged
-                smoothed_data.append((size, percent))
-            else:
-                # Average with neighbors
-                prev_percent = self.grading_data[i-1][1]
-                next_percent = self.grading_data[i+1][1]
-                smoothed_percent = (prev_percent + percent + next_percent) / 3.0
-                smoothed_data.append((size, smoothed_percent))
-        
-        self.set_grading_data(smoothed_data)
-        self.emit('curve-changed')
     
     def _on_show_grid_toggled(self, check) -> None:
         """Handle show grid toggle."""
@@ -689,10 +680,11 @@ class GradingCurveWidget(Gtk.Box):
             cr.fill()
             
             # Calculate plot area with safety checks
-            plot_x = self.margin
-            plot_y = self.margin
-            plot_width = max(10, width - 2 * self.margin)  # Minimum 10px width
-            plot_height = max(10, height - 2 * self.margin)  # Minimum 10px height
+            # Room on the left and bottom for tick labels and axis titles
+            plot_x = 50
+            plot_y = 15
+            plot_width = max(10, width - plot_x - 20)  # Minimum 10px width
+            plot_height = max(10, height - plot_y - 42)  # Minimum 10px height
             
             # Draw plot border
             cr.set_source_rgb(0.0, 0.0, 0.0)
@@ -708,8 +700,7 @@ class GradingCurveWidget(Gtk.Box):
             self._draw_axes(cr, plot_x, plot_y, plot_width, plot_height)
             
             # Draw grading curve
-            if self.grading_data:
-                self._draw_curve(cr, plot_x, plot_y, plot_width, plot_height)
+            self._draw_curve(cr, plot_x, plot_y, plot_width, plot_height)
             
             return True
             
@@ -717,132 +708,123 @@ class GradingCurveWidget(Gtk.Box):
             self.logger.error(f"Failed to draw grading plot: {e}")
             return False
     
+    def _size_range(self) -> Tuple[float, float]:
+        """Smallest and largest sieve opening in this table (mm)."""
+        sizes = [size for size, _ in self.sieves]
+        return min(sizes), max(sizes)
+    
+    def _size_to_x(self, size, plot_x, plot_width) -> float:
+        """Convert sieve opening to an x coordinate (log or linear, finest at left)."""
+        size_min, size_max = self._size_range()
+        size = max(size_min, min(size_max, size))
+        if self.log_scale_check.get_active():
+            ratio = (math.log10(size) - math.log10(size_min)) / (math.log10(size_max) - math.log10(size_min))
+        else:
+            ratio = size / size_max
+        return plot_x + plot_width * ratio
+    
+    @staticmethod
+    def _percent_to_y(percent, plot_y, plot_height) -> float:
+        """Convert % passing to a y coordinate (100 % at top)."""
+        percent = max(0.0, min(100.0, percent))
+        return plot_y + plot_height * (1.0 - percent / 100.0)
+    
+    def _axis_sizes(self) -> List[float]:
+        """Sieve openings to label on the x axis."""
+        if self.aggregate_type == 'fine':
+            sizes = [0.02, 0.075, 0.15, 0.3, 0.6, 1.18, 2.36, 4.75]
+        else:
+            sizes = [1.18, 2.36, 4.75, 9.5, 12.5, 19.0, 25.0, 37.5, 50.0, 75.0, 100.0]
+        if not self.log_scale_check.get_active():
+            size_max = self._size_range()[1]
+            sizes = [size_max * f for f in (0.0, 0.25, 0.5, 0.75, 1.0)]
+        return sizes
+    
     def _draw_grid(self, cr, plot_x, plot_y, plot_width, plot_height) -> None:
         """Draw grid lines."""
         cr.set_source_rgba(0.8, 0.8, 0.8, 0.5)
         cr.set_line_width(0.5)
         
-        # Vertical grid lines (percentage)
-        for percent in [10, 20, 30, 40, 50, 60, 70, 80, 90]:
-            x = plot_x + (percent / 100.0) * plot_width
+        # Horizontal grid lines (% passing)
+        for percent in range(10, 100, 10):
+            y = self._percent_to_y(percent, plot_y, plot_height)
+            cr.move_to(plot_x, y)
+            cr.line_to(plot_x + plot_width, y)
+            cr.stroke()
+        
+        # Vertical grid lines (sieve sizes)
+        for size in self._axis_sizes():
+            x = self._size_to_x(size, plot_x, plot_width)
             cr.move_to(x, plot_y)
             cr.line_to(x, plot_y + plot_height)
             cr.stroke()
-        
-        # Horizontal grid lines (size)
-        if self.log_scale_check.get_active():
-            # Log scale grid
-            for size in [0.1, 1.0, 10.0]:
-                if size <= 75.0:
-                    y = self._size_to_y(size, plot_y, plot_height)
-                    cr.move_to(plot_x, y)
-                    cr.line_to(plot_x + plot_width, y)
-                    cr.stroke()
-        else:
-            # Linear scale grid
-            for size in [10, 20, 30, 40, 50, 60, 70]:
-                if size <= 75.0:
-                    y = self._size_to_y(size, plot_y, plot_height)
-                    cr.move_to(plot_x, y)
-                    cr.line_to(plot_x + plot_width, y)
-                    cr.stroke()
     
     def _draw_axes(self, cr, plot_x, plot_y, plot_width, plot_height) -> None:
         """Draw axis labels."""
         cr.set_source_rgb(0.0, 0.0, 0.0)
         cr.set_font_size(10)
         
-        # X-axis labels (percentage)
-        for percent in [0, 20, 40, 60, 80, 100]:
-            x = plot_x + (percent / 100.0) * plot_width
-            cr.move_to(x - 8, plot_y + plot_height + 15)
-            cr.show_text(f"{percent}%")
+        # Y-axis labels (% passing)
+        for percent in range(0, 101, 20):
+            y = self._percent_to_y(percent, plot_y, plot_height)
+            text = f"{percent}"
+            extents = cr.text_extents(text)
+            cr.move_to(plot_x - extents.width - 5, y + 3)
+            cr.show_text(text)
         
-        # Y-axis labels (size)
-        sizes = [0.075, 0.3, 1.18, 4.75, 19.0, 75.0] if self.log_scale_check.get_active() else [0, 15, 30, 45, 60, 75]
-        for size in sizes:
-            y = self._size_to_y(size, plot_y, plot_height)
-            cr.move_to(plot_x - 25, y + 3)
-            cr.show_text(f"{size}")
+        # X-axis labels (sieve sizes), skipping any that would overlap
+        last_right = -float('inf')
+        for size in self._axis_sizes():
+            x = self._size_to_x(size, plot_x, plot_width)
+            text = f"{size:g}"
+            extents = cr.text_extents(text)
+            left = x - extents.width / 2
+            if left < last_right + 4:
+                continue
+            cr.move_to(left, plot_y + plot_height + 14)
+            cr.show_text(text)
+            last_right = left + extents.width
         
-        # Add axis titles
+        # Axis titles
         cr.set_font_size(11)
-        # X-axis title
-        cr.move_to(plot_x + plot_width/2 - 60, plot_y + plot_height + 35)
-        cr.show_text("Cumulative Mass % Retained")
-        # Y-axis title (rotated)
+        title = "Sieve Size (mm)"
+        extents = cr.text_extents(title)
+        cr.move_to(plot_x + (plot_width - extents.width) / 2, plot_y + plot_height + 32)
+        cr.show_text(title)
+        title = "% Passing"
+        extents = cr.text_extents(title)
         cr.save()
-        cr.move_to(plot_x - 35, plot_y + plot_height/2)
-        cr.rotate(-math.pi/2)
-        cr.show_text("Sieve Size (mm)")
+        cr.move_to(plot_x - 32, plot_y + (plot_height + extents.width) / 2)
+        cr.rotate(-math.pi / 2)
+        cr.show_text(title)
         cr.restore()
     
     def _draw_curve(self, cr, plot_x, plot_y, plot_width, plot_height) -> None:
-        """Draw the grading curve."""
-        if len(self.grading_data) < 2:
+        """Draw cumulative % passing at the sieves entered in the table.
+
+        Plots the table as typed, even while it is invalid, so a value that
+        rises on a finer sieve shows up as a bump.
+        """
+        points, _ = self._read_passing_entries()
+        if not points:
             return
-
-        # Convert differential percent retained to cumulative percent retained for plotting
-        # Sort by size (largest first)
-        sorted_data = sorted(self.grading_data, key=lambda x: x[0], reverse=True)
-
-        # Convert to cumulative percent retained and clamp to 0-100%
-        cumulative_data = []
-        cumulative_percent = 0.0
-        for size, differential_percent in sorted_data:
-            cumulative_percent += differential_percent
-            # Clamp to 0-100% range to keep curve within plot bounds
-            clamped_percent = max(0.0, min(100.0, cumulative_percent))
-            cumulative_data.append((size, clamped_percent))
-
+        points.sort(key=lambda p: p[0])
+        coords = [(self._size_to_x(size, plot_x, plot_width),
+                   self._percent_to_y(passing, plot_y, plot_height))
+                  for size, passing in points]
+        
         cr.set_source_rgb(0.2, 0.4, 0.8)
         cr.set_line_width(2.0)
-
-        # Convert first point
-        first_size, first_percent = cumulative_data[0]
-        x = plot_x + (first_percent / 100.0) * plot_width
-        y = self._size_to_y(first_size, plot_y, plot_height)
-        cr.move_to(x, y)
-
-        # Draw line to each subsequent point
-        for size, percent in cumulative_data[1:]:
-            x = plot_x + (percent / 100.0) * plot_width
-            y = self._size_to_y(size, plot_y, plot_height)
+        cr.move_to(*coords[0])
+        for x, y in coords[1:]:
             cr.line_to(x, y)
-
         cr.stroke()
-
+        
         # Draw data points
         cr.set_source_rgb(0.8, 0.2, 0.2)
-        for size, percent in cumulative_data:
-            x = plot_x + (percent / 100.0) * plot_width
-            y = self._size_to_y(size, plot_y, plot_height)
+        for x, y in coords:
             cr.arc(x, y, 3.0, 0, 2 * math.pi)
             cr.fill()
-    
-    def _size_to_y(self, size, plot_y, plot_height) -> float:
-        """Convert particle size to Y coordinate."""
-        if self.log_scale_check.get_active():
-            # Log scale (0.075 to 75.0 mm)
-            if size <= 0:
-                size = 0.075
-            # Clamp size to valid range
-            size = max(0.075, min(75.0, size))
-            log_size = math.log10(size)
-            log_min = math.log10(0.075)
-            log_max = math.log10(75.0)
-            ratio = (log_size - log_min) / (log_max - log_min)
-        else:
-            # Linear scale
-            # Clamp size to valid range
-            size = max(0.0, min(75.0, size))
-            ratio = size / 75.0
-
-        # Clamp ratio to 0-1 range to keep within plot bounds
-        ratio = max(0.0, min(1.0, ratio))
-
-        # Invert Y axis (larger sizes at top)
-        return plot_y + plot_height * (1.0 - ratio)
     
     def get_gradation_parameters(self) -> Dict[str, float]:
         """Calculate gradation parameters from the curve."""
@@ -1148,27 +1130,24 @@ class GradingCurveWidget(Gtk.Box):
         # Set flag to prevent recursive calls
         self._updating_template_selection = True
         
-        # Convert current data to comparable format
-        current_points = sorted(self.grading_data, key=lambda x: x[0], reverse=True)
+        # Compare only sieves that carry material: older templates store every
+        # sieve with zeros, while the editor keeps only the sieves in use.
+        def material_by_sieve(points):
+            return {round(size, 3): value for size, value in points if value > 1e-9}
+        
+        current = material_by_sieve(self.grading_data)
         
         for template in self.available_templates:
             sieve_data = template.get_sieve_data()
             if not sieve_data:
                 continue
                 
-            # Convert template data to same format
-            template_points = sorted(
-                [(point['sieve_size'], point['percent_retained']) for point in sieve_data],
-                key=lambda x: x[0], reverse=True
-            )
+            stored = material_by_sieve(
+                [(point['sieve_size'], point['percent_retained']) for point in sieve_data])
             
-            # Check if they match (with small tolerance for floating point)
-            if len(current_points) == len(template_points):
-                match = True
-                for (curr_size, curr_percent), (tmpl_size, tmpl_percent) in zip(current_points, template_points):
-                    if abs(curr_size - tmpl_size) > 0.001 or abs(curr_percent - tmpl_percent) > 0.1:
-                        match = False
-                        break
+            # Match within 0.1 % on every sieve (entries are shown to two decimals)
+            if stored.keys() == current.keys():
+                match = all(abs(current[size] - stored[size]) <= 0.1 for size in current)
                 
                 if match:
                     # Found matching template - select it in the dropdown
@@ -1383,9 +1362,6 @@ class GradingCurveWidget(Gtk.Box):
                 self.set_grading_data(grading_points)
                 self.current_template_name = template_name
                 
-                # Update UI
-                self.preset_combo.set_active_id("custom")
-                
                 # Emit change signal
                 self.emit('curve-changed')
                 
@@ -1408,8 +1384,9 @@ class GradingCurveWidget(Gtk.Box):
             self._show_error("Service Unavailable", "Grading service not available")
             return
         
-        if not self.grading_data or len(self.grading_data) < 2:
-            self._show_error("Insufficient Data", "At least 2 sieve points required to save template")
+        error = self.get_validation_error()
+        if error:
+            self._show_error("Grading not valid", error)
             return
         
         # Show save dialog
@@ -1647,17 +1624,18 @@ class GradingCurveWidget(Gtk.Box):
         filter_all.add_pattern("*")
         dialog.add_filter(filter_all)
         
+        # Close the chooser before writing or showing any message: a message
+        # opened while the chooser is up sits hidden behind it and blocks input
         response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
+        filename = dialog.get_filename()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and filename:
             try:
                 self._import_grading_file(filename)
                 
             except Exception as e:
                 self.logger.error(f"Failed to import grading file: {e}")
                 self._show_error("Import Failed", str(e))
-        
-        dialog.destroy()
     
     def _import_grading_file(self, filename: str) -> None:
         """Import grading data from file."""
@@ -1684,9 +1662,6 @@ class GradingCurveWidget(Gtk.Box):
             # Load the imported data
             self.set_grading_data(grading_points)
             self.current_template_name = None  # Clear template name since it's imported
-            
-            # Update UI
-            self.preset_combo.set_active_id("custom")
             
             # Emit change signal
             self.emit('curve-changed')
@@ -1786,17 +1761,18 @@ class GradingCurveWidget(Gtk.Box):
         
         dialog.set_current_name(default_name)
         
+        # Close the chooser before writing or showing any message: a message
+        # opened while the chooser is up sits hidden behind it and blocks input
         response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
+        filename = dialog.get_filename()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and filename:
             try:
                 self._export_grading_file(filename)
                 
             except Exception as e:
                 self.logger.error(f"Failed to export grading file: {e}")
                 self._show_error("Export Failed", str(e))
-        
-        dialog.destroy()
     
     def _export_grading_file(self, filename: str) -> None:
         """Export grading data to file."""
@@ -1816,7 +1792,7 @@ class GradingCurveWidget(Gtk.Box):
             
             created_path = grading_file_manager.write_gdg_file(
                 file_dir, file_base, sieve_data, 
-                self.type_combo.get_active_id() if hasattr(self, 'type_combo') else None
+                self.aggregate_type
             )
             
         elif file_ext == '.csv':
@@ -1835,7 +1811,7 @@ class GradingCurveWidget(Gtk.Box):
             
             created_path = grading_file_manager.write_gdg_file(
                 file_dir, file_base, sieve_data,
-                self.type_combo.get_active_id() if hasattr(self, 'type_combo') else None
+                self.aggregate_type
             )
         
         # Show success

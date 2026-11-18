@@ -386,6 +386,10 @@ class ElasticModuliPanel(Gtk.Box):
         self.has_itz_check.set_tooltip_text(
             "Include ITZ calculations for aggregate interfaces"
         )
+        # Hidden: in this version the ITZ is always included when the mix has
+        # aggregate; the checkbox only carries that state
+        self.has_itz_check.set_no_show_all(True)
+        self.has_itz_check.hide()
         grid.attach(self.has_itz_check, 0, row, 3, 1)
 
         main_box.pack_start(grid, False, False, 0)
@@ -402,6 +406,12 @@ class ElasticModuliPanel(Gtk.Box):
         main_box.set_margin_bottom(15)
         main_box.set_margin_left(15)
         main_box.set_margin_right(15)
+
+        info_label = Gtk.Label()
+        info_label.set_markup('<span size="small" style="italic">These values come from the mix design and are shown for information. To change them, change the mix and rerun its hydration.</span>')
+        info_label.set_line_wrap(True)
+        info_label.set_xalign(0.0)
+        main_box.pack_start(info_label, False, False, 0)
 
         # Fine aggregate section
         fine_frame = Gtk.Frame(label="Fine Aggregate")
@@ -434,12 +444,10 @@ class ElasticModuliPanel(Gtk.Box):
 
         # Enable checkbox
         if agg_type == "fine":
-            self.fine_agg_check = Gtk.CheckButton(f"Include {agg_type} aggregate")
-            self.fine_agg_check.connect("toggled", self._on_fine_aggregate_toggled)
+            self.fine_agg_check = Gtk.CheckButton(f"{agg_type.title()} aggregate in this mix")
             check_widget = self.fine_agg_check
         else:
-            self.coarse_agg_check = Gtk.CheckButton(f"Include {agg_type} aggregate")
-            self.coarse_agg_check.connect("toggled", self._on_coarse_aggregate_toggled)
+            self.coarse_agg_check = Gtk.CheckButton(f"{agg_type.title()} aggregate in this mix")
             check_widget = self.coarse_agg_check
 
         grid.attach(check_widget, 0, row, 3, 1)
@@ -508,7 +516,7 @@ class ElasticModuliPanel(Gtk.Box):
             # Status label for fine aggregate
             self.fine_grading_status_label = Gtk.Label()
             self.fine_grading_status_label.set_markup(
-                '<span size="small" style="italic">Auto-populated from database template</span>'
+                '<span size="small" style="italic">From the mix design</span>'
             )
             self.fine_grading_status_label.set_halign(Gtk.Align.START)
             status_label = self.fine_grading_status_label
@@ -523,15 +531,11 @@ class ElasticModuliPanel(Gtk.Box):
             # Status label for coarse aggregate
             self.coarse_grading_status_label = Gtk.Label()
             self.coarse_grading_status_label.set_markup(
-                '<span size="small" style="italic">Auto-populated from database template</span>'
+                '<span size="small" style="italic">From the mix design</span>'
             )
             self.coarse_grading_status_label.set_halign(Gtk.Align.START)
             status_label = self.coarse_grading_status_label
 
-        browse_button = Gtk.Button("Browse...")
-        browse_button.connect("clicked", self._on_browse_grading_file, agg_type)
-        browse_button.set_tooltip_text("Optional: Override with custom grading file")
-        grading_hbox.pack_start(browse_button, False, False, 0)
 
         grading_vbox.pack_start(grading_hbox, False, False, 0)
         grading_vbox.pack_start(status_label, False, False, 0)
@@ -588,8 +592,10 @@ class ElasticModuliPanel(Gtk.Box):
 
         grid.attach(spin_widget, 1, row, 2, 1)
 
-        # Initially disable all controls except checkbox
-        self._set_aggregate_controls_sensitive(agg_type, False)
+        # Read-only: these values come from the mix design and are shown for
+        # information; Elastic always uses the mix's values
+        for widget in (check_widget, spin_widget, entry_widget) + tuple(self._aggregate_value_widgets(agg_type)):
+            widget.set_sensitive(False)
 
         return grid
 
@@ -617,6 +623,7 @@ class ElasticModuliPanel(Gtk.Box):
         self.air_volume_spin.set_tooltip_text(
             "Volume fraction of air/porosity (0.0-0.5)"
         )
+        self.air_volume_spin.set_sensitive(False)  # from the mix design
         grid.attach(self.air_volume_spin, 1, 0, 1, 1)
 
         frame.add(grid)
@@ -628,13 +635,6 @@ class ElasticModuliPanel(Gtk.Box):
         button_box.set_halign(Gtk.Align.CENTER)
         button_box.set_margin_top(20)
 
-        # Generate Input File button (Phase 2: Updated with microstructure selection)
-        generate_button = create_button_with_icon("Generate Input File", "save")
-        generate_button.connect("clicked", self._on_generate_input_file)
-        generate_button.set_tooltip_text(
-            "Generate elastic_input.txt file with lineage data"
-        )
-        button_box.pack_start(generate_button, False, False, 0)
 
         # Start Calculation button
         start_button = create_button_with_icon("Start Calculation", "play")
@@ -1055,7 +1055,7 @@ class ElasticModuliPanel(Gtk.Box):
             # Clean up time step: replace spaces with nothing, keep alphanumeric
             time_step = time_step.replace(" ", "")
 
-        operation_name = f"Elastic-{hydration_name}-{time_step}"
+        operation_name = self._unique_elastic_name(hydration_name, f"Elastic-{hydration_name}-{time_step}")
         self.operation_name_entry.set_text(operation_name)
 
         # Set image filename using selected microstructure path (relative)
@@ -1074,23 +1074,6 @@ class ElasticModuliPanel(Gtk.Box):
             pimg_absolute = Path(selected_microstructure.pimg_path)
             if pimg_absolute.exists():
                 self.pimg_file_entry.set_text(str(pimg_absolute.resolve()))
-
-        # Re-resolve lineage with output directory for accurate grading file paths (VCCTL mode only)
-        if self.resolved_lineage and hasattr(self, "_current_hydration_id"):
-            try:
-                relative_output_dir = str(operations_dir / hydration_name / operation_name)
-                self.resolved_lineage = (
-                    self.elastic_moduli_service.lineage_service.resolve_lineage_chain(
-                        self._current_hydration_id, relative_output_dir
-                    )
-                )
-                self.logger.info(
-                    f"Re-resolved lineage with output directory: {relative_output_dir}"
-                )
-            except Exception as e:
-                self.logger.warning(
-                    f"Error re-resolving lineage with output directory: {e}"
-                )
 
         # Auto-populate from resolved lineage data (if available)
         if self.resolved_lineage:
@@ -1136,9 +1119,7 @@ class ElasticModuliPanel(Gtk.Box):
 
             # Set fine aggregate properties
             if fine_has_real_aggregate:
-                self.fine_agg_check.set_sensitive(True)
                 self.fine_agg_check.set_active(True)
-                self._set_aggregate_controls_sensitive("fine", True)
                 self.fine_volume_spin.set_value(fine_agg.volume_fraction)
                 self.fine_bulk_spin.set_value(fine_agg.bulk_modulus)
                 self.fine_shear_spin.set_value(fine_agg.shear_modulus)
@@ -1160,7 +1141,7 @@ class ElasticModuliPanel(Gtk.Box):
                         )
                     else:
                         self.fine_grading_status_label.set_markup(
-                            '<span size="small" style="italic" color="green">✓ Auto-populated from database template</span>'
+                            '<span size="small" style="italic" color="green">✓ Grading applied in Mix Design</span>'
                         )
                 else:
                     self.fine_grading_status_label.set_markup(
@@ -1177,7 +1158,6 @@ class ElasticModuliPanel(Gtk.Box):
                 # checkbox so the user cannot opt into concelas after the fact.
                 self.fine_agg_check.set_active(False)
                 self.fine_agg_check.set_sensitive(False)
-                self._set_aggregate_controls_sensitive("fine", False)
                 self._reset_aggregate_inputs("fine")
                 if fine_agg:
                     self.fine_agg_source_label.set_markup(
@@ -1194,9 +1174,7 @@ class ElasticModuliPanel(Gtk.Box):
 
             # Set coarse aggregate properties
             if coarse_has_real_aggregate:
-                self.coarse_agg_check.set_sensitive(True)
                 self.coarse_agg_check.set_active(True)
-                self._set_aggregate_controls_sensitive("coarse", True)
                 self.coarse_volume_spin.set_value(coarse_agg.volume_fraction)
                 self.coarse_bulk_spin.set_value(coarse_agg.bulk_modulus)
                 self.coarse_shear_spin.set_value(coarse_agg.shear_modulus)
@@ -1218,7 +1196,7 @@ class ElasticModuliPanel(Gtk.Box):
                         )
                     else:
                         self.coarse_grading_status_label.set_markup(
-                            '<span size="small" style="italic" color="green">✓ Auto-populated from database template</span>'
+                            '<span size="small" style="italic" color="green">✓ Grading applied in Mix Design</span>'
                         )
                 else:
                     self.coarse_grading_status_label.set_markup(
@@ -1235,7 +1213,6 @@ class ElasticModuliPanel(Gtk.Box):
                 # checkbox so the user cannot opt into concelas after the fact.
                 self.coarse_agg_check.set_active(False)
                 self.coarse_agg_check.set_sensitive(False)
-                self._set_aggregate_controls_sensitive("coarse", False)
                 self._reset_aggregate_inputs("coarse")
                 if coarse_agg:
                     self.coarse_agg_source_label.set_markup(
@@ -1281,7 +1258,6 @@ class ElasticModuliPanel(Gtk.Box):
         # Update fine aggregate properties
         if operation.has_fine_aggregate:
             self.fine_agg_check.set_active(True)
-            self._set_aggregate_controls_sensitive("fine", True)
 
             if operation.fine_aggregate_volume_fraction is not None:
                 self.fine_volume_spin.set_value(
@@ -1306,13 +1282,11 @@ class ElasticModuliPanel(Gtk.Box):
             )
         else:
             self.fine_agg_check.set_active(False)
-            self._set_aggregate_controls_sensitive("fine", False)
             self._reset_aggregate_inputs("fine")
 
         # Update coarse aggregate properties
         if operation.has_coarse_aggregate:
             self.coarse_agg_check.set_active(True)
-            self._set_aggregate_controls_sensitive("coarse", True)
 
             if operation.coarse_aggregate_volume_fraction is not None:
                 self.coarse_volume_spin.set_value(
@@ -1339,7 +1313,6 @@ class ElasticModuliPanel(Gtk.Box):
             )
         else:
             self.coarse_agg_check.set_active(False)
-            self._set_aggregate_controls_sensitive("coarse", False)
             self._reset_aggregate_inputs("coarse")
 
         # Show a user-friendly message about what was auto-populated
@@ -1396,34 +1369,27 @@ class ElasticModuliPanel(Gtk.Box):
         if grading_status_label:
             grading_status_label.set_markup('<span size="small" style="italic"></span>')
 
-    def _set_aggregate_controls_sensitive(self, agg_type: str, sensitive: bool) -> None:
-        """Enable/disable aggregate controls based on checkbox state."""
+    def _unique_elastic_name(self, hydration_name: str, name: str) -> str:
+        """First free Elastic operation name: name, name-01, name-02, ...
+
+        Elastic runs live in operations/<hydration>/<name>; a name is also taken
+        if an Operations-list or Elastic record uses it.
+        """
+        from app.utils.operation_names import operation_name_checker, unique_name
+
+        operations_dir = self.service_container.directories_service.get_operations_path()
+        is_taken = operation_name_checker(
+            self.service_container, operations_dir / hydration_name,
+            extra_checks=[lambda n: self.elastic_moduli_service.get_operation_by_name(n) is not None])
+        return unique_name(name, is_taken)
+
+    def _aggregate_value_widgets(self, agg_type: str) -> list:
+        """The read-only value fields shown for one aggregate."""
         if agg_type == "fine":
-            controls = [
-                self.fine_volume_spin,
-                self.fine_grading_entry,
-                self.fine_bulk_spin,
-                self.fine_shear_spin,
-            ]
-        else:
-            controls = [
-                self.coarse_volume_spin,
-                self.coarse_grading_entry,
-                self.coarse_bulk_spin,
-                self.coarse_shear_spin,
-            ]
-
-        for control in controls:
-            if control:
-                control.set_sensitive(sensitive)
-
-    def _on_fine_aggregate_toggled(self, checkbox: Gtk.CheckButton) -> None:
-        """Handle fine aggregate checkbox toggle."""
-        self._set_aggregate_controls_sensitive("fine", checkbox.get_active())
-
-    def _on_coarse_aggregate_toggled(self, checkbox: Gtk.CheckButton) -> None:
-        """Handle coarse aggregate checkbox toggle."""
-        self._set_aggregate_controls_sensitive("coarse", checkbox.get_active())
+            return [self.fine_volume_spin, self.fine_grading_entry,
+                    self.fine_bulk_spin, self.fine_shear_spin]
+        return [self.coarse_volume_spin, self.coarse_grading_entry,
+                self.coarse_bulk_spin, self.coarse_shear_spin]
 
     def _on_browse_output_dir(self, button: Gtk.Button) -> None:
         """Handle output directory browse button."""
@@ -1471,66 +1437,6 @@ class ElasticModuliPanel(Gtk.Box):
 
         dialog.destroy()
 
-    def _on_browse_grading_file(self, button: Gtk.Button, agg_type: str) -> None:
-        """Handle grading file browse button."""
-        dialog = Gtk.FileChooserDialog(
-            title=f"Select {agg_type.title()} Aggregate Grading File",
-            parent=self.main_window,
-            action=Gtk.FileChooserAction.OPEN,
-        )
-        dialog.add_buttons(
-            Gtk.STOCK_CANCEL,
-            Gtk.ResponseType.CANCEL,
-            Gtk.STOCK_OPEN,
-            Gtk.ResponseType.OK,
-        )
-
-        response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
-            if agg_type == "fine":
-                self.fine_grading_entry.set_text(filename)
-            else:
-                self.coarse_grading_entry.set_text(filename)
-
-        dialog.destroy()
-
-    def _on_generate_input_file(self, button: Gtk.Button) -> None:
-        """Handle generate input file button (Phase 2: Lineage-aware)."""
-        try:
-            # Validate selections
-            if not self._validate_selections():
-                return
-
-            # Get selected microstructure
-            selected_microstructure = self._get_selected_microstructure()
-            if not selected_microstructure:
-                self._show_error_dialog("Please select a hydrated microstructure")
-                return
-
-            # Create operation from form
-            operation = self._create_operation_from_form()
-            if not operation:
-                return
-
-            # Generate input file using Phase 1 services
-            output_dir = self.output_dir_entry.get_text().strip()
-            if not output_dir:
-                self._show_error_dialog("Output directory is required")
-                return
-
-            input_file_path = self.elastic_moduli_service.generate_elastic_input_file(
-                operation, selected_microstructure, output_dir
-            )
-
-            self._show_info_dialog(
-                f"Input file generated successfully:\n{input_file_path}"
-            )
-
-        except Exception as e:
-            self.logger.error(f"Error generating input file: {e}")
-            self._show_error_dialog(f"Failed to generate input file:\n{str(e)}")
-
     def _on_start_calculation(self, button: Gtk.Button) -> None:
         """Handle start calculation button (Phase 3: Database operation with lineage tracking)."""
         try:
@@ -1552,6 +1458,15 @@ class ElasticModuliPanel(Gtk.Box):
             if not hydration_name:
                 self._show_error_dialog("Please select a hydration operation")
                 return
+
+            # A reused name would overwrite an earlier run; take the next free one
+            unique = self._unique_elastic_name(hydration_name, operation_name)
+            if unique != operation_name:
+                self.logger.info(f"Operation name '{operation_name}' is taken; using '{unique}'")
+                self.main_window.update_status(
+                    f"'{operation_name}' already exists; this run is '{unique}'", "info", 5)
+                operation_name = unique
+                self.operation_name_entry.set_text(operation_name)
 
             # Look up hydration operation ID in database
             from app.models.operation import Operation
@@ -1650,8 +1565,6 @@ class ElasticModuliPanel(Gtk.Box):
         self.coarse_shear_spin.set_value(44.0)
 
         # Disable aggregate controls
-        self._set_aggregate_controls_sensitive("fine", False)
-        self._set_aggregate_controls_sensitive("coarse", False)
 
         # Phase 2: Reset lineage data
         self.resolved_lineage = None
@@ -1870,6 +1783,12 @@ class ElasticModuliPanel(Gtk.Box):
                 shutil.copy2(src, dst)
                 self.logger.info(f"Copied {gems_file} to output directory")
 
+        # Write the aggregate grading files into this run's folder (the lineage
+        # resolved at selection time only names them; nothing is written until
+        # the run's folder exists, so its name stays free until Start)
+        self.resolved_lineage = self.elastic_moduli_service.lineage_service.resolve_lineage_chain(
+            hydration_id, str(output_dir))
+
         # Write concelas post-processing inputs if ITZ is enabled.
         # The operations monitoring panel picks this file up after the elastic
         # subprocess completes and invokes concelas_runner on the output dir.
@@ -1935,6 +1854,29 @@ class ElasticModuliPanel(Gtk.Box):
         )
         return operation_id
 
+    def _ensure_cement_psd(self, hydration_dir: Path) -> Path:
+        """Return the hydration folder's cement_psd.csv, copying it from the mix folder if needed.
+
+        Hydration runs from alpha-4.3 on copy the file when they start; older
+        runs only have it in the mix (microstructure) folder named by the lineage.
+        """
+        dest = hydration_dir / "cement_psd.csv"
+        if dest.exists():
+            return dest
+        lineage = getattr(self, "resolved_lineage", None) or {}
+        microstructure_op = lineage.get("microstructure_operation")
+        name = getattr(microstructure_op, "name", None)
+        source = hydration_dir.parent / name / "cement_psd.csv" if name else None
+        if source is not None and source.exists():
+            import shutil
+            shutil.copy2(source, dest)
+            self.logger.info(f"Copied cement PSD from mix folder {source} to {dest}")
+        else:
+            self.logger.warning(
+                f"No cement_psd.csv in {hydration_dir} or its mix folder; "
+                f"Concelas will use the default ITZ width")
+        return dest
+
     def _write_concelas_inputs_json(
         self,
         output_dir: Path,
@@ -1954,7 +1896,7 @@ class ElasticModuliPanel(Gtk.Box):
 
         payload: Dict[str, Any] = {
             "air_volume_fraction": float(elastic_operation.air_volume_fraction or 0.0),
-            "cement_psd_path": str(hydration_dir / "cement_psd.csv"),
+            "cement_psd_path": str(self._ensure_cement_psd(hydration_dir)),
         }
 
         def _grading_points(grading_path: Optional[str]) -> List[List[float]]:
@@ -2133,92 +2075,6 @@ class ElasticModuliPanel(Gtk.Box):
 
         except Exception as e:
             self.logger.error(f"Error updating elastic operation metadata: {e}")
-
-    def _create_operation_from_form(self) -> Optional[ElasticModuliOperation]:
-        """Create ElasticModuliOperation from form data."""
-        # Validate required fields
-        errors = []
-
-        hydration_id = self.hydration_combo.get_active_id()
-        if not hydration_id or hydration_id == "":
-            errors.append("Please select a hydration operation")
-
-        operation_name = self.operation_name_entry.get_text().strip()
-        if not operation_name:
-            errors.append(
-                "Operation name not generated - please select a microstructure"
-            )
-
-        image_filename = self.image_filename_entry.get_text().strip()
-        if not image_filename:
-            errors.append("Image filename is required")
-
-        output_directory = self.output_dir_entry.get_text().strip()
-        if not output_directory:
-            errors.append("Output directory is required")
-
-        if errors:
-            self._show_error_dialog(
-                "Please fix the following errors:\n\n"
-                + "\n".join(f"• {error}" for error in errors)
-            )
-            return None
-
-        # Create operation object
-        operation = ElasticModuliOperation(
-            name=operation_name,
-            hydration_operation_id=int(hydration_id),
-            image_filename=image_filename,
-            early_age_connection=1,
-            has_itz=self.has_itz_check.get_active(),
-            output_directory=output_directory,
-            pimg_file_path=self.pimg_file_entry.get_text().strip() or None,
-            # Fine aggregate
-            has_fine_aggregate=self.fine_agg_check.get_active(),
-            fine_aggregate_volume_fraction=self.fine_volume_spin.get_value()
-            if self.fine_agg_check.get_active()
-            else None,
-            fine_aggregate_grading_path=self.fine_grading_entry.get_text().strip()
-            or None
-            if self.fine_agg_check.get_active()
-            else None,
-            fine_aggregate_bulk_modulus=self.fine_bulk_spin.get_value()
-            if self.fine_agg_check.get_active()
-            else None,
-            fine_aggregate_shear_modulus=self.fine_shear_spin.get_value()
-            if self.fine_agg_check.get_active()
-            else None,
-            # Coarse aggregate
-            has_coarse_aggregate=self.coarse_agg_check.get_active(),
-            coarse_aggregate_volume_fraction=self.coarse_volume_spin.get_value()
-            if self.coarse_agg_check.get_active()
-            else None,
-            coarse_aggregate_grading_path=self.coarse_grading_entry.get_text().strip()
-            or None
-            if self.coarse_agg_check.get_active()
-            else None,
-            coarse_aggregate_bulk_modulus=self.coarse_bulk_spin.get_value()
-            if self.coarse_agg_check.get_active()
-            else None,
-            coarse_aggregate_shear_modulus=self.coarse_shear_spin.get_value()
-            if self.coarse_agg_check.get_active()
-            else None,
-            # Air content
-            air_volume_fraction=self.air_volume_spin.get_value(),
-        )
-
-        # Validate the operation
-        validation_errors = self.elastic_moduli_service.validate_operation_parameters(
-            operation
-        )
-        if validation_errors:
-            self._show_error_dialog(
-                "Validation errors:\n\n"
-                + "\n".join(f"• {error}" for error in validation_errors)
-            )
-            return None
-
-        return operation
 
     def _show_error_dialog(self, message: str) -> None:
         """Show error dialog."""

@@ -239,9 +239,14 @@ class ITZAnalysisViewer(Gtk.Dialog):
 
         try:
             with open(csv_file, 'r') as f:
-                # Read first line to detect format
-                first_line = f.readline().strip()
-                f.seek(0)  # Reset to beginning
+                # Detect the format from the first data line: the backend's
+                # '# thames_backend=...' provenance line comes first since S58
+                first_line = ""
+                for line in f:
+                    if line.strip() and not line.startswith('#'):
+                        first_line = line.strip()
+                        break
+                f.seek(0)  # Reset to beginning (the parsers skip '#' lines)
 
                 # Check if this is THAMES 3-column format (Property,Value,Units)
                 if first_line.lower().startswith('property,'):

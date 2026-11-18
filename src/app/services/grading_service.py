@@ -553,7 +553,7 @@ class GradingService(BaseService[Grading, GradingCreate, GradingUpdate]):
         Args:
             name: Unique name for the grading
             grading_type: "FINE" or "COARSE"
-            sieve_data: List of {'sieve_size': float, 'percent_passing': float}
+            sieve_data: List of {'sieve_size': float, 'percent_retained': float}
             description: Optional description
             aggregate_id: Optional reference to aggregate material
             is_standard: Whether this is a system/standard grading
@@ -680,83 +680,3 @@ class GradingService(BaseService[Grading, GradingCreate, GradingUpdate]):
         except Exception as e:
             self.logger.error(f"Failed to duplicate grading: {e}")
             raise ServiceError(f"Failed to duplicate grading: {e}")
-    
-    def create_standard_gradings(self) -> List[Grading]:
-        """
-        Create standard/system grading curves.
-        
-        Returns:
-            List of created standard gradings
-        """
-        standard_gradings = []
-        
-        try:
-            # ASTM C-33 Fine Aggregate Limits
-            astm_fine_data = [
-                {'sieve_size': 4.75, 'percent_passing': 95.0},   # No. 4
-                {'sieve_size': 2.36, 'percent_passing': 80.0},   # No. 8  
-                {'sieve_size': 1.18, 'percent_passing': 50.0},   # No. 16
-                {'sieve_size': 0.60, 'percent_passing': 25.0},   # No. 30
-                {'sieve_size': 0.30, 'percent_passing': 10.0},   # No. 50
-                {'sieve_size': 0.15, 'percent_passing': 2.0},    # No. 100
-            ]
-            
-            try:
-                astm_fine = self.save_grading_with_sieve_data(
-                    name="ASTM C-33 Fine Aggregate",
-                    grading_type="FINE",
-                    sieve_data=astm_fine_data,
-                    description="ASTM C-33 standard fine aggregate grading limits (average)",
-                    is_standard=True
-                )
-                standard_gradings.append(astm_fine)
-            except AlreadyExistsError:
-                pass  # Already exists
-            
-            # ASTM #57 Coarse Aggregate
-            astm_57_data = [
-                {'sieve_size': 25.0, 'percent_passing': 100.0},  # 1 inch
-                {'sieve_size': 19.0, 'percent_passing': 95.0},   # 3/4 inch
-                {'sieve_size': 12.5, 'percent_passing': 25.0},   # 1/2 inch
-                {'sieve_size': 9.5, 'percent_passing': 10.0},    # 3/8 inch
-                {'sieve_size': 4.75, 'percent_passing': 5.0},    # No. 4
-            ]
-            
-            try:
-                astm_57 = self.save_grading_with_sieve_data(
-                    name="ASTM #57 Stone",
-                    grading_type="COARSE",
-                    sieve_data=astm_57_data,
-                    description="ASTM #57 coarse aggregate (3/4 inch to #4)",
-                    is_standard=True
-                )
-                standard_gradings.append(astm_57)
-            except AlreadyExistsError:
-                pass
-            
-            # ASTM #67 Coarse Aggregate
-            astm_67_data = [
-                {'sieve_size': 19.0, 'percent_passing': 100.0},  # 3/4 inch
-                {'sieve_size': 12.5, 'percent_passing': 90.0},   # 1/2 inch
-                {'sieve_size': 9.5, 'percent_passing': 20.0},    # 3/8 inch
-                {'sieve_size': 4.75, 'percent_passing': 5.0},    # No. 4
-            ]
-            
-            try:
-                astm_67 = self.save_grading_with_sieve_data(
-                    name="ASTM #67 Stone",
-                    grading_type="COARSE", 
-                    sieve_data=astm_67_data,
-                    description="ASTM #67 coarse aggregate (3/4 inch to #4, smaller)",
-                    is_standard=True
-                )
-                standard_gradings.append(astm_67)
-            except AlreadyExistsError:
-                pass
-            
-            self.logger.info(f"Created {len(standard_gradings)} standard gradings")
-            return standard_gradings
-            
-        except Exception as e:
-            self.logger.error(f"Failed to create standard gradings: {e}")
-            return standard_gradings

@@ -161,7 +161,8 @@ class MicgenInputService:
             output_path: Path where the input file will be written
             microstructure_filename: Name for the output microstructure file
             particle_id_filename: Name for the output particle ID file
-            add_aggregate_slab: Whether to add a one-voxel aggregate slab
+            add_aggregate_slab: Whether to add an aggregate slab normal to x at the
+                box center: 2 voxels thick, 3 when the x dimension is odd (micgen.c ADDAGG)
             add_void_phase: Whether to add void phase after particles
             shape_database_path: Path to shape database directory (if using real shapes)
 
@@ -684,6 +685,17 @@ class MicgenInputService:
         """
         mode = psd.psd_mode or 'log_normal'
 
+        # The stored table is the PSD: measured data for VCCTL cements, and for
+        # model-based PSDs the table the Materials dialog generated, showed and
+        # saved. Model parameters are used only when no table was stored.
+        stored = self._parse_custom_psd(psd.psd_custom_points, fallback=False)
+        if stored:
+            return {
+                'mode': mode,
+                'size_classes_um': stored,
+                'raw_psd': psd
+            }
+
         if mode == 'rosin_rammler':
             size_classes_um = self._discretize_rosin_rammler(
                 psd.psd_d50 or 15.0,
@@ -759,8 +771,8 @@ class MicgenInputService:
         Discretize log-normal distribution to size classes.
 
         Args:
-            median: Median diameter (μm)
-            spread: Distribution spread parameter (sigma)
+            median: Median diameter by volume (μm)
+            spread: Standard deviation of ln(diameter)
 
         Returns:
             List of (diameter_um, volume_fraction) tuples
@@ -770,11 +782,16 @@ class MicgenInputService:
         # Generate logarithmically-spaced diameters
         diameters = np.logspace(np.log10(0.25), np.log10(75.0), 30)
 
-        # Log-normal PDF
-        pdf_values = lognorm.pdf(diameters, s=spread, scale=median)
-
-        # Normalize to get volume fractions
-        volume_fractions = pdf_values / np.sum(pdf_values)
+        # Each class holds the volume between its edges: the CDF difference.
+        # (Until alpha-4.3 this normalized the density per um at the class
+        # centers, which on a log grid weights each class by 1/d and made the
+        # PSD far too fine: d50 0.74 um instead of ~9 um for median 10, sigma 2.)
+        # Edges are the geometric midpoints; material below the first edge is
+        # in the first class and above the last edge in the last, so the
+        # fractions sum to 1 without truncation.
+        edges = np.sqrt(diameters[1:] * diameters[:-1])
+        cdf = lognorm.cdf(edges, s=spread, scale=median)
+        volume_fractions = np.diff(np.concatenate([[0.0], cdf, [1.0]]))
 
         return [(float(d), float(f)) for d, f in zip(diameters, volume_fractions) if f > 1e-6]
 
@@ -813,25 +830,33 @@ class MicgenInputService:
 
         return [(float(d), float(f)) for d, f in zip(diameters, volume_fractions) if f > 1e-6]
 
-    def _parse_custom_psd(self, custom_points_json: Optional[str]) -> List[Tuple[float, float]]:
+    def _parse_custom_psd(self, custom_points_json: Optional[str],
+                          fallback: bool = True) -> List[Tuple[float, float]]:
         """
         Parse custom PSD points from JSON.
 
         Args:
             custom_points_json: JSON string with custom PSD data
+            fallback: When the table is missing or unreadable, return the default
+                PSD (True) or an empty list (False)
 
         Returns:
             List of (diameter_um, volume_fraction) tuples
         """
         if not custom_points_json:
-            # Fallback to default
-            return self._discretize_log_normal(15.0, 0.5)
+            return self._discretize_log_normal(15.0, 0.5) if fallback else []
 
         try:
             points = json.loads(custom_points_json)
-            # Expecting format: [[d1, f1], [d2, f2], ...]
+            # [[d1, f1], [d2, f2], ...], or [{"diameter": d, "mass_fraction": f}, ...]
+            # as written by an older import path
             if isinstance(points, list) and len(points) > 0:
-                result = [(float(p[0]), float(p[1])) for p in points if len(p) >= 2]
+                result = []
+                for p in points:
+                    if isinstance(p, dict) and 'diameter' in p:
+                        result.append((float(p['diameter']), float(p.get('mass_fraction', 0.0))))
+                    elif isinstance(p, (list, tuple)) and len(p) >= 2:
+                        result.append((float(p[0]), float(p[1])))
 
                 # Normalize
                 total = sum(f for _, f in result)
@@ -843,7 +868,7 @@ class MicgenInputService:
             logger.warning(f"Failed to parse custom PSD: {e}, using default")
 
         # Fallback
-        return self._discretize_log_normal(15.0, 0.5)
+        return self._discretize_log_normal(15.0, 0.5) if fallback else []
 
     def _convert_psd_to_size_classes(
         self,

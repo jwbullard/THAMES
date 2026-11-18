@@ -128,16 +128,10 @@ class ElasticModuliService:
         
         # Create the operation with database integration
         with self.database_service.get_session() as session:
-            # Check if an Operation with this name already exists and clean it up
-            existing_op = session.query(Operation).filter_by(
-                name=name,
-                operation_type=OperationType.ELASTIC_MODULI.value
-            ).first()
-            if existing_op:
-                # Delete the existing operation record
-                session.delete(existing_op)
-                session.commit()
-                self.logger.info(f"Deleted existing Operation with name '{name}' to allow reuse")
+            # Never reuse a name: deleting the old record would orphan an earlier
+            # run. The panel picks a free name before calling this.
+            if session.query(Operation).filter_by(name=name).first():
+                raise ValueError(f"An operation named '{name}' already exists")
 
             # Create base Operation record for tracking
             base_operation = Operation(
@@ -170,13 +164,10 @@ class ElasticModuliService:
                 # Fallback to flat structure
                 default_output_dir = str(operations_dir / name)
 
-            # Check if an ElasticModuliOperation with this name already exists
-            existing_elastic = session.query(ElasticModuliOperation).filter_by(name=name).first()
-            if existing_elastic:
-                # Delete the existing record to allow reuse of the name
-                session.delete(existing_elastic)
-                session.commit()
-                self.logger.info(f"Deleted existing ElasticModuliOperation with name '{name}' to allow reuse")
+            # Never reuse a name: deleting the old record would destroy an earlier
+            # run's results. The panel picks a free name before calling this.
+            if session.query(ElasticModuliOperation).filter_by(name=name).first():
+                raise ValueError(f"An elastic moduli operation named '{name}' already exists")
 
             elastic_operation = ElasticModuliOperation(
                 name=name,

@@ -1487,13 +1487,19 @@ class MaterialsPanel(Gtk.Box):
             raise
     
     def _copy_thames_material_data(self, original_material, new_name: str) -> dict:
-        """Create a copy of THAMES material data."""
+        """Create a copy of THAMES material data.
+
+        The copy gets its own PSD record (the PSD fields below make
+        material_service.create add one). Sharing the original's psd_data_id
+        meant editing the copy's PSD also changed the original's, including
+        the measured PSDs of immutable VCCTL cements.
+        """
         copy_data = {
             'name': new_name,
             'tags': original_material.tag_names if hasattr(original_material, 'tag_names') else [],
             'specific_gravity': original_material.specific_gravity,
             'specific_surface_area': original_material.specific_surface_area,
-            'psd_data_id': original_material.psd_data_id,
+            **self._copy_psd_fields(original_material.psd_data_id),
             'description': original_material.description,
             'source': original_material.source if hasattr(original_material, 'source') else None,
             'notes': original_material.notes if hasattr(original_material, 'notes') else None,
@@ -1507,6 +1513,18 @@ class MaterialsPanel(Gtk.Box):
             'particle_shape_set': getattr(original_material, 'particle_shape_set', None),
         }
         return copy_data
+
+    def _copy_psd_fields(self, psd_data_id) -> dict:
+        """PSD fields of an existing PSD record, for creating an independent copy."""
+        from app.services.psd_data_service import PSDDataService
+
+        psd = PSDDataService(self.service_container.database_service).get_by_id(psd_data_id) \
+            if psd_data_id else None
+        if psd is None:
+            raise ValueError(f"PSD record {psd_data_id} of the original material not found")
+        fields = ['psd_mode', 'psd_d50', 'psd_n', 'psd_dmax', 'psd_median',
+                  'psd_spread', 'psd_exponent', 'psd_custom_points']
+        return {field: getattr(psd, field) for field in fields}
 
     def _copy_clinker_extension_data(self, service, source_material_id: int, target_material_id: int) -> None:
         """Copy the clinker_extension row from source to target via direct SQL.

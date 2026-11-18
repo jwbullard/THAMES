@@ -17,6 +17,7 @@ from app.services.grading_service import GradingService
 from app.models.grading import Grading, GradingType
 from app.utils.grading_file_utils import grading_file_manager
 from app.utils.icon_utils import create_carbon_image
+from app.widgets.grading_curve import retained_to_passing
 
 
 class GradingManagementDialog(Gtk.Dialog):
@@ -426,12 +427,13 @@ class GradingManagementDialog(Gtk.Dialog):
             # Populate sieve data
             sieve_data = grading.get_sieve_data()
             if sieve_data:
-                # Sort by size (largest first)
-                sorted_data = sorted(sieve_data, key=lambda x: x['sieve_size'], reverse=True)
-                for point in sorted_data:
+                # Stored as % retained; shown as cumulative % passing, like the editor
+                passing = retained_to_passing(
+                    [(point['sieve_size'], point['percent_retained']) for point in sieve_data])
+                for size, percent_passing in passing:
                     sieve_store.append([
-                        f"{point['sieve_size']:.3f}",
-                        f"{point['percent_passing']:.1f}"
+                        f"{size:.3f}",
+                        f"{percent_passing:.1f}"
                     ])
         
         self.preview_box.show_all()
@@ -769,9 +771,12 @@ class GradingManagementDialog(Gtk.Dialog):
         filter_gdg.add_pattern("*.gdg")
         dialog.add_filter(filter_gdg)
         
+        # Close the chooser before acting: a dialog opened while it is up sits
+        # hidden behind it and blocks input
         response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
+        filename = dialog.get_filename()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and filename:
             try:
                 # Export to file
                 sieve_data = self.selected_grading.get_sieve_data()
@@ -792,8 +797,6 @@ class GradingManagementDialog(Gtk.Dialog):
                     
             except Exception as e:
                 self._show_error("Export Failed", str(e))
-        
-        dialog.destroy()
     
     def _on_import_clicked(self, button):
         """Handle Import button click."""
@@ -815,20 +818,21 @@ class GradingManagementDialog(Gtk.Dialog):
         filter_gdg.add_pattern("*.gdg")
         dialog.add_filter(filter_gdg)
         
+        # Close the chooser before acting: a dialog opened while it is up sits
+        # hidden behind it and blocks input
         response = dialog.run()
-        if response == Gtk.ResponseType.OK:
-            filename = dialog.get_filename()
+        filename = dialog.get_filename()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and filename:
             try:
                 # Read grading data
                 sieve_data = grading_file_manager.read_gdg_file(filename)
                 
                 # Show dialog to get grading details
                 import_dialog = self._show_import_details_dialog(filename, sieve_data)
-                
+
             except Exception as e:
                 self._show_error("Import Failed", str(e))
-        
-        dialog.destroy()
     
     def _show_import_details_dialog(self, filename: str, sieve_data: List[Dict[str, float]]):
         """Show dialog to get details for imported grading."""

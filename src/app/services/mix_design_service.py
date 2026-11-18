@@ -128,6 +128,8 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 # Grading template associations
                 fine_aggregate_grading_template=mix_design_data.fine_aggregate_grading_template,
                 coarse_aggregate_grading_template=mix_design_data.coarse_aggregate_grading_template,
+                fine_aggregate_grading_data=mix_design_data.fine_aggregate_grading_data,
+                coarse_aggregate_grading_data=mix_design_data.coarse_aggregate_grading_data,
 
                 # Component and properties data
                 components=components_json,
@@ -210,6 +212,8 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 # Grading templates
                 fine_aggregate_grading_template=original.fine_aggregate_grading_template,
                 coarse_aggregate_grading_template=original.coarse_aggregate_grading_template,
+                fine_aggregate_grading_data=original.fine_aggregate_grading_data,
+                coarse_aggregate_grading_data=original.coarse_aggregate_grading_data,
 
                 # Component and properties data
                 components=[MixDesignComponentData(**comp) for comp in original.components],
@@ -446,6 +450,8 @@ class MixDesignService(BaseService[MixDesign, MixDesignCreate, MixDesignUpdate])
                 # Grading template associations
                 fine_aggregate_grading_template=mix_design.fine_aggregate_grading_template,
                 coarse_aggregate_grading_template=mix_design.coarse_aggregate_grading_template,
+                fine_aggregate_grading_data=mix_design.fine_aggregate_grading_data,
+                coarse_aggregate_grading_data=mix_design.coarse_aggregate_grading_data,
 
                 # Component and properties data
                 components=components,

@@ -260,6 +260,22 @@ For the unexpected-exception path, keep the current log-and-return behavior but 
 
 ---
 
+### Dead VCCTL elastic path in the Elastic Moduli panel and services
+
+**Kind:** release hygiene. **Identified:** 2026-11-17 (alpha-4.3 item 4).
+
+alpha-4.3 removed the Elastic page's "Generate Input File" button, its handler and `_create_operation_from_form`, which wrote a VCCTL `elastic_input.txt` that THAMES never uses. The rest of that path is still in the tree and unreachable: `ElasticModuliPanel._launch_vcctl_elastic` runs only when `thames_mode` is off, which never happens in THAMES; it is the last caller of `ElasticModuliService.generate_elastic_input_file` and of `services/elastic_input_generator.py` (including its own copy of `cement_psd.csv` handling). Delete them together, after confirming `thames_mode` has no other meaning.
+
+---
+
+### Concrete-scale "what-if" overrides in Elastic Moduli (decided against for alpha-4.3)
+
+**Kind:** research direction. **Discussed:** 2026-11-17.
+
+Idea (Jeff): let the user override aggregate volume fractions, air, aggregate K/G or gradings in the Elastic form to ask concrete-scale what-if questions; the paste microstructure and hydration are unchanged, so no new hydration is needed. alpha-4.3 instead makes every field read-only (values come from the mix) and always includes the ITZ. Issues found before deciding: (1) Concelas sets paste = 1 - fine - coarse - air, so changing air or an aggregate fraction silently changes the paste fraction; (2) overrides can only change aggregates present in the mix; (3) grading overrides need the grading editor, not a file path; (4) "Include ITZ" currently gates the whole Concelas run, so a no-ITZ option needs a Concelas mode with ITZ = paste; (5) **provenance**: results for many different concretes would sit under one hydration folder, hard to sort out later (Jeff's deciding point). If revisited: record only fields that differ from the mix, mark such operations visibly, and consider putting them in their own folder.
+
+---
+
 ### Site-saturation gating for heterogeneous CNT (θ < 180°)
 
 **Identified:** 2026-07-23 (Session 51, CNT integration Step 7 correction).

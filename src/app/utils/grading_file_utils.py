@@ -31,7 +31,7 @@ class GradingFileManager:
         Args:
             operation_path: Path to operation directory (Operations/{operation_name}/)
             filename: Name for the .gdg file (without extension)
-            sieve_data: List of {'sieve_size': float, 'percent_passing': float}
+            sieve_data: List of {'sieve_size': float, 'percent_retained': float}
             aggregate_type: Optional type info for file header
             
         Returns:
@@ -57,13 +57,13 @@ class GradingFileManager:
                 # Optional header comment
                 if aggregate_type:
                     f.write(f"# Grading curve for {aggregate_type} aggregate\n")
-                    f.write(f"# Format: sieve_size_mm\tpercent_passing\n")
+                    f.write(f"# Format: sieve_size_mm\tpercent_retained\n")
                 
                 # Write sieve data (tab-delimited)
                 for point in sorted_data:
                     size = point['sieve_size']
-                    percent = point['percent_passing']
-                    f.write(f"{size:.3f}\t{percent:.1f}\n")
+                    percent = point['percent_retained']
+                    f.write(f"{size:.3f}\t{percent:.3f}\n")
             
             self.logger.info(f"Created grading file: {full_path}")
             return str(full_path)
@@ -80,7 +80,7 @@ class GradingFileManager:
             file_path: Path to the .gdg file
             
         Returns:
-            List of {'sieve_size': float, 'percent_passing': float}
+            List of {'sieve_size': float, 'percent_retained': float}
             
         Raises:
             IOError: If file cannot be read
@@ -118,7 +118,7 @@ class GradingFileManager:
                         
                         sieve_data.append({
                             'sieve_size': size,
-                            'percent_passing': percent
+                            'percent_retained': percent
                         })
                         
                     except ValueError as e:
@@ -316,13 +316,6 @@ class GradingFileManager:
                 sizes = [point['sieve_size'] for point in sieve_data]
                 if max(sizes) - min(sizes) < 1.0:
                     errors.append("Sieve size range seems too small")
-                
-                # Check that percent passing generally decreases
-                sorted_data = sorted(sieve_data, key=lambda x: x['sieve_size'], reverse=True)
-                for i in range(1, len(sorted_data)):
-                    if sorted_data[i]['percent_passing'] > sorted_data[i-1]['percent_passing'] + 10:
-                        errors.append(f"Unusual trend: {sorted_data[i-1]['sieve_size']}mm to {sorted_data[i]['sieve_size']}mm")
-                        break
                 
             except Exception as e:
                 errors.append(f"Could not parse file content: {e}")

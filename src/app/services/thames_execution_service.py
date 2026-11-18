@@ -241,6 +241,19 @@ class THAMESExecutionService:
             else:
                 self.logger.warning(f"Pimg file not found at {pimg_path} - elastic calculations may fail")
 
+            # Copy the cement PSD written with the mix: Concelas reads it from the
+            # hydration folder to set the ITZ width (median cement particle size)
+            cement_psd_src = microstructure_path.parent / "cement_psd.csv"
+            if cement_psd_src.exists():
+                cement_psd_dest = operation_dir / "cement_psd.csv"
+                if not cement_psd_dest.exists():
+                    import shutil
+                    shutil.copy2(cement_psd_src, cement_psd_dest)
+                    self.logger.info(f"Copied cement PSD to hydration directory: {cement_psd_dest}")
+            else:
+                self.logger.warning(f"cement_psd.csv not found next to {microstructure_path.name}; "
+                                    f"Concelas will use the default ITZ width")
+
             # Start THAMES process
             simulation_info = self._start_thames_process(
                 operation_name,

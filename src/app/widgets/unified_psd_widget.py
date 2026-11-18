@@ -215,7 +215,7 @@ class UnifiedPSDWidget(Gtk.Box):
         
         # Description
         desc_label = Gtk.Label()
-        desc_label.set_markup("<i>Log-Normal distribution with median and standard deviation</i>")
+        desc_label.set_markup("<i>Log-normal by volume: median diameter and the standard deviation of ln(d)</i>")
         desc_label.set_halign(Gtk.Align.START)
         box.pack_start(desc_label, False, False, 0)
         
@@ -240,11 +240,16 @@ class UnifiedPSDWidget(Gtk.Box):
         grid.attach(median_unit, 2, 0, 1, 1)
         
         # Sigma parameter
-        sigma_label = Gtk.Label("Std Dev:")
+        sigma_label = Gtk.Label("σ of ln(d):")
+        sigma_tip = ("Standard deviation of the natural log of particle diameter "
+                     "(dimensionless; a geometric standard deviation of exp(σ)). "
+                     "Portland cements typically fit σ ≈ 1 to 1.5; σ = 2 is very broad.")
+        sigma_label.set_tooltip_text(sigma_tip)
         sigma_label.set_halign(Gtk.Align.END)
         sigma_spin = Gtk.SpinButton.new_with_range(0.1, 10.0, 0.1)
         sigma_spin.set_digits(1)
         sigma_spin.set_value(2.0)
+        sigma_spin.set_tooltip_text(sigma_tip)
         sigma_spin.connect('value-changed', self._on_parameter_changed)
         
         grid.attach(sigma_label, 0, 1, 1, 1)
@@ -775,7 +780,7 @@ class UnifiedPSDWidget(Gtk.Box):
 
 <b>Log-Normal:</b> Normal distribution of log(diameter)
 - Median: D₅₀ value
-- Std Dev: Distribution spread
+- σ of ln(d): standard deviation of ln(diameter); about 1 to 1.5 for portland cement
 
 <b>Fuller-Thompson:</b> P = (d/D_max)ⁿ
 - Exponent: Usually 0.5 for ideal packing

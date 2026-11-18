@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Pango
+from gi.repository import GLib, Gtk, Pango
 
 class EffectiveModuliViewer(Gtk.Dialog):
     """Dialog for viewing effective elastic moduli results."""
@@ -60,6 +60,8 @@ class EffectiveModuliViewer(Gtk.Dialog):
         self.subtitle_label = Gtk.Label()
         self.subtitle_label.set_markup("<i>Loading...</i>")
         self.subtitle_label.set_margin_bottom(12)
+        self.subtitle_label.set_line_wrap(True)
+        self.subtitle_label.set_max_width_chars(70)
         content_area.pack_start(self.subtitle_label, False, False, 0)
 
         # Create scrolled window for table
@@ -144,11 +146,15 @@ class EffectiveModuliViewer(Gtk.Dialog):
             # Read and parse CSV data (handles both THAMES and VCCTL formats)
             microstructure_name, moduli_data = self._parse_moduli_csv(moduli_file)
 
-            # Update subtitle with microstructure name
-            if microstructure_name:
-                self.subtitle_label.set_markup(f"<i>{microstructure_name}</i>")
-            else:
-                self.subtitle_label.set_markup("")
+            # Update subtitle with microstructure name, plus why concrete
+            # moduli are missing or incomplete, when the run recorded a reason
+            subtitle = f"<i>{GLib.markup_escape_text(microstructure_name)}</i>" if microstructure_name else ""
+            status_file = moduli_file.parent / "ConcelasStatus.txt"
+            if status_file.exists():
+                status = status_file.read_text().strip()
+                subtitle += ("\n" if subtitle else "") + \
+                    f'<span color="#b00020">{GLib.markup_escape_text(status)}</span>'
+            self.subtitle_label.set_markup(subtitle)
 
             # Populate the tree view
             self._populate_treeview(moduli_data)
@@ -223,26 +229,27 @@ class EffectiveModuliViewer(Gtk.Dialog):
 
         return microstructure_name, data
 
+    # Words in backend property names that need more than lower-casing
+    _DISPLAY_WORDS = {
+        'youngs': "Young's",
+        'poissons': "Poisson's",
+        'itz': 'ITZ',
+        'vf': 'volume fraction',
+        'vol': 'volume',
+        'frac': 'fraction',
+    }
+
     def _format_property_name(self, name: str) -> str:
-        """Format property name for display."""
-        # Convert underscore-separated names to readable format
-        name = name.replace('_', ' ').replace('frac', 'fraction')
+        """Format a backend property name for display, in sentence case.
 
-        # Capitalize appropriately
-        words = name.split()
-        formatted_words = []
-
-        for word in words:
-            if word.lower() in ['youngs', 'poissons']:
-                formatted_words.append(word.capitalize() + "'s")
-            elif word.lower() == 'modulus':
-                formatted_words.append('Modulus')
-            elif word.lower() == 'vol':
-                formatted_words.append('Volume')
-            else:
-                formatted_words.append(word.capitalize())
-
-        return ' '.join(formatted_words)
+        'Concrete_Youngs_modulus' -> "Concrete Young's modulus",
+        'ITZ_width' -> 'ITZ width', 'Concrete_air_vf' -> 'Concrete air volume fraction'.
+        """
+        words = [self._DISPLAY_WORDS.get(word.lower(), word.lower())
+                 for word in name.split('_') if word]
+        if words and words[0][:1].islower():
+            words[0] = words[0][:1].upper() + words[0][1:]
+        return ' '.join(words)
 
     def _format_value(self, value: str) -> str:
         """Format value for display."""

@@ -1639,6 +1639,13 @@ class THAMESHydrationPanel(Gtk.Box):
             self._log_message("ERROR: Operation name is required")
             return
 
+        # A reused name would overwrite an earlier run; take the next free one
+        unique = self._unique_operation_name(op_name)
+        if unique != op_name:
+            self._log_message(f"'{op_name}' already exists; this run is '{unique}'")
+            op_name = unique
+            self.operation_name_entry.set_text(op_name)
+
         self._log_message(f"Starting hydration simulation: {op_name}")
 
         # Build configuration
@@ -2062,13 +2069,19 @@ class THAMESHydrationPanel(Gtk.Box):
         self._update_time_preview()
 
     def _generate_incremented_name(self, base_name: str) -> str:
-        """Generate an incremented operation name like '{base}-01'."""
+        """Name for a run loaded from an existing operation: '{base}-01', '-02', ..."""
+        return self._unique_operation_name(base_name)
+
+    def _unique_operation_name(self, name: str) -> str:
+        """First free hydration operation name: name, name-01, name-02, ...
+
+        Hydration runs live in operations/<name>; a name is also taken if an
+        Operations-list record uses it.
+        """
+        from app.utils.operation_names import operation_name_checker, unique_name
+
         ops_dir = self.service_container.directories_service.get_operations_path()
-        for i in range(1, 100):
-            candidate = f"{base_name}-{i:02d}"
-            if not (ops_dir / candidate).exists():
-                return candidate
-        return f"{base_name}-copy"
+        return unique_name(name, operation_name_checker(self.service_container, ops_dir))
 
     def _log_message(self, message: str) -> None:
         """Add a message to the log view."""

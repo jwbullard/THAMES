@@ -83,6 +83,11 @@ class MixDesign(Base):
     # Grading template associations
     fine_aggregate_grading_template = Column(String(64), nullable=True)
     coarse_aggregate_grading_template = Column(String(64), nullable=True)
+
+    # Applied grading points, [[sieve_mm, percent_retained], ...] largest first.
+    # Elastic uses these; the template name above is only a label.
+    fine_aggregate_grading_data = Column(JSON, nullable=True)
+    coarse_aggregate_grading_data = Column(JSON, nullable=True)
     
     # Component data stored as JSON
     # Format: [{"material_id": int, "material_name": str, "mass_fraction": float, "volume_fraction": float,
@@ -186,6 +191,8 @@ class MixDesignCreate(BaseModel):
     # Grading template associations
     fine_aggregate_grading_template: Optional[str] = Field(None, max_length=64)
     coarse_aggregate_grading_template: Optional[str] = Field(None, max_length=64)
+    fine_aggregate_grading_data: Optional[List[List[float]]] = None
+    coarse_aggregate_grading_data: Optional[List[List[float]]] = None
     
     # Component and properties data
     components: List[MixDesignComponentData] = Field(default_factory=list)
@@ -287,6 +294,8 @@ class MixDesignUpdate(BaseModel):
     # Grading template associations
     fine_aggregate_grading_template: Optional[str] = Field(None, max_length=64)
     coarse_aggregate_grading_template: Optional[str] = Field(None, max_length=64)
+    fine_aggregate_grading_data: Optional[List[List[float]]] = None
+    coarse_aggregate_grading_data: Optional[List[List[float]]] = None
     
     # Component and properties data
     components: Optional[List[MixDesignComponentData]] = None
@@ -364,6 +373,8 @@ class MixDesignResponse(BaseModel):
     # Grading template associations
     fine_aggregate_grading_template: Optional[str]
     coarse_aggregate_grading_template: Optional[str]
+    fine_aggregate_grading_data: Optional[List[List[float]]] = None
+    coarse_aggregate_grading_data: Optional[List[List[float]]] = None
     
     components: List[MixDesignComponentData]
     calculated_properties: Optional[MixDesignPropertiesData]

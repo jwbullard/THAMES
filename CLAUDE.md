@@ -480,6 +480,17 @@ Full narrative: `docs/session87_summary.md`. Commits `ec9be522`, `965985bd`, `0d
 - **Also (Nov 11):** DEFERRED icon entry corrected — `48-database`/`48-statistics` warnings are log noise (custom fallback loads them); a GTK `missing-image-ltr` warning means one unknown image is blank.
 - **Next:** alpha.5 after the video series (triage in `docs/UI-Issues.md`); science thread from memory `project_late_age_csh_pore_physics.md`.
 
+### Session 88 (Nov 17, 2026): alpha-4.3 fixes, log-normal PSD bug, VCCTL PSDs recovered
+
+Full narrative: `docs/session88_summary.md`. One super-repo commit (UI/data only; backend 6.0.0 unchanged).
+
+- **Grading editor:** entry is cumulative % passing, storage stays % retained (`passing_to_retained`/`retained_to_passing` in `widgets/grading_curve.py`; no pan row, so material past the end sieves counts on them); standard plot; Preset/Type/Normalize/Smooth removed; coarse table gains No. 8 and No. 16. Migration `20261117_01` fixes C-33 and #57 (mid-band) and deletes two junk templates. Also fixed `.gdg` import/export keys and a file-chooser hang.
+- **Elastic (items 2-8):** mixes store applied gradings (`20261117_02`); `cement_psd.csv` copied into hydration folders; Elastic form read-only, ITZ always on (what-if overrides rejected for provenance, in DEFERRED); unique `-01`/`-02` operation names (`utils/operation_names.py`) — reused names used to overwrite files and delete records; ITZ viewer `#` line; Effective Moduli labels; air max 0.15; `ConcelasStatus.txt`; no stray `.gdg`. **8c open** (fixed densities vs SGs).
+- **Log-normal PSD bug since S7:** micgen used density, not CDF differences (MyCement d50 0.74 vs ~9 µm). Fixed; micgen and `cement_psd.csv` now use the **stored PSD table for every mode** (measured PSDs never carry a model). "Std Dev" → "σ of ln(d)".
+- **VCCTL measured PSDs recovered** from `~/Code/VCCTL` Derby DB (readable only at `f2eb05a0^`) → `docs/reference_data/vcctl_psd/`. Migrations `20261117_03_split_shared_psd` (Duplicate shared PSD records) and `_04_vcctl_measured_psd` (ustype1 = cement151, cement116, cement168, sacci-425). dh/cementhoc/cementotc/cementrci: no data anywhere yet.
+- **Rule:** import checks must use a scratch HOME — two checks migrated Jeff's real DB this session (memory `feedback_scratch_home_for_imports.md`).
+- **Next:** Jeff tests in the sandbox and re-makes Ep 7 (MyCement now cement151's PSD); item 8c; alpha-4.3 release steps (results-changing notes + Known Limitations on published alphas).
+
 ---
 
 ## PRIORITY TASKS
