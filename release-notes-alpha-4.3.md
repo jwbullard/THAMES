@@ -17,7 +17,7 @@ and makes the other changes described below.
 
 ### Downloads
 
-- **Windows:** `THAMES-1.0.0-alpha.4.3-win64-setup.exe` (SIZE MB). Inno Setup installer; in-place upgrade over 1.0.0-alpha.4.2 preserves user data (AppId unchanged).
+- **Windows:** `THAMES-1.0.0-alpha.4.3-win64-setup.exe` (624 MB). Inno Setup installer; in-place upgrade over 1.0.0-alpha.4.2 preserves user data (AppId unchanged).
 - **macOS (Apple Silicon):** `THAMES-1.0.0-alpha.4.3-macOS.zip` (674 MB). Unzip anywhere and drag `THAMES.app` to `/Applications`. First launch: right-click → Open (ad-hoc signed; Gatekeeper may otherwise refuse).
 
 ### Fixed since alpha-4.2 that change results

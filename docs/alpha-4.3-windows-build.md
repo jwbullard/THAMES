@@ -14,7 +14,7 @@ session's memories; this file carries everything needed.
 | macOS artifact | built, smoke-tested, uploaded to the draft: `THAMES-1.0.0-alpha.4.3-macOS.zip`, 673,832,469 bytes, SHA-256 `2d218c10751bcb8035683b4636709226574bf7ab6c1d9520fddc45016b4dee8e` |
 | GitHub release | **draft** prerelease "THAMES 1.0.0-alpha.4.3" (macOS zip + notes). No tag until publish |
 | Windows installer | built 2026-11-18 from `main` at `8342ab81`, smoke-tested (all checks passed): `THAMES-1.0.0-alpha.4.3-win64-setup.exe`, 623,537,421 bytes, SHA-256 `5ad06be274d83d2a18139bf29a9b38ebc6350a1e72fa054d5155ca1a574b4370`. Backend not rebuilt (`bin\` = 6.0.0, `6e49f9a7`, built 2026-10-22). Migration check done separately: the installed app, run with `LOCALAPPDATA` pointed at a scratch copy of a September database, applied `20260827_01` and all four `20261117_*` at its own startup (Jeff's real database already had them, applied at 15:30 by an unidentified source before the install, so it could not show this). Copy to the Mac's `dist/` |
-| Release notes | `release-notes-alpha-4.3.md` (Jeff-edited); Windows size says "SIZE MB" |
+| Release notes | `release-notes-alpha-4.3.md` (Jeff-edited); sizes filled in (Windows 624 MB, macOS 674 MB) |
 | Known Limitations for published pages | `release-notes-KL-amendments-alpha-4.3.md` is an **untracked Mac-only draft**; applied from the Mac after publishing. Nothing to do on Windows |
 
 ## What alpha-4.3 is
