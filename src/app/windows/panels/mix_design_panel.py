@@ -1074,7 +1074,9 @@ class MixDesignPanel(Gtk.Box):
             # Enable grading button only when aggregate is selected
             has_aggregate = aggregate_name and aggregate_name != ""
             self.fine_agg_grading_button.set_sensitive(has_aggregate)
-            
+            self._update_aggregate_properties_label(
+                self.fine_agg_properties_label, aggregate_name, fine=True)
+
             if self.auto_calculate_enabled:
                 self._trigger_calculation()
                 
@@ -1089,13 +1091,51 @@ class MixDesignPanel(Gtk.Box):
             # Enable grading button only when aggregate is selected
             has_aggregate = aggregate_name and aggregate_name != ""
             self.coarse_agg_grading_button.set_sensitive(has_aggregate)
-            
+            self._update_aggregate_properties_label(
+                self.coarse_agg_properties_label, aggregate_name, fine=False)
+
             if self.auto_calculate_enabled:
                 self._trigger_calculation()
-                
+
         except Exception as e:
             self.logger.error(f"Failed to handle coarse aggregate change: {e}")
-    
+
+    # Values used when an aggregate record has no value; they must match
+    # elastic_lineage_service (moduli) and the volume-fraction code (SG).
+    _AGGREGATE_DEFAULT_SG = 2.65
+    _AGGREGATE_DEFAULT_MODULI = {True: (30.0, 18.0), False: (36.7, 22.0)}  # fine?: (K, G) GPa
+
+    def _update_aggregate_properties_label(self, label, aggregate_name, fine: bool) -> None:
+        """Show the selected aggregate's specific gravity and moduli under its dropdown."""
+        if not aggregate_name:
+            label.set_markup('')
+            return
+        aggregate = None
+        try:
+            from app.models.aggregate import Aggregate
+            with self.service_container.database_service.get_read_only_session() as session:
+                record = session.query(Aggregate).filter(
+                    (Aggregate.display_name == aggregate_name) |
+                    (Aggregate.name == aggregate_name)).first()
+                if record is not None:
+                    aggregate = (record.specific_gravity, record.bulk_modulus,
+                                 record.shear_modulus)
+        except Exception as e:
+            self.logger.warning(f"Could not read properties of aggregate '{aggregate_name}': {e}")
+        sg, bulk, shear = aggregate if aggregate else (None, None, None)
+        default_bulk, default_shear = self._AGGREGATE_DEFAULT_MODULI[fine]
+
+        def show(value, default, fmt):
+            if value is not None and value > 0:
+                return fmt.format(value)
+            return fmt.format(default) + ' (default)'
+
+        text = (f"Specific gravity {show(sg, self._AGGREGATE_DEFAULT_SG, '{:.2f}')}, "
+                f"bulk modulus {show(bulk, default_bulk, '{:.1f} GPa')}, "
+                f"shear modulus {show(shear, default_shear, '{:.1f} GPa')}")
+        label.set_markup(
+            f'<span size="small" style="italic" color="green">{GLib.markup_escape_text(text)}</span>')
+
     def _on_fine_aggregate_grading_clicked(self, button) -> None:
         """Handle fine aggregate grading button click."""
         try:
@@ -4179,20 +4219,31 @@ class MixDesignPanel(Gtk.Box):
         self.fine_agg_combo = Gtk.ComboBoxText()
         self.fine_agg_combo.set_size_request(150, -1)
         self.fine_agg_combo.set_tooltip_text("Choose fine aggregate from database")
-        grid.attach(self.fine_agg_combo, 1, 1, 1, 1)
-        
+        # Combo with the aggregate's properties in small text beneath it
+        # (same layout as the grading status on the Elastic Moduli page)
+        self.fine_agg_properties_label = Gtk.Label("")
+        self.fine_agg_properties_label.set_halign(Gtk.Align.START)
+        fine_agg_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        fine_agg_vbox.pack_start(self.fine_agg_combo, False, False, 0)
+        fine_agg_vbox.pack_start(self.fine_agg_properties_label, False, False, 0)
+        grid.attach(fine_agg_vbox, 1, 1, 1, 1)
+
         # Fine aggregate grading button
         self.fine_agg_grading_button = Gtk.Button("Grading...")
         self.fine_agg_grading_button.set_size_request(80, -1)
         self.fine_agg_grading_button.set_tooltip_text("Edit fine aggregate grading curve")
         self.fine_agg_grading_button.set_sensitive(False)  # Enable when aggregate is selected
-        grid.attach(self.fine_agg_grading_button, 2, 1, 1, 1)
-        
+
         # Fine aggregate grading template label
         self.fine_grading_template_label = Gtk.Label("")
         self.fine_grading_template_label.set_halign(Gtk.Align.START)
         self.fine_grading_template_label.set_markup('<span size="small" style="italic"></span>')
-        grid.attach(self.fine_grading_template_label, 3, 1, 1, 1)
+        # Button and template label stay level with the combo, not the taller row
+        fine_grading_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        fine_grading_hbox.set_valign(Gtk.Align.START)
+        fine_grading_hbox.pack_start(self.fine_agg_grading_button, False, False, 0)
+        fine_grading_hbox.pack_start(self.fine_grading_template_label, False, False, 0)
+        grid.attach(fine_grading_hbox, 2, 1, 2, 1)
         
         # Fine aggregate shape set
         fine_agg_shape_label = Gtk.Label("Fine Aggregate Shape Set:")
@@ -4232,20 +4283,28 @@ class MixDesignPanel(Gtk.Box):
         self.coarse_agg_combo = Gtk.ComboBoxText()
         self.coarse_agg_combo.set_size_request(150, -1)
         self.coarse_agg_combo.set_tooltip_text("Choose coarse aggregate from database")
-        grid.attach(self.coarse_agg_combo, 1, 4, 1, 1)
-        
+        self.coarse_agg_properties_label = Gtk.Label("")
+        self.coarse_agg_properties_label.set_halign(Gtk.Align.START)
+        coarse_agg_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        coarse_agg_vbox.pack_start(self.coarse_agg_combo, False, False, 0)
+        coarse_agg_vbox.pack_start(self.coarse_agg_properties_label, False, False, 0)
+        grid.attach(coarse_agg_vbox, 1, 4, 1, 1)
+
         # Coarse aggregate grading button
         self.coarse_agg_grading_button = Gtk.Button("Grading...")
         self.coarse_agg_grading_button.set_size_request(80, -1)
         self.coarse_agg_grading_button.set_tooltip_text("Edit coarse aggregate grading curve")
         self.coarse_agg_grading_button.set_sensitive(False)  # Enable when aggregate is selected
-        grid.attach(self.coarse_agg_grading_button, 2, 4, 1, 1)
-        
+
         # Coarse aggregate grading template label
         self.coarse_grading_template_label = Gtk.Label("")
         self.coarse_grading_template_label.set_halign(Gtk.Align.START)
         self.coarse_grading_template_label.set_markup('<span size="small" style="italic"></span>')
-        grid.attach(self.coarse_grading_template_label, 3, 4, 1, 1)
+        coarse_grading_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        coarse_grading_hbox.set_valign(Gtk.Align.START)
+        coarse_grading_hbox.pack_start(self.coarse_agg_grading_button, False, False, 0)
+        coarse_grading_hbox.pack_start(self.coarse_grading_template_label, False, False, 0)
+        grid.attach(coarse_grading_hbox, 2, 4, 2, 1)
         
         # Manage Gradings button - spans across multiple columns for better visibility
         manage_gradings_button = Gtk.Button("Manage Grading Templates...")

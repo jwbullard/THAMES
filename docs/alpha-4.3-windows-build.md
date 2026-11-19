@@ -1,5 +1,41 @@
 # Alpha-4.3 Windows build handoff (2026-11-18, Session 88)
 
+## REBUILD 2026-11-20: replace the published 4.3 assets (do this first)
+
+alpha-4.3 was published 2026-11-19 (tag at `ad4f2da4`). Jeff decided to fold one
+display-only change into it and **replace the assets in place** (same version, no
+bump; each asset had 1 download, Jeff's own). Results cannot change.
+
+What changed (commit after `4d91c4d3`, see `git log`):
+
+- **Mix Design page:** under each aggregate source dropdown, a small green italic
+  line shows the aggregate's specific gravity, bulk modulus and shear modulus
+  (`mix_design_panel.py`, `_update_aggregate_properties_label`). Missing values
+  show the fallback Elastic Moduli uses, marked "(default)".
+- **Seed database:** the stray editable aggregate `MA107-6-fine_copy_2` removed
+  (new installs only; existing users keep theirs).
+
+Steps on Windows:
+
+```bash
+./pre-session-sync.sh                     # main must include the commit above
+git submodule update --init               # submodule stays at 6e49f9a
+PATH="/c/msys64/mingw64/bin:$PATH" pyinstaller --clean --noconfirm thames-windows.spec
+"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\thames-windows.iss
+```
+
+No backend rebuild and no version change. Smoke test (install over the current
+4.3): About still says 1.0.0-alpha.4.3; Mix Design -> pick a fine and a coarse
+aggregate: the green line appears under each dropdown with the values, and the
+Grading... button stays level with the dropdown; choosing the placeholder clears
+the line. Then copy `dist\THAMES-1.0.0-alpha.4.3-win64-setup.exe` to the Mac's
+`dist/` and record its size and SHA-256 below. On the Mac: upload both assets with
+`--clobber`, move the tag, add the dated note to the release body (asking Jeff
+before each GitHub change).
+
+| New Windows installer | (fill in: size, SHA-256) |
+|---|---|
+
 Written on macOS for the follow-on Windows session. Project memory is keyed to
 the working-directory path, so the Windows session will **not** see the mac
 session's memories; this file carries everything needed.
