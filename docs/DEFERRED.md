@@ -2577,3 +2577,25 @@ The timestep limit makes it worse. `computeKineticsBasedMaxTimestep` uses the un
 **Proposed fix (needs a design decision).** Add a step limit based on the aqueous pool of the limiting element, so that one kinetic step cannot change it by more than a set factor, or cap the step where SI would cross 1 (a linearized estimate of dSI/dn). Alternative: iterate the kinetic step implicitly with GEMS, at more cost. Fixing the stand-in cap above lets SI relax much faster but does not remove the overshoot, so do that first and then re-measure. The same coupling should exist for any Standard phase with a sparingly soluble ion.
 
 **Workaround.** Calcite Thermodynamic with `SO4_CO3_AFt` unchecked, or a much lower Calcite rate constant.
+
+---
+
+### Startup migration errors never reach `thames.log`
+
+**Kind:** Latent bug class (silent failure).
+
+**Identified:** 2026-11-18 (Session 88, alpha-4.3 bundle test)
+
+**Symptom.** `ServiceContainer.__init__` (`src/app/services/service_container.py:65-73`) runs `upgrade_database()` and logs any exception with `self.logger.error`, but the container is built before the file handler for `thames.log` is configured, so the message goes only to the console. In the packaged app nobody sees the console. This is how the `migration_scripts` mkdir failure (fixed in alpha-4.3, `563d949a`) stopped every migration in every packaged release since alpha-3 without a trace.
+
+**Proposed fix.** Configure file logging before the container is built, or hold the error and log it (and show a warning dialog) once logging and the main window exist. Add the startup smoke test proposed in the S63 "Startup migration wire-up" entry, run against the **bundle**, not only from source: launch with a scratch HOME on an old seed database and assert the expected migration rows.
+
+---
+
+### Delete the four VCCTL cements with no PSD data (if none is found)
+
+**Kind:** Release hygiene (alpha.5 candidate).
+
+**Identified:** 2026-11-19 (Jeff)
+
+`dh`, `cementhoc` (`clinkerhoc`), `cementotc` (`clinkerotc`) and `cementrci` (`clinkerrci`) have no measured PSD in THAMES or in VCCTL (alpha-4.3 Known Limitation 15) and use a default 15 um median. Jeff is searching his archives; if nothing turns up, he is fine deleting them. Doing that for every user needs an idempotent migration plus the same change in the seed DB, a decision for mixes and operations that reference them (keep the operations, which hold their own files; block or warn on mixes), and removing them from the immutable-materials list in `CLAUDE.md`. If the data are found, add them to `src/app/database/vcctl_psd_data.py` and `docs/reference_data/vcctl_psd/` in a new migration instead.

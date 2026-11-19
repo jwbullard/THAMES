@@ -155,3 +155,33 @@ Commits `e7cec4aa`, `c932ffe3`, `563d949a`, `ed6e2bef` (pushed).
    bundle bug went unseen for three releases).
 3. Videos: install the 4.3 build as the recording app, re-make MyPaste and
    Ep 7 off-camera, then Ep 8.
+
+---
+
+## Continued, Nov 18-19: alpha-4.3 published
+
+Commits `ad4f2da4` + wrap-up (pushed).
+
+- **Windows installer** built by Jeff from `8342ab81` (623,537,421 bytes,
+  SHA-256 `5ad06be2…`); all smoke checks passed, including the migrations on an
+  in-place upgrade.
+- **PUBLISHED 2026-11-19:**
+  https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4.3
+  (prerelease, tag at `ad4f2da4`).
+- **Known Limitations** A-G applied to the alpha-4.2 (15-21), 4.1 (18-24),
+  4 (15-21), 3 and 3.1 (13-19) pages, A-E to alpha-2 (8-12); each verified live.
+  The alpha-3 body is CRLF; the insertion script preserves line endings.
+- **Tutorial sandbox:** the re-made `HydrationOf-MyPaste-01` and
+  `HydrationOf-MyPaste-MgPhases-01` were renamed to replace the old runs
+  (folders, files, text references, operations rows 17/18). Old folders in
+  `Sandbox/old-operations-20261118/`; DB backup
+  `thames.db.bak-20261118-before-hydration-rename`.
+- **DEFERRED:** startup migration errors never reach `thames.log`; deleting
+  the four VCCTL cements without PSD data if Jeff finds none.
+
+### Next
+
+- Tutorial Ep 7 re-record and Ep 8 (sandbox `--source` runs 4.3 until alpha.5
+  work lands; then install 4.3 in `~/Applications` and use the installed app).
+- alpha.5 after the video series; science thread from memory
+  `project_late_age_csh_pore_physics.md`.
