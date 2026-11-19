@@ -1,6 +1,6 @@
 # Alpha-4.3 Windows build handoff (2026-11-18, Session 88)
 
-## REBUILD 2026-11-20: replace the published 4.3 assets (do this first)
+## REBUILD 2026-11-19: replace the published 4.3 assets (do this first)
 
 alpha-4.3 was published 2026-11-19 (tag at `ad4f2da4`). Jeff decided to fold one
 display-only change into it and **replace the assets in place** (same version, no
@@ -35,6 +35,7 @@ before each GitHub change).
 
 | New Windows installer | (fill in: size, SHA-256) |
 |---|---|
+| New macOS zip | built 2026-11-19 from `6ca490f2` + notes, smoke-tested (launch on scratch HOME, 6 aggregates, all 2026 migrations): 673,834,589 bytes, SHA-256 `a9973c6bd2036c5fa01bd64b29a86553ebf24bb6c61fc1c6d419d5ca03df0fba` |
 
 Written on macOS for the follow-on Windows session. Project memory is keyed to
 the working-directory path, so the Windows session will **not** see the mac

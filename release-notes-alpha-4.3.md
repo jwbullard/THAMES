@@ -1,6 +1,8 @@
 THAMES 1.0.0-alpha.4.3 - Release Notes
 =============================================
 
+*Assets replaced on 2026-11-19: the Mix Design page now shows each aggregate's specific gravity, bulk modulus and shear modulus under its source dropdown, and a stray test aggregate (`MA107-6-fine_copy_2`) was removed from the database for new installs. Results are unchanged.*
+
 This patch release addresses some UI bugs in 1.0.0-alpha.4.2.
 It fixes the aggregate grading
 editor and the Elastic Moduli calculations for mortar and concrete, and it
