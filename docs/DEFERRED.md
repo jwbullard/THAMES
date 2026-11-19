@@ -2599,3 +2599,24 @@ The timestep limit makes it worse. `computeKineticsBasedMaxTimestep` uses the un
 **Identified:** 2026-11-19 (Jeff)
 
 `dh`, `cementhoc` (`clinkerhoc`), `cementotc` (`clinkerotc`) and `cementrci` (`clinkerrci`) have no measured PSD in THAMES or in VCCTL (alpha-4.3 Known Limitation 15) and use a default 15 um median. Jeff is searching his archives; if nothing turns up, he is fine deleting them. Doing that for every user needs an idempotent migration plus the same change in the seed DB, a decision for mixes and operations that reference them (keep the operations, which hold their own files; block or warn on mixes), and removing them from the immutable-materials list in `CLAUDE.md`. If the data are found, add them to `src/app/database/vcctl_psd_data.py` and `docs/reference_data/vcctl_psd/` in a new migration instead.
+
+---
+
+### Concrete-scale properties by explicit mesostructure and FE, instead of effective-medium theory
+
+**Kind:** Research direction (long-term; Jeff wants to think carefully about the ITZ scale problem and whether it is worth doing before any work starts).
+
+**Identified:** 2026-11-19 (Jeff)
+
+**Idea.** Today the concrete scale is effective-medium theory: Concelas for elastic moduli and, once ported, `conctransport()` in `backend/src/transport.c` for the formation factor. Neither instantiates the concrete. Proposed two-step multiscale route: (1) paste and ITZ properties by finite elements, as now (paste-scale FE plus the layer-by-layer ITZ analysis, `ITZModuli.csv` / `ITZConductivity.dat`); (2) build a 3D concrete or mortar structure with `backend/src/genaggpack.c` (added 2026-11-19 from VCCTL; random parking of fine and coarse aggregate, real shapes from spherical-harmonic shape sets), homogenize the paste into a continuum, give the ITZ its computed properties, and run a second FE calculation (elastic and/or conductivity) on that structure.
+
+**Why.** Effective-medium theory treats each coated grain as if it sat alone in an averaged matrix, so it cannot represent ITZ percolation (Garboczi-Bentz hard-core/soft-shell work shows ITZ shells percolate at ordinary aggregate contents), overlapping ITZs between close grains, or shape and packing effects. The payoff is probably much larger for transport (ITZ several times more conductive, percolating fast path) than for elasticity (ITZ contrast ~2-3x; Garboczi-Berryman differential EMT reportedly agrees well with FE for concrete moduli). So transport first, and use it to measure how far Concelas is off before building an elastic version.
+
+**The ITZ scale problem (the core question).** The ITZ is ~10-20 um thick; resolving it needs ~5-10 um voxels. Concrete (19 mm max aggregate, box ~75-100 mm): ~13,000 voxels per side, ~2e12 voxels. Mortar (4.75 mm sand, box ~15-20 mm): ~2,500 per side, ~2e10. Garboczi-type voxel CG solvers are comfortable up to ~1e8 on a workstation. Options, likely combined:
+- **Thin-layer ITZ at coarse resolution.** `genaggpack.c` already does the geometric part: `additz()` (~line 1341) turns every pore voxel in the 26-neighborhood of an aggregate voxel into ITZ (phase 2), so the shell is one voxel thick at whatever resolution (mm/voxel) is chosen, and `connect()` (~line 2795) burns pores, aggregate or ITZ to test connectivity. At 50-100 um voxels that shell is 3-10x too thick, so its property must be rescaled to keep the real conductance along the surface and resistance across it, which is anisotropic and oriented to the surface; the current solvers support per-phase x/y/z values only, not per-voxel orientation.
+- **Nested scales:** paste -> mortar (fine aggregate in paste) -> concrete (coarse aggregate in homogenized mortar). Fine aggregate carries most ITZ area, so mortar is where percolation matters; the coarse step may be adequate with EMT.
+- **Size cutoff:** grains too small to resolve go into the matrix by EMT (hybrid).
+
+**Suggested order (if pursued).** (1) Port `transport.c` at paste scale with its EMT concrete step (UI-Issues, Diffusive Transport page). (2) Mortar-scale FE prototype with a thin-layer ITZ, compared with EMT for transport and moduli. (3) Decide whether concrete needs FE at all.
+
+**Also to weigh.** Memory for 1e9 voxels (elastic: 3 dof per node, several CG vectors, ~100 GB; scalar transport about a third); `genaggpack.c` is VCCTL C with stdin prompts, VCCTL phase ids and fixed array limits (`NPARTC`, `MAXSIZECLASSES`, `MAXTRIES`), needing the same adaptation as `elastic.c` and `transport.c`; ITZ property inputs would come from the paste-scale ITZ layer analysis; aggregate-paste debonding and microcracking are outside this scheme.
