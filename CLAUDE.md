@@ -490,7 +490,7 @@ Full narrative: `docs/session88_summary.md`. One super-repo commit (UI/data only
 - **VCCTL measured PSDs recovered** from `~/Code/VCCTL` Derby DB (readable only at `f2eb05a0^`) → `docs/reference_data/vcctl_psd/`. Migrations `20261117_03_split_shared_psd` (Duplicate shared PSD records) and `_04_vcctl_measured_psd` (ustype1 = cement151, cement116, cement168, sacci-425). dh/cementhoc/cementotc/cementrci: no data anywhere yet.
 - **Rule:** import checks must use a scratch HOME — two checks migrated Jeff's real DB this session (memory `feedback_scratch_home_for_imports.md`).
 - **Nov 18:** grading import rescaling, item 8c (SG-based volume fractions), one Operations record per Elastic run; notes + version bump. **Bundle ship-blocker:** `MigrationManager.__init__` mkdir failed inside PyInstaller, so no migration ran in any packaged release since alpha-3; fixed (`563d949a`). macOS zip in a draft prerelease (sha256 `2d218c10…`).
-- **alpha-4.3 PUBLISHED 2026-11-19:** https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4.3 (prerelease, tag at `ad4f2da4`; Windows installer sha256 `5ad06be2…`). Known Limitations A-G added to the alpha-2 through 4.2 pages (alpha-3's body is CRLF).
+- **alpha-4.3 PUBLISHED 2026-11-19:** https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4.3 (prerelease). Assets replaced the same day (S89): tag moved to `04bb3164`, mac zip sha256 `a9973c6b…`, Windows installer `bf6d1f34…`. Known Limitations A-G added to the alpha-2 through 4.2 pages (alpha-3's body is CRLF).
 - **Next:** tutorial Ep 7 re-record and Ep 8; alpha.5 after the series (DEFERRED: migration errors invisible in `thames.log`; possibly delete the four PSD-less VCCTL cements).
 
 
@@ -501,6 +501,7 @@ Full narrative: `docs/session89_summary.md`. Commit `8b1d0fb7` + wrap-up (pushed
 - **UI-Issues (alpha.5):** log-normal σ default 1.0; aggregate SG/K/G as editable per-mix fields replacing the source dropdowns (migration from current aggregate rows); Manage Grading Templates into the Grading dialog; Plot Data folded into the Results viewer; any variable as abscissa; **Diffusive Transport page** (output: formation factor; Jeff supplies per-phase diffusivities).
 - **`backend/src/transport.c`** (VCCTL; paste-scale CG conductivity + `conctransport()` EMT with ITZ) and **`genaggpack.c`** (random-parking aggregate, one-voxel ITZ, connectivity) added unmodified, not built. Plan: standalone `bin/transport` like micgen, THAMES phase mapping instead of VCCTL ids.
 - **DEFERRED research direction:** concrete scale by explicit mesostructure + FE to capture ITZ percolation; ITZ resolution needs ~1e10-1e12 voxels; Jeff to think it over before any work.
+- **alpha-4.3 assets replaced (same version):** Mix Design shows aggregate SG/K/G in small green text under each source dropdown; stray `MA107-6-fine_copy_2` removed from the seed DB. **Pitfall:** deleting a release's remote tag turns the release into a draft; move tags with `git push --force origin <tag>`.
 
 ---
 

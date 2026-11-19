@@ -44,3 +44,28 @@ cutoff. Jeff wants to think carefully about whether it is worth doing.
 
 - Tutorial Ep 7 re-record and Ep 8 (sandbox `--source` is the published 4.3).
 - alpha.5 after the series; Diffusive Transport needs Jeff's diffusivity table first.
+
+---
+
+## Continued, Nov 19: alpha-4.3 assets replaced (same version)
+
+Commits `6ca490f2`, `999e814d`, Windows `12c03b7c`, `04bb3164` (all pushed).
+
+- **Mix Design page:** a small green italic line under each aggregate source
+  dropdown shows specific gravity, bulk and shear modulus
+  (`_update_aggregate_properties_label`), with the fallbacks Elastic Moduli uses
+  marked "(default)"; same layout as the Elastic page's grading status. Display
+  only; results unchanged. Jeff checked it in the sandbox.
+- **Seed database:** stray editable test aggregate `MA107-6-fine_copy_2` (shear
+  modulus 9.9 GPa, in every release since alpha-2) removed from `aggregate` and
+  the unused `aggregate_backup`; new installs only, no migration (Jeff's choice).
+- **Release:** Jeff chose to replace the 4.3 assets in place (each had 1
+  download). New mac zip 673,834,589 bytes, SHA-256 `a9973c6b…`; Windows
+  installer 623,551,248 bytes, SHA-256 `bf6d1f34…` (both smoke-tested). Dated
+  "Assets replaced" note at the top of the release notes; Jeff unwrapped the notes
+  for GitHub. Tag moved from `ad4f2da4` to `04bb3164`.
+- **Pitfall:** deleting a release's remote tag turns the published release into
+  a draft ("untagged-..." URL). Re-published at once with
+  `gh release edit <tag> --tag <tag> --draft=false --prerelease`; the published
+  date became 2026-11-19 23:07Z. Next time move a tag with
+  `git push --force origin <tag>`.
