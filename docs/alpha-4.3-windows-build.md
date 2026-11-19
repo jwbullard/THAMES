@@ -33,7 +33,7 @@ the line. Then copy `dist\THAMES-1.0.0-alpha.4.3-win64-setup.exe` to the Mac's
 `--clobber`, move the tag, add the dated note to the release body (asking Jeff
 before each GitHub change).
 
-| New Windows installer | (fill in: size, SHA-256) |
+| New Windows installer | built 2026-11-19 from `main` at `6ca490f2`, smoke-tested (passed): `THAMES-1.0.0-alpha.4.3-win64-setup.exe`, 623,551,248 bytes, SHA-256 `bf6d1f340b1054f733f50cfb7285c38bd3ccb247c2042a8acff5aa772036b066`. Backend not rebuilt (6.0.0, `6e49f9a7`). Copy to the Mac's `dist/` |
 |---|---|
 | New macOS zip | built 2026-11-19 from `6ca490f2` + notes, smoke-tested (launch on scratch HOME, 6 aggregates, all 2026 migrations): 673,834,589 bytes, SHA-256 `a9973c6bd2036c5fa01bd64b29a86553ebf24bb6c61fc1c6d419d5ca03df0fba` |
 
