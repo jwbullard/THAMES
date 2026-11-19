@@ -493,6 +493,15 @@ Full narrative: `docs/session88_summary.md`. One super-repo commit (UI/data only
 - **alpha-4.3 PUBLISHED 2026-11-19:** https://github.com/jwbullard/THAMES/releases/tag/v1.0.0-alpha.4.3 (prerelease, tag at `ad4f2da4`; Windows installer sha256 `5ad06be2…`). Known Limitations A-G added to the alpha-2 through 4.2 pages (alpha-3's body is CRLF).
 - **Next:** tutorial Ep 7 re-record and Ep 8; alpha.5 after the series (DEFERRED: migration errors invisible in `thames.log`; possibly delete the four PSD-less VCCTL cements).
 
+
+### Session 89 (Nov 19, 2026): to-dos for alpha.5; transport.c and genaggpack.c added
+
+Full narrative: `docs/session89_summary.md`. Commit `8b1d0fb7` + wrap-up (pushed). Planning only.
+
+- **UI-Issues (alpha.5):** log-normal σ default 1.0; aggregate SG/K/G as editable per-mix fields replacing the source dropdowns (migration from current aggregate rows); Manage Grading Templates into the Grading dialog; Plot Data folded into the Results viewer; any variable as abscissa; **Diffusive Transport page** (output: formation factor; Jeff supplies per-phase diffusivities).
+- **`backend/src/transport.c`** (VCCTL; paste-scale CG conductivity + `conctransport()` EMT with ITZ) and **`genaggpack.c`** (random-parking aggregate, one-voxel ITZ, connectivity) added unmodified, not built. Plan: standalone `bin/transport` like micgen, THAMES phase mapping instead of VCCTL ids.
+- **DEFERRED research direction:** concrete scale by explicit mesostructure + FE to capture ITZ percolation; ITZ resolution needs ~1e10-1e12 voxels; Jeff to think it over before any work.
+
 ---
 
 ## PRIORITY TASKS
