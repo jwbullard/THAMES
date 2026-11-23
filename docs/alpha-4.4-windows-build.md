@@ -110,6 +110,6 @@ the table below. On the Mac, with Jeff approving each GitHub change:
 4. Add a Known Limitation to the earlier published pages: a GEMS failure can
    show as Completed / 100 %; check `Result/run_metadata.json`.
 
-| Windows installer | (fill in: commit built from, size in bytes, SHA-256, smoke-test result) |
+| Windows installer | built 2026-11-23 from `15852faa` + the Duration fix (committed with this row), smoke-tested (all steps passed, failure path included): `THAMES-1.0.0-alpha.4.4-win64-setup.exe`, 623,566,522 bytes, SHA-256 `1b570716fe5fed3a337ed347a0d0f5bc8174159f558d02442de3252831bbdf7c`. Backend rebuilt with `./build-windows.sh clean`: 6.0.1, `a27385f6`, built 2026-11-23T19:27:39Z (GEMS3K's unused `kva2json` link failure is expected). Inno Setup failed once with "EndUpdateResource failed" (antivirus lock); a rerun succeeded. **The macOS zip predates the Duration fix: rebuild it before publishing.** |
 |---|---|
 | macOS zip | (filled in on the Mac) |

@@ -5178,6 +5178,10 @@ class OperationsMonitoringPanel(Gtk.Box):
                                 # Update progress for still-running operations
                                 in_memory_op.progress = getattr(db_op, 'progress', in_memory_op.progress)
                                 in_memory_op.current_step = getattr(db_op, 'current_step', in_memory_op.current_step)
+                            # Stop the Duration clock at the recorded finish time
+                            if (in_memory_op.status in (OperationStatus.COMPLETED, OperationStatus.FAILED)
+                                    and not in_memory_op.end_time):
+                                in_memory_op.end_time = getattr(db_op, 'completed_at', None) or datetime.utcnow()
                         
                         db_skipped_count += 1
                         continue
@@ -5405,8 +5409,10 @@ class OperationsMonitoringPanel(Gtk.Box):
                         db_status = self._convert_db_status_to_ui_status(db_op.status)
                         if existing_op_found.status != db_status:
                             existing_op_found.status = db_status
-                            if db_status == OperationStatus.COMPLETED and not existing_op_found.end_time:
-                                existing_op_found.end_time = getattr(db_op, 'completed_at', datetime.utcnow())
+                            if (db_status in (OperationStatus.COMPLETED, OperationStatus.FAILED,
+                                              OperationStatus.CANCELLED)
+                                    and not existing_op_found.end_time):
+                                existing_op_found.end_time = getattr(db_op, 'completed_at', None) or datetime.utcnow()
                             
                     except Exception as e:
                         self.logger.warning(f"Failed to update existing operation {db_op.name}: {e}")
