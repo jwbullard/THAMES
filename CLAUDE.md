@@ -503,6 +503,17 @@ Full narrative: `docs/session89_summary.md`. Commit `8b1d0fb7` + wrap-up (pushed
 - **DEFERRED research direction:** concrete scale by explicit mesostructure + FE to capture ITZ percolation; ITZ resolution needs ~1e10-1e12 voxels; Jeff to think it over before any work.
 - **alpha-4.3 assets replaced (same version):** Mix Design shows aggregate SG/K/G in small green text under each source dropdown; stray `MA107-6-fine_copy_2` removed from the seed DB. **Pitfall:** deleting a release's remote tag turns the release into a draft; move tags with `git push --force origin <tag>`.
 
+
+### Session 90 (Nov 23, 2026): alpha-4.4 — failed runs shown as Failed, Logs tab; PUBLISHED
+
+Full narrative: `docs/session90_summary.md`. Submodule `a27385f` (tagged `v6.0.1`); super-repo `ff91efbe`, `15852faa`, `360ca40a` (Jeff, Windows), `fde54f52` + wrap-up (all pushed).
+
+- **Ep 9 blocker:** a GEMS failure showed Completed / 100 %. Backend `finalize(1, …)` + `break` exited 0 (`finalize` is first-call-wins); the UI decided status from the return code only. **Backend 6.0.1** exits 1 via `runmeta::recordedExitCode()`; **UI** reads the sidecar everywhere via `src/app/utils/run_outcome.py` (Failed, "FAILED at <t> of <T>: <reason>", fraction reached, one dialog per session; old runs relabeled on load). Ended-early runs stay Completed with step text.
+- **Logs tab** (summary + log tail + Refresh) and **Export Logs...** zip; GitHub "Bug report" template asks for it. Windows found the Duration clock kept running on failure (fixed `360ca40a`).
+- **Paned pitfall:** details pane is `shrink=False` and a notebook is as wide as its widest page, so any long unwrapped label on any tab pins the divider.
+- **Published 2026-11-23** (tag at `fde54f52`); new Known Limitation added to the alpha-2 through 4.3 pages. alpha-3's body is mixed CRLF/LF: splice raw bytes.
+- **Next:** install 4.4 in `~/Applications` before Ep 9; alpha.5 after the series.
+
 ---
 
 ## PRIORITY TASKS
