@@ -30,6 +30,7 @@ from app.services.hydration_input_service import (
     get_hydration_input_service,
 )
 from app.database.service import DatabaseService
+from app.utils.run_outcome import read_run_outcome, outcome_step_text, progress_fraction
 
 
 class THAMESSimulationStatus(str, Enum):
@@ -412,18 +413,40 @@ class THAMESExecutionService:
                 return_code = process.poll()
 
                 if return_code is not None:
-                    # Process finished
-                    if return_code == 0:
+                    # Process finished. The backend's run_metadata.json is the
+                    # authority on the outcome: backends before 6.0.1 exited 0
+                    # after recording a failure, and a run that ends early at a
+                    # physical endpoint is a success short of its final time.
+                    operation_dir = simulation_info['operation_dir']
+                    outcome = read_run_outcome(operation_dir)
+                    failed = return_code != 0 or (outcome is not None and outcome.failed)
+                    step_text = outcome_step_text(outcome, operation_dir) if outcome else None
+
+                    if not failed:
                         simulation_info['status'] = THAMESSimulationStatus.COMPLETED
-                        self._update_operation_status(operation_name, OperationStatus.COMPLETED)
-                        self.logger.info(f"THAMES simulation completed: {operation_name}")
+                        final_percent = 100.0
+                        self._update_operation_status(
+                            operation_name, OperationStatus.COMPLETED,
+                            current_step=step_text or "Process completed", progress=1.0)
+                        self.logger.info(f"THAMES simulation completed: {operation_name}"
+                                         + (f" ({step_text})" if step_text else ""))
                     else:
                         simulation_info['status'] = THAMESSimulationStatus.ERROR
-                        self._update_operation_status(operation_name, OperationStatus.ERROR)
-                        self.logger.error(f"THAMES simulation failed (exit {return_code}): {operation_name}")
+                        reason = (outcome.exit_reason if outcome is not None and outcome.failed
+                                  else f"Process exited with code {return_code}")
+                        fraction = progress_fraction(operation_dir)
+                        final_percent = 100.0 * fraction if fraction is not None else \
+                            simulation_info['progress'].percent_complete
+                        self._update_operation_status(
+                            operation_name, OperationStatus.ERROR,
+                            current_step=step_text or f"FAILED: {reason}",
+                            progress=final_percent / 100.0,
+                            error_message=reason)
+                        self.logger.error(f"THAMES simulation failed (exit {return_code}): "
+                                          f"{operation_name}: {reason}")
 
                     # Final progress update
-                    simulation_info['progress'].percent_complete = 100.0
+                    simulation_info['progress'].percent_complete = final_percent
                     self._notify_progress_callbacks(operation_name)
 
                     # Cleanup
@@ -578,8 +601,11 @@ class THAMESExecutionService:
                     except Exception as e:
                         self.logger.error(f"Progress callback error: {e}")
 
-    def _update_operation_status(self, operation_name: str, status: OperationStatus):
-        """Update operation status in database."""
+    def _update_operation_status(self, operation_name: str, status: OperationStatus,
+                                 current_step: Optional[str] = None,
+                                 progress: Optional[float] = None,
+                                 error_message: Optional[str] = None):
+        """Update operation status (and optionally step, progress, error) in database."""
         try:
             with self.database_service.get_session() as session:
                 operation = session.query(Operation).filter_by(name=operation_name).first()
@@ -614,9 +640,13 @@ class THAMESExecutionService:
                 elif status == OperationStatus.COMPLETED:
                     operation.mark_completed()
                 elif status == OperationStatus.ERROR:
-                    operation.mark_error("THAMES simulation failed")
+                    operation.mark_error(error_message or "THAMES simulation failed")
                 elif status == OperationStatus.CANCELLED:
                     operation.mark_cancelled()
+                if current_step is not None:
+                    operation.current_step = current_step[:255]
+                if progress is not None:
+                    operation.progress = max(0.0, min(1.0, progress))
 
                 session.commit()
 

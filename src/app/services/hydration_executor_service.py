@@ -27,6 +27,7 @@ from sqlalchemy import text
 from app.models.operation import Operation, OperationStatus, OperationType
 from app.services.hydration_parameters_service import HydrationParametersService
 from app.database.service import DatabaseService
+from app.utils.run_outcome import read_run_outcome
 
 
 class HydrationSimulationStatus(str, Enum):
@@ -403,7 +404,12 @@ class HydrationExecutorService:
                 if return_code is not None:
                     # Process has finished - check if simulation completed successfully by examining output files
                     simulation_completed = self._check_simulation_completion(operation_name)
-                    
+                    # Output files exist even when the run stopped on a failure;
+                    # the backend's run_metadata.json says which it was.
+                    outcome = read_run_outcome(simulation_info['operation_dir'])
+                    if outcome is not None and outcome.failed:
+                        simulation_completed = False
+
                     if simulation_completed:
                         # Simulation completed successfully (verified by output files)
                         simulation_info['status'] = HydrationSimulationStatus.COMPLETED

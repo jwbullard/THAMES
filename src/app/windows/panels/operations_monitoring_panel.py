@@ -33,6 +33,7 @@ from app.services.service_container import get_service_container
 from app.services.phase_id_mapping_service import PhaseIdMappingService
 from app.utils.icon_utils import set_tool_button_custom_icon, create_button_with_icon
 from app.utils.thread_safety import assert_main_thread
+from app.utils.run_outcome import read_run_outcome, outcome_step_text, progress_fraction
 from app.help.panel_help_button import create_panel_help_button
 
 
@@ -844,6 +845,13 @@ class OperationsMonitoringPanel(Gtk.Box):
             
             value_label = Gtk.Label("No operation selected")
             value_label.set_halign(Gtk.Align.START)
+            # Wrap long values (e.g. a failure reason in Current Step) so
+            # they cannot raise the details pane's minimum width; the pane
+            # is packed with shrink=False, so that would pin the divider.
+            value_label.set_xalign(0.0)
+            value_label.set_line_wrap(True)
+            value_label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+            value_label.set_max_width_chars(40)
             setattr(self, value_attr, value_label)
             info_grid.attach(value_label, 1, row, 1, 1)
         
@@ -982,51 +990,67 @@ class OperationsMonitoringPanel(Gtk.Box):
         self.details_notebook.append_page(tab_box, Gtk.Label("System Resources"))
     
     def _create_operation_logs_tab(self) -> None:
-        """Create the operation logs tab."""
+        """Create the Logs tab: how the selected operation ended, and its log.
+
+        The top label summarizes Result/run_metadata.json (outcome, reason,
+        diagnostics, versions). Below it is the last LOG_TAIL_LINES lines of
+        the operation's simulation log, read-only. It follows the selection and
+        refreshes when the run's status or log file changes.
+        """
         tab_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         tab_box.set_margin_left(10)
         tab_box.set_margin_right(10)
         tab_box.set_margin_top(10)
         tab_box.set_margin_bottom(10)
-        
-        # Log controls
+
         controls_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        
-        # Auto-scroll toggle
-        self.auto_scroll_check = Gtk.CheckButton(label="Auto-scroll")
-        self.auto_scroll_check.set_active(True)
-        controls_box.pack_start(self.auto_scroll_check, False, False, 0)
-        
-        # Clear logs button
-        clear_logs_button = create_button_with_icon("Clear Logs", "erase", 16)
-        clear_logs_button.connect('clicked', self._on_clear_logs_clicked)
-        controls_box.pack_start(clear_logs_button, False, False, 0)
-        
-        # Export logs button
-        export_logs_button = create_button_with_icon("Export Logs", "export", 16)
+        refresh_logs_button = create_button_with_icon("Refresh", "refresh", 16)
+        refresh_logs_button.set_tooltip_text("Reload the selected operation's log")
+        refresh_logs_button.connect('clicked', self._on_refresh_logs_clicked)
+        controls_box.pack_start(refresh_logs_button, False, False, 0)
+
+        export_logs_button = create_button_with_icon("Export Logs...", "export", 16)
+        export_logs_button.set_tooltip_text(
+            "Save the selected operation's logs, input and run summary, plus the "
+            "application logs, as one zip file to attach to a bug report")
         export_logs_button.connect('clicked', self._on_export_logs_clicked)
         controls_box.pack_start(export_logs_button, False, False, 0)
-        
         tab_box.pack_start(controls_box, False, False, 0)
-        
-        # Log viewer
+
+        self.log_summary_label = Gtk.Label()
+        self.log_summary_label.set_halign(Gtk.Align.START)
+        self.log_summary_label.set_xalign(0.0)
+        # Neither label may demand width: the details pane is packed with
+        # shrink=False, so a wide label would push the pane divider over and
+        # pin it there. Wrap anywhere, and cap the natural width.
+        self.log_summary_label.set_line_wrap(True)
+        self.log_summary_label.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        self.log_summary_label.set_max_width_chars(60)
+        self.log_summary_label.set_selectable(True)
+        self.log_summary_label.set_markup('<i>Select an operation to see its log.</i>')
+        tab_box.pack_start(self.log_summary_label, False, False, 0)
+
+        self.log_file_label = Gtk.Label()
+        self.log_file_label.set_halign(Gtk.Align.START)
+        self.log_file_label.set_xalign(0.0)
+        self.log_file_label.set_ellipsize(Pango.EllipsizeMode.MIDDLE)  # long paths
+        tab_box.pack_start(self.log_file_label, False, False, 0)
+
         log_scroll = Gtk.ScrolledWindow()
         log_scroll.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        
         self.log_buffer = Gtk.TextBuffer()
         self.log_view = Gtk.TextView(buffer=self.log_buffer)
         self.log_view.set_editable(False)
         self.log_view.set_cursor_visible(False)
-        
-        # Set monospace font for logs
-        font_desc = Pango.FontDescription("monospace 9")
-        self.log_view.modify_font(font_desc)
-        
+        self.log_view.set_monospace(True)
         log_scroll.add(self.log_view)
         tab_box.pack_start(log_scroll, True, True, 0)
-        
-        self.details_notebook.append_page(tab_box, Gtk.Label("Operation Logs"))
-    
+
+        self._log_view_key = None        # (name, status, log path, mtime) last shown
+        self._log_view_refreshed_at = 0.0
+
+        self.details_notebook.append_page(tab_box, Gtk.Label("Logs"))
+
     def _create_performance_metrics_tab(self) -> None:
         """Create the performance metrics tab."""
         tab_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -2445,89 +2469,93 @@ class OperationsMonitoringPanel(Gtk.Box):
             self.logger.error(f"Error updating hydration progress for {operation.name}: {e}")
 
     def _check_hydration_exit_status(self, operation) -> None:
-        """Check run_metadata.json for hydration simulation and handle abnormal exits.
+        """Apply a finished hydration run's outcome and alert on failure."""
+        self._apply_hydration_outcome(operation, show_dialog=True)
 
-        The THAMES C++ backend writes run_metadata.json to the Result folder
-        when the simulation launches (exit_reason="in_progress") and rewrites
-        it at completion with the real exit info. This method reads the ``run``
-        block and:
-        - Updates operation status to FAILED for abnormal exits
-        - Shows a dialog to alert the user about the failure
-        - Logs diagnostic information
+    def _apply_hydration_outcome(self, operation, show_dialog: bool) -> None:
+        """Make a finished hydration run show how it really ended.
 
-        Migrated from the legacy exit_status.json reader on 2026-08-21 as part
-        of the NIST-diagnostic provenance work — see docs/NIST-diagnostic.md
-        (design decision item 6: replace exit_status.json).
+        Reads Result/run_metadata.json (the backend's provenance sidecar):
+        - failure: status Failed, Current Step "FAILED at <t> of <T>: <reason>",
+          progress = fraction of the requested time reached;
+        - ended early at a physical endpoint: stays Completed, Current Step
+          "Completed: ended early at <t> of <T> (<reason>)".
+        The failure dialog is shown at most once per run per session, and only
+        when the run is seen to finish (show_dialog=True), not when an old
+        failed run is merely listed or selected.
         """
         try:
-            import os
-            import json
-
+            if operation.operation_type != OperationType.HYDRATION_SIMULATION:
+                return
+            seen_running = getattr(self, '_hydration_seen_running', None)
+            if seen_running is None:
+                seen_running = self._hydration_seen_running = set()
+            if operation.status == OperationStatus.RUNNING:
+                seen_running.add(operation.name)
+                return
+            if operation.status not in (OperationStatus.COMPLETED, OperationStatus.FAILED):
+                return
+            # A run this session watched finish gets the alert, whichever
+            # refresh path loads it first.
+            if operation.name in seen_running:
+                show_dialog = True
+                seen_running.discard(operation.name)
             operation_dir = self._get_operation_directory(operation)
             if not operation_dir:
                 return
-
-            # Check for run_metadata.json in Result subdirectory (single source
-            # of truth for exit status since the exit_status.json replacement).
-            metadata_file = os.path.join(operation_dir, "Result", "run_metadata.json")
-
-            if not os.path.exists(metadata_file):
+            outcome = read_run_outcome(operation_dir)
+            if outcome is None or not outcome.finalized:
                 return
+            step_text = outcome_step_text(outcome, operation_dir)
 
-            try:
-                with open(metadata_file, 'r') as f:
-                    metadata = json.load(f)
-            except (OSError, IOError, json.JSONDecodeError) as e:
-                self.logger.debug(f"Could not read run_metadata.json for {operation.name}: {e}")
-                return
-
-            run_block = metadata.get('run', {})
-            exit_code = run_block.get('exit_code', 0)
-            exit_reason = run_block.get('exit_reason', 'Unknown')
-            success = run_block.get('success', True)
-            diagnostics = run_block.get('diagnostics', '')
-
-            # In-progress runs are not yet finalized — skip the failure check
-            # entirely so we don't fire the dialog mid-simulation.
-            if exit_reason == "in_progress":
-                return
-
-            if not success or exit_code != 0:
-                # Abnormal exit - update status and alert user
+            if outcome.failed:
                 operation.status = OperationStatus.FAILED
-                operation.current_step = f"FAILED: {exit_reason}"
-
-                self.logger.warning(
-                    f"Hydration simulation {operation.name} failed: {exit_reason}"
-                )
-                if diagnostics:
-                    self.logger.warning(f"Diagnostics: {diagnostics}")
-
-                # Show dialog to alert user (on main thread)
-                def show_failure_dialog():
-                    dialog = Gtk.MessageDialog(
-                        transient_for=self.get_toplevel() if hasattr(self, 'get_toplevel') else None,
-                        flags=0,
-                        message_type=Gtk.MessageType.ERROR,
-                        buttons=Gtk.ButtonsType.OK,
-                        text=f"Simulation Failed: {operation.name}"
-                    )
-
-                    secondary_text = f"Reason: {exit_reason}"
-                    if diagnostics:
-                        secondary_text += f"\n\nDiagnostics:\n{diagnostics}"
-                    secondary_text += f"\n\nCheck the log file in:\n{operation_dir}/thames.log"
-
-                    dialog.format_secondary_text(secondary_text)
-                    dialog.run()
-                    dialog.destroy()
-                    return False  # Don't repeat
-
-                # Schedule dialog to run on main thread
-                GLib.idle_add(show_failure_dialog)
-
+                operation.current_step = step_text or f"FAILED: {outcome.exit_reason}"
+                operation.error_message = outcome.exit_reason
+                fraction = progress_fraction(operation_dir)
+                if fraction is not None:
+                    operation.progress = fraction
+                elif operation.progress >= 1.0:
+                    operation.progress = 0.0
+                if show_dialog:
+                    self._show_hydration_failure_dialog(operation, outcome, operation_dir)
+            elif step_text:
+                operation.current_step = step_text
         except Exception as e:
             self.logger.error(f"Error checking exit status for {operation.name}: {e}")
+
+    def _show_hydration_failure_dialog(self, operation, outcome, operation_dir) -> None:
+        """Alert the user once per session that a hydration run failed."""
+        shown = getattr(self, '_failure_dialogs_shown', None)
+        if shown is None:
+            shown = self._failure_dialogs_shown = set()
+        if operation.name in shown:
+            return
+        shown.add(operation.name)
+
+        self.logger.warning(f"Hydration simulation {operation.name} failed: {outcome.exit_reason}")
+        if outcome.diagnostics:
+            self.logger.warning(f"Diagnostics: {outcome.diagnostics}")
+
+        def show_failure_dialog():
+            dialog = Gtk.MessageDialog(
+                transient_for=self.get_toplevel() if hasattr(self, 'get_toplevel') else None,
+                flags=0,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text=f"Simulation Failed: {operation.name}"
+            )
+            secondary_text = f"Reason: {outcome.exit_reason}"
+            if outcome.diagnostics:
+                secondary_text += f"\n\nDiagnostics:\n{outcome.diagnostics}"
+            secondary_text += ("\n\nResults up to the failure are kept. The Logs tab "
+                               "shows the end of the simulation log for this operation.")
+            dialog.format_secondary_text(secondary_text)
+            dialog.run()
+            dialog.destroy()
+            return False  # Don't repeat
+
+        GLib.idle_add(show_failure_dialog)
 
     def _check_concentration_overrides(self, operation) -> None:
         """Check for concentration_overrides.json and notify the user.
@@ -2955,6 +2983,7 @@ class OperationsMonitoringPanel(Gtk.Box):
     def _update_operation_details(self, operation: Operation) -> None:
         """Update operation details display."""
         assert_main_thread()
+        self._refresh_operation_log_view(operation)
         self.operation_name_value.set_text(operation.name)
         self.operation_type_value.set_text(operation.operation_type.value.replace('_', ' ').title())
         self.operation_status_value.set_text(operation.status.value.title())
@@ -3118,6 +3147,11 @@ class OperationsMonitoringPanel(Gtk.Box):
     
     def _clear_operation_details(self) -> None:
         """Clear operation details display when no operations are selected."""
+        if hasattr(self, 'log_summary_label'):
+            self._log_view_key = None
+            self.log_summary_label.set_markup('<i>Select an operation to see its log.</i>')
+            self.log_file_label.set_markup('')
+            self.log_buffer.set_text('')
         self.operation_name_value.set_text("No operation selected")
         self.operation_type_value.set_text("-")
         self.operation_status_value.set_text("-")
@@ -3541,14 +3575,207 @@ class OperationsMonitoringPanel(Gtk.Box):
         # TODO: Show priority setting dialog
         self._update_status("Priority setting not yet implemented")
     
-    def _on_clear_logs_clicked(self, button: Gtk.Button) -> None:
-        """Handle clear logs button click."""
-        self.log_buffer.set_text("")
-    
+    # ------------------------------------------------------------------
+    # Logs tab
+    # ------------------------------------------------------------------
+
+    LOG_TAIL_LINES = 200
+    LOG_REFRESH_SECONDS_RUNNING = 5.0
+
+    def _operation_log_path(self, operation, operation_dir: str) -> Optional[str]:
+        """The main simulation log of an operation, if any."""
+        candidates = ["thames.log", "micgen.log",
+                      f"{operation.name}_stdout.log", "stdout.log"]
+        for name in candidates:
+            path = os.path.join(operation_dir, name)
+            if os.path.isfile(path):
+                return path
+        return None
+
+    @staticmethod
+    def _read_log_tail(path: str, max_lines: int) -> str:
+        """Last max_lines lines of a text file, without reading all of it."""
+        with open(path, 'rb') as f:
+            f.seek(0, os.SEEK_END)
+            size = f.tell()
+            block = 64 * 1024
+            data = b''
+            pos = size
+            while pos > 0 and data.count(b'\n') <= max_lines:
+                step = min(block, pos)
+                pos -= step
+                f.seek(pos)
+                data = f.read(step) + data
+        lines = data.decode('utf-8', errors='replace').splitlines()
+        return "\n".join(lines[-max_lines:])
+
+    def _on_refresh_logs_clicked(self, button: Gtk.Button) -> None:
+        operation = self._get_selected_operation()
+        if operation is not None:
+            self._refresh_operation_log_view(operation, force=True)
+
+    def _refresh_operation_log_view(self, operation, force: bool = False) -> None:
+        """Show the selected operation's run summary and log tail.
+
+        Called on selection, from the periodic details update, and from the
+        Refresh button. Skips the work when nothing has changed, and while a
+        run is going it refreshes at most every LOG_REFRESH_SECONDS_RUNNING.
+        """
+        if not hasattr(self, 'log_summary_label'):
+            return
+        try:
+            operation_dir = self._get_operation_directory(operation)
+            log_path = self._operation_log_path(operation, operation_dir) if operation_dir else None
+            mtime = os.path.getmtime(log_path) if log_path else None
+            key = (operation.name, operation.status, log_path, mtime)
+            now = time.time()
+            if not force:
+                if key == self._log_view_key:
+                    return
+                same_op = self._log_view_key is not None and self._log_view_key[0] == operation.name
+                if (same_op and operation.status == OperationStatus.RUNNING and
+                        now - self._log_view_refreshed_at < self.LOG_REFRESH_SECONDS_RUNNING):
+                    return
+            self._log_view_key = key
+            self._log_view_refreshed_at = now
+
+            self.log_summary_label.set_markup(self._run_summary_markup(operation, operation_dir))
+
+            if log_path:
+                tail = self._read_log_tail(log_path, self.LOG_TAIL_LINES)
+                self.log_file_label.set_markup(
+                    f'<small>Last {self.LOG_TAIL_LINES} lines of '
+                    f'{GLib.markup_escape_text(log_path)}</small>')
+                self.log_file_label.set_tooltip_text(log_path)
+                self.log_buffer.set_text(tail)
+                end_mark = self.log_buffer.create_mark(None, self.log_buffer.get_end_iter(), False)
+                self.log_view.scroll_to_mark(end_mark, 0.0, False, 0.0, 0.0)
+            else:
+                self.log_file_label.set_markup('')
+                self.log_buffer.set_text("No log file found for this operation.")
+        except Exception as e:
+            self.logger.error(f"Error showing log for {operation.name}: {e}")
+
+    def _run_summary_markup(self, operation, operation_dir: Optional[str]) -> str:
+        """Pango markup summarizing how a run ended, from run_metadata.json."""
+        esc = GLib.markup_escape_text
+        outcome = read_run_outcome(operation_dir) if operation_dir else None
+        if outcome is None:
+            return (f'<b>{esc(operation.name)}</b>: {esc(operation.status.value.title())}'
+                    + (f' ({esc(operation.current_step)})' if operation.current_step else ''))
+        if not outcome.finalized:
+            headline = '<b>Running</b>'
+        elif outcome.failed:
+            headline = '<span color="red"><b>Failed</b></span>'
+        elif outcome.ended_early:
+            headline = '<span color="#b36b00"><b>Completed, ended early</b></span>'
+        else:
+            headline = '<span color="green"><b>Completed</b></span>'
+        lines = [f'<b>{esc(operation.name)}</b>: {headline}']
+        if outcome.finalized:
+            lines.append(f'Reason: {esc(outcome.exit_reason)}')
+            step_text = outcome_step_text(outcome, operation_dir)
+            if step_text:
+                lines.append(esc(step_text))
+            if outcome.diagnostics:
+                lines.append(f'<small>{esc(outcome.diagnostics)}</small>')
+        versions = []
+        if outcome.backend_version:
+            versions.append(f'backend {outcome.backend_version}'
+                            + (f' ({outcome.backend_git_hash})' if outcome.backend_git_hash else ''))
+        if outcome.ui_version:
+            versions.append(f'UI {outcome.ui_version}')
+        if versions:
+            lines.append(f'<small>{esc(", ".join(versions))}</small>')
+        return "\n".join(lines)
+
     def _on_export_logs_clicked(self, button: Gtk.Button) -> None:
-        """Handle export logs button click."""
-        # TODO: Show export dialog
-        self._update_status("Log export not yet implemented")
+        """Zip the selected operation's logs for a bug report."""
+        operation = self._get_selected_operation()
+        if operation is None:
+            self._update_status("Select an operation to export its logs")
+            return
+        operation_dir = self._get_operation_directory(operation)
+        if not operation_dir:
+            self._update_status(f"No folder found for {operation.name}")
+            return
+
+        dialog = Gtk.FileChooserDialog(
+            title="Export Logs",
+            parent=self.get_toplevel(),
+            action=Gtk.FileChooserAction.SAVE)
+        dialog.add_buttons(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                           Gtk.STOCK_SAVE, Gtk.ResponseType.ACCEPT)
+        dialog.set_do_overwrite_confirmation(True)
+        stamp = datetime.now().strftime("%Y%m%d-%H%M")
+        dialog.set_current_name(f"{operation.name}-logs-{stamp}.zip")
+        dialog.set_current_folder(os.path.expanduser("~"))
+        response = dialog.run()
+        target = dialog.get_filename()
+        dialog.destroy()  # before the work, so the dialog never stays open
+        if response != Gtk.ResponseType.ACCEPT or not target:
+            return
+        if not target.lower().endswith('.zip'):
+            target += '.zip'
+        try:
+            count = self._write_logs_zip(operation, operation_dir, target)
+            self._update_status(f"Exported {count} files to {target}")
+        except Exception as e:
+            self.logger.error(f"Log export failed: {e}")
+            error = Gtk.MessageDialog(
+                transient_for=self.get_toplevel(), flags=0,
+                message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
+                text="Could not export logs")
+            error.format_secondary_text(str(e))
+            error.run()
+            error.destroy()
+
+    def _write_logs_zip(self, operation, operation_dir: str, target: str) -> int:
+        """Write the bug-report zip; returns the number of files added.
+
+        Operation files: its simulation log(s), stdout/stderr logs, input.in and
+        Result/run_metadata.json. Application files: logs/thames.log and
+        logs/thames-crash.log. No images or result CSVs (size). When the
+        user has turned off "Include hostname in metadata", the machine's
+        hostname is replaced by <hostname> in every file.
+        """
+        import zipfile
+        import socket
+
+        name = operation.name
+        op_files = ["thames.log", "micgen.log", f"{name}_stdout.log", f"{name}_stderr.log",
+                    "input.in", f"{name}_input.txt", os.path.join("Result", "run_metadata.json")]
+        entries = []
+        for rel in op_files:
+            path = os.path.join(operation_dir, rel)
+            if os.path.isfile(path):
+                entries.append((path, os.path.join(name, rel)))
+        logs_dir = str(self.service_container.directories_service.get_logs_dir())
+        for rel in ("thames.log", "thames-crash.log"):
+            path = os.path.join(logs_dir, rel)
+            if os.path.isfile(path):
+                entries.append((path, os.path.join("app-logs", rel)))
+
+        include_hostname = True
+        try:
+            include_hostname = getattr(self.service_container.config_manager.user,
+                                       'include_hostname_in_metadata', True)
+        except Exception:
+            pass
+        hostname = socket.gethostname()
+        short_hostname = hostname.split('.')[0]
+
+        with zipfile.ZipFile(target, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for path, arcname in entries:
+                with open(path, 'rb') as f:
+                    data = f.read()
+                if not include_hostname:
+                    for h in {hostname, short_hostname}:
+                        if h:
+                            data = data.replace(h.encode('utf-8'), b'<hostname>')
+                zf.writestr(arcname, data)
+        return len(entries)
+
     
     # Utility methods
     
@@ -3811,18 +4038,12 @@ class OperationsMonitoringPanel(Gtk.Box):
                 self._update_operations_list()
     
     def _add_log_entry(self, message: str) -> None:
-        """Add an entry to the operation log."""
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {message}\n"
-        
-        # Add to log buffer
-        end_iter = self.log_buffer.get_end_iter()
-        self.log_buffer.insert(end_iter, log_entry)
-        
-        # Auto-scroll if enabled
-        if self.auto_scroll_check.get_active():
-            mark = self.log_buffer.get_insert()
-            self.log_view.scroll_to_mark(mark, 0.0, False, 0.0, 0.0)
+        """Record a panel event in the application log (thames.log).
+
+        The Logs tab now shows the selected operation's own log, so panel
+        events no longer go there.
+        """
+        self.logger.info(message)
     
     # =========================================================================
     # Public API Methods for Operation Management
@@ -4945,11 +5166,14 @@ class OperationsMonitoringPanel(Gtk.Box):
                                 in_memory_op.progress = getattr(db_op, 'progress', 1.0)
                                 in_memory_op.current_step = getattr(db_op, 'current_step', 'Process completed')
                                 self.logger.info(f"Updated running operation {db_op.name} to COMPLETED from database")
-                            elif db_op.status == 'FAILED':
+                                # Seen finishing: alert if the sidecar says it failed
+                                self._apply_hydration_outcome(in_memory_op, show_dialog=True)
+                            elif db_op.status in ('FAILED', 'ERROR'):
                                 in_memory_op.status = OperationStatus.FAILED
                                 in_memory_op.progress = getattr(db_op, 'progress', 0.0)
                                 in_memory_op.current_step = getattr(db_op, 'current_step', 'Process failed')
                                 self.logger.info(f"Updated running operation {db_op.name} to FAILED from database")
+                                self._apply_hydration_outcome(in_memory_op, show_dialog=True)
                             else:
                                 # Update progress for still-running operations
                                 in_memory_op.progress = getattr(db_op, 'progress', in_memory_op.progress)
@@ -5419,7 +5643,7 @@ class OperationsMonitoringPanel(Gtk.Box):
             end_time = end_time.replace(tzinfo=None)
         
         # Create UI operation
-        return Operation(
+        ui_operation = Operation(
             id=db_op.name,  # Use name as ID
             name=db_op.name,
             operation_type=ui_type,
@@ -5439,6 +5663,10 @@ class OperationsMonitoringPanel(Gtk.Box):
             log_entries=[],
             metadata={"source": "database", "output_directory": f"Operations/{db_op.name}"}
         )
+        # The database status of a hydration run can be wrong (backends before
+        # 6.0.1 exited 0 after a failure); the run's own sidecar decides.
+        self._apply_hydration_outcome(ui_operation, show_dialog=False)
+        return ui_operation
 
     # MOVED TO RESULTS PANEL: The following methods have been moved to the dedicated Results panel
     # to separate operation monitoring from results analysis functionality:
