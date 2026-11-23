@@ -74,6 +74,6 @@ Operation Details values).
 
 ## Next
 
-- Install the 4.4 zip as `~/Applications/THAMES.app` before recording Ep 9.
+- 4.4 installed as `~/Applications/THAMES.app` (2026-11-23), ready for Ep 9.
 - alpha.5 after the series (`docs/UI-Issues.md`); Strain Energy visualization
   to investigate before the next release.
