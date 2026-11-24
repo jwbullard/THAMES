@@ -55,7 +55,7 @@ v1.0.0-alpha.4.4` (never delete it: that turns the release into a draft), add a
 dated note to the release body and notes file, asking Jeff before each GitHub
 change.
 
-| New Windows installer (Pause fix) | (fill in: commit built from, size in bytes, SHA-256, smoke-test result) |
+| New Windows installer (Pause fix) | built 2026-11-24 from `0072e9cf`, smoke-tested (all four Pause/Resume/Stop/Delete checks passed): `THAMES-1.0.0-alpha.4.4-win64-setup.exe`, 623,565,332 bytes, SHA-256 `1748c141e8209c64258b7a46dc4243451b73fbac10d81ca01c77bfa1760281ef`. Backend not rebuilt (`bin\` = 6.0.1, `a27385f6`, from 2026-11-23). Copy to the Mac's `dist/` |
 |---|---|
 | New macOS zip (Pause fix) | (filled in on the Mac) |
 
