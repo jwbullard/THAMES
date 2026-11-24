@@ -77,3 +77,25 @@ Operation Details values).
 - 4.4 installed as `~/Applications/THAMES.app` (2026-11-23), ready for Ep 9.
 - alpha.5 after the series (`docs/UI-Issues.md`); Strain Energy visualization
   to investigate before the next release.
+
+## Continued Nov 24: Pause fixed, 4.4 assets replaced
+
+- **Pause had no effect since at least alpha-3** (Jeff's log from Oct 6 shows
+  it): hydration runs are launched by `ThamesExecutionService`, so the
+  operation had no process or PID and the failure went only to `thames.log`.
+  Now `_set_operation_suspended` finds the backend process by operation folder
+  (`_find_backend_processes`, as Stop does) plus any recorded PID, and uses
+  psutil `suspend()`/`resume()`, which also works on Windows (the old
+  SIGSTOP/SIGCONT code never could). Status bar reports the result; a paused
+  run stays Paused through the DB refresh (DB stores paused as RUNNING); Stop
+  is enabled for paused runs and resumes before stopping (a suspended process
+  ignores SIGTERM); Delete refuses paused runs. Both dead
+  `Operation.pause_process`/`resume_process` pairs deleted (the second silently
+  overrode the first). Commit `0072e9cf`; Jeff-tested on both platforms.
+- **Assets replaced in place** (same version): mac zip 673,847,115 bytes
+  `f2df5b01…`, Windows 623,565,332 bytes `1748c141…` (Windows row `dd2b72df`);
+  dated note in the notes and release body; tag force-moved to `cb77a724`.
+  New build installed in `~/Applications`.
+- **The Operations Play/Start button is a VCCTL demo stub**
+  (`_create_sample_operation` adds a fake Running row, nothing else). Left for
+  alpha.5, where UI-Issues already lists it.

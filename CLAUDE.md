@@ -512,6 +512,7 @@ Full narrative: `docs/session90_summary.md`. Submodule `a27385f` (tagged `v6.0.1
 - **Logs tab** (summary + log tail + Refresh) and **Export Logs...** zip; GitHub "Bug report" template asks for it. Windows found the Duration clock kept running on failure (fixed `360ca40a`).
 - **Paned pitfall:** details pane is `shrink=False` and a notebook is as wide as its widest page, so any long unwrapped label on any tab pins the divider.
 - **Published 2026-11-23** (tag at `fde54f52`); new Known Limitation added to the alpha-2 through 4.3 pages. alpha-3's body is mixed CRLF/LF: splice raw bytes.
+- **Nov 24, Pause fixed** (`0072e9cf`): broken since alpha-3 (no process handle on hydration ops); now found by operation folder and suspended with psutil (works on Windows too); Stop enabled for paused runs; Delete refuses them. **4.4 assets replaced**, tag force-moved to `cb77a724`. Play/Start button is a VCCTL demo stub (alpha.5).
 - **Next:** 4.4 installed in `~/Applications` (ready for Ep 9); alpha.5 after the series.
 
 ---
