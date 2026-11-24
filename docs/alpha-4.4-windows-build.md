@@ -4,6 +4,61 @@ Written on macOS for the follow-on Windows session. Project memory is keyed to
 the working-directory path, so the Windows session will **not** see the mac
 session's memories; this file carries everything needed.
 
+## REBUILD 2026-11-24: replace the published 4.4 assets (do this first)
+
+alpha-4.4 was published 2026-11-23 (tag at `fde54f52`). Jeff found that the
+Operations page's **Pause** button did nothing, and decided to fix it and
+**replace the assets in place** (same version, no bump; each asset had 1
+download). UI-only; results cannot change.
+
+What changed (`operations_monitoring_panel.py`, commit after `288010b3`, see
+`git log`):
+
+- **Pause / Resume work again** (broken since at least alpha-3). Hydration runs
+  are launched by `THAMESExecutionService`, so the operation had no process or
+  PID and Pause only logged a failure. Pause now finds the `thames`/`micgen`
+  process running in the operation folder (as Stop does) and uses psutil
+  `suspend()`/`resume()`. **On Windows this is the first time Pause can work at
+  all** (the old code used SIGSTOP/SIGCONT, which Windows lacks); psutil suspends
+  the process's threads there.
+- The status bar reports "Paused / Resumed / Could not pause <name>".
+- A paused run stays Paused through the database refresh (the DB records it as
+  RUNNING).
+- Stop is enabled for a paused run and resumes it before stopping it.
+- Delete refuses paused runs as well as running ones.
+- The two dead `Operation.pause_process`/`resume_process` pairs were deleted.
+
+Steps on Windows:
+
+```bash
+./pre-session-sync.sh                     # main must include the Pause commit
+git submodule update --init               # submodule stays at a27385f (6.0.1)
+PATH="/c/msys64/mingw64/bin:$PATH" pyinstaller --clean --noconfirm thames-windows.spec
+"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\thames-windows.iss
+```
+
+No backend rebuild (`bin\` is already 6.0.1 from yesterday) and no version
+change. Smoke test (install over the current 4.4), on a hydration run long
+enough to watch:
+
+1. Pause: status Paused, status bar "Paused <name>", Duration freezes; the
+   Logs tab tail stops growing for 10-20 s (Task Manager shows `thames.exe`
+   at 0 % CPU).
+2. Pause again: Running, continues; Duration excludes the paused time.
+3. Pause, then Stop (still enabled): Cancelled within a second or two.
+4. Pause, then Delete: refused with "Cannot delete running or paused ...".
+
+Then copy `dist\THAMES-1.0.0-alpha.4.4-win64-setup.exe` to the Mac's `dist/`
+and record its size and SHA-256 below. On the Mac: rebuild the zip, upload both
+assets with `--clobber`, move the tag with `git push --force origin
+v1.0.0-alpha.4.4` (never delete it: that turns the release into a draft), add a
+dated note to the release body and notes file, asking Jeff before each GitHub
+change.
+
+| New Windows installer (Pause fix) | (fill in: commit built from, size in bytes, SHA-256, smoke-test result) |
+|---|---|
+| New macOS zip (Pause fix) | (filled in on the Mac) |
+
 ## Status
 
 | Item | State |

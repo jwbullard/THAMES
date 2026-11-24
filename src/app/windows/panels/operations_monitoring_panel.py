@@ -128,53 +128,6 @@ class Operation:
     stdout_handle: Optional[object] = field(default=None, init=False)
     stderr_handle: Optional[object] = field(default=None, init=False)
     
-    def pause_process(self) -> bool:
-        """Pause the operation's process using SIGSTOP signal."""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"PAUSE DEBUG: pause_process called for {self.name}")
-        logger.info(f"PAUSE DEBUG: self.process = {self.process}")
-        logger.info(f"PAUSE DEBUG: self.pid = {self.pid}")
-        
-        try:
-            if self.process and self.process.poll() is None:
-                # Process is still running, pause it
-                logger.info(f"PAUSE DEBUG: Using process object to send SIGSTOP")
-                self.process.send_signal(signal.SIGSTOP)
-                logger.info(f"PAUSE DEBUG: SIGSTOP sent successfully via process object")
-                return True
-            elif self.pid:
-                # Try using stored PID
-                logger.info(f"PAUSE DEBUG: Using PID {self.pid} to send SIGSTOP")
-                os.kill(self.pid, signal.SIGSTOP)
-                logger.info(f"PAUSE DEBUG: SIGSTOP sent successfully via PID")
-                return True
-            else:
-                logger.error(f"PAUSE DEBUG: No process or PID available!")
-        except (ProcessLookupError, PermissionError, OSError) as e:
-            # Process may have ended or we don't have permission
-            logger.error(f"PAUSE DEBUG: Exception while pausing: {e}")
-            return False
-        logger.error(f"PAUSE DEBUG: Reached end of pause_process without sending signal")
-        return False
-    
-    def resume_process(self) -> bool:
-        """Resume the operation's process using SIGCONT signal."""
-        try:
-            if self.process and self.process.poll() is None:
-                # Process is still running (paused), resume it
-                self.process.send_signal(signal.SIGCONT)
-                return True
-            elif self.pid:
-                # Try using stored PID
-                os.kill(self.pid, signal.SIGCONT)
-                return True
-        except (ProcessLookupError, PermissionError, OSError) as e:
-            # Process may have ended or we don't have permission
-            return False
-        return False
-    
     @property
     def duration(self) -> Optional[timedelta]:
         """Get operation duration (frozen when paused)."""
@@ -328,36 +281,6 @@ class Operation:
             import logging
             logger = logging.getLogger(f'VCCTL.{self.__class__.__name__}')
             logger.warning(f"Error parsing genmic progress: {e}")
-            return False
-    
-    def pause_process(self) -> bool:
-        """Pause the underlying process using OS signals."""
-        if not self.is_process_running():
-            return False
-        
-        try:
-            if os.name == 'nt':  # Windows
-                # Windows doesn't have SIGSTOP, would need more complex implementation
-                return False
-            else:  # Unix/Linux/macOS
-                os.kill(self.pid, signal.SIGSTOP)
-                return True
-        except (OSError, ProcessLookupError):
-            return False
-    
-    def resume_process(self) -> bool:
-        """Resume the paused process using OS signals."""
-        if not self.is_process_running():
-            return False
-        
-        try:
-            if os.name == 'nt':  # Windows
-                # Windows doesn't have SIGCONT, would need more complex implementation
-                return False
-            else:  # Unix/Linux/macOS
-                os.kill(self.pid, signal.SIGCONT)
-                return True
-        except (OSError, ProcessLookupError):
             return False
     
     def terminate_process(self) -> bool:
@@ -677,14 +600,14 @@ class OperationsMonitoringPanel(Gtk.Box):
             # Start button: Always enabled
             self.start_button.set_sensitive(True)
             
-            # Stop button: Only enabled if selected operation is running
-            self.stop_button.set_sensitive(selected_is_running)
-            
-            # Pause button: Enabled if selected operation is running OR paused
             selected_is_paused = (
-                selected_operation and 
+                selected_operation and
                 selected_operation.status == OperationStatus.PAUSED
             ) if has_selection else False
+
+            # Stop and Pause buttons: enabled if selected operation is running
+            # or paused (Pause then resumes it; Stop resumes it and stops it)
+            self.stop_button.set_sensitive(selected_is_running or selected_is_paused)
             self.pause_button.set_sensitive(selected_is_running or selected_is_paused)
             
             # Clear button: Enabled if there are completed operations
@@ -3202,10 +3125,11 @@ class OperationsMonitoringPanel(Gtk.Box):
             return
         
         # Check for running operations
-        running_operations = [op for op in selected_operations if op.status == OperationStatus.RUNNING]
+        running_operations = [op for op in selected_operations
+                              if op.status in (OperationStatus.RUNNING, OperationStatus.PAUSED)]
         if running_operations:
             running_names = [self._get_meaningful_operation_name(op) for op in running_operations]
-            self._update_status(f"Cannot delete running operation(s): {', '.join(running_names)}. Stop them first.")
+            self._update_status(f"Cannot delete running or paused operation(s): {', '.join(running_names)}. Stop them first.")
             return
         
         # Prepare confirmation dialog
@@ -3915,6 +3839,11 @@ class OperationsMonitoringPanel(Gtk.Box):
         """
         operation = self.operations.get(operation_id)
         if operation and operation.status in [OperationStatus.RUNNING, OperationStatus.PAUSED]:
+            # A suspended process does not act on a terminate request until it
+            # is resumed, so resume a paused operation before stopping it.
+            if operation.status == OperationStatus.PAUSED:
+                self._set_operation_suspended(operation, False)
+
             # Hydration: the execution service owns the process handle.
             if operation.operation_type == OperationType.HYDRATION_SIMULATION:
                 try:
@@ -4001,41 +3930,76 @@ class OperationsMonitoringPanel(Gtk.Box):
         except OSError as e:
             self.logger.warning(f"Could not record stop in {metadata_file}: {e}")
 
+    def _operation_processes(self, operation) -> List[psutil.Process]:
+        """Backend processes of an operation: those running in its folder,
+        plus the process recorded on the operation (micgen, elastic), if any.
+        """
+        procs = self._find_backend_processes(operation)
+        pid = getattr(operation, 'pid', None)
+        if pid and all(p.pid != pid for p in procs):
+            try:
+                procs.append(psutil.Process(pid))
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
+        return procs
+
+    def _set_operation_suspended(self, operation, suspend: bool) -> bool:
+        """Suspend or resume an operation's backend processes.
+
+        Hydration runs are launched by THAMESExecutionService, which keeps the
+        Popen, so Operation.process / Operation.pid are not set for them; the
+        processes are found by working directory instead (as Stop does).
+        psutil's suspend()/resume() send SIGSTOP/SIGCONT on macOS and Linux
+        and suspend the process's threads on Windows.
+        """
+        procs = self._operation_processes(operation)
+        if not procs:
+            return False
+        done = 0
+        for proc in procs:
+            try:
+                if suspend:
+                    proc.suspend()
+                else:
+                    proc.resume()
+                done += 1
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                self.logger.warning(
+                    f"Could not {'pause' if suspend else 'resume'} process {proc.pid} "
+                    f"of {operation.name}: {e}")
+        return done > 0
+
     def _pause_operation(self, operation_id: str) -> None:
-        """Pause or resume an operation using real process control."""
+        """Pause a running operation, or resume a paused one."""
         operation = self.operations.get(operation_id)
-        if operation:
-            self.logger.info(f"PAUSE DEBUG: Attempting to pause/resume operation {operation_id}: {operation.name}")
-            self.logger.info(f"PAUSE DEBUG: Operation status: {operation.status}")
-            self.logger.info(f"PAUSE DEBUG: Operation has process: {operation.process is not None}")
-            self.logger.info(f"PAUSE DEBUG: Operation has pid: {operation.pid}")
-            
-            if operation.status == OperationStatus.RUNNING:
-                # Pause the actual process
-                self.logger.info(f"PAUSE DEBUG: Calling pause_process() for {operation.name}")
-                if operation.pause_process():
-                    operation.status = OperationStatus.PAUSED
-                    operation.paused_time = datetime.utcnow()  # Record when paused
-                    self._add_log_entry(f"Successfully paused process for operation: {operation.name}")
-                    self.logger.info(f"PAUSE DEBUG: Successfully paused {operation.name}")
-                else:
-                    self._add_log_entry(f"Failed to pause process for operation: {operation.name} (process may have ended)")
-                    self.logger.error(f"PAUSE DEBUG: Failed to pause {operation.name}")
-                self._update_operations_list()
-                
-            elif operation.status == OperationStatus.PAUSED:
-                # Resume the actual process
-                if operation.resume_process():
-                    operation.status = OperationStatus.RUNNING
-                    # Adjust start_time to account for paused duration
-                    if operation.paused_time and operation.start_time:
-                        paused_duration = datetime.utcnow() - operation.paused_time
-                        operation.start_time = operation.start_time + paused_duration
-                    operation.paused_time = None  # Clear paused time
-                    self._add_log_entry(f"Successfully resumed process for operation: {operation.name}")
-                else:
-                    self._add_log_entry(f"Failed to resume process for operation: {operation.name} (process may have ended)")
-                self._update_operations_list()
+        if not operation:
+            return
+
+        if operation.status == OperationStatus.RUNNING:
+            if self._set_operation_suspended(operation, True):
+                operation.status = OperationStatus.PAUSED
+                operation.paused_time = datetime.utcnow()  # Freezes the Duration clock
+                self._add_log_entry(f"Paused operation: {operation.name}")
+                self._update_status(f"Paused {operation.name}")
+            else:
+                self._add_log_entry(f"Could not pause {operation.name}: no running process found")
+                self._update_status(f"Could not pause {operation.name}: no running process found")
+            self._update_operations_list()
+
+        elif operation.status == OperationStatus.PAUSED:
+            if self._set_operation_suspended(operation, False):
+                operation.status = OperationStatus.RUNNING
+                # Shift the start so Duration excludes the time spent paused
+                if operation.paused_time and operation.start_time:
+                    paused_duration = datetime.utcnow() - operation.paused_time
+                    operation.start_time = operation.start_time + paused_duration
+                operation.paused_time = None
+                self._add_log_entry(f"Resumed operation: {operation.name}")
+                self._update_status(f"Resumed {operation.name}")
+            else:
+                self._add_log_entry(f"Could not resume {operation.name}: no process found")
+                self._update_status(f"Could not resume {operation.name}: no process found")
+            self._update_operations_list()
     
     def _add_log_entry(self, message: str) -> None:
         """Record a panel event in the application log (thames.log).
@@ -5407,6 +5371,11 @@ class OperationsMonitoringPanel(Gtk.Box):
                         
                         # Update status if it changed in database
                         db_status = self._convert_db_status_to_ui_status(db_op.status)
+                        # The database records a paused run as RUNNING; keep
+                        # the in-memory PAUSED state.
+                        if (existing_op_found.status == OperationStatus.PAUSED
+                                and db_status == OperationStatus.RUNNING):
+                            db_status = OperationStatus.PAUSED
                         if existing_op_found.status != db_status:
                             existing_op_found.status = db_status
                             if (db_status in (OperationStatus.COMPLETED, OperationStatus.FAILED,
