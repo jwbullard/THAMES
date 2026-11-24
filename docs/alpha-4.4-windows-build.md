@@ -57,7 +57,7 @@ change.
 
 | New Windows installer (Pause fix) | built 2026-11-24 from `0072e9cf`, smoke-tested (all four Pause/Resume/Stop/Delete checks passed): `THAMES-1.0.0-alpha.4.4-win64-setup.exe`, 623,565,332 bytes, SHA-256 `1748c141e8209c64258b7a46dc4243451b73fbac10d81ca01c77bfa1760281ef`. Backend not rebuilt (`bin\` = 6.0.1, `a27385f6`, from 2026-11-23). Copy to the Mac's `dist/` |
 |---|---|
-| New macOS zip (Pause fix) | (filled in on the Mac) |
+| New macOS zip (Pause fix) | built 2026-11-24 from `0072e9cf`, backend 6.0.1 `a27385f6`: `THAMES-1.0.0-alpha.4.4-macOS.zip`, 673,847,115 bytes, SHA-256 `f2df5b0187ea1b38c2f08919bcd1cdddb101f2c10e2d23e1c978bfe917db7a97`. Bundled backend ran the Ca11mM fixture (exit 0); app launched on a scratch HOME. Pause tested from source by Jeff (all four checks) |
 
 ## Status
 

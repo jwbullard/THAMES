@@ -1,6 +1,8 @@
 THAMES 1.0.0-alpha.4.4 - Release Notes
 =============================================
 
+*Assets replaced on 2026-11-24: the Pause button on the Operations page works again (it had no effect since alpha-3, and on Windows it never worked). A paused run can be resumed with Pause or stopped with Stop. Results are unchanged.*
+
 This patch release makes failed hydration runs visible and makes it easier to send logs with a bug report. The hydration model has one small change (version 6.0.1): when a run stops because of an error, the program now reports that error to the UI. Simulation results are unchanged. Upgrading in place preserves your database, operations, and settings, because they are located separately (%LOCALAPPDATA%\THAMES\ on Windows, ~/Library/Application Support/THAMES/ on macOS) from where the installer changes files.
 
 ### Downloads
